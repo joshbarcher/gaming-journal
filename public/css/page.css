@@ -1,0 +1,134 @@
+/* ── Toolbar ──────────────────────────────────────────────────────────────────── */
+.rt-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 7px 10px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius) var(--radius) 0 0;
+    flex-wrap: wrap;
+}
+
+.rt-btn {
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--clr-text-muted);
+    transition: color var(--transition), background var(--transition);
+    line-height: 1.4;
+}
+
+.rt-btn:hover {
+    color: var(--clr-text);
+    background: var(--clr-bg-hover);
+}
+
+.rt-btn.active {
+    color: var(--clr-accent);
+    background: var(--clr-accent-bg);
+}
+
+/* B/I/U specific styling */
+[data-cmd="bold"]      { font-family: var(--font-title); }
+[data-cmd="italic"]    { font-style: italic; }
+[data-cmd="underline"] { text-decoration: underline; }
+
+.rt-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--clr-border);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+.rt-toolbar-label {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    letter-spacing: 0.04em;
+    margin-right: 2px;
+    flex-shrink: 0;
+}
+
+.rt-select {
+    background: var(--clr-bg-hover);
+    border: 1px solid var(--clr-border);
+    border-radius: 3px;
+    color: var(--clr-text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 3px 6px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+
+.rt-select:focus {
+    border-color: var(--clr-border-hi);
+}
+
+.rt-select--font {
+    min-width: 130px;
+}
+
+/* ── Editor area ──────────────────────────────────────────────────────────────── */
+.rt-editor {
+    max-width: 100%;
+    min-height: 480px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 18px 20px;
+    outline: none;
+    color: var(--clr-text);
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+    caret-color: var(--clr-accent);
+}
+
+.rt-editor:focus {
+    border-color: var(--clr-border-hi);
+}
+
+/* ── Editor content typography ────────────────────────────────────────────────── */
+.rt-editor p,
+.rt-editor div {
+    margin: 0 0 6px;
+    min-height: 1em;
+}
+
+.rt-editor ul,
+.rt-editor ol {
+    margin: 4px 0 8px;
+    padding-left: 28px;
+}
+
+.rt-editor li {
+    margin-bottom: 3px;
+    line-height: 1.6;
+}
+
+.rt-editor ul ul,
+.rt-editor ol ol,
+.rt-editor ul ol,
+.rt-editor ol ul {
+    margin: 2px 0;
+}
+
+.rt-editor b,
+.rt-editor strong {
+    font-weight: 700;
+}
+
+.rt-editor i,
+.rt-editor em {
+    font-style: italic;
+}
+
+.rt-editor u {
+    text-decoration: underline;
+}

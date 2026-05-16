@@ -1,0 +1,110 @@
+/* ── Page header ─────────────────────────────────────────────────────────────── */
+.page-header {
+    margin-bottom: 40px;
+}
+
+.page-title {
+    font-family: var(--font-title);
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 48px rgba(201, 168, 76, 0.18);
+}
+
+.page-title--editable {
+    cursor: text;
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin-left: -4px;
+    transition: background var(--transition), outline var(--transition);
+    outline: none;
+}
+
+.page-title--editable:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.page-title--editable:focus {
+    background: rgba(255, 255, 255, 0.07);
+    outline: 1.5px solid var(--clr-border-hi);
+}
+
+.page-subtitle {
+    font-size: 13px;
+    color: var(--clr-text-muted);
+    letter-spacing: 0.02em;
+}
+
+/* ── Table of Contents ──────────────────────────────────────────────────────── */
+.toc-body {
+    max-width: 520px;
+}
+
+.toc-section {
+    margin-bottom: 36px;
+}
+
+.toc-section-title {
+    font-family: var(--font-title);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.toc-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.toc-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toc-list li::before {
+    content: '▸';
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.toc-link {
+    color: var(--clr-text);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+.toc-link:hover {
+    color: var(--clr-accent);
+    text-decoration: none;
+}
+
+.toc-empty {
+    color: var(--clr-text-muted);
+    font-size: 14px;
+}
+
+/* ── Utility states ─────────────────────────────────────────────────────────── */
+.page-loading {
+    color: var(--clr-text-muted);
+    font-size: 14px;
+    padding-top: 8px;
+}
+
+.page-error {
+    color: var(--clr-text-muted);
+    font-size: 14px;
+    padding-top: 8px;
+}

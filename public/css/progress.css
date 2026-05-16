@@ -1,0 +1,512 @@
+/* ── Global bar ───────────────────────────────────────────────────────────────── */
+.progress-global-bar {
+    display: flex;
+    gap: 4px;
+    max-width: 100%;
+    margin-bottom: 28px;
+    min-height: 44px;
+    align-items: stretch;
+}
+
+.progress-global-seg {
+    flex: 1;
+    border-radius: 3px;
+    min-width: 20px;
+    transition: background var(--transition), transform var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: rgba(0, 0, 0, 0.65);
+    cursor: default;
+    padding: 4px 2px;
+}
+
+.progress-global-seg:hover {
+    transform: scaleY(1.08);
+}
+
+.progress-seg-num {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.progress-seg-state {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    text-transform: uppercase;
+    margin-top: 3px;
+}
+
+.progress-global-empty {
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    align-self: center;
+}
+
+/* ── Task / Step rows ─────────────────────────────────────────────────────────── */
+.progress-tasks,
+.progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 100%;
+    margin-bottom: 4px;
+}
+
+.progress-task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    transition: border-color var(--transition);
+}
+
+.progress-task:hover {
+    border-color: var(--clr-border-hi);
+}
+
+.progress-task--dragging {
+    opacity: 0.35;
+}
+
+.progress-task--drag-over {
+    border-color: var(--clr-accent);
+    background: var(--clr-accent-bg);
+}
+
+.progress-task-handle {
+    font-size: 15px;
+    color: var(--clr-text-muted);
+    cursor: grab;
+    padding: 4px 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition);
+    line-height: 1;
+    user-select: none;
+}
+
+.progress-task:hover .progress-task-handle {
+    opacity: 1;
+}
+
+.progress-task-handle:active {
+    cursor: grabbing;
+}
+
+.progress-task-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    border-radius: 2px;
+    padding: 2px 5px;
+    word-break: break-word;
+    min-width: 0;
+    cursor: text;
+    -webkit-user-drag: none;
+}
+
+.progress-task-title:focus {
+    background: rgba(255, 255, 255, 0.05);
+    outline: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.progress-task-title:empty::before {
+    content: 'Step title…';
+    color: var(--clr-text-muted);
+    pointer-events: none;
+    font-weight: 400;
+}
+
+/* ── State buttons ────────────────────────────────────────────────────────────── */
+.progress-state-btns {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.progress-state-btn {
+    padding: 4px 9px;
+    border: 1px solid var(--clr-border);
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--clr-text-muted);
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.progress-state-btn:hover {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+}
+
+.progress-state-btn.active {
+    border-color: var(--state-color, var(--clr-accent));
+    color: var(--state-color, var(--clr-accent));
+    background: color-mix(in srgb, var(--state-color, var(--clr-accent)) 12%, transparent);
+}
+
+
+/* ── Add task / step buttons ──────────────────────────────────────────────────── */
+.progress-add-btn {
+    max-width: 100%;
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px dashed var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    margin-bottom: 28px;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.progress-add-btn:hover {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+    background: var(--clr-bg-hover);
+}
+
+/* ── Notes ────────────────────────────────────────────────────────────────────── */
+.progress-notes-wrap {
+    max-width: 100%;
+    margin-top: 8px;
+}
+
+.progress-notes-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.progress-notes {
+    width: 100%;
+    min-height: 90px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    padding: 10px 14px;
+    outline: none;
+    resize: vertical;
+    transition: border-color var(--transition);
+    box-sizing: border-box;
+}
+
+.progress-notes:focus {
+    border-color: var(--clr-border-hi);
+}
+
+/* ── Multi-bar layout container ───────────────────────────────────────────────── */
+.pb-body {
+    max-width: 100%;
+}
+
+.pb-body .progress-add-btn,
+.pb-body .progress-notes-wrap {
+    max-width: none;
+}
+
+/* ── Bar drag handle ──────────────────────────────────────────────────────────── */
+.pb-bar-handle {
+    font-size: 15px;
+    color: var(--clr-text-muted);
+    cursor: grab;
+    padding: 4px 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition);
+    line-height: 1;
+    user-select: none;
+}
+
+.pb-bar-row:hover .pb-bar-handle {
+    opacity: 1;
+}
+
+.pb-bar-handle:active {
+    cursor: grabbing;
+}
+
+/* ── Bar rows ─────────────────────────────────────────────────────────────────── */
+.pb-bars-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.pb-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    transition: border-color var(--transition);
+}
+
+.pb-bar-row:hover {
+    border-color: var(--clr-border-hi);
+}
+
+.pb-bar-row--dragging {
+    opacity: 0.35;
+}
+
+.pb-bar-row--drag-over {
+    border-color: var(--clr-accent);
+    background: var(--clr-accent-bg);
+}
+
+.pb-bar-num {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--clr-border-hi);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.pb-bar-title {
+    font-size: 13px;
+    font-weight: 600;
+    outline: none;
+    border-radius: 2px;
+    padding: 2px 5px;
+    width: 130px;
+    min-width: 80px;
+    flex-shrink: 0;
+    cursor: text;
+    -webkit-user-drag: none;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.35;
+}
+
+.pb-bar-title:focus {
+    background: rgba(255, 255, 255, 0.05);
+    outline: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.pb-bar-title:empty::before {
+    content: 'Bar title…';
+    color: var(--clr-text-muted);
+    pointer-events: none;
+    font-weight: 400;
+}
+
+/* ── Step chips ───────────────────────────────────────────────────────────────── */
+.pb-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    flex: 1;
+    align-items: stretch;
+}
+
+.pb-chip {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    border-radius: 4px;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: filter var(--transition), transform var(--transition);
+    user-select: none;
+    text-align: center;
+}
+
+.pb-chip:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+}
+
+.pb-chip--dragging {
+    opacity: 0.35;
+}
+
+.pb-chip--drag-over {
+    outline: 2px solid var(--clr-accent);
+    outline-offset: 2px;
+}
+
+.pb-chip-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.3;
+    word-break: break-word;
+    outline: none;
+    cursor: pointer;
+}
+
+.pb-chip-state {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    text-transform: uppercase;
+    margin-top: 3px;
+    line-height: 1;
+    min-height: 10px;
+}
+
+.pb-chip-label[contenteditable="true"] {
+    cursor: text;
+    outline: 1px dashed rgba(255, 255, 255, 0.4);
+    border-radius: 2px;
+    padding: 1px 3px;
+}
+
+
+.pb-chip-add {
+    width: 34px;
+    height: 34px;
+    border-radius: 4px;
+    border: 1px dashed var(--clr-border);
+    color: var(--clr-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color var(--transition), color var(--transition);
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.pb-chip-add:hover {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+}
+
+/* ── Optional indicators ──────────────────────────────────────────────────────── */
+.progress-task--optional {
+    border-style: dashed;
+}
+
+.pb-bar-row--optional {
+    border-style: dashed;
+}
+
+.pb-bar-row--optional-done {
+    border-style: solid;
+    border-color: #4ecdc4;
+    box-shadow:
+        0 0 0 1px rgba(78, 205, 196, 0.6),
+        0 0 12px 4px rgba(78, 205, 196, 0.5),
+        0 0 28px 8px rgba(78, 205, 196, 0.2);
+}
+
+.pb-chip--optional {
+    outline: 1px dashed rgba(255, 255, 255, 0.3);
+    outline-offset: 2px;
+}
+
+.pb-chip--optional-done {
+    outline: 2px solid #4ecdc4;
+    outline-offset: 2px;
+    box-shadow:
+        0 0 8px 3px rgba(78, 205, 196, 0.55),
+        0 0 22px 6px rgba(78, 205, 196, 0.2);
+}
+
+.progress-optional-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    border: 1px solid var(--clr-border);
+    border-radius: 3px;
+    padding: 2px 5px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.progress-global-seg--optional {
+    opacity: 0.6;
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Global bar: wrap segments onto multiple rows */
+    .progress-global-bar {
+        flex-wrap: wrap;
+    }
+
+    .progress-global-seg {
+        flex: 0 0 44px;
+    }
+
+    /* Bar rows: stack chips below the title row */
+    .pb-bar-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .pb-bar-num {
+        flex-shrink: 0;
+    }
+
+    .pb-bar-title {
+        flex: 1;
+        min-width: 0;
+        width: auto;
+    }
+
+    /* Chips fill the full row below num+title */
+    .pb-chips {
+        flex-basis: 100%;
+        flex-wrap: nowrap;
+        order: 10;
+        margin-top: 8px;
+    }
+
+    /* Always show drag handle (no hover on touch) */
+    .pb-bar-handle {
+        opacity: 0.6;
+    }
+
+    /* Progress tracker tasks: wrap state buttons below title */
+    .progress-task {
+        flex-wrap: wrap;
+    }
+
+    .progress-state-btns {
+        flex-basis: 100%;
+        order: 10;
+        margin-top: 8px;
+        justify-content: flex-start;
+    }
+
+    .progress-task-handle {
+        opacity: 0.6;
+    }
+}

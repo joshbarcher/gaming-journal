@@ -1,0 +1,96 @@
+/* ── Input area ───────────────────────────────────────────────────────────────── */
+.notes-input-wrap {
+    max-width: 100%;
+    margin-bottom: 28px;
+}
+
+.notes-input {
+    width: 100%;
+    min-height: 100px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 14px 16px;
+    outline: none;
+    resize: vertical;
+    transition: border-color var(--transition);
+    box-sizing: border-box;
+    display: block;
+}
+
+.notes-input:focus {
+    border-color: var(--clr-border-hi);
+}
+
+.notes-input-hint {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    margin-top: 6px;
+    letter-spacing: 0.03em;
+}
+
+/* ── Card grid ────────────────────────────────────────────────────────────────── */
+.notes-grid {
+    max-width: 100%;
+    columns: 2;
+    column-gap: 16px;
+}
+
+.notes-card {
+    position: relative;
+    break-inside: avoid;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    transition: border-color var(--transition);
+}
+
+.notes-card:hover {
+    border-color: var(--clr-border-hi);
+}
+
+.notes-card--editing {
+    border-color: var(--clr-border-hi);
+    outline: 1px solid var(--clr-border-hi);
+}
+
+.notes-card-text {
+    font-size: 13.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    padding-right: 20px;
+    outline: none;
+    cursor: text;
+    border-radius: 2px;
+    min-height: 1em;
+}
+
+/* ── Delete button ────────────────────────────────────────────────────────────── */
+.notes-card-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: var(--radius);
+    color: var(--clr-text-muted);
+    transition: opacity var(--transition), color var(--transition);
+}
+
+.notes-card:hover .notes-card-delete {
+    opacity: 1;
+}
+
+.notes-card-delete:hover {
+    color: var(--clr-text);
+}
