@@ -58,15 +58,18 @@
     box-shadow: inset 3px 0 0 var(--clr-accent);
 }
 
-.sidebar-toc-icon {
-    font-size: 15px;
-    line-height: 1;
-    opacity: 0.75;
+.sidebar-nav-icon {
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
+    opacity: 0.75;
 }
 
-/* ── Library button ──────────────────────────────────────────────────────────── */
-.sidebar-library-btn {
+/* ── Library + Wishlist + Account + Calendar buttons ─────────────────────────── */
+.sidebar-library-btn,
+.sidebar-wishlist-btn,
+.sidebar-account-btn,
+.sidebar-calendar-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -83,19 +86,28 @@
     user-select: none;
 }
 
-.sidebar-library-btn:hover {
+.sidebar-library-btn:hover,
+.sidebar-wishlist-btn:hover,
+.sidebar-account-btn:hover,
+.sidebar-calendar-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
 
-.sidebar-library-btn.active {
+.sidebar-library-btn.active,
+.sidebar-wishlist-btn.active,
+.sidebar-account-btn.active,
+.sidebar-calendar-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
     box-shadow: inset 3px 0 0 var(--clr-accent);
 }
 
-.sidebar-library-btn:focus-visible {
+.sidebar-library-btn:focus-visible,
+.sidebar-wishlist-btn:focus-visible,
+.sidebar-account-btn:focus-visible,
+.sidebar-calendar-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }

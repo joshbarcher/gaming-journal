@@ -1,0 +1,45 @@
+.wl-card-price-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    margin: 0;
+    font-size: 11.5px;
+    white-space: nowrap;
+}
+
+.wl-card-price {
+    font-weight: 700;
+    color: var(--clr-text);
+    flex-shrink: 0;
+}
+
+.wl-card-price--retail {
+    color: var(--clr-text-muted);
+    font-weight: 400;
+}
+
+.wl-card-price--none {
+    color: var(--clr-text-muted);
+    font-weight: 400;
+}
+
+.wl-card-sep {
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.wl-card-store {
+    color: var(--clr-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.wl-card-cut {
+    font-weight: 700;
+    color: #4caf72;
+    flex-shrink: 0;
+}

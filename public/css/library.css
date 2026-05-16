@@ -52,6 +52,23 @@
     border-color: var(--clr-border-hi);
 }
 
+.lib-dir-btn {
+    padding: 9px 13px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 14px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition);
+    line-height: 1;
+}
+
+.lib-dir-btn:hover {
+    border-color: var(--clr-border-hi);
+}
+
 /* ── Game grid ───────────────────────────────────────────────────────────────── */
 .lib-grid {
     display: grid;
@@ -70,12 +87,15 @@
 
 /* ── Card ────────────────────────────────────────────────────────────────────── */
 .lib-card {
+    display: block;
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
     overflow: hidden;
     background: var(--clr-bg-raised);
     transition: border-color var(--transition), transform 0.14s ease, box-shadow 0.14s ease;
-    cursor: default;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
 }
 
 .lib-card:hover {

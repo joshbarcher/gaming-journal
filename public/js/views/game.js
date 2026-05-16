@@ -1,0 +1,569 @@
+import { escapeHtml } from '../utils.js'
+
+export async function renderGame(appid, container) {
+    container.innerHTML = `<p class="page-loading">Loading…</p>`
+
+    let game, itadData, pcgwData
+    try {
+        const [gameRes, itadRes, pcgwRes] = await Promise.all([
+            fetch(`/relay/api/games/${appid}`),
+            fetch(`/relay/api/itad/${appid}`),
+            fetch(`/relay/api/pcgw/${appid}`),
+        ])
+        if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
+        game     = await gameRes.json()
+        itadData = itadRes.ok  ? await itadRes.json()  : null
+        pcgwData = pcgwRes.ok  ? await pcgwRes.json()  : null
+    } catch (err) {
+        container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
+        return
+    }
+
+    container.innerHTML = `
+        ${_hero(game)}
+        <div class="game-body">
+            ${_hltb(game)}
+            ${_screenshots(game)}
+            ${_itad(itadData)}
+            ${_pcgw(pcgwData)}
+        </div>`
+
+    container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
+        const img = e.target.closest('.game-shot-img')
+        if (img) _openModal(img.src)
+    })
+
+}
+
+// ── Hero ──────────────────────────────────────────────────────────────────────
+
+function _hero(game) {
+    // Use direct background-image inline style — CSS custom properties are
+    // unreliable for background-image values across browser versions.
+    const bgUrl   = game.media?.background ? `/relay${game.media.background}` : ''
+    const logoUrl = game.media?.logo       ? `/relay${game.media.logo}`       : ''
+    const bgStyle = bgUrl ? ` style="background-image: url('${bgUrl}')"` : ''
+
+    const desc   = game.store?.description ?? ''
+    const genres = game.store?.genres ?? []
+    const cats   = (game.store?.categories ?? []).filter(c =>
+        ['Single-player', 'Multi-player', 'Co-op', 'Online Co-op',
+         'Steam Achievements', 'Steam Cloud', 'Full controller support'].includes(c)
+    )
+    const tags = [...genres, ...cats].slice(0, 7)
+
+    const badgesHtml = tags.map(t => `<span class="game-badge">${escapeHtml(t)}</span>`).join('')
+
+    // Always render the title. Show logo above it if available; hide logo on error.
+    const logoHtml = logoUrl
+        ? `<img class="game-hero-logo" src="${logoUrl}" alt="" onerror="this.style.display='none'">`
+        : ''
+
+    return `
+        <section class="game-hero"${bgStyle}>
+            <nav class="game-hero-nav">
+                <a href="/library" class="game-back-link">&#8592; Library</a>
+            </nav>
+            <div class="game-hero-body">
+                <div class="game-hero-left">
+                    <div class="game-hero-spacer"></div>
+                    ${logoHtml}
+                    <h1 class="game-hero-title">${escapeHtml(game.name)}</h1>
+                    ${desc ? `<p class="game-hero-desc">${escapeHtml(desc)}</p>` : ''}
+                    ${badgesHtml ? `<div class="game-hero-badges">${badgesHtml}</div>` : ''}
+                </div>
+                <div class="game-hero-right">
+                    ${_dataPanel(game)}
+                </div>
+            </div>
+        </section>`
+}
+
+function _dataPanel(game) {
+    const rows = []
+
+    // Metacritic
+    const mcData = game.store?.metacritic
+    const mc     = mcData?.score ?? (typeof mcData === 'number' ? mcData : null)
+    if (mc != null) {
+        const mcColor = mc >= 75 ? '#4a8c2a' : mc >= 50 ? '#a07010' : '#982020'
+        rows.push(`
+            <div class="gdp-row gdp-row--score">
+                <span class="gdp-metacritic" style="background:${mcColor}">${mc}</span>
+                <span class="gdp-score-label">Metacritic</span>
+            </div>`)
+    }
+
+    // Playtime
+    const playerHours = (game.playtimeMinutes ?? 0) / 60
+    rows.push(_gdpRow('Played', playerHours > 0 ? _fmtHours(playerHours) : 'Not played'))
+
+    // HLTB
+    if (game.hltb?.matched) {
+        rows.push(`<div class="gdp-divider"></div>`)
+        if (game.hltb.gameplayMain          != null) rows.push(_gdpRow('Main Story',    _fmtHours(game.hltb.gameplayMain)))
+        if (game.hltb.gameplayMainExtra     != null) rows.push(_gdpRow('Main + Extras', _fmtHours(game.hltb.gameplayMainExtra)))
+        if (game.hltb.gameplayCompletionist != null) rows.push(_gdpRow('Completionist', _fmtHours(game.hltb.gameplayCompletionist)))
+    }
+
+    // ITAD pricing
+    const itad = game.itad
+    if (itad) {
+        rows.push(`<div class="gdp-divider"></div>`)
+        if (itad.bestPrice) {
+            const bp     = itad.bestPrice
+            const cutStr = bp.cut > 0 ? ` <span class="gdp-cut">-${bp.cut}%</span>` : ''
+            rows.push(_gdpRow('Best Price', `$${bp.price.toFixed(2)} · ${escapeHtml(bp.store)}${cutStr}`, true))
+        } else if (game.store?.isFree) {
+            rows.push(_gdpRow('Price', 'Free to Play'))
+        }
+        if (itad.historicalLow) {
+            const hl = itad.historicalLow
+            const yr = hl.date ? ` (${hl.date.slice(0, 4)})` : ''
+            rows.push(_gdpRow('All-Time Low', `$${hl.price.toFixed(2)} · ${escapeHtml(hl.store)}${yr}`))
+        }
+    } else if (game.store?.isFree) {
+        rows.push(`<div class="gdp-divider"></div>`)
+        rows.push(_gdpRow('Price', 'Free to Play'))
+    }
+
+    // Release / developer / publisher / platforms
+    rows.push(`<div class="gdp-divider"></div>`)
+    if (game.store?.releaseDate)
+        rows.push(_gdpRow('Released', escapeHtml(game.store.releaseDate)))
+    if (game.store?.developers?.length)
+        rows.push(_gdpRow('Developer', escapeHtml(game.store.developers[0])))
+    if (game.store?.publishers?.length && game.store.publishers[0] !== game.store.developers?.[0])
+        rows.push(_gdpRow('Publisher', escapeHtml(game.store.publishers[0])))
+
+    const plat = game.store?.platforms
+    if (plat) {
+        const platList = [plat.windows && 'Windows', plat.mac && 'macOS', plat.linux && 'Linux'].filter(Boolean)
+        if (platList.length) rows.push(_gdpRow('Platforms', platList.join(' · ')))
+    }
+
+    rows.push(`<div class="gdp-divider"></div>`)
+    rows.push(_gdpRow('Steam ID', String(game.appid)))
+
+    return `<div class="game-data-panel">${rows.join('')}</div>`
+}
+
+function _gdpRow(label, value, raw = false) {
+    return `
+        <div class="gdp-row">
+            <span class="gdp-label">${escapeHtml(label)}</span>
+            <span class="gdp-value">${raw ? value : escapeHtml(value)}</span>
+        </div>`
+}
+
+// ── HLTB bar ──────────────────────────────────────────────────────────────────
+
+function _hltb(game) {
+    const hltb    = game.hltb
+    const hasData = hltb?.matched &&
+        (hltb.gameplayMain ?? hltb.gameplayMainExtra ?? hltb.gameplayCompletionist) != null
+
+    if (!hasData) {
+        return `
+            <section class="game-section">
+                <h2 class="game-section-title">How Long To Beat</h2>
+                <p class="game-section-empty">No data available for this game.</p>
+            </section>`
+    }
+
+    const playerHours = (game.playtimeMinutes ?? 0) / 60
+    const milestones  = [
+        { label: 'Main',          h: hltb.gameplayMain          },
+        { label: 'Main + Extras', h: hltb.gameplayMainExtra     },
+        { label: 'Completionist', h: hltb.gameplayCompletionist },
+    ].filter(m => m.h != null && m.h > 0)
+
+    if (!milestones.length) {
+        return `
+            <section class="game-section">
+                <h2 class="game-section-title">How Long To Beat</h2>
+                <p class="game-section-empty">No data available for this game.</p>
+            </section>`
+    }
+
+    // Sqrt scale so a wide range (e.g. 30h main / 200h completionist) doesn't
+    // clump everything on the left side of the bar.
+    const allVals  = [...milestones.map(m => m.h), playerHours > 0 ? playerHours : null].filter(Boolean)
+    const maxScale = Math.max(...allVals) * 1.08
+    const pct      = h => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
+
+    const labelsHtml = milestones.map(m =>
+        `<span class="hltb-lbl" style="left:${pct(m.h).toFixed(2)}%">${escapeHtml(m.label)}</span>`
+    ).join('')
+
+    const ticksHtml = milestones.map(m =>
+        `<div class="hltb-tick" style="left:${pct(m.h).toFixed(2)}%"></div>`
+    ).join('')
+
+    const hoursHtml = milestones.map(m =>
+        `<span class="hltb-hr" style="left:${pct(m.h).toFixed(2)}%">${_fmtHours(m.h)}</span>`
+    ).join('')
+
+    const pinPos  = playerHours > 0 ? pct(playerHours) : null
+    const fillPct = pinPos ?? pct(milestones[0].h)
+    const pinHtml = pinPos != null
+        ? `<div class="hltb-pin" style="left:${pinPos.toFixed(2)}%" data-label="${_fmtHours(playerHours)} played"></div>`
+        : ''
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">How Long To Beat</h2>
+            <div class="hltb-bar-wrap">
+                <div class="hltb-labels-row">${labelsHtml}</div>
+                <div class="hltb-track-wrap">
+                    <div class="hltb-track">
+                        <div class="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>
+                    </div>
+                    ${ticksHtml}
+                    ${pinHtml}
+                </div>
+                <div class="hltb-hours-row">${hoursHtml}</div>
+            </div>
+        </section>`
+}
+
+// ── ITAD Prices ───────────────────────────────────────────────────────────────
+
+const _SVG_CLOCK = `<svg class="itad-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
+const _SVG_EXT   = `<svg class="itad-ext" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`
+
+// Stores hidden in favour of a preferred regional variant
+const _HIDDEN_STORES = new Set(['gamesplanet uk', 'gamesplanet fr', 'gamesplanet de'])
+
+// Map ITAD store name (lowercase) → local SVG filename (without extension)
+const _STORE_ICONS = {
+    'humble store':   'humblestore',
+    'gamesplanet us': 'gamesplanet',
+    'steam':          'steam',
+    'greenmangaming': 'greenmangaming',
+    'fanatical':      'fanatical',
+}
+
+function _storeIconHtml(storeName) {
+    const file = _STORE_ICONS[storeName.toLowerCase()]
+    return file ? `<img class="itad-store-icon" data-store="${file}" src="/images/stores/${file}.svg" alt="">` : ''
+}
+
+function _itad(itad) {
+    if (!itad?.deals?.length) return ''
+
+    const deals = itad.deals.filter(d => !_HIDDEN_STORES.has(d.store.toLowerCase()))
+
+    const hl = itad.historicalLow
+    const historicHtml = hl ? `
+        <div class="itad-historic">
+            ${_SVG_CLOCK}
+            <span class="itad-historic-label">All-time low</span>
+            <span class="itad-historic-price">$${hl.price.toFixed(2)}</span>
+            <span class="itad-historic-cut">-${hl.cut}%</span>
+            <span class="itad-historic-meta">${escapeHtml(hl.store)}${hl.date ? ` · ${hl.date.slice(0, 4)}` : ''}</span>
+        </div>` : ''
+
+    const cardsHtml = deals.map((d, i) => {
+        const cutClass = d.cut >= 50 ? 'itad-cut--high' : 'itad-cut--mid'
+        const cutHtml  = d.cut > 0 ? `<span class="itad-cut ${cutClass}">-${d.cut}%</span>` : ''
+        const wasHtml  = d.cut > 0 ? `<span class="itad-was">$${d.regular.toFixed(2)}</span>` : ''
+        const priceStr = d.price === 0 ? 'Free' : `$${d.price.toFixed(2)}`
+        const logoHtml = _storeIconHtml(d.store)
+
+        return `
+            <a class="itad-card${i === 0 ? ' itad-card--best' : ''}" href="${escapeHtml(d.url)}" target="_blank" rel="noopener noreferrer">
+                <div class="itad-card-logo">${logoHtml}</div>
+                <span class="itad-card-name">${escapeHtml(d.store)}</span>
+                <span class="itad-card-price">${priceStr}</span>
+                ${cutHtml || wasHtml ? `<div class="itad-card-meta">${cutHtml}${wasHtml}</div>` : ''}
+            </a>`
+    }).join('')
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">Prices</h2>
+            ${historicHtml}
+            <div class="itad-cards">${cardsHtml}</div>
+        </section>`
+}
+
+// ── Screenshots ───────────────────────────────────────────────────────────────
+
+function _screenshots(game) {
+    const apiShots = (game.media?.screenshots ?? []).filter(Boolean)
+
+    const urls = apiShots.length > 0
+        ? apiShots.map(p => `/relay${p}`)
+        : Array.from({ length: 25 }, (_, i) => `/relay/images/steam/screenshots/${game.appid}/${i}.jpg`)
+
+    const imgsHtml = urls.map(url => `
+        <div class="game-shot-item">
+            <img class="game-shot-img" src="${url}" alt="Screenshot"
+                 onerror="this.closest('.game-shot-item').remove()">
+        </div>`).join('')
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">Screenshots</h2>
+            <div class="game-shots-grid">${imgsHtml}</div>
+            <p class="game-section-empty game-shots-fallback">No screenshots available.</p>
+        </section>`
+}
+
+// ── PCGamingWiki ──────────────────────────────────────────────────────────────
+
+const _PI = {
+    monitor:  `<svg class="pcgw-icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+    maximize: `<svg class="pcgw-icon" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+    sun:      `<svg class="pcgw-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`,
+    zap:      `<svg class="pcgw-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    activity: `<svg class="pcgw-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    refresh:  `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`,
+    sparkles: `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`,
+    layers:   `<svg class="pcgw-icon" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>`,
+    aim:      `<svg class="pcgw-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>`,
+    aperture: `<svg class="pcgw-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="14.31" y1="8" x2="20.05" y2="17.94"/><line x1="9.69" y1="8" x2="21.17" y2="8"/><line x1="7.38" y1="12" x2="13.12" y2="2.06"/><line x1="9.69" y1="16" x2="3.95" y2="6.06"/><line x1="14.31" y1="16" x2="2.83" y2="16"/><line x1="16.62" y1="12" x2="10.88" y2="21.94"/></svg>`,
+    film:     `<svg class="pcgw-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>`,
+    arrowUp:  `<svg class="pcgw-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="16" x2="12" y2="8"/></svg>`,
+    eye:      `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    mouse:    `<svg class="pcgw-icon" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="7"/><path d="M12 6v4"/></svg>`,
+    keyboard: `<svg class="pcgw-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>`,
+    gamepad:  `<svg class="pcgw-icon" viewBox="0 0 24 24"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="8" width="20" height="12" rx="4"/></svg>`,
+    cloud:    `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>`,
+    folder:   `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>`,
+    save:     `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>`,
+    shield:   `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
+    wrench:   `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+    extLink:  `<svg class="pcgw-icon pcgw-icon--xs" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+}
+
+function _pcgwBadge(val) {
+    if (val === 'true')     return `<span class="pcgw-badge pcgw-badge--yes">Yes</span>`
+    if (val === 'false')    return `<span class="pcgw-badge pcgw-badge--no">No</span>`
+    if (val === 'hackable') return `<span class="pcgw-badge pcgw-badge--hack">Hackable</span>`
+    return null
+}
+
+function _pcgwRows(obj, defs) {
+    return defs
+        .filter(([key]) => obj?.[key] != null)
+        .map(([key, label]) => {
+            const badge = _pcgwBadge(obj[key])
+            return badge
+                ? `<div class="pcgw-row"><span class="pcgw-row-label">${label}</span>${badge}</div>`
+                : ''
+        }).join('')
+}
+
+function _pcgw(pcgwData) {
+    if (!pcgwData?.found) return ''
+
+    const v      = pcgwData.video        ?? {}
+    const inp    = pcgwData.input        ?? {}
+    const cl     = pcgwData.cloud        ?? {}
+    const av     = pcgwData.availability ?? {}
+    const paths  = pcgwData.paths        ?? {}
+    const fixes  = pcgwData.fixes        ?? []
+
+    // ── Video ───────────────────────────────────────────
+    const videoFeatures = [
+        { key: 'widescreen', icon: _PI.monitor,  label: 'Widescreen' },
+        { key: 'ultrawide',  icon: _PI.monitor,  label: 'Ultrawide' },
+        { key: 'uhd4k',      icon: _PI.maximize, label: '4K UHD' },
+        { key: 'hdr',        icon: _PI.sun,      label: 'HDR' },
+        { key: 'fps60',      icon: _PI.zap,      label: '60 FPS' },
+        { key: 'fps120',     icon: _PI.activity, label: '120+ FPS' },
+        { key: 'vsync',      icon: _PI.refresh,  label: 'VSync' },
+        { key: 'aa',         icon: _PI.sparkles, label: 'Anti-Aliasing' },
+        { key: 'af',         icon: _PI.layers,   label: 'Aniso. Filtering' },
+        { key: 'fov',        icon: _PI.aim,      label: 'FOV Control' },
+        { key: 'rayTracing', icon: _PI.aperture, label: 'Ray Tracing' },
+        { key: 'frameGen',   icon: _PI.film,     label: 'Frame Generation' },
+        { key: 'upscaling',  icon: _PI.arrowUp,  label: 'Upscaling' },
+        { key: 'colorBlind', icon: _PI.eye,      label: 'Color Blind Mode' },
+    ].filter(f => v[f.key] != null)
+
+    const videoHtml = videoFeatures.map(f => {
+        const badge = _pcgwBadge(v[f.key])
+        return badge ? `
+            <div class="pcgw-feature-tile">
+                ${f.icon}
+                <span class="pcgw-tile-label">${f.label}</span>
+                ${badge}
+            </div>` : ''
+    }).join('')
+
+    // ── Input ───────────────────────────────────────────
+    const mouseRows = _pcgwRows(inp.mouse, [
+        ['sensitivity', 'Sensitivity'],
+        ['acceleration', 'Raw input / no accel'],
+        ['inMenus',      'Works in menus'],
+        ['yInversion',   'Y-axis inversion'],
+        ['kbmPrompts',   'KB/M prompts'],
+    ])
+    const kbRows = _pcgwRows(inp.keyboard, [
+        ['remapping',  'Key remapping'],
+        ['steamInput', 'Steam Input'],
+    ])
+    const ctrlRows = _pcgwRows(inp.controller, [
+        ['support',           'Controller support'],
+        ['fullSupport',       'Full controller'],
+        ['remapping',         'Button remapping'],
+        ['sensitivity',       'Sensitivity'],
+        ['yInversion',        'Y-axis inversion'],
+        ['hotplugging',       'Hot-plugging'],
+        ['simultaneousInput', 'Simultaneous input'],
+        ['hapticFeedback',    'Haptic feedback'],
+        ['promptOverride',    'Prompt override'],
+        ['xinput',            'XInput'],
+        ['dinput',            'DirectInput'],
+        ['playstation',       'PlayStation'],
+        ['nintendo',          'Nintendo'],
+    ]) + _pcgwRows(inp.platform, [
+        ['xboxPrompts',        'Xbox prompts'],
+        ['impulseTriggers',    'Impulse triggers'],
+        ['playstationPrompts', 'PlayStation prompts'],
+        ['lightBar',           'Light bar'],
+        ['adaptiveTriggers',   'Adaptive triggers'],
+        ['dualSenseHaptics',   'DualSense haptics'],
+        ['motionSensors',      'Motion sensors'],
+        ['steamDeckPrompts',   'Steam Deck prompts'],
+        ['touchscreen',        'Touchscreen'],
+    ])
+
+    const inputCards = [
+        { title: 'Mouse',      icon: _PI.mouse,    rows: mouseRows, multiCol: false },
+        { title: 'Keyboard',   icon: _PI.keyboard, rows: kbRows,    multiCol: false },
+        { title: 'Controller', icon: _PI.gamepad,  rows: ctrlRows,  multiCol: true  },
+    ].filter(c => c.rows).map(c => `
+        <div class="pcgw-input-card${c.multiCol ? ' pcgw-input-card--fit' : ''}">
+            <div class="pcgw-card-title">${c.icon}${c.title}</div>
+            ${c.multiCol ? `<div class="pcgw-rows-multicol">${c.rows}</div>` : c.rows}
+        </div>`).join('')
+
+    // ── Availability ────────────────────────────────────
+    const drmChips = (av.drm ?? []).map(d => `<span class="pcgw-chip">${escapeHtml(d)}</span>`).join('')
+    const cloudRows = _pcgwRows(cl, [
+        ['steam',          'Steam'],
+        ['gogGalaxy',      'GOG Galaxy'],
+        ['epicGames',      'Epic Games'],
+        ['eaApp',          'EA App'],
+        ['xbox',           'Xbox'],
+        ['ubisoftConnect', 'Ubisoft Connect'],
+        ['xboxCloud',      'Xbox Cloud'],
+        ['oneDrive',       'OneDrive'],
+    ])
+
+    // ── Paths ───────────────────────────────────────────
+    const _pathCard = (title, icon, pathObj) => {
+        const entries = Object.entries(pathObj ?? {})
+        if (!entries.length) return ''
+        const rows = entries.map(([os, path]) => `
+            <div class="pcgw-path-row">
+                <span class="pcgw-path-os">${escapeHtml(os)}</span>
+                <code class="pcgw-path-code">${escapeHtml(path)}</code>
+            </div>`).join('')
+        return `
+            <div class="pcgw-path-card">
+                <div class="pcgw-card-title">${icon}${title}</div>
+                ${rows}
+            </div>`
+    }
+
+    // ── Fixes ───────────────────────────────────────────
+    const fixesHtml = fixes.map(f => `
+        <details class="pcgw-fix">
+            <summary>${_PI.wrench}${escapeHtml(f.title)}</summary>
+            <div class="pcgw-fix-body">${f.html}</div>
+        </details>`).join('')
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">
+                PCGamingWiki${pcgwData.pageUrl
+                    ? ` <a class="pcgw-wiki-link" href="${escapeHtml(pcgwData.pageUrl)}" target="_blank" rel="noopener">${_PI.extLink}</a>`
+                    : ''}
+            </h2>
+
+            ${videoHtml ? `
+            <div class="pcgw-block">
+                <h3 class="pcgw-block-title">${_PI.monitor}Video &amp; Display</h3>
+                <div class="pcgw-feature-grid">${videoHtml}</div>
+            </div>` : ''}
+
+            ${inputCards ? `
+            <div class="pcgw-block">
+                <h3 class="pcgw-block-title">${_PI.gamepad}Input</h3>
+                <div class="pcgw-input-grid">${inputCards}</div>
+            </div>` : ''}
+
+            ${drmChips || cloudRows ? `
+            <div class="pcgw-block">
+                <h3 class="pcgw-block-title">${_PI.shield}Availability &amp; Cloud Saves</h3>
+                <div class="pcgw-avail-grid">
+                    ${drmChips ? `
+                    <div class="pcgw-input-card">
+                        <div class="pcgw-card-title">${_PI.shield}DRM</div>
+                        <div class="pcgw-chip-row">${drmChips}</div>
+                    </div>` : ''}
+                    ${cloudRows ? `
+                    <div class="pcgw-input-card">
+                        <div class="pcgw-card-title">${_PI.cloud}Cloud Saves</div>
+                        ${cloudRows}
+                    </div>` : ''}
+                </div>
+            </div>` : ''}
+
+            <div class="pcgw-block pcgw-block--files" id="Game_data">
+                <h3 class="pcgw-block-title">${_PI.save}Save &amp; Config Locations</h3>
+                <div class="pcgw-paths-grid">
+                    ${_pathCard('Save Game', _PI.save, paths.saveGame)}
+                    ${_pathCard('Config File', _PI.folder, paths.config)}
+                </div>
+            </div>
+
+            ${fixesHtml ? `
+            <div class="pcgw-block">
+                <h3 class="pcgw-block-title">${_PI.wrench}Fixes &amp; Tweaks</h3>
+                <div class="pcgw-fixes">${fixesHtml}</div>
+            </div>` : ''}
+        </section>`
+}
+
+// ── Screenshot modal ──────────────────────────────────────────────────────────
+
+let _modalEl = null
+
+function _openModal(src) {
+    if (!_modalEl) {
+        _modalEl = document.createElement('div')
+        _modalEl.className = 'shot-modal'
+        _modalEl.innerHTML = `
+            <div class="shot-modal-backdrop"></div>
+            <img class="shot-modal-img" src="" alt="Screenshot">
+            <button class="shot-modal-close" aria-label="Close">✕</button>`
+        document.body.appendChild(_modalEl)
+        _modalEl.addEventListener('click', e => {
+            if (!e.target.closest('.shot-modal-img')) _closeModal()
+        })
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') _closeModal()
+        })
+    }
+    _modalEl.querySelector('.shot-modal-img').src = src
+    _modalEl.classList.add('shot-modal--open')
+}
+
+function _closeModal() {
+    _modalEl?.classList.remove('shot-modal--open')
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _fmtHours(h) {
+    if (h == null) return '—'
+    if (h >= 100)  return `${Math.round(h)}h`
+    if (h >= 10)   return `${(Math.round(h * 2) / 2)}h`  // 0.5h precision
+    return `${(Math.round(h * 10) / 10)}h`                // 0.1h precision
+}

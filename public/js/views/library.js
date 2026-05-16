@@ -1,11 +1,14 @@
 import { escapeHtml } from '../utils.js'
 
-const PAGE_SIZE = 48
+const PAGE_SIZE    = 48
+const STORAGE_SORT = 'gj_lib_sort'
+const STORAGE_DIR  = 'gj_lib_dir'
 
 let _all       = []
 let _filtered  = []
 let _query     = ''
 let _sort      = 'name'
+let _dir       = 'asc'
 let _page      = 1
 let _container = null
 let _debounce  = null
@@ -36,7 +39,8 @@ export async function renderLibrary(container) {
     }
 
     _query = ''
-    _sort  = 'name'
+    _sort  = localStorage.getItem(STORAGE_SORT) ?? 'name'
+    _dir   = localStorage.getItem(STORAGE_DIR)  ?? 'asc'
     _page  = 1
     _applyFilter()
     _draw()
@@ -48,12 +52,13 @@ function _applyFilter() {
         ? _all.filter(g => g.name.toLowerCase().includes(q))
         : [..._all]
 
+    const flip = _dir === 'asc' ? 1 : -1
     if (_sort === 'playtime') {
-        _filtered.sort((a, b) => (b.playtime_forever ?? 0) - (a.playtime_forever ?? 0))
+        _filtered.sort((a, b) => flip * ((a.playtime_forever ?? 0) - (b.playtime_forever ?? 0)))
     } else if (_sort === 'recent') {
-        _filtered.sort((a, b) => (b.rtime_last_played ?? 0) - (a.rtime_last_played ?? 0))
+        _filtered.sort((a, b) => flip * ((a.rtime_last_played ?? 0) - (b.rtime_last_played ?? 0)))
     } else {
-        _filtered.sort((a, b) => a.name.localeCompare(b.name))
+        _filtered.sort((a, b) => flip * a.name.localeCompare(b.name))
     }
 
     _page = 1
@@ -81,6 +86,7 @@ function _draw() {
                 <option value="playtime" ${_sort === 'playtime' ? 'selected' : ''}>Most Played</option>
                 <option value="recent"   ${_sort === 'recent'   ? 'selected' : ''}>Recently Played</option>
             </select>
+            <button id="lib-dir" class="lib-dir-btn" title="${_dir === 'asc' ? 'Ascending' : 'Descending'}">${_dir === 'asc' ? '↑' : '↓'}</button>
         </div>
         <div id="lib-grid" class="lib-grid">${_buildGrid()}</div>
         <div id="lib-pager" class="lib-pager">${_buildPager(totalPages)}</div>`
@@ -96,8 +102,20 @@ function _draw() {
 
     _container.querySelector('#lib-sort').addEventListener('change', e => {
         _sort = e.target.value
+        _dir  = (_sort === 'name') ? 'asc' : 'desc'
+        localStorage.setItem(STORAGE_SORT, _sort)
+        localStorage.setItem(STORAGE_DIR,  _dir)
         _applyFilter()
         _redraw()
+        _updateDirBtn()
+    })
+
+    _container.querySelector('#lib-dir').addEventListener('click', () => {
+        _dir = _dir === 'asc' ? 'desc' : 'asc'
+        localStorage.setItem(STORAGE_DIR, _dir)
+        _applyFilter()
+        _redraw()
+        _updateDirBtn()
     })
 
     _bindPager()
@@ -134,7 +152,7 @@ function _buildCard(game) {
         : `<span class="lib-card-hours lib-card-hours--zero">Not played</span>`
 
     return `
-        <div class="lib-card">
+        <a class="lib-card" href="/game/${game.appid}">
             <div class="lib-card-img-wrap">
                 <img class="lib-card-img" src="${imgSrc}" alt="${escapeHtml(game.name)}" loading="lazy">
             </div>
@@ -142,7 +160,7 @@ function _buildCard(game) {
                 <span class="lib-card-name">${escapeHtml(game.name)}</span>
                 ${hoursEl}
             </div>
-        </div>`
+        </a>`
 }
 
 function _buildPager(totalPages) {
@@ -153,6 +171,13 @@ function _buildPager(totalPages) {
         <button id="lib-prev" class="lib-pager-btn" ${prevDisabled}>&#8592; Prev</button>
         <span class="lib-pager-info">Page ${_page} of ${totalPages}</span>
         <button id="lib-next" class="lib-pager-btn" ${nextDisabled}>Next &#8594;</button>`
+}
+
+function _updateDirBtn() {
+    const btn = _container.querySelector('#lib-dir')
+    if (!btn) return
+    btn.textContent = _dir === 'asc' ? '↑' : '↓'
+    btn.title = _dir === 'asc' ? 'Ascending' : 'Descending'
 }
 
 function _bindPager() {

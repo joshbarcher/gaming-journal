@@ -1,4 +1,4 @@
-import { navigate, getRouteFromHash, registerRenderer, addNewPage } from './router.js'
+import { navigate, getRoutePath, registerRenderer, addNewPage } from './router.js'
 import { renderList } from './views/list.js'
 import { renderProgress } from './views/progress.js'
 import { renderProgressBars } from './views/progress-bars.js'
@@ -43,14 +43,37 @@ document.addEventListener('paste', e => {
     }
 })
 
+// Intercept link clicks: route internal paths through the SPA, and scroll
+// in-page anchors manually (native scroll targets the window, not the
+// scrollable main-content container).
+document.addEventListener('click', e => {
+    const a = e.target.closest('a[href]')
+    if (!a) return
+    const href = a.getAttribute('href')
+
+    if (href.startsWith('#')) {
+        const target = document.getElementById(href.slice(1))
+        if (target) {
+            e.preventDefault()
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+        return
+    }
+
+    if (!href.startsWith('/') || href.startsWith('//')) return
+    e.preventDefault()
+    navigate(href.slice(1))
+})
+
+// Handle browser back/forward
+window.addEventListener('popstate', () => {
+    navigate(getRoutePath(), { replace: true })
+})
+
 async function init() {
     document.getElementById('sidebar-add-btn')?.addEventListener('click', addNewPage)
-    await navigate(getRouteFromHash())
+    await navigate(getRoutePath(), { replace: true })
 }
-
-window.addEventListener('hashchange', () => {
-    navigate(getRouteFromHash())
-})
 
 init().catch(err => {
     console.error('App init failed', err)

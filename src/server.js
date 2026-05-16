@@ -19,6 +19,11 @@ app.use('/health', healthRouter)
 app.use('/api', apiRouter)
 app.use('/relay', relayRouter)
 
+// Serve index.html for all SPA routes so direct URLs and refresh work
+app.get('*', (_req, res) => {
+    res.sendFile(join(__dirname, '..', 'public', 'index.html'))
+})
+
 const PORT = process.env.PORT ?? 8061
 
 await getJournalService().load()

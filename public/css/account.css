@@ -1,0 +1,258 @@
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.acct-hero {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 32px 0 28px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 28px;
+}
+
+.acct-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.acct-hero-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.acct-name {
+    font-family: 'Cinzel', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.acct-realname {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+.acct-hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.acct-level-badge {
+    background: var(--clr-accent);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+}
+
+.acct-xp {
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+}
+
+.acct-hero-sub {
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+    margin: 2px 0 0;
+}
+
+.acct-steam-link {
+    font-size: 0.8rem;
+    color: var(--clr-accent);
+    text-decoration: none;
+    margin-top: 4px;
+}
+.acct-steam-link:hover { text-decoration: underline; }
+
+/* ── Stats strip ─────────────────────────────────────────────────────────── */
+
+.acct-stats-strip {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 36px;
+}
+
+@media (max-width: 800px) {
+    .acct-stats-strip { grid-template-columns: repeat(3, 1fr); }
+}
+
+.acct-stat-tile {
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.acct-stat-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.acct-stat-label {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+
+.acct-section {
+    margin-bottom: 36px;
+}
+
+.acct-section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 14px;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.acct-empty {
+    color: var(--clr-text-muted);
+    font-size: 0.85rem;
+}
+
+/* ── Game card row (reuses lib-card) ─────────────────────────────────────── */
+
+.acct-card-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.acct-card-sub {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted);
+    margin-top: 2px;
+}
+
+.acct-card-hrs {
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+    font-weight: 600;
+}
+
+/* ── Most played ─────────────────────────────────────────────────────────── */
+
+.acct-most-played {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.acct-mp-row {
+    display: grid;
+    grid-template-columns: 24px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--clr-text);
+    transition: background 0.15s, border-color 0.15s;
+}
+.acct-mp-row:hover {
+    background: var(--clr-bg-hover);
+    border-color: var(--clr-border-hi);
+}
+
+.acct-mp-rank {
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+    font-weight: 700;
+    text-align: right;
+}
+
+.acct-mp-name {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.acct-mp-bar-wrap {
+    width: 120px;
+    height: 6px;
+    background: var(--clr-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.acct-mp-bar {
+    height: 100%;
+    background: var(--clr-accent);
+    border-radius: 3px;
+    min-width: 4px;
+}
+
+.acct-mp-hrs {
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+    white-space: nowrap;
+    min-width: 52px;
+    text-align: right;
+}
+
+/* ── Sessions ────────────────────────────────────────────────────────────── */
+
+.acct-sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.acct-session-day {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.acct-session-date {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+}
+
+.acct-session-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 12px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    font-size: 0.88rem;
+}
+
+.acct-session-name {
+    color: var(--clr-text);
+}
+
+.acct-session-dur {
+    color: var(--clr-text-muted);
+    font-size: 0.8rem;
+}
