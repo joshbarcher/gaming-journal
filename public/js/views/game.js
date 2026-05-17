@@ -3,17 +3,23 @@ import { escapeHtml } from '../utils.js'
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts
     try {
-        const [gameRes, itadRes, pcgwRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
+            fetch(`/relay/api/steam/community-reviews/${appid}`),
+            fetch(`/relay/api/steam/reviews/${appid}`),
+            fetch(`/relay/api/player-counts/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
-        game     = await gameRes.json()
-        itadData = itadRes.ok  ? await itadRes.json()  : null
-        pcgwData = pcgwRes.ok  ? await pcgwRes.json()  : null
+        game             = await gameRes.json()
+        itadData         = itadRes.ok ? await itadRes.json() : null
+        pcgwData         = pcgwRes.ok ? await pcgwRes.json() : null
+        communityReviews = crRes.ok   ? await crRes.json()   : null
+        myReview         = mrRes.ok   ? await mrRes.json()   : null
+        playerCounts     = pcRes.ok   ? await pcRes.json()   : null
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -23,14 +29,21 @@ export async function renderGame(appid, container) {
         ${_hero(game)}
         <div class="game-body">
             ${_hltb(game)}
+            ${_playerCounts(playerCounts)}
             ${_screenshots(game)}
+            ${_communityReviews(communityReviews, myReview)}
             ${_itad(itadData)}
             ${_pcgw(pcgwData)}
         </div>`
 
+    _initPlayerChart(playerCounts, container)
+
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
-        if (img) _openModal(img.src)
+        if (img) {
+            const srcs = [...container.querySelectorAll('.game-shot-img')].map(i => i.src)
+            _openModal(srcs, srcs.indexOf(img.src))
+        }
     })
 
 }
@@ -116,15 +129,21 @@ function _dataPanel(game) {
             rows.push(_gdpRow('Best Price', `$${bp.price.toFixed(2)} · ${escapeHtml(bp.store)}${cutStr}`, true))
         } else if (game.store?.isFree) {
             rows.push(_gdpRow('Price', 'Free to Play'))
+        } else if (game.store?.price?.final_formatted) {
+            rows.push(_gdpRow('Price', escapeHtml(game.store.price.final_formatted) + ' · Steam'))
         }
         if (itad.historicalLow) {
             const hl = itad.historicalLow
             const yr = hl.date ? ` (${hl.date.slice(0, 4)})` : ''
             rows.push(_gdpRow('All-Time Low', `$${hl.price.toFixed(2)} · ${escapeHtml(hl.store)}${yr}`))
         }
-    } else if (game.store?.isFree) {
+    } else {
         rows.push(`<div class="gdp-divider"></div>`)
-        rows.push(_gdpRow('Price', 'Free to Play'))
+        if (game.store?.isFree) {
+            rows.push(_gdpRow('Price', 'Free to Play'))
+        } else if (game.store?.price?.final_formatted) {
+            rows.push(_gdpRow('Price', escapeHtml(game.store.price.final_formatted) + ' · Steam'))
+        }
     }
 
     // Release / developer / publisher / platforms
@@ -242,11 +261,13 @@ const _STORE_ICONS = {
     'steam':          'steam',
     'greenmangaming': 'greenmangaming',
     'fanatical':      'fanatical',
+    'gamebillet':     'gamebillet.webp',
 }
 
 function _storeIconHtml(storeName) {
     const file = _STORE_ICONS[storeName.toLowerCase()]
-    return file ? `<img class="itad-store-icon" data-store="${file}" src="/images/stores/${file}.svg" alt="">` : ''
+    const src = file.includes('.') ? file : `${file}.svg`
+    return file ? `<img class="itad-store-icon" data-store="${file}" src="/images/stores/${src}" alt="">` : ''
 }
 
 function _itad(itad) {
@@ -531,27 +552,291 @@ function _pcgw(pcgwData) {
         </section>`
 }
 
+// ── Player Counts ─────────────────────────────────────────────────────────────
+
+const _PC_GRANULARITIES = [
+    { key: '24h', label: '24h',  windowMs: 24 * 60 * 60 * 1_000,       bucketMs: 30 * 60 * 1_000 },
+    { key: '7d',  label: '7d',   windowMs: 7  * 24 * 60 * 60 * 1_000,  bucketMs: 2  * 60 * 60 * 1_000 },
+    { key: '30d', label: '30d',  windowMs: 30 * 24 * 60 * 60 * 1_000,  bucketMs: 6  * 60 * 60 * 1_000 },
+    { key: '1y',  label: '1y',   windowMs: 365 * 24 * 60 * 60 * 1_000, bucketMs: 24 * 60 * 60 * 1_000 },
+]
+
+function _downsample(samples, windowMs, bucketMs) {
+    const nowMs  = Date.now()
+    const cutoff = nowMs - windowMs
+    const buckets = new Map()
+    for (const [tSec, n] of samples) {
+        const tMs = tSec * 1000
+        if (tMs < cutoff) continue
+        const bucket = Math.floor(tMs / bucketMs) * bucketMs
+        buckets.set(bucket, n)
+    }
+    return [...buckets.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([t, n]) => ({ x: t, y: n }))
+}
+
+function _fmtPlayerCount(n) {
+    if (!n) return '—'
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+    if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+    return n.toLocaleString()
+}
+
+function _playerCounts(data) {
+    if (!data?.samples?.length) {
+        return `
+            <section class="game-section">
+                <h2 class="game-section-title">Player Count</h2>
+                <p class="game-section-empty">No player count data collected yet.</p>
+            </section>`
+    }
+
+    const latest = data.samples[data.samples.length - 1]?.[1] ?? 0
+
+    const tabs = _PC_GRANULARITIES.map(g =>
+        `<button class="pc-tab${g.key === '7d' ? ' pc-tab--active' : ''}" data-granularity="${g.key}">${g.label}</button>`
+    ).join('')
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">Player Count</h2>
+            <div class="pc-header">
+                <span class="pc-current">${_fmtPlayerCount(latest)} <span class="pc-current-label">playing now</span></span>
+                <div class="pc-tabs">${tabs}</div>
+            </div>
+            <div class="pc-chart-wrap">
+                <canvas id="pc-chart"></canvas>
+            </div>
+        </section>`
+}
+
+let _pcChart = null
+
+function _initPlayerChart(data, container) {
+    if (!data?.samples?.length) return
+    if (typeof Chart === 'undefined') return
+
+    const canvas = container.querySelector('#pc-chart')
+    if (!canvas) return
+
+    const accentColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--clr-accent').trim() || '#7c6ff7'
+
+    function _buildDataset(granularityKey) {
+        const g = _PC_GRANULARITIES.find(x => x.key === granularityKey)
+        return _downsample(data.samples, g.windowMs, g.bucketMs)
+    }
+
+    function _fmtLabel(tMs, key) {
+        const d = new Date(tMs)
+        if (key === '24h') return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        if (key === '7d')  return d.toLocaleDateString(undefined, { weekday: 'short', hour: '2-digit' })
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    }
+
+    let activeKey = '7d'
+    let pts = _buildDataset(activeKey)
+
+    if (_pcChart) { _pcChart.destroy(); _pcChart = null }
+
+    _pcChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: pts.map(p => _fmtLabel(p.x, activeKey)),
+            datasets: [{
+                data:            pts.map(p => p.y),
+                borderColor:     accentColor,
+                borderWidth:     1.5,
+                pointRadius:     0,
+                pointHoverRadius: 4,
+                tension:         0.3,
+                fill:            true,
+                backgroundColor: `${accentColor}1a`,
+            }],
+        },
+        options: {
+            responsive:          true,
+            maintainAspectRatio: false,
+            animation:           { duration: 200 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${_fmtPlayerCount(ctx.parsed.y)} players`,
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color:    'rgba(255,255,255,0.35)',
+                        font:     { size: 10 },
+                        maxTicksLimit: 8,
+                        maxRotation:   0,
+                    },
+                    grid: { color: 'rgba(255,255,255,0.06)' },
+                },
+                y: {
+                    ticks: {
+                        color:    'rgba(255,255,255,0.35)',
+                        font:     { size: 10 },
+                        callback: v => _fmtPlayerCount(v),
+                    },
+                    grid:     { color: 'rgba(255,255,255,0.06)' },
+                    beginAtZero: false,
+                },
+            },
+        },
+    })
+
+    // Tab switching
+    container.querySelectorAll('.pc-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            container.querySelectorAll('.pc-tab').forEach(b => b.classList.remove('pc-tab--active'))
+            btn.classList.add('pc-tab--active')
+            activeKey = btn.dataset.granularity
+            pts       = _buildDataset(activeKey)
+            _pcChart.data.labels   = pts.map(p => _fmtLabel(p.x, activeKey))
+            _pcChart.data.datasets[0].data = pts.map(p => p.y)
+            _pcChart.update()
+        })
+    })
+}
+
+// ── Community Reviews ─────────────────────────────────────────────────────────
+
+const _SVG_THUMB_UP   = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`
+const _SVG_THUMB_DOWN = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>`
+
+function _ratioBar(ratio) {
+    if (ratio == null) return ''
+    const pct = Math.round(ratio)
+    const color = pct >= 80 ? 'var(--clr-review-pos)' : pct >= 60 ? 'var(--clr-review-mix)' : 'var(--clr-review-neg)'
+    return `
+        <div class="rev-ratio-wrap">
+            <div class="rev-ratio-bar">
+                <div class="rev-ratio-fill" style="width:${pct}%;background:${color}"></div>
+            </div>
+            <span class="rev-ratio-pct" style="color:${color}">${pct}%</span>
+        </div>`
+}
+
+function _fmtCount(n) {
+    if (n == null) return '0'
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
+    return String(n)
+}
+
+function _reviewCard(r, isMine = false) {
+    const thumb    = r.votedUp ? _SVG_THUMB_UP : _SVG_THUMB_DOWN
+    const thumbCls = r.votedUp ? 'rev-card-thumb--pos' : 'rev-card-thumb--neg'
+    const date     = new Date(r.postedAt ?? r.fetchedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    const hours    = r.hoursAtReview ?? (r.review ? Math.round(r.review.author?.playtime_at_review / 60) : null)
+    const hoursStr = hours != null ? `${hours.toLocaleString()}h at review` : ''
+    const helpful  = r.votesUp > 0 ? `${_fmtCount(r.votesUp)} found helpful` : ''
+    const text     = r.text ?? r.review?.review ?? ''
+    const ea       = r.earlyAccess ? `<span class="rev-card-badge">Early Access</span>` : ''
+
+    return `
+        <div class="rev-card${isMine ? ' rev-card--mine' : ''}">
+            <div class="rev-card-header">
+                <span class="rev-card-thumb ${thumbCls}">${thumb}</span>
+                <div class="rev-card-meta">
+                    ${isMine ? `<span class="rev-card-mine-label">My Review</span>` : ''}
+                    ${hoursStr ? `<span class="rev-card-hours">${escapeHtml(hoursStr)}</span>` : ''}
+                    <span class="rev-card-date">${escapeHtml(date)}</span>
+                    ${ea}
+                </div>
+                ${helpful ? `<span class="rev-card-helpful">${escapeHtml(helpful)}</span>` : ''}
+            </div>
+            <p class="rev-card-text">${escapeHtml(text)}</p>
+        </div>`
+}
+
+function _communityReviews(data, myReviewEntry) {
+    const hasData  = data && (data.totalReviews > 0 || data.reviews?.length > 0)
+    const myReview = myReviewEntry?.review ?? null
+
+    if (!hasData && !myReview) {
+        return `
+            <section class="game-section">
+                <h2 class="game-section-title">Reviews</h2>
+                <p class="game-section-empty">No review data cached yet.</p>
+            </section>`
+    }
+
+    const s            = data?.summary
+    const totalReviews = data?.totalReviews ?? 0
+    const reviews      = data?.reviews ?? []
+
+    const summaryHtml = s && totalReviews > 0 ? `
+        <div class="rev-summary">
+            <div class="rev-summary-score">
+                <span class="rev-summary-desc">${escapeHtml(s.scoreDesc ?? '')}</span>
+                <span class="rev-summary-counts">
+                    ${_fmtCount(s.totalPositive)} positive &middot; ${_fmtCount(s.totalNegative)} negative &middot; ${_fmtCount(totalReviews)} total
+                </span>
+            </div>
+            ${_ratioBar(s.ratio)}
+        </div>` : ''
+
+    const myHtml  = myReview ? _reviewCard(myReview, true) : ''
+    const topHtml = reviews.length
+        ? `<div class="rev-list">${reviews.map(r => _reviewCard(r)).join('')}</div>`
+        : ''
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">Reviews</h2>
+            ${summaryHtml}
+            ${myHtml}
+            ${topHtml || (!myReview ? `<p class="game-section-empty">No English reviews cached yet.</p>` : '')}
+        </section>`
+}
+
 // ── Screenshot modal ──────────────────────────────────────────────────────────
 
-let _modalEl = null
+let _modalEl  = null
+let _modalSrcs = []
+let _modalIdx  = 0
 
-function _openModal(src) {
+function _modalNav(delta) {
+    _modalIdx = (_modalIdx + delta + _modalSrcs.length) % _modalSrcs.length
+    _modalEl.querySelector('.shot-modal-img').src = _modalSrcs[_modalIdx]
+    _modalEl.querySelector('.shot-modal-prev').disabled = _modalSrcs.length <= 1
+    _modalEl.querySelector('.shot-modal-next').disabled = _modalSrcs.length <= 1
+}
+
+function _openModal(srcs, idx = 0) {
     if (!_modalEl) {
         _modalEl = document.createElement('div')
         _modalEl.className = 'shot-modal'
         _modalEl.innerHTML = `
             <div class="shot-modal-backdrop"></div>
+            <button class="shot-modal-prev shot-modal-nav" aria-label="Previous">&#8249;</button>
             <img class="shot-modal-img" src="" alt="Screenshot">
+            <button class="shot-modal-next shot-modal-nav" aria-label="Next">&#8250;</button>
             <button class="shot-modal-close" aria-label="Close">✕</button>`
         document.body.appendChild(_modalEl)
-        _modalEl.addEventListener('click', e => {
-            if (!e.target.closest('.shot-modal-img')) _closeModal()
-        })
+        _modalEl.querySelector('.shot-modal-backdrop').addEventListener('click', _closeModal)
+        _modalEl.querySelector('.shot-modal-close').addEventListener('click', _closeModal)
+        _modalEl.querySelector('.shot-modal-prev').addEventListener('click', () => _modalNav(-1))
+        _modalEl.querySelector('.shot-modal-next').addEventListener('click', () => _modalNav(1))
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') _closeModal()
+            if (!_modalEl?.classList.contains('shot-modal--open')) return
+            if (e.key === 'Escape')     _closeModal()
+            if (e.key === 'ArrowLeft')  _modalNav(-1)
+            if (e.key === 'ArrowRight') _modalNav(1)
         })
     }
-    _modalEl.querySelector('.shot-modal-img').src = src
+    _modalSrcs = srcs
+    _modalIdx  = idx
+    _modalEl.querySelector('.shot-modal-img').src = srcs[idx]
+    const hidden = srcs.length <= 1
+    _modalEl.querySelector('.shot-modal-prev').style.display = hidden ? 'none' : ''
+    _modalEl.querySelector('.shot-modal-next').style.display = hidden ? 'none' : ''
     _modalEl.classList.add('shot-modal--open')
 }
 

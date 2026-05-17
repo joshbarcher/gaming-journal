@@ -30,6 +30,7 @@ export function parseRoute(path) {
     if (path === 'wishlist')      return { view: 'wishlist' }
     if (path === 'account')       return { view: 'account' }
     if (path === 'calendar')      return { view: 'calendar' }
+    if (path === 'top-games')     return { view: 'top-games' }
     if (path.startsWith('game/')) return { view: 'game', appid: path.slice(5) }
     return { view: 'page', pageId: path }
 }
@@ -90,6 +91,13 @@ export async function navigate(path, { replace = false } = {}) {
     if (route.view === 'calendar') {
         setActiveItem('calendar')
         renderCalendar(mainEl())
+        return
+    }
+
+    if (route.view === 'top-games') {
+        setActiveItem('top-games')
+        const { renderTopGames } = await import('./views/top-games.js')
+        renderTopGames(mainEl())
         return
     }
 

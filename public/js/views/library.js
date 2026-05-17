@@ -1,17 +1,21 @@
 import { escapeHtml } from '../utils.js'
 
-const PAGE_SIZE    = 48
-const STORAGE_SORT = 'gj_lib_sort'
-const STORAGE_DIR  = 'gj_lib_dir'
+const PAGE_SIZE      = 48
+const STORAGE_SORT   = 'gj_lib_sort'
+const STORAGE_DIR    = 'gj_lib_dir'
+const STORAGE_PAGE   = 'gj_lib_page'
+const STORAGE_QUERY  = 'gj_lib_query'
+const STORAGE_SCROLL = 'gj_lib_scroll'
 
-let _all       = []
-let _filtered  = []
-let _query     = ''
-let _sort      = 'name'
-let _dir       = 'asc'
-let _page      = 1
-let _container = null
-let _debounce  = null
+let _all          = []
+let _filtered     = []
+let _query        = ''
+let _sort         = 'name'
+let _dir          = 'asc'
+let _page         = 1
+let _container    = null
+let _debounce     = null
+let _scrollDebounce = null
 
 export async function renderLibrary(container) {
     _container = container
@@ -38,12 +42,16 @@ export async function renderLibrary(container) {
         return
     }
 
-    _query = ''
-    _sort  = localStorage.getItem(STORAGE_SORT) ?? 'name'
-    _dir   = localStorage.getItem(STORAGE_DIR)  ?? 'asc'
-    _page  = 1
+    _query = localStorage.getItem(STORAGE_QUERY) ?? ''
+    _sort  = localStorage.getItem(STORAGE_SORT)  ?? 'name'
+    _dir   = localStorage.getItem(STORAGE_DIR)   ?? 'asc'
+    _page  = Number(localStorage.getItem(STORAGE_PAGE) ?? 1)
     _applyFilter()
+    const totalPages = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE))
+    if (_page > totalPages) _page = totalPages
     _draw()
+    const savedScroll = Number(localStorage.getItem(STORAGE_SCROLL) ?? 0)
+    if (savedScroll > 0) requestAnimationFrame(() => _container.scrollTop = savedScroll)
 }
 
 function _applyFilter() {
@@ -60,8 +68,6 @@ function _applyFilter() {
     } else {
         _filtered.sort((a, b) => flip * a.name.localeCompare(b.name))
     }
-
-    _page = 1
 }
 
 function _draw() {
@@ -87,14 +93,17 @@ function _draw() {
                 <option value="recent"   ${_sort === 'recent'   ? 'selected' : ''}>Recently Played</option>
             </select>
             <button id="lib-dir" class="lib-dir-btn" title="${_dir === 'asc' ? 'Ascending' : 'Descending'}">${_dir === 'asc' ? '↑' : '↓'}</button>
+            <div id="lib-pager" class="lib-pager">${_buildPager(totalPages)}</div>
         </div>
-        <div id="lib-grid" class="lib-grid">${_buildGrid()}</div>
-        <div id="lib-pager" class="lib-pager">${_buildPager(totalPages)}</div>`
+        <div id="lib-grid" class="lib-grid">${_buildGrid()}</div>`
 
     _container.querySelector('#lib-search').addEventListener('input', e => {
         clearTimeout(_debounce)
         _debounce = setTimeout(() => {
             _query = e.target.value
+            _page  = 1
+            localStorage.setItem(STORAGE_QUERY, _query)
+            localStorage.setItem(STORAGE_PAGE,  _page)
             _applyFilter()
             _redraw()
         }, 200)
@@ -103,19 +112,30 @@ function _draw() {
     _container.querySelector('#lib-sort').addEventListener('change', e => {
         _sort = e.target.value
         _dir  = (_sort === 'name') ? 'asc' : 'desc'
-        localStorage.setItem(STORAGE_SORT, _sort)
-        localStorage.setItem(STORAGE_DIR,  _dir)
+        _page = 1
+        localStorage.setItem(STORAGE_SORT,  _sort)
+        localStorage.setItem(STORAGE_DIR,   _dir)
+        localStorage.setItem(STORAGE_PAGE,  _page)
         _applyFilter()
         _redraw()
         _updateDirBtn()
     })
 
     _container.querySelector('#lib-dir').addEventListener('click', () => {
-        _dir = _dir === 'asc' ? 'desc' : 'asc'
-        localStorage.setItem(STORAGE_DIR, _dir)
+        _dir  = _dir === 'asc' ? 'desc' : 'asc'
+        _page = 1
+        localStorage.setItem(STORAGE_DIR,  _dir)
+        localStorage.setItem(STORAGE_PAGE, _page)
         _applyFilter()
         _redraw()
         _updateDirBtn()
+    })
+
+    _container.addEventListener('scroll', () => {
+        clearTimeout(_scrollDebounce)
+        _scrollDebounce = setTimeout(() => {
+            localStorage.setItem(STORAGE_SCROLL, _container.scrollTop)
+        }, 150)
     })
 
     _bindPager()
@@ -183,6 +203,6 @@ function _updateDirBtn() {
 function _bindPager() {
     const prev = _container.querySelector('#lib-prev')
     const next = _container.querySelector('#lib-next')
-    if (prev) prev.addEventListener('click', () => { _page--; _redraw(); _container.scrollTo(0, 0) })
-    if (next) next.addEventListener('click', () => { _page++; _redraw(); _container.scrollTo(0, 0) })
+    if (prev) prev.addEventListener('click', () => { _page--; localStorage.setItem(STORAGE_PAGE, _page); localStorage.setItem(STORAGE_SCROLL, 0); _redraw(); _container.scrollTo(0, 0) })
+    if (next) next.addEventListener('click', () => { _page++; localStorage.setItem(STORAGE_PAGE, _page); localStorage.setItem(STORAGE_SCROLL, 0); _redraw(); _container.scrollTo(0, 0) })
 }

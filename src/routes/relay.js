@@ -17,9 +17,13 @@ router.use((req, res) => {
     const options = {
         hostname: target.hostname,
         port:     target.port || (secure ? 443 : 80),
-        path:     req.url,   // relative to /relay mount — correct relay path
-        method:   'GET',
-        headers:  { accept: req.headers.accept || '*/*' },
+        path:     req.url,
+        method:   req.method,
+        headers:  {
+            accept: req.headers.accept || '*/*',
+            ...(req.headers['content-type']   && { 'content-type':   req.headers['content-type'] }),
+            ...(req.headers['content-length'] && { 'content-length': req.headers['content-length'] }),
+        },
     }
 
     const proxyReq = mod.request(options, proxyRes => {
@@ -37,7 +41,7 @@ router.use((req, res) => {
         if (!res.headersSent) res.status(502).json({ error: 'Relay server unreachable' })
     })
 
-    proxyReq.end()
+    req.pipe(proxyReq, { end: true })
 })
 
 export default router

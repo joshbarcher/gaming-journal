@@ -152,13 +152,12 @@
 .lib-pager {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 12px 0 32px;
+    gap: 10px;
+    margin-left: auto;
 }
 
 .lib-pager-btn {
-    padding: 8px 18px;
+    padding: 9px 14px;
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
     background: var(--clr-bg-raised);

@@ -12,7 +12,8 @@ const _ICONS = {
     library:  _SVG(`<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>`),
     wishlist: _SVG(`<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`),
     account:  _SVG(`<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`),
-    calendar: _SVG(`<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8.01" y1="14" y2="14"/><line x1="12" x2="12.01" y1="14" y2="14"/><line x1="16" x2="16.01" y1="14" y2="14"/>`),
+    calendar:  _SVG(`<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8.01" y1="14" y2="14"/><line x1="12" x2="12.01" y1="14" y2="14"/><line x1="16" x2="16.01" y1="14" y2="14"/>`),
+    topGames:  _SVG(`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`),
 }
 
 let _pages = []
@@ -49,7 +50,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-top-games-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -69,6 +70,7 @@ function renderSidebar(activeId) {
     nav.appendChild(buildWishlistButton(activeId === 'wishlist'))
     nav.appendChild(buildAccountButton(activeId === 'account'))
     nav.appendChild(buildCalendarButton(activeId === 'calendar'))
+    nav.appendChild(buildTopGamesButton(activeId === 'top-games'))
 
     if (_pages.length === 0) {
         const empty = document.createElement('div')
@@ -148,6 +150,20 @@ function buildCalendarButton(isActive) {
     el.addEventListener('click', () => _onNavigate('calendar'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('calendar') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildTopGamesButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-top-games-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'top-games'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.topGames} Top Games`
+    el.addEventListener('click', () => _onNavigate('top-games'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('top-games') }
         _arrowNav(e)
     })
     return el
@@ -313,7 +329,7 @@ function _arrowNav(e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const nav = document.getElementById('sidebar-nav')
-    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-item')]
+    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-top-games-btn, .sidebar-item')]
     const idx = focusable.indexOf(document.activeElement)
     if (idx === -1) return
     if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()

@@ -69,7 +69,8 @@
 .sidebar-library-btn,
 .sidebar-wishlist-btn,
 .sidebar-account-btn,
-.sidebar-calendar-btn {
+.sidebar-calendar-btn,
+.sidebar-top-games-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -89,7 +90,8 @@
 .sidebar-library-btn:hover,
 .sidebar-wishlist-btn:hover,
 .sidebar-account-btn:hover,
-.sidebar-calendar-btn:hover {
+.sidebar-calendar-btn:hover,
+.sidebar-top-games-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
@@ -97,7 +99,8 @@
 .sidebar-library-btn.active,
 .sidebar-wishlist-btn.active,
 .sidebar-account-btn.active,
-.sidebar-calendar-btn.active {
+.sidebar-calendar-btn.active,
+.sidebar-top-games-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
@@ -107,7 +110,8 @@
 .sidebar-library-btn:focus-visible,
 .sidebar-wishlist-btn:focus-visible,
 .sidebar-account-btn:focus-visible,
-.sidebar-calendar-btn:focus-visible {
+.sidebar-calendar-btn:focus-visible,
+.sidebar-top-games-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }

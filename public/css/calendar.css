@@ -93,7 +93,7 @@
 }
 
 .cal-cell--empty {
-    background: transparent;
+    background: var(--clr-bg);
 }
 
 .cal-day-num {

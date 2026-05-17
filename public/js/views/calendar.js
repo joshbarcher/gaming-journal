@@ -106,6 +106,11 @@ function _buildMonth(monthIdx, name, today) {
         cells.push(_buildCell(d, isToday, entries, releases))
     }
 
+    const trailingCells = (7 - ((firstDow + daysInMonth) % 7)) % 7
+    for (let i = 0; i < trailingCells; i++) {
+        cells.push(`<div class="cal-cell cal-cell--empty"></div>`)
+    }
+
     return `
     <div class="cal-month" ${isCurrent ? 'id="cal-month-current"' : ''}>
         <div class="cal-month-name">${name}</div>
