@@ -2,7 +2,7 @@ import path from 'node:path'
 import { ManagedFile } from '../shared/managed-file.js'
 
 const FLAGS = [
-    'software', 'childLock', 'filtered',
+    'software', 'childLock', 'filtered', 'alert',
     'favorite', 'revisit',
     'completed', 'dropped', 'onHold', 'backlog',
 ]

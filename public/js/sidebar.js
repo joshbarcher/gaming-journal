@@ -16,6 +16,7 @@ const _ICONS = {
     topGames:  _SVG(`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`),
     releases:  _SVG(`<path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>`),
     settings: _SVG(`<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`),
+    alerts:   _SVG(`<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>`),
 }
 
 let _pages = []
@@ -23,6 +24,7 @@ let _onNavigate = null
 let _activeId = null
 let _nowPlayingTimer   = null
 let _nowPlayingAppid   = null
+let _alertsTimer       = null
 
 export function getPages() {
     return _pages
@@ -34,6 +36,7 @@ export async function loadSidebar(activeId, onNavigate) {
     _pages = await api.pages.list()
     renderSidebar(activeId)
     _startNowPlayingPoller()
+    _startAlertsPoller()
 }
 
 export function addPageToSidebar(page) {
@@ -55,7 +58,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -121,6 +124,30 @@ function _renderNowPlaying(playing) {
     nav.insertBefore(wrap, nav.firstChild)
 }
 
+// ── Alerts badge poller ───────────────────────────────────────────────────────
+
+function _startAlertsPoller() {
+    _fetchAlertsBadge()
+    if (_alertsTimer) clearInterval(_alertsTimer)
+    _alertsTimer = setInterval(_fetchAlertsBadge, 15 * 60_000)
+}
+
+async function _fetchAlertsBadge() {
+    try {
+        const res = await fetch('/api/alerts')
+        if (!res.ok) return
+        const { onSale } = await res.json()
+        _updateAlertsBadge(onSale?.length ?? 0)
+    } catch { /* silent */ }
+}
+
+function _updateAlertsBadge(count) {
+    const badge = document.querySelector('.sidebar-alerts-badge')
+    if (!badge) return
+    badge.textContent = count
+    badge.style.display = count > 0 ? '' : 'none'
+}
+
 // ── Sidebar render ────────────────────────────────────────────────────────────
 
 function renderSidebar(activeId) {
@@ -131,6 +158,7 @@ function renderSidebar(activeId) {
     nav.appendChild(buildTocButton(activeId === 'toc'))
     nav.appendChild(buildLibraryButton(activeId === 'library'))
     nav.appendChild(buildWishlistButton(activeId === 'wishlist'))
+    nav.appendChild(buildAlertsButton(activeId === 'alerts'))
     nav.appendChild(buildCalendarButton(activeId === 'calendar'))
     nav.appendChild(buildReleasesButton(activeId === 'releases'))
     nav.appendChild(buildTopGamesButton(activeId === 'top-games'))
@@ -205,6 +233,20 @@ function buildAccountButton(isActive) {
     el.addEventListener('click', () => _onNavigate('account'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('account') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildAlertsButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-alerts-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'alerts'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.alerts} Sale Alerts <span class="sidebar-alerts-badge" style="display:none">0</span>`
+    el.addEventListener('click', () => _onNavigate('alerts'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('alerts') }
         _arrowNav(e)
     })
     return el
@@ -426,7 +468,7 @@ function _arrowNav(e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const nav = document.getElementById('sidebar-nav')
-    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-item')]
+    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-item')]
     const idx = focusable.indexOf(document.activeElement)
     if (idx === -1) return
     if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()

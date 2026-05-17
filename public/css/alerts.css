@@ -1,0 +1,176 @@
+/* ── Alerts page ─────────────────────────────────────────────────────────────── */
+
+.alerts-empty {
+    padding: 40px;
+    color: var(--clr-text-muted);
+}
+
+.alerts-section {
+    padding: 0 40px 48px;
+}
+
+.alerts-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    margin: 0 0 16px;
+}
+
+.alerts-section-title--muted {
+    opacity: 0.5;
+    margin-top: 8px;
+}
+
+/* ── On-sale cards ───────────────────────────────────────────────────────────── */
+
+.alerts-onsale-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.alerts-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition), transform 0.12s ease;
+}
+
+.alerts-card:hover {
+    border-color: var(--clr-border-hi);
+    transform: translateY(-2px);
+}
+
+.alerts-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    background: var(--clr-bg-hover);
+    overflow: hidden;
+}
+
+.alerts-card-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity var(--transition);
+}
+
+.alerts-card-cut {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #3a9c3a;
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: 6px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.alerts-card-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.alerts-card-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--clr-text);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.alerts-card-pricing {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.alerts-card-price {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #5cb85c;
+}
+
+.alerts-card-store {
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+}
+
+.alerts-card-hl {
+    font-size: 0.7rem;
+    color: var(--clr-text-muted);
+    margin-top: 2px;
+}
+
+/* ── Watching rows ───────────────────────────────────────────────────────────── */
+
+.alerts-watching-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.alerts-watch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: inherit;
+    opacity: 0.45;
+    transition: opacity var(--transition), background var(--transition);
+}
+
+.alerts-watch-row:hover {
+    opacity: 0.75;
+    background: var(--clr-bg-hover);
+}
+
+.alerts-watch-img {
+    width: 56px;
+    height: 26px;
+    object-fit: cover;
+    border-radius: 3px;
+    flex-shrink: 0;
+    transition: opacity var(--transition);
+}
+
+.alerts-watch-name {
+    flex: 1;
+    font-size: 0.83rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.alerts-watch-price {
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.alerts-watch-store {
+    opacity: 0.6;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 960px) {
+    .alerts-section { padding: 0 20px 40px; }
+    .alerts-onsale-grid { grid-template-columns: 1fr; }
+}

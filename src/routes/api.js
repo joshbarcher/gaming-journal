@@ -2,6 +2,7 @@ import { Router } from 'express'
 import pagesRouter from './pages.js'
 import flagsRouter from './flags.js'
 import settingsRouter from './settings.js'
+import alertsRouter from './alerts.js'
 
 const router = Router()
 
@@ -12,5 +13,6 @@ router.get('/config', (_req, res) => {
 router.use('/pages',    pagesRouter)
 router.use('/flags',    flagsRouter)
 router.use('/settings', settingsRouter)
+router.use('/alerts',   alertsRouter)
 
 export default router

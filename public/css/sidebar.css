@@ -68,6 +68,7 @@
 /* ── Library + Wishlist + Account + Calendar buttons ─────────────────────────── */
 .sidebar-library-btn,
 .sidebar-wishlist-btn,
+.sidebar-alerts-btn,
 .sidebar-account-btn,
 .sidebar-calendar-btn,
 .sidebar-releases-btn,
@@ -91,6 +92,7 @@
 
 .sidebar-library-btn:hover,
 .sidebar-wishlist-btn:hover,
+.sidebar-alerts-btn:hover,
 .sidebar-account-btn:hover,
 .sidebar-calendar-btn:hover,
 .sidebar-releases-btn:hover,
@@ -102,6 +104,7 @@
 
 .sidebar-library-btn.active,
 .sidebar-wishlist-btn.active,
+.sidebar-alerts-btn.active,
 .sidebar-account-btn.active,
 .sidebar-calendar-btn.active,
 .sidebar-releases-btn.active,
@@ -115,6 +118,7 @@
 
 .sidebar-library-btn:focus-visible,
 .sidebar-wishlist-btn:focus-visible,
+.sidebar-alerts-btn:focus-visible,
 .sidebar-account-btn:focus-visible,
 .sidebar-calendar-btn:focus-visible,
 .sidebar-releases-btn:focus-visible,
@@ -322,6 +326,28 @@
     border-color: var(--clr-border-hi);
     color: var(--clr-text);
     background: var(--clr-bg-hover);
+}
+
+/* ── Alerts nav badge ───────────────────────────────────────────────────────── */
+.sidebar-alerts-btn {
+    justify-content: flex-start;
+}
+
+.sidebar-alerts-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: #3a9c3a;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 /* ── Now Playing card ───────────────────────────────────────────────────────── */

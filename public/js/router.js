@@ -8,6 +8,7 @@ import { renderWishlist } from './views/wishlist.js'
 import { renderAccount } from './views/account.js'
 import { renderCalendar, renderReleases } from './views/calendar.js'
 import { renderSettings } from './views/settings.js'
+import { renderAlerts } from './views/alerts.js'
 import { newPageDialog, showError } from './dialog.js'
 
 function _closeMobile() {
@@ -33,6 +34,7 @@ export function parseRoute(path) {
     if (path === 'calendar')      return { view: 'calendar' }
     if (path === 'releases')      return { view: 'releases' }
     if (path === 'top-games')     return { view: 'top-games' }
+    if (path === 'alerts')        return { view: 'alerts' }
     if (path === 'settings')      return { view: 'settings' }
     if (path.startsWith('game/')) return { view: 'game', appid: path.slice(5) }
     return { view: 'page', pageId: path }
@@ -107,6 +109,12 @@ export async function navigate(path, { replace = false } = {}) {
         setActiveItem('top-games')
         const { renderTopGames } = await import('./views/top-games.js')
         renderTopGames(mainEl())
+        return
+    }
+
+    if (route.view === 'alerts') {
+        setActiveItem('alerts')
+        renderAlerts(mainEl())
         return
     }
 
