@@ -14,11 +14,15 @@ const _ICONS = {
     account:  _SVG(`<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`),
     calendar:  _SVG(`<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8.01" y1="14" y2="14"/><line x1="12" x2="12.01" y1="14" y2="14"/><line x1="16" x2="16.01" y1="14" y2="14"/>`),
     topGames:  _SVG(`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`),
+    releases:  _SVG(`<path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>`),
+    settings: _SVG(`<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`),
 }
 
 let _pages = []
 let _onNavigate = null
 let _activeId = null
+let _nowPlayingTimer   = null
+let _nowPlayingAppid   = null
 
 export function getPages() {
     return _pages
@@ -29,6 +33,7 @@ export async function loadSidebar(activeId, onNavigate) {
     _activeId = activeId
     _pages = await api.pages.list()
     renderSidebar(activeId)
+    _startNowPlayingPoller()
 }
 
 export function addPageToSidebar(page) {
@@ -50,7 +55,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-top-games-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -60,6 +65,64 @@ export function setActiveItem(id) {
     }
 }
 
+// ── Now Playing ───────────────────────────────────────────────────────────────
+
+function _startNowPlayingPoller() {
+    _fetchNowPlaying()
+    if (_nowPlayingTimer) clearInterval(_nowPlayingTimer)
+    _nowPlayingTimer = setInterval(_fetchNowPlaying, 60_000)
+}
+
+async function _fetchNowPlaying() {
+    try {
+        const res = await fetch('/relay/api/steam/now-playing')
+        if (!res.ok) return
+        const { playing } = await res.json()
+        _renderNowPlaying(playing ?? null)
+    } catch { /* silent — non-critical */ }
+}
+
+function _renderNowPlaying(playing) {
+    const nav = document.getElementById('sidebar-nav')
+    if (!nav) return
+    const existing = nav.querySelector('.now-playing-wrap')
+
+    if (!playing) {
+        if (existing) existing.remove()
+        _nowPlayingAppid = null
+        return
+    }
+
+    if (_nowPlayingAppid === playing.appid) return  // no change
+
+    _nowPlayingAppid = playing.appid
+    if (existing) existing.remove()
+
+    const wrap = document.createElement('div')
+    wrap.className = 'now-playing-wrap'
+    wrap.innerHTML = `
+        <a class="now-playing-card" href="/game/${playing.appid}">
+            <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/${playing.appid}/header.jpg')"></div>
+            <div class="now-playing-scrim"></div>
+            <div class="now-playing-body">
+                <span class="now-playing-eyebrow">Now Playing</span>
+                <span class="now-playing-title">${escapeHtml(playing.name)}</span>
+            </div>
+        </a>
+        <div class="now-playing-orbit">
+            <div class="now-playing-particle"></div>
+        </div>`
+
+    wrap.querySelector('.now-playing-card').addEventListener('click', e => {
+        e.preventDefault()
+        _onNavigate(`game/${playing.appid}`)
+    })
+
+    nav.insertBefore(wrap, nav.firstChild)
+}
+
+// ── Sidebar render ────────────────────────────────────────────────────────────
+
 function renderSidebar(activeId) {
     const nav = document.getElementById('sidebar-nav')
     nav.innerHTML = ''
@@ -68,8 +131,8 @@ function renderSidebar(activeId) {
     nav.appendChild(buildTocButton(activeId === 'toc'))
     nav.appendChild(buildLibraryButton(activeId === 'library'))
     nav.appendChild(buildWishlistButton(activeId === 'wishlist'))
-    nav.appendChild(buildAccountButton(activeId === 'account'))
     nav.appendChild(buildCalendarButton(activeId === 'calendar'))
+    nav.appendChild(buildReleasesButton(activeId === 'releases'))
     nav.appendChild(buildTopGamesButton(activeId === 'top-games'))
 
     if (_pages.length === 0) {
@@ -77,12 +140,18 @@ function renderSidebar(activeId) {
         empty.className = 'sidebar-empty'
         empty.textContent = 'No pages yet'
         nav.appendChild(empty)
-        return
+    } else {
+        for (const page of _pages) {
+            nav.appendChild(buildItem(page, page.id === activeId))
+        }
     }
 
-    for (const page of _pages) {
-        nav.appendChild(buildItem(page, page.id === activeId))
-    }
+    // Bottom items — account & settings pinned after pages
+    const bottomSep = document.createElement('div')
+    bottomSep.className = 'sidebar-bottom-sep'
+    nav.appendChild(bottomSep)
+    nav.appendChild(buildAccountButton(activeId === 'account'))
+    nav.appendChild(buildSettingsButton(activeId === 'settings'))
 }
 
 function buildHomeButton(isActive) {
@@ -155,6 +224,20 @@ function buildCalendarButton(isActive) {
     return el
 }
 
+function buildReleasesButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-releases-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'releases'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.releases} Release Calendar`
+    el.addEventListener('click', () => _onNavigate('releases'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('releases') }
+        _arrowNav(e)
+    })
+    return el
+}
+
 function buildTopGamesButton(isActive) {
     const el = document.createElement('div')
     el.className = 'sidebar-top-games-btn' + (isActive ? ' active' : '')
@@ -164,6 +247,20 @@ function buildTopGamesButton(isActive) {
     el.addEventListener('click', () => _onNavigate('top-games'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('top-games') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildSettingsButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-settings-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'settings'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.settings} Settings`
+    el.addEventListener('click', () => _onNavigate('settings'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('settings') }
         _arrowNav(e)
     })
     return el
@@ -329,7 +426,7 @@ function _arrowNav(e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const nav = document.getElementById('sidebar-nav')
-    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-top-games-btn, .sidebar-item')]
+    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-item')]
     const idx = focusable.indexOf(document.activeElement)
     if (idx === -1) return
     if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()

@@ -3,23 +3,25 @@ import { escapeHtml } from '../utils.js'
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
             fetch(`/relay/api/steam/community-reviews/${appid}`),
             fetch(`/relay/api/steam/reviews/${appid}`),
             fetch(`/relay/api/player-counts/${appid}`),
+            fetch(`/api/flags/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
         game             = await gameRes.json()
-        itadData         = itadRes.ok ? await itadRes.json() : null
-        pcgwData         = pcgwRes.ok ? await pcgwRes.json() : null
-        communityReviews = crRes.ok   ? await crRes.json()   : null
-        myReview         = mrRes.ok   ? await mrRes.json()   : null
-        playerCounts     = pcRes.ok   ? await pcRes.json()   : null
+        itadData         = itadRes.ok   ? await itadRes.json()   : null
+        pcgwData         = pcgwRes.ok   ? await pcgwRes.json()   : null
+        communityReviews = crRes.ok     ? await crRes.json()     : null
+        myReview         = mrRes.ok     ? await mrRes.json()     : null
+        playerCounts     = pcRes.ok     ? await pcRes.json()     : null
+        flags            = flagsRes.ok  ? await flagsRes.json()  : {}
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -27,6 +29,9 @@ export async function renderGame(appid, container) {
 
     container.innerHTML = `
         ${_hero(game)}
+        <div class="game-flags-bar" data-appid="${appid}">
+            ${_flagsBar(flags)}
+        </div>
         <div class="game-body">
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
@@ -37,6 +42,7 @@ export async function renderGame(appid, container) {
         </div>`
 
     _initPlayerChart(playerCounts, container)
+    _initFlagsBar(container)
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
@@ -842,6 +848,71 @@ function _openModal(srcs, idx = 0) {
 
 function _closeModal() {
     _modalEl?.classList.remove('shot-modal--open')
+}
+
+// ── Flags bar ─────────────────────────────────────────────────────────────────
+
+const _FLAG_SVG = (paths) =>
+    `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
+
+const _FLAG_GROUPS = [
+    [
+        { key: 'software',  label: 'Software / Tool — excluded from play stats',   icon: _FLAG_SVG(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`) },
+    ],
+    [
+        { key: 'childLock', label: 'Child Lock — hidden from all views',            icon: _FLAG_SVG(`<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`) },
+        { key: 'filtered',  label: 'Filtered — hidden unless filter is lifted',     icon: _FLAG_SVG(`<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>`) },
+    ],
+    [
+        { key: 'favorite',  label: 'Favorite',                                      icon: _FLAG_SVG(`<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`) },
+        { key: 'revisit',   label: 'Revisit — want to replay',                      icon: _FLAG_SVG(`<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>`) },
+    ],
+    [
+        { key: 'completed', label: 'Completed',                                     icon: _FLAG_SVG(`<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>`) },
+        { key: 'dropped',   label: 'Dropped — abandoned, won\'t return',            icon: _FLAG_SVG(`<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`) },
+        { key: 'onHold',    label: 'On Hold — paused mid-playthrough',              icon: _FLAG_SVG(`<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>`) },
+        { key: 'backlog',   label: 'Backlog — owned, unstarted, intend to play',    icon: _FLAG_SVG(`<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>`) },
+    ],
+]
+
+function _flagsBar(flags) {
+    const groups = _FLAG_GROUPS.map((group, gi) => {
+        const btns = group.map(f => {
+            const active = flags?.[f.key] ? ' game-flag--active' : ''
+            return `<button class="game-flag game-flag--${f.key}${active}" data-flag="${f.key}" title="${f.label}">${f.icon}</button>`
+        }).join('')
+        const divider = gi < _FLAG_GROUPS.length - 1 ? `<div class="game-flags-divider"></div>` : ''
+        return `<div class="game-flags-group">${btns}</div>${divider}`
+    }).join('')
+    return `<div class="game-flags-inner">${groups}</div>`
+}
+
+function _initFlagsBar(container) {
+    const bar   = container.querySelector('.game-flags-bar')
+    if (!bar) return
+    const appid = bar.dataset.appid
+
+    bar.addEventListener('click', async e => {
+        const btn = e.target.closest('.game-flag')
+        if (!btn) return
+        const flag    = btn.dataset.flag
+        const active  = btn.classList.contains('game-flag--active')
+        const newVal  = !active
+
+        // Optimistic update
+        btn.classList.toggle('game-flag--active', newVal)
+
+        try {
+            await fetch(`/api/flags/${appid}`, {
+                method:  'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ flag, value: newVal }),
+            })
+        } catch {
+            // Revert on failure
+            btn.classList.toggle('game-flag--active', active)
+        }
+    })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

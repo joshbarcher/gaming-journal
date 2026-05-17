@@ -189,6 +189,74 @@
     margin: 6px 0;
 }
 
+/* ── Flags bar ───────────────────────────────────────────────────────────────── */
+.game-flags-bar {
+    padding: 0 40px;
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.game-flags-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 0;
+}
+
+.game-flags-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.game-flags-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--clr-border);
+    margin: 0 8px;
+    flex-shrink: 0;
+}
+
+.game-flag {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    transition: color var(--transition), background var(--transition), border-color var(--transition);
+    opacity: 0.45;
+}
+
+.game-flag:hover {
+    background: var(--clr-bg-hover);
+    border-color: var(--clr-border);
+    color: var(--clr-text);
+    opacity: 1;
+}
+
+.game-flag-icon {
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+}
+
+/* Active states — each flag gets its own accent colour */
+.game-flag--active                  { opacity: 1; border-color: transparent; }
+
+.game-flag--active.game-flag--software  { color: #e0a030; }
+.game-flag--active.game-flag--childLock { color: #e05555; }
+.game-flag--active.game-flag--filtered  { color: #8888aa; }
+.game-flag--active.game-flag--favorite  { color: #e05577; }
+.game-flag--active.game-flag--revisit   { color: #40b0d0; }
+.game-flag--active.game-flag--completed { color: var(--clr-accent); }
+.game-flag--active.game-flag--dropped   { color: #996655; }
+.game-flag--active.game-flag--onHold    { color: #d07830; }
+.game-flag--active.game-flag--backlog   { color: #7070d0; }
+
 /* ── Game body (below hero) ──────────────────────────────────────────────────── */
 .game-body {
     padding-top: 44px;
@@ -618,6 +686,10 @@
     .game-hero-body {
         padding: 16px 20px 28px;
     }
+
+    .game-flags-bar {
+        padding: 0 20px;
+    }
 }
 
 /* ── PCGamingWiki ─────────────────────────────────────────────────────────────── */
@@ -991,9 +1063,13 @@
 
 /* Review list */
 .rev-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
+    align-items: start;
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 /* Review card */
@@ -1002,11 +1078,20 @@
     background: var(--clr-bg-raised);
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    height: 260px;
+}
+
+.rev-card--mine {
+    grid-column: 1 / -1;
+    height: auto;
 }
 
 .rev-card--mine {
     border-color: var(--clr-accent);
     background: color-mix(in srgb, var(--clr-accent) 6%, var(--clr-bg-raised));
+    height: auto;
 }
 
 .rev-card-header {
@@ -1082,8 +1167,11 @@
     margin: 0;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 200px;
-    overflow: hidden;
-    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.rev-card--mine .rev-card-text {
+    overflow-y: visible;
 }

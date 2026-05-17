@@ -1,3 +1,5 @@
+import { loadGameFilter } from './game-filter.js'
+
 let _refreshTimer  = null
 let _hideFiltered  = false
 let _allEntries    = []
@@ -48,8 +50,8 @@ function _row(entry, rank) {
     const img     = `/relay/images/steam/games/${entry.appid}/header.jpg`
     const owned   = entry.owned      ? '<span class="tg-badge tg-badge--owned">Owned</span>'     : ''
     const wished  = entry.wishlisted ? '<span class="tg-badge tg-badge--wish">Wishlisted</span>' : ''
-    const href    = entry.owned || entry.wishlisted ? `/game/${entry.appid}` : `https://store.steampowered.com/app/${entry.appid}`
-    const target  = entry.owned || entry.wishlisted ? '' : ' target="_blank" rel="noopener"'
+    const href    = `/game/${entry.appid}`
+    const target  = ''
     const name    = entry.name ?? `App ${entry.appid}`
     const wrapCls = entry.filtered ? ' tg-row-wrap--muted' : ''
     const rankStr = entry.filtered ? '—' : rank
@@ -124,9 +126,12 @@ export async function renderTopGames(container) {
     container.innerHTML = `<p class="page-loading">Loading top games…</p>`
 
     try {
-        const res = await fetch('/relay/api/player-counts/top?n=100&includeFiltered=true')
+        const [res, shouldShow] = await Promise.all([
+            fetch('/relay/api/player-counts/top?n=100&includeFiltered=true'),
+            loadGameFilter(),
+        ])
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        _allEntries = await res.json()
+        _allEntries = (await res.json()).filter(e => shouldShow(e.appid))
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${err.message}</p>`
         return

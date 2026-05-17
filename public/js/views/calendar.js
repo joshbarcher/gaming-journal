@@ -3,28 +3,25 @@ import { escapeHtml } from '../utils.js'
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DOW    = ['Su','Mo','Tu','We','Th','Fr','Sa']
 
-let _year       = new Date().getFullYear()
-let _dayMap     = new Map()   // 'YYYY-MM-DD' → [{ appid, name, durationMin }]
-let _releaseMap = new Map()   // 'YYYY-MM-DD' → [{ appid, name }]
-let _container  = null
+let _year      = new Date().getFullYear()
+let _dayMap    = new Map()   // 'YYYY-MM-DD' → [{ appid, name, durationMin }]
+let _releaseMap = new Map()  // 'YYYY-MM-DD' → [{ appid, name }]
+let _container = null
+let _mode      = 'play'      // 'play' | 'releases'
+
+// ── Public entry points ───────────────────────────────────────────────────────
 
 export async function renderCalendar(container) {
+    _mode      = 'play'
     _container = container
+    _dayMap    = new Map()
     container.innerHTML = `<p class="page-loading">Loading calendar…</p>`
 
     try {
-        const [accountRes, upcomingRes] = await Promise.all([
-            fetch('/relay/api/account'),
-            fetch('/relay/api/steam/upcoming'),
-        ])
-        if (!accountRes.ok) throw new Error(`HTTP ${accountRes.status}`)
-        const accountData  = await accountRes.json()
-        _dayMap = _buildDayMap(accountData.sessions ?? {})
-
-        if (upcomingRes.ok) {
-            const upcomingData = await upcomingRes.json()
-            _releaseMap = _buildReleaseMap(upcomingData.upcoming ?? [])
-        }
+        const res = await fetch('/relay/api/account')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        _dayMap = _buildDayMap(data.sessions ?? {})
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load calendar: ${escapeHtml(err.message)}</p>`
         return
@@ -33,6 +30,28 @@ export async function renderCalendar(container) {
     _year = new Date().getFullYear()
     _draw()
 }
+
+export async function renderReleases(container) {
+    _mode       = 'releases'
+    _container  = container
+    _releaseMap = new Map()
+    container.innerHTML = `<p class="page-loading">Loading releases…</p>`
+
+    try {
+        const res = await fetch('/relay/api/steam/releases')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        _releaseMap = _buildReleaseMap(data.releases ?? [])
+    } catch (err) {
+        container.innerHTML = `<p class="page-error">Failed to load releases: ${escapeHtml(err.message)}</p>`
+        return
+    }
+
+    _year = new Date().getFullYear()
+    _draw()
+}
+
+// ── Data builders ─────────────────────────────────────────────────────────────
 
 function _buildDayMap(sessions) {
     const map = new Map()
@@ -60,12 +79,15 @@ function _buildReleaseMap(upcoming) {
     return map
 }
 
+// ── Rendering ─────────────────────────────────────────────────────────────────
+
 function _draw() {
     const today = new Date().toISOString().slice(0, 10)
+    const title = _mode === 'play' ? 'Play Calendar' : 'Release Calendar'
 
     _container.innerHTML = `
         <div class="page-header">
-            <h1 class="page-title">Play Calendar</h1>
+            <h1 class="page-title">${title}</h1>
         </div>
         <div class="cal-nav">
             <button class="cal-nav-btn" id="cal-prev">← ${_year - 1}</button>
@@ -101,8 +123,10 @@ function _buildMonth(monthIdx, name, today) {
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${_year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
         const isToday = dateStr === today
-        const entries  = _dayMap.get(dateStr) ?? []
-        const releases = _releaseMap.get(dateStr) ?? []
+
+        const entries  = _mode === 'play'     ? (_dayMap.get(dateStr)     ?? []) : []
+        const releases = _mode === 'releases' ? (_releaseMap.get(dateStr) ?? []) : []
+
         cells.push(_buildCell(d, isToday, entries, releases))
     }
 
@@ -127,7 +151,6 @@ function _buildCell(day, isToday, entries, releases) {
     if (entries.length)  cls.push('cal-cell--played')
     if (releases.length) cls.push('cal-cell--release-day')
 
-    // Releases first, then played sorted by duration desc
     const sorted  = [...entries].sort((a, b) => b.durationMin - a.durationMin)
     const all     = [
         ...releases.map(r => ({ ...r, isRelease: true })),
@@ -137,12 +160,12 @@ function _buildCell(day, isToday, entries, releases) {
     const overflow = all.length - display.length
 
     const entriesHtml = display.map((e, i) => {
-        const label = e.isRelease
-            ? `<span class="cal-entry-tag cal-entry-tag--release">Release</span>`
-            : `<span class="cal-entry-tag">${_fmt(e.durationMin)}</span>`
         const overflowBadge = (!e.isRelease && i === display.length - 1 && overflow > 0)
             ? `<span class="cal-overflow">+${overflow}</span>`
             : ''
+        const overlay = e.isRelease
+            ? ''
+            : `<div class="cal-entry-overlay"><span class="cal-entry-tag">${_fmt(e.durationMin)}</span></div>`
         return `
         <a class="cal-entry${e.isRelease ? ' cal-entry--release' : ''}" href="/game/${e.appid}"
            title="${escapeHtml(e.name)}${e.isRelease ? ' — Release day' : ` — ${_fmt(e.durationMin)}`}">
@@ -151,9 +174,7 @@ function _buildCell(day, isToday, entries, releases) {
                  alt=""
                  loading="lazy"
                  onerror="if(!this.dataset.fb){this.dataset.fb='1';this.src='/relay/images/steam/games/${e.appid}/header.jpg'}else{this.style.display='none'}">
-            <div class="cal-entry-overlay">
-                ${label}
-            </div>
+            ${overlay}
             ${overflowBadge}
         </a>`
     }).join('')

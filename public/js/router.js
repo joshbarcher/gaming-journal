@@ -6,7 +6,8 @@ import { renderHeatmap } from './views/heatmap.js'
 import { renderLibrary } from './views/library.js'
 import { renderWishlist } from './views/wishlist.js'
 import { renderAccount } from './views/account.js'
-import { renderCalendar } from './views/calendar.js'
+import { renderCalendar, renderReleases } from './views/calendar.js'
+import { renderSettings } from './views/settings.js'
 import { newPageDialog, showError } from './dialog.js'
 
 function _closeMobile() {
@@ -30,7 +31,9 @@ export function parseRoute(path) {
     if (path === 'wishlist')      return { view: 'wishlist' }
     if (path === 'account')       return { view: 'account' }
     if (path === 'calendar')      return { view: 'calendar' }
+    if (path === 'releases')      return { view: 'releases' }
     if (path === 'top-games')     return { view: 'top-games' }
+    if (path === 'settings')      return { view: 'settings' }
     if (path.startsWith('game/')) return { view: 'game', appid: path.slice(5) }
     return { view: 'page', pageId: path }
 }
@@ -94,10 +97,22 @@ export async function navigate(path, { replace = false } = {}) {
         return
     }
 
+    if (route.view === 'releases') {
+        setActiveItem('releases')
+        renderReleases(mainEl())
+        return
+    }
+
     if (route.view === 'top-games') {
         setActiveItem('top-games')
         const { renderTopGames } = await import('./views/top-games.js')
         renderTopGames(mainEl())
+        return
+    }
+
+    if (route.view === 'settings') {
+        setActiveItem('settings')
+        renderSettings(mainEl())
         return
     }
 

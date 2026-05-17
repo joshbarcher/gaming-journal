@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils.js'
+import { loadGameFilter } from './game-filter.js'
 
 const PAGE_SIZE      = 48
 const STORAGE_SORT   = 'gj_lib_sort'
@@ -22,7 +23,10 @@ export async function renderLibrary(container) {
     container.innerHTML = `<p class="page-loading">Loading library…</p>`
 
     try {
-        const gamesRes = await fetch('/relay/api/steam/games')
+        const [gamesRes, shouldShow] = await Promise.all([
+            fetch('/relay/api/steam/games'),
+            loadGameFilter(),
+        ])
         if (!gamesRes.ok) throw new Error(`Games HTTP ${gamesRes.status}`)
         const json = await gamesRes.json()
         // unwrap common envelope shapes
@@ -37,6 +41,7 @@ export async function renderLibrary(container) {
         } else {
             throw new Error(`Unexpected response shape: ${JSON.stringify(json).slice(0, 120)}`)
         }
+        _all = _all.filter(g => shouldShow(g.appid))
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load library: ${escapeHtml(err.message)}</p>`
         return

@@ -1,19 +1,26 @@
 import { escapeHtml } from '../utils.js'
+import { loadGameFilter } from './game-filter.js'
 
 export async function renderAccount(container) {
     container.innerHTML = `<p class="page-loading">Loading account…</p>`
 
-    let data
+    let data, shouldShow
     try {
-        const res = await fetch('/relay/api/account')
+        const [res, filter] = await Promise.all([
+            fetch('/relay/api/account'),
+            loadGameFilter(),
+        ])
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         data = await res.json()
+        shouldShow = filter
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load account: ${escapeHtml(err.message)}</p>`
         return
     }
 
-    const { profile, steam, stats, recentlyPlayed, mostPlayed, sessions } = data
+    const { profile, steam, stats, sessions } = data
+    const recentlyPlayed = (data.recentlyPlayed ?? []).filter(g => shouldShow(g.appid))
+    const mostPlayed     = (data.mostPlayed     ?? []).filter(g => shouldShow(g.appid))
 
     container.innerHTML = `
         ${_hero(profile, steam)}

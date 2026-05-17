@@ -70,7 +70,9 @@
 .sidebar-wishlist-btn,
 .sidebar-account-btn,
 .sidebar-calendar-btn,
-.sidebar-top-games-btn {
+.sidebar-releases-btn,
+.sidebar-top-games-btn,
+.sidebar-settings-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -91,7 +93,9 @@
 .sidebar-wishlist-btn:hover,
 .sidebar-account-btn:hover,
 .sidebar-calendar-btn:hover,
-.sidebar-top-games-btn:hover {
+.sidebar-releases-btn:hover,
+.sidebar-top-games-btn:hover,
+.sidebar-settings-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
@@ -100,7 +104,9 @@
 .sidebar-wishlist-btn.active,
 .sidebar-account-btn.active,
 .sidebar-calendar-btn.active,
-.sidebar-top-games-btn.active {
+.sidebar-releases-btn.active,
+.sidebar-top-games-btn.active,
+.sidebar-settings-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
@@ -111,7 +117,9 @@
 .sidebar-wishlist-btn:focus-visible,
 .sidebar-account-btn:focus-visible,
 .sidebar-calendar-btn:focus-visible,
-.sidebar-top-games-btn:focus-visible {
+.sidebar-releases-btn:focus-visible,
+.sidebar-top-games-btn:focus-visible,
+.sidebar-settings-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }
@@ -314,6 +322,124 @@
     border-color: var(--clr-border-hi);
     color: var(--clr-text);
     background: var(--clr-bg-hover);
+}
+
+/* ── Now Playing card ───────────────────────────────────────────────────────── */
+
+.now-playing-wrap {
+    position: relative;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+.now-playing-card,
+.now-playing-card:hover {
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: 68px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    border: 1px solid rgba(201, 168, 76, 0.55);
+    animation: np-glow 2.5s ease-in-out infinite;
+    cursor: pointer;
+}
+
+@keyframes np-glow {
+    0%, 100% {
+        box-shadow: 0 0 6px 1px rgba(201,168,76,0.2);
+        border-color: rgba(201,168,76,0.45);
+    }
+    50% {
+        box-shadow: 0 0 18px 5px rgba(201,168,76,0.55), inset 0 0 24px rgba(201,168,76,0.05);
+        border-color: rgba(201,168,76,0.95);
+    }
+}
+
+.now-playing-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center top;
+}
+
+.now-playing-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        rgba(10, 10, 12, 0.9)  0%,
+        rgba(10, 10, 12, 0.6) 55%,
+        rgba(10, 10, 12, 0.2) 100%
+    );
+}
+
+.now-playing-body {
+    position: relative;
+    z-index: 2;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.now-playing-eyebrow {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--clr-accent);
+    line-height: 1;
+}
+
+.now-playing-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+/* Orbiting particle — zero-size pivot sits at card center, particle hangs above */
+.now-playing-orbit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 10;
+    animation: np-rotate 4s linear infinite;
+}
+
+.now-playing-particle {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    top: -42px;
+    left: -3.5px;
+    background: #fff;
+    box-shadow:
+        0 0 4px 2px  rgba(255, 255, 255, 0.95),
+        0 0 10px 3px rgba(201, 168, 76,  0.75),
+        0 0 22px 6px rgba(201, 168, 76,  0.3);
+}
+
+@keyframes np-rotate {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.sidebar-bottom-sep {
+    height: 1px;
+    background: var(--clr-border);
+    margin: 8px 0;
+    flex-shrink: 0;
 }
 
 /* ── Loading / empty states ─────────────────────────────────────────────────── */

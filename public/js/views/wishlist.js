@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils.js'
+import { loadGameFilter } from './game-filter.js'
 
 const PAGE_SIZE    = 48
 const STORAGE_SORT = 'gj_wl_sort'
@@ -18,9 +19,13 @@ export async function renderWishlist(container) {
     container.innerHTML = `<p class="page-loading">Loading wishlist…</p>`
 
     try {
-        const res = await fetch('/relay/api/wishlist')
+        const [res, shouldShow] = await Promise.all([
+            fetch('/relay/api/wishlist'),
+            loadGameFilter(),
+        ])
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        _all = await res.json()
+        const raw = await res.json()
+        _all = raw.filter(g => shouldShow(g.appid))
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load wishlist: ${escapeHtml(err.message)}</p>`
         return
