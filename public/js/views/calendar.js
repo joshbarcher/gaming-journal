@@ -10,12 +10,19 @@ let _container   = null
 let _mode        = 'play'      // 'play' | 'releases'
 
 // ── Live session state ────────────────────────────────────────────────────────
-// _liveSession  — what the relay says is currently playing
-// _liveBase     — minutes already committed in _dayMap for this game *before* the
-//                 current session started; live display = _liveBase + liveElapsed
-let _liveSession = null   // { appid, name, sessionStartedAt } | null
-let _liveBase    = 0
-let _liveTimer   = null
+// _liveSession       — what the relay says is currently playing
+// _liveBase          — minutes already committed in _dayMap for this game *before*
+//                      the current day's segment started
+// _liveEffectiveStart — ISO string used as the zero-point for elapsed-time maths.
+//                      Equals sessionStartedAt normally, but is reset to local
+//                      midnight when a session crosses into a new calendar day so
+//                      the live counter only shows time played *today*.
+// _liveDate          — local date string of the last poll; detects midnight rollover
+let _liveSession        = null   // { appid, name, sessionStartedAt } | null
+let _liveBase           = 0
+let _liveEffectiveStart = null   // ISO string | null
+let _liveDate           = null   // 'YYYY-MM-DD' | null
+let _liveTimer          = null
 
 // ── Public entry points ───────────────────────────────────────────────────────
 
@@ -69,7 +76,7 @@ export async function renderReleases(container) {
 // ── Timezone-safe local date string ──────────────────────────────────────────
 // Always use local time — never slice an ISO UTC string.
 
-function _localDateStr(d) {
+export function _localDateStr(d) {
     const date = (typeof d === 'string' || typeof d === 'number') ? new Date(d) : d
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
@@ -77,14 +84,17 @@ function _localDateStr(d) {
 // ── Live session poller ───────────────────────────────────────────────────────
 
 function _startLivePoller() {
+    _liveDate = _localDateStr(new Date())
     _pollLive()
     _liveTimer = setInterval(_pollLive, 60_000)
 }
 
 function _stopLivePoller() {
     if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null }
-    _liveSession = null
-    _liveBase    = 0
+    _liveSession        = null
+    _liveBase           = 0
+    _liveEffectiveStart = null
+    _liveDate           = null
 }
 
 async function _pollLive() {
@@ -93,54 +103,96 @@ async function _pollLive() {
         if (!res.ok) return
         const { playing } = await res.json()
 
+        const todayStr    = _localDateStr(new Date())
         const prevAppid   = _liveSession?.appid ?? null
         const currAppid   = playing?.appid ?? null
         const prevStarted = _liveSession?.sessionStartedAt ?? null
         const currStarted = playing?.sessionStartedAt ?? null
 
         // Session changed: different game, game stopped, or same game restarted
-        // (sessionStartedAt changes when the relay detects a new start)
         const sessionChanged = (currAppid !== prevAppid) || (currStarted !== prevStarted)
 
+        // ── Midnight rollover ──────────────────────────────────────────────────
+        // When the calendar day flips while a game is still running: freeze the
+        // previous day's exact portion, reset the live counter to midnight, then
+        // redraw so the --today class moves to the new day's cell.
+        if (!sessionChanged && _liveSession && _liveDate && _liveDate !== todayStr) {
+            const midnight   = _localMidnight(todayStr)          // 00:00:00 local today
+            const prevEffStart = _liveEffectiveStart ?? _liveSession.sessionStartedAt
+            const prevDayMin = Math.max(1, Math.floor(
+                (midnight - new Date(prevEffStart).getTime()) / 60_000
+            ))
+            _commitToDay(_liveDate, _liveSession.appid, _liveSession.name, prevDayMin)
+
+            _liveEffectiveStart = new Date(midnight).toISOString()
+            _liveBase = (_dayMap.get(todayStr) ?? []).find(e => e.appid === _liveSession.appid)?.durationMin ?? 0
+            _draw()   // flips --today to the new cell
+        }
+        // ──────────────────────────────────────────────────────────────────────
+
         if (sessionChanged) {
-            // Commit the previous session before switching
             if (prevAppid !== null) _freezeLiveSession()
 
             if (currAppid !== null) {
-                // _liveBase = minutes already in _dayMap for this game today,
-                // representing sessions committed *before* this new session started.
-                const todayStr = _localDateStr(new Date())
-                const existing = (_dayMap.get(todayStr) ?? []).find(e => e.appid === currAppid)
-                _liveBase = existing?.durationMin ?? 0
+                const sessionDay = _localDateStr(playing.sessionStartedAt)
+
+                if (sessionDay !== todayStr) {
+                    // Session started before today (relay restart or calendar opened
+                    // mid-session after midnight) — seed yesterday's portion and
+                    // count live time from midnight only.
+                    const midnight = _localMidnight(todayStr)
+                    _liveEffectiveStart = new Date(midnight).toISOString()
+                    const prevDayMin = Math.max(1, Math.floor(
+                        (midnight - new Date(playing.sessionStartedAt).getTime()) / 60_000
+                    ))
+                    _commitToDay(sessionDay, currAppid, playing.name, prevDayMin)
+                } else {
+                    _liveEffectiveStart = playing.sessionStartedAt ?? new Date().toISOString()
+                }
+
+                _liveBase = (_dayMap.get(todayStr) ?? []).find(e => e.appid === currAppid)?.durationMin ?? 0
             } else {
-                _liveBase = 0
+                _liveBase           = 0
+                _liveEffectiveStart = null
             }
         }
 
+        _liveDate    = todayStr
         _liveSession = playing ?? null
         _patchTodayCell()
     } catch { /* silent — non-critical */ }
 }
 
-// Bake the current live session into _dayMap as a plain (non-live) entry so
-// the time persists on the calendar while the 30-min snapshot catches up.
+// Returns the Unix-ms timestamp for local midnight of the given 'YYYY-MM-DD'.
+function _localMidnight(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return new Date(y, m - 1, d, 0, 0, 0, 0).getTime()
+}
+
+// Writes (or updates) a non-live entry in _dayMap for a specific day.
+function _commitToDay(dateStr, appid, name, durationMin) {
+    const entries = [...(_dayMap.get(dateStr) ?? [])]
+    const idx     = entries.findIndex(e => e.appid === appid)
+    if (idx >= 0) {
+        entries[idx] = { ...entries[idx], durationMin }
+    } else {
+        entries.push({ appid, name, durationMin })
+    }
+    _dayMap.set(dateStr, entries)
+}
+
+// Bake the current live session into _dayMap as a plain (non-live) entry.
+// Uses _liveEffectiveStart (which may be local midnight, not sessionStartedAt)
+// so elapsed time only counts for the current calendar day.
 function _freezeLiveSession() {
     if (!_liveSession) return
     const todayStr  = _localDateStr(new Date())
-    const startMs   = _liveSession.sessionStartedAt
-        ? new Date(_liveSession.sessionStartedAt).getTime()
-        : Date.now()
-    const liveMin    = Math.max(1, Math.floor((Date.now() - startMs) / 60_000))
-    const frozenMin  = _liveBase + liveMin   // base + this session's elapsed = total for today
-
-    const entries = [...(_dayMap.get(todayStr) ?? [])]
-    const idx     = entries.findIndex(e => e.appid === _liveSession.appid)
-    if (idx >= 0) {
-        entries[idx] = { ...entries[idx], durationMin: frozenMin }
-    } else {
-        entries.push({ appid: _liveSession.appid, name: _liveSession.name, durationMin: frozenMin })
-    }
-    _dayMap.set(todayStr, entries)
+    const startMs   = _liveEffectiveStart
+        ? new Date(_liveEffectiveStart).getTime()
+        : (_liveSession.sessionStartedAt ? new Date(_liveSession.sessionStartedAt).getTime() : Date.now())
+    const liveMin   = Math.max(1, Math.floor((Date.now() - startMs) / 60_000))
+    const frozenMin = _liveBase + liveMin
+    _commitToDay(todayStr, _liveSession.appid, _liveSession.name, frozenMin)
 }
 
 function _patchTodayCell() {
@@ -153,11 +205,11 @@ function _patchTodayCell() {
     let entries       = [...baseEntries]
 
     if (_liveSession) {
-        const startMs  = _liveSession.sessionStartedAt
-            ? new Date(_liveSession.sessionStartedAt).getTime()
-            : Date.now()
+        const startMs  = _liveEffectiveStart
+            ? new Date(_liveEffectiveStart).getTime()
+            : (_liveSession.sessionStartedAt ? new Date(_liveSession.sessionStartedAt).getTime() : Date.now())
         const liveMin  = Math.max(1, Math.floor((Date.now() - startMs) / 60_000))
-        // Total = committed base (before this session) + this session's elapsed time
+        // Total = committed base (before this session) + time played today
         const totalMin = _liveBase + liveMin
 
         const existingIdx = entries.findIndex(e => e.appid === _liveSession.appid)
@@ -186,22 +238,56 @@ function _patchTodayCell() {
 
 // ── Data builders ─────────────────────────────────────────────────────────────
 
-function _buildDayMap(sessions, flags = {}) {
+// Splits a session record at local midnight boundaries so each part is
+// attributed only to the calendar day it falls on.
+export function _splitAtMidnight(session) {
+    if (!session.endedAt) return [session]
+    const start = new Date(session.startedAt)
+    const end   = new Date(session.endedAt)
+    if (_localDateStr(start) === _localDateStr(end)) return [session]
+
+    const parts  = []
+    let   cursor = start
+
+    while (_localDateStr(cursor) !== _localDateStr(end)) {
+        const next = new Date(cursor)
+        next.setDate(next.getDate() + 1)
+        next.setHours(0, 0, 0, 0)   // local midnight of the next day
+        parts.push({
+            startedAt:   cursor.toISOString(),
+            endedAt:     next.toISOString(),
+            durationMin: Math.max(1, Math.round((next - cursor) / 60_000)),
+        })
+        cursor = next
+    }
+    parts.push({
+        startedAt:   cursor.toISOString(),
+        endedAt:     end.toISOString(),
+        durationMin: Math.max(1, Math.round((end - cursor) / 60_000)),
+    })
+    return parts
+}
+
+export function _buildDayMap(sessions, flags = {}) {
     // Two-level aggregation: day → Map<appid, entry>
-    // Multiple sessions for the same game on the same day are summed into one entry.
+    // Cross-midnight sessions are split so each calendar day only shows the time
+    // played within that day. Multiple sessions for the same game on the same day
+    // are summed into one entry.
     const raw = new Map()
 
     for (const [appidStr, game] of Object.entries(sessions)) {
         if (flags[appidStr]?.software || flags[Number(appidStr)]?.software) continue
         const appid = Number(appidStr)
         for (const session of game.sessions ?? []) {
-            const day = _localDateStr(session.startedAt)
-            if (!raw.has(day)) raw.set(day, new Map())
-            const dayMap = raw.get(day)
-            if (dayMap.has(appid)) {
-                dayMap.get(appid).durationMin += session.durationMin
-            } else {
-                dayMap.set(appid, { appid, name: game.name, durationMin: session.durationMin })
+            for (const part of _splitAtMidnight(session)) {
+                const day = _localDateStr(part.startedAt)
+                if (!raw.has(day)) raw.set(day, new Map())
+                const dayMap = raw.get(day)
+                if (dayMap.has(appid)) {
+                    dayMap.get(appid).durationMin += part.durationMin
+                } else {
+                    dayMap.set(appid, { appid, name: game.name, durationMin: part.durationMin })
+                }
             }
         }
     }
