@@ -398,13 +398,12 @@
 .frc-tl-img-wrap {
     flex: 1 1 0;
     min-width: 0;
-    margin: 0 10%; /* 80% wide, centred over its bar cell */
+    display: flex;
+    justify-content: center;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 3px;
 }
 
-/* Downward callout arrow — points from image box to its bar cell */
+/* Downward callout arrow — anchored to wrapper centre, points at bar cell */
 .frc-tl-img-wrap::after {
     content: '';
     position: absolute;
@@ -419,10 +418,11 @@
 
 .frc-tl-img {
     display: block;
-    width: 100%;
+    width: 80%;
     aspect-ratio: 460 / 215;
     object-fit: cover;
-    border-radius: 2px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     background: var(--clr-bg-raised);
     transition: filter 0.2s ease, opacity 0.2s ease;
 }
