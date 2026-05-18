@@ -386,7 +386,7 @@
 .frc-timeline {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 12px;
 }
 
 /* Images row — same gap as bar so columns align */
@@ -398,16 +398,31 @@
 .frc-tl-img-wrap {
     flex: 1 1 0;
     min-width: 0;
-    display: flex;
-    justify-content: center;
+    margin: 0 10%; /* 80% wide, centred over its bar cell */
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 3px;
+}
+
+/* Downward callout arrow — points from image box to its bar cell */
+.frc-tl-img-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 8px solid rgba(255, 255, 255, 0.2);
+    pointer-events: none;
 }
 
 .frc-tl-img {
     display: block;
-    width: 80%;
+    width: 100%;
     aspect-ratio: 460 / 215;
     object-fit: cover;
-    border-radius: 3px;
+    border-radius: 2px;
     background: var(--clr-bg-raised);
     transition: filter 0.2s ease, opacity 0.2s ease;
 }
@@ -427,9 +442,11 @@
     display: flex;
     gap: 3px;
     height: 10px;
-    border-radius: 5px;
+    border-radius: 2px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.2); /* visible divider colour */
+    background: rgba(255, 255, 255, 0.2);
+    border: 1.5px solid rgba(255, 255, 255, 0.22);
+    box-sizing: border-box;
 }
 
 .frc-tl-seg {
