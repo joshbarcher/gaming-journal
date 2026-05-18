@@ -78,7 +78,8 @@
 .sidebar-vault-btn,
 .sidebar-abandoned-btn,
 .sidebar-hof-btn,
-.sidebar-onhold-btn {
+.sidebar-onhold-btn,
+.sidebar-myreviews-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -107,7 +108,8 @@
 .sidebar-vault-btn:hover,
 .sidebar-abandoned-btn:hover,
 .sidebar-hof-btn:hover,
-.sidebar-onhold-btn:hover {
+.sidebar-onhold-btn:hover,
+.sidebar-myreviews-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
@@ -124,7 +126,8 @@
 .sidebar-vault-btn.active,
 .sidebar-abandoned-btn.active,
 .sidebar-hof-btn.active,
-.sidebar-onhold-btn.active {
+.sidebar-onhold-btn.active,
+.sidebar-myreviews-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
@@ -143,7 +146,8 @@
 .sidebar-vault-btn:focus-visible,
 .sidebar-abandoned-btn:focus-visible,
 .sidebar-hof-btn:focus-visible,
-.sidebar-onhold-btn:focus-visible {
+.sidebar-onhold-btn:focus-visible,
+.sidebar-myreviews-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }

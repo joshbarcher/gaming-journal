@@ -248,17 +248,17 @@ function renderSidebar(activeId) {
     collectionSep.textContent = 'Collection'
     nav.appendChild(collectionSep)
     nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
-    nav.appendChild(buildMyReviewsButton(activeId === 'my-reviews'))
     nav.appendChild(buildOnHoldButton(activeId === 'on-hold'))
     nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
     nav.appendChild(buildVaultButton(activeId === 'vault'))
     nav.appendChild(buildAbandonedButton(activeId === 'abandoned'))
     nav.appendChild(buildHallOfFameButton(activeId === 'hall-of-fame'))
 
-    // Bottom items — account & settings
+    // Bottom items — my reviews, account & settings
     const bottomSep = document.createElement('div')
     bottomSep.className = 'sidebar-bottom-sep'
     nav.appendChild(bottomSep)
+    nav.appendChild(buildMyReviewsButton(activeId === 'my-reviews'))
     nav.appendChild(buildAccountButton(activeId === 'account'))
     nav.appendChild(buildSettingsButton(activeId === 'settings'))
 }
