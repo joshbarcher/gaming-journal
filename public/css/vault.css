@@ -244,9 +244,148 @@
     opacity: 0.7;
 }
 
+/* ── Up Next queue ───────────────────────────────────────────────────────── */
+
+.vault-queue {
+    padding: 0 40px 32px;
+}
+
+.vault-queue-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--vault-accent);
+}
+
+.vault-queue-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.vault-queue-hint {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--clr-text-muted);
+    opacity: 0.55;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.vault-queue-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    position: relative;
+}
+
+.vault-queue-row::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 3%;
+    right: 3%;
+    height: 10px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--vault-accent-bd);
+    border-radius: 0 0 var(--radius) var(--radius);
+    opacity: 0.45;
+    z-index: -1;
+}
+
+/* ── Up Next card variant ────────────────────────────────────────────────── */
+
+.vault-card--up-next {
+    border-color: var(--vault-accent-bd);
+}
+
+.vault-card--up-next .vault-card-img {
+    filter: saturate(0.9) brightness(0.95);
+}
+
+.vault-card--up-next:hover {
+    border-color: var(--vault-accent);
+    box-shadow: 0 8px 24px rgba(124, 111, 205, 0.3);
+}
+
+/* ── Position number badge ───────────────────────────────────────────────── */
+
+.vault-card-num {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--vault-accent);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 900;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Rest separator ──────────────────────────────────────────────────────── */
+
+.vault-rest-sep {
+    padding: 0 40px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.vault-rest-sep::before,
+.vault-rest-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--clr-border);
+}
+
+.vault-rest-sep-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+/* ── Drag and drop ───────────────────────────────────────────────────────── */
+
+.vault-card[draggable="true"] {
+    cursor: grab;
+}
+
+.vault-card--dragging {
+    opacity: 0.35;
+    cursor: grabbing;
+}
+
+.vault-card--drop-before {
+    box-shadow: -3px 0 0 0 var(--vault-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    transform: translateY(-2px);
+}
+
+.vault-card--drop-after {
+    box-shadow: 3px 0 0 0 var(--vault-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    transform: translateY(-2px);
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 960px) {
-    .vault-header { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
-    .vault-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .vault-header     { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
+    .vault-grid       { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .vault-queue      { padding: 0 20px 24px; }
+    .vault-queue-row  { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .vault-rest-sep   { padding: 0 20px 16px; }
 }
