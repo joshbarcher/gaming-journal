@@ -108,7 +108,9 @@ function _renderTimeline(entries, flagsRes, ownedMap, wishlistMap) {
         const label = `${escapeHtml(name)} · ${_STATUS_LABELS[status] ?? 'Unplayed'}`
         imagesHtml.push(`
             <a class="frc-tl-img-wrap frc-tl-cell--${status}" href="/game/${appid}" title="${label}">
-                <img class="frc-tl-img" src="${_capsuleUrl(appid)}" alt="" loading="lazy" onerror="this.style.opacity='0'">
+                <div class="frc-tl-img-box">
+                    <img class="frc-tl-img" src="${_capsuleUrl(appid)}" alt="" loading="lazy" onerror="this.style.opacity='0'">
+                </div>
             </a>`)
         segsHtml.push(`
             <div class="frc-tl-seg" title="${label}">
