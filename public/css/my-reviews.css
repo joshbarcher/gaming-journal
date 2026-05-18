@@ -1,0 +1,195 @@
+/* ── My Reviews Page ──────────────────────────────────────────────────────── */
+
+.mr-header {
+    padding: 32px 40px 20px;
+    border-bottom: 1px solid var(--clr-border, #2e2e3a);
+    margin-bottom: 0;
+}
+
+.mr-header-eyebrow {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--clr-accent, #7c6ff7);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.mr-header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--clr-text, #e8e8f0);
+    margin: 0;
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────── */
+.mr-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 40px;
+    border-bottom: 1px solid var(--clr-border, #2e2e3a);
+    margin-bottom: 24px;
+}
+
+.mr-search {
+    flex: 1;
+    background: var(--clr-bg-raised, #1c1c24);
+    border: 1px solid var(--clr-border, #2e2e3a);
+    border-radius: var(--radius, 10px);
+    color: var(--clr-text, #e8e8f0);
+    font-size: 0.875rem;
+    padding: 8px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.mr-search:focus {
+    border-color: var(--clr-accent, #7c6ff7);
+}
+
+.mr-sort {
+    background: var(--clr-bg-raised, #1c1c24);
+    border: 1px solid var(--clr-border, #2e2e3a);
+    border-radius: var(--radius, 10px);
+    color: var(--clr-text, #e8e8f0);
+    font-size: 0.875rem;
+    padding: 8px 14px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.mr-sort:focus {
+    border-color: var(--clr-accent, #7c6ff7);
+}
+
+/* ── Grid ─────────────────────────────────────────────────────────────────── */
+.mr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 0 40px 48px;
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+.mr-card {
+    display: block;
+    border: 1px solid var(--clr-border, #2e2e3a);
+    border-radius: var(--radius, 10px);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    background: var(--clr-bg-raised, #1c1c24);
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.mr-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--rev-accent, #c8a84b);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.mr-card-img-wrap {
+    aspect-ratio: 460 / 215;
+    position: relative;
+    overflow: hidden;
+    background: var(--clr-bg, #14141c);
+}
+
+.mr-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.mr-card-img--unrated {
+    filter: saturate(0.4);
+}
+
+.mr-card-stars {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(10, 10, 16, 0.75);
+    border-radius: 6px;
+    padding: 3px 7px;
+}
+
+.mr-card-star {
+    font-size: 12px;
+    color: var(--rev-accent, #c8a84b);
+    line-height: 1;
+}
+
+.mr-card-star--legendary {
+    color: #f0c040;
+}
+
+.mr-card-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mr-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--clr-text, #e8e8f0);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.35;
+}
+
+.mr-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.mr-card-tag {
+    display: inline-flex;
+    padding: 2px 8px;
+    border: 1px solid var(--clr-border, #2e2e3a);
+    border-radius: 999px;
+    color: var(--clr-text-muted, #888899);
+    font-size: 0.65rem;
+    line-height: 1.4;
+}
+
+.mr-card-excerpt {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted, #888899);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.mr-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--clr-text-muted, #888899);
+}
+
+.mr-empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--clr-text, #e8e8f0);
+}
+
+.mr-empty-sub {
+    font-size: 0.875rem;
+}

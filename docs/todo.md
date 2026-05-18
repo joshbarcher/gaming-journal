@@ -13,4 +13,3 @@ x Play stats are not being persisted. Should we even bother with the full pull, 
 - The animation for favorite games moving the background screenshot seems jerky slightly, is it moving subpixel? This was picture perfect smooth before...
 
 # Prompts
-Can we change session history at the bottom of the account page so it is xh ym format, rather than bare minutes.

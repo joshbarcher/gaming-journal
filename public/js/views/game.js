@@ -1,12 +1,13 @@
 import { escapeHtml } from '../utils.js'
 import { refreshAlertsBadge } from '../sidebar.js'
+import { openReviewModal, renderLocalReviewCard } from '../review-modal.js'
 
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
@@ -14,15 +15,17 @@ export async function renderGame(appid, container) {
             fetch(`/relay/api/steam/reviews/${appid}`),
             fetch(`/relay/api/player-counts/${appid}`),
             fetch(`/api/flags/${appid}`),
+            fetch(`/api/local-reviews/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
         game             = await gameRes.json()
-        itadData         = itadRes.ok   ? await itadRes.json()   : null
-        pcgwData         = pcgwRes.ok   ? await pcgwRes.json()   : null
-        communityReviews = crRes.ok     ? await crRes.json()     : null
-        myReview         = mrRes.ok     ? await mrRes.json()     : null
-        playerCounts     = pcRes.ok     ? await pcRes.json()     : null
-        flags            = flagsRes.ok  ? await flagsRes.json()  : {}
+        itadData         = itadRes.ok      ? await itadRes.json()      : null
+        pcgwData         = pcgwRes.ok      ? await pcgwRes.json()      : null
+        communityReviews = crRes.ok        ? await crRes.json()        : null
+        myReview         = mrRes.ok        ? await mrRes.json()        : null
+        playerCounts     = pcRes.ok        ? await pcRes.json()        : null
+        flags            = flagsRes.ok     ? await flagsRes.json()     : {}
+        localReview      = localRevRes.ok  ? await localRevRes.json()  : null
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -34,6 +37,7 @@ export async function renderGame(appid, container) {
             ${_flagsBar(flags)}
         </div>
         <div class="game-body">
+            ${_localReviewSection(localReview, appid)}
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
             ${_screenshots(game)}
@@ -45,6 +49,7 @@ export async function renderGame(appid, container) {
 
     _initPlayerChart(playerCounts, container)
     _initFlagsBar(container)
+    _initLocalReviewSection(container, appid, game?.name ?? 'Game')
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
@@ -956,6 +961,152 @@ function _initFlagsBar(container) {
             // Revert on failure
             btn.classList.toggle('game-flag--active', active)
         }
+    })
+}
+
+// ── Local Review Section ──────────────────────────────────────────────────────
+
+const _SLIDER_LABELS = {
+    story: 'Story', soundMusic: 'Sound & Music', gameplay: 'Gameplay',
+    graphics: 'Graphics', replayability: 'Replayability',
+    performance: 'Performance', agendaFree: 'Agenda-Free',
+}
+
+function _fmtNoteDate(iso) {
+    try {
+        return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    } catch {
+        return ''
+    }
+}
+
+function _notesGridHtml(review, appid) {
+    const notes = review?.notes ?? []
+    if (!notes.length) return ''
+    return notes.map(n => `
+        <div class="rev-note-card">
+            <div class="rev-note-text">${escapeHtml(n.text)}</div>
+            <div class="rev-note-date">${_fmtNoteDate(n.createdAt)}</div>
+            <button class="rev-note-del" data-note-id="${escapeHtml(n.id)}" aria-label="Delete note">×</button>
+        </div>`).join('')
+}
+
+function _localReviewSection(review, appid) {
+    const cardHtml = review ? renderLocalReviewCard(review, appid) : `
+        <button class="rev-no-review" data-appid="${appid}">
+            ✦ Write a Review for this game
+        </button>`
+
+    const notesGridHtml = _notesGridHtml(review, appid)
+
+    const writeBtn = review ? '' : ''
+
+    return `
+        <section class="game-section rev-local-section">
+            <h2 class="game-section-title">My Journal</h2>
+            ${cardHtml}
+            <div class="rev-notes-section">
+                <div class="rev-notes-grid" id="rev-notes-grid-${appid}">
+                    ${notesGridHtml}
+                </div>
+                <div class="rev-add-note">
+                    <input class="rev-add-note-input" placeholder="Quick note…" maxlength="200">
+                    <button class="rev-add-note-btn">Add</button>
+                </div>
+            </div>
+            ${review ? '' : '<button class="rev-write-btn" data-appid="' + appid + '">✦ Write a Review</button>'}
+        </section>`
+}
+
+function _initLocalReviewSection(container, appid, gameName) {
+    const section = container.querySelector('.rev-local-section')
+    if (!section) return
+
+    async function _refresh() {
+        const res = await fetch(`/api/local-reviews/${appid}`)
+        const review = res.ok ? await res.json() : null
+        const newSection = document.createElement('div')
+        newSection.innerHTML = _localReviewSection(review, appid)
+        const newEl = newSection.querySelector('.rev-local-section')
+        if (newEl) {
+            section.replaceWith(newEl)
+            _initLocalReviewSection(container, appid, gameName)
+        }
+    }
+
+    // "Write a Review" / "Edit Review" button
+    const writeBtn = section.querySelector('.rev-write-btn, .rev-no-review')
+    if (writeBtn) {
+        writeBtn.addEventListener('click', async () => {
+            const res = await fetch(`/api/local-reviews/${appid}`)
+            const existing = res.ok ? await res.json() : null
+            const saved = await openReviewModal(appid, gameName, existing)
+            if (saved) await _refresh()
+        })
+    }
+
+    const editBtn = section.querySelector('.rev-edit-btn')
+    if (editBtn) {
+        editBtn.addEventListener('click', async () => {
+            const res = await fetch(`/api/local-reviews/${appid}`)
+            const existing = res.ok ? await res.json() : null
+            const saved = await openReviewModal(appid, gameName, existing)
+            if (saved) await _refresh()
+        })
+    }
+
+    // Show more toggle
+    const reviewText = section.querySelector('.rev-review-text')
+    const showMoreBtn = section.querySelector('.rev-show-more')
+    if (reviewText && showMoreBtn) {
+        showMoreBtn.addEventListener('click', () => {
+            const expanded = reviewText.classList.toggle('rev-review-text--expanded')
+            showMoreBtn.textContent = expanded ? 'Show less' : 'Show more'
+        })
+    }
+
+    // Add note
+    const addNoteInput = section.querySelector('.rev-add-note-input')
+    const addNoteBtn = section.querySelector('.rev-add-note-btn')
+    if (addNoteInput && addNoteBtn) {
+        async function _doAddNote() {
+            const text = addNoteInput.value.trim()
+            if (!text) return
+            addNoteBtn.disabled = true
+            try {
+                const res = await fetch(`/api/local-reviews/${appid}/notes`, {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ text }),
+                })
+                if (res.ok) {
+                    addNoteInput.value = ''
+                    await _refresh()
+                }
+            } catch { /* silent */ } finally {
+                addNoteBtn.disabled = false
+            }
+        }
+
+        addNoteBtn.addEventListener('click', _doAddNote)
+        addNoteInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); _doAddNote() }
+        })
+    }
+
+    // Delete note buttons
+    section.querySelectorAll('.rev-note-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const noteId = btn.dataset.noteId
+            if (!noteId) return
+            btn.disabled = true
+            try {
+                const res = await fetch(`/api/local-reviews/${appid}/notes/${noteId}`, { method: 'DELETE' })
+                if (res.ok) await _refresh()
+            } catch { /* silent */ } finally {
+                btn.disabled = false
+            }
+        })
     })
 }
 

@@ -9,6 +9,7 @@ const _SVG = (paths) =>
 const _ICONS = {
     vault:     _SVG(`<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><rect x="9" y="12" width="6" height="9"/>`),
     abandoned:  _SVG(`<path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M13 3h6"/><path d="M3 9v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-5"/><path d="m9 3 2 2-2 2"/>`),
+    myReviews: _SVG(`<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>`),
     hallOfFame: _SVG(`<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>`),
     favorites:   _SVG(`<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`),
     franchises:  _SVG(`<rect x="2" y="7" width="6" height="13" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="16" y="2" width="6" height="18" rx="1"/>`),
@@ -66,7 +67,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-onhold-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-onhold-btn, .sidebar-myreviews-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -247,6 +248,7 @@ function renderSidebar(activeId) {
     collectionSep.textContent = 'Collection'
     nav.appendChild(collectionSep)
     nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
+    nav.appendChild(buildMyReviewsButton(activeId === 'my-reviews'))
     nav.appendChild(buildOnHoldButton(activeId === 'on-hold'))
     nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
     nav.appendChild(buildVaultButton(activeId === 'vault'))
@@ -410,6 +412,20 @@ function buildFavoritesButton(isActive) {
     el.addEventListener('click', () => _onNavigate('favorites'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('favorites') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildMyReviewsButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-myreviews-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'my-reviews'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.myReviews} My Reviews`
+    el.addEventListener('click', () => _onNavigate('my-reviews'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('my-reviews') }
         _arrowNav(e)
     })
     return el
@@ -631,7 +647,7 @@ function _arrowNav(e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const nav = document.getElementById('sidebar-nav')
-    const focusable = [...nav.querySelectorAll('.sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn')]
+    const focusable = [...nav.querySelectorAll('.sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-myreviews-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn')]
     const idx = focusable.indexOf(document.activeElement)
     if (idx === -1) return
     if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()
