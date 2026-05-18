@@ -77,7 +77,8 @@
 .sidebar-favorites-btn,
 .sidebar-vault-btn,
 .sidebar-abandoned-btn,
-.sidebar-hof-btn {
+.sidebar-hof-btn,
+.sidebar-onhold-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -105,7 +106,8 @@
 .sidebar-favorites-btn:hover,
 .sidebar-vault-btn:hover,
 .sidebar-abandoned-btn:hover,
-.sidebar-hof-btn:hover {
+.sidebar-hof-btn:hover,
+.sidebar-onhold-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
@@ -121,7 +123,8 @@
 .sidebar-favorites-btn.active,
 .sidebar-vault-btn.active,
 .sidebar-abandoned-btn.active,
-.sidebar-hof-btn.active {
+.sidebar-hof-btn.active,
+.sidebar-onhold-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
@@ -139,7 +142,8 @@
 .sidebar-favorites-btn:focus-visible,
 .sidebar-vault-btn:focus-visible,
 .sidebar-abandoned-btn:focus-visible,
-.sidebar-hof-btn:focus-visible {
+.sidebar-hof-btn:focus-visible,
+.sidebar-onhold-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }
@@ -369,6 +373,23 @@
     border-radius: 10px;
     background: #3a9c3a;
     color: #fff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.sidebar-collection-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--clr-text-muted);
     font-size: 0.65rem;
     font-weight: 800;
     display: flex;

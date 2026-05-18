@@ -111,7 +111,7 @@ async function _startHeroSlideshow(container, appid) {
 
     const frames   = [headerUrl, ...screenshots]
     const INTERVAL = 6000
-    const PAN_DUR  = 20000  // slow drift — each image only covers a fraction of range per display
+    const PAN_DUR  = 10000
 
     const randDir = () => Math.random() < 0.5 ? 'top' : 'bottom'
 

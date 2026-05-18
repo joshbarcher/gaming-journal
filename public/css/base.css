@@ -44,9 +44,6 @@ a {
     text-decoration: none;
 }
 
-a:hover {
-    text-decoration: underline;
-}
 
 button {
     font-family: inherit;

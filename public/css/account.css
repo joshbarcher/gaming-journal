@@ -162,7 +162,7 @@
 
 .acct-mp-row {
     display: grid;
-    grid-template-columns: 24px 1fr auto auto;
+    grid-template-columns: 24px 68px 1fr auto auto;
     align-items: center;
     gap: 12px;
     padding: 8px 12px;
@@ -176,6 +176,7 @@
 .acct-mp-row:hover {
     background: var(--clr-bg-hover);
     border-color: var(--clr-border-hi);
+    text-decoration: none;
 }
 
 .acct-mp-rank {
@@ -183,6 +184,14 @@
     color: var(--clr-text-muted);
     font-weight: 700;
     text-align: right;
+}
+
+.acct-mp-img {
+    width: 68px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 3px;
+    display: block;
 }
 
 .acct-mp-name {

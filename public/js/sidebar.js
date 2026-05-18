@@ -44,6 +44,7 @@ export async function loadSidebar(activeId, onNavigate) {
     renderSidebar(activeId)
     _startNowPlayingPoller()
     _startAlertsPoller()
+    _fetchCollectionCounts()
 }
 
 export function addPageToSidebar(page) {
@@ -176,6 +177,45 @@ function _updateAlertsBadge(count) {
     if (!badge) return
     badge.textContent = count
     badge.style.display = count > 0 ? '' : 'none'
+}
+
+// ── Collection counts ─────────────────────────────────────────────────────────
+
+async function _fetchCollectionCounts() {
+    try {
+        const res = await fetch('/api/flags')
+        if (!res.ok) return
+        const flags = await res.json()
+        const counts = { favorites: 0, onHold: 0, backlog: 0, dropped: 0, completed: 0 }
+        for (const f of Object.values(flags)) {
+            if (f.favorite)  counts.favorites++
+            if (f.onHold)    counts.onHold++
+            if (f.backlog)   counts.backlog++
+            if (f.dropped)   counts.dropped++
+            if (f.completed) counts.completed++
+        }
+        _updateCollectionBadges(counts)
+    } catch { /* silent — non-critical */ }
+}
+
+function _updateCollectionBadges(counts) {
+    const updates = [
+        ['.sidebar-favorites-btn', counts.favorites],
+        ['.sidebar-onhold-btn',    counts.onHold],
+        ['.sidebar-vault-btn',     counts.backlog],
+        ['.sidebar-abandoned-btn', counts.dropped],
+        ['.sidebar-hof-btn',       counts.completed],
+    ]
+    for (const [sel, count] of updates) {
+        const badge = document.querySelector(`${sel} .sidebar-collection-badge`)
+        if (!badge) continue
+        badge.textContent = count
+        badge.style.display = count > 0 ? '' : 'none'
+    }
+}
+
+export function refreshCollectionCounts() {
+    _fetchCollectionCounts()
 }
 
 // ── Sidebar render ────────────────────────────────────────────────────────────
@@ -328,7 +368,7 @@ function buildHallOfFameButton(isActive) {
     el.className = 'sidebar-hof-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'hall-of-fame'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.hallOfFame} Completed`
+    el.innerHTML = `${_ICONS.hallOfFame} Completed <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('hall-of-fame'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('hall-of-fame') }
@@ -342,7 +382,7 @@ function buildAbandonedButton(isActive) {
     el.className = 'sidebar-abandoned-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'abandoned'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.abandoned} Abandoned`
+    el.innerHTML = `${_ICONS.abandoned} Abandoned <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('abandoned'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('abandoned') }
@@ -356,7 +396,7 @@ function buildFavoritesButton(isActive) {
     el.className = 'sidebar-favorites-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'favorites'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.favorites} Favorites`
+    el.innerHTML = `${_ICONS.favorites} Favorites <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('favorites'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('favorites') }
@@ -370,7 +410,7 @@ function buildOnHoldButton(isActive) {
     el.className = 'sidebar-onhold-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'on-hold'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.onHold} In Progress`
+    el.innerHTML = `${_ICONS.onHold} In Progress <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('on-hold'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('on-hold') }
@@ -398,7 +438,7 @@ function buildVaultButton(isActive) {
     el.className = 'sidebar-vault-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'vault'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.vault} Backlog`
+    el.innerHTML = `${_ICONS.vault} Backlog <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('vault'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('vault') }

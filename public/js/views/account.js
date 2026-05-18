@@ -129,6 +129,7 @@ function _mostPlayed(mostPlayed) {
             ${mostPlayed.map((g, i) => `
             <a class="acct-mp-row" href="/game/${g.appid}">
                 <span class="acct-mp-rank">${i + 1}</span>
+                <img class="acct-mp-img" src="/relay/images/steam/games/${g.appid}/header.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
                 <span class="acct-mp-name">${escapeHtml(g.name)}</span>
                 <div class="acct-mp-bar-wrap">
                     <div class="acct-mp-bar" style="width:${Math.round((g.playtimeMin / maxMin) * 100)}%"></div>

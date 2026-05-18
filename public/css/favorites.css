@@ -93,7 +93,7 @@
     overflow: hidden;
     text-decoration: none;
     border: 1px solid var(--fav-accent-bd);
-    animation: fav-hero-pulse 4s ease-in-out infinite;
+    animation: fav-hero-pulse 2.5s ease-in-out infinite;
     transition: transform 0.2s ease;
 }
 
