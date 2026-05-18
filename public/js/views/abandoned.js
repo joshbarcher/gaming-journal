@@ -123,7 +123,7 @@ export async function renderAbandoned(container) {
             <div class="ab-header">
                 <div class="ab-header-body">
                     <p class="ab-eyebrow">Collection</p>
-                    <h1 class="ab-title">Abandoned Games</h1>
+                    <h1 class="ab-title">Abandoned</h1>
                 </div>
             </div>
             <p class="page-empty" style="padding:40px">
@@ -142,7 +142,7 @@ export async function renderAbandoned(container) {
         <div class="ab-header">
             <div class="ab-header-body">
                 <p class="ab-eyebrow">Collection</p>
-                <h1 class="ab-title">Abandoned Games</h1>
+                <h1 class="ab-title">Abandoned</h1>
                 <p class="ab-subtitle">${totalStr}</p>
             </div>
         </div>

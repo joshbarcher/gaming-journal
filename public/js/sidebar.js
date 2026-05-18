@@ -328,7 +328,7 @@ function buildHallOfFameButton(isActive) {
     el.className = 'sidebar-hof-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'hall-of-fame'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.hallOfFame} Completed Games`
+    el.innerHTML = `${_ICONS.hallOfFame} Completed`
     el.addEventListener('click', () => _onNavigate('hall-of-fame'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('hall-of-fame') }
@@ -342,7 +342,7 @@ function buildAbandonedButton(isActive) {
     el.className = 'sidebar-abandoned-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'abandoned'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.abandoned} Abandoned Games`
+    el.innerHTML = `${_ICONS.abandoned} Abandoned`
     el.addEventListener('click', () => _onNavigate('abandoned'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('abandoned') }

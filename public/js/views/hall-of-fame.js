@@ -116,7 +116,7 @@ function _section(tier, games) {
 // ── Main render ───────────────────────────────────────────────────────────────
 
 export async function renderHallOfFame(container) {
-    container.innerHTML = `<p class="page-loading">Loading Completed Games…</p>`
+    container.innerHTML = `<p class="page-loading">Loading Completed…</p>`
 
     let games
     try {
@@ -131,7 +131,7 @@ export async function renderHallOfFame(container) {
             <div class="hof-header">
                 <div class="hof-header-body">
                     <p class="hof-eyebrow">Collection</p>
-                    <h1 class="hof-title">Completed Games</h1>
+                    <h1 class="hof-title">Completed</h1>
                 </div>
             </div>
             <p class="page-empty" style="padding:40px">
@@ -152,7 +152,7 @@ export async function renderHallOfFame(container) {
         <div class="hof-header">
             <div class="hof-header-body">
                 <p class="hof-eyebrow">Collection</p>
-                <h1 class="hof-title">Completed Games</h1>
+                <h1 class="hof-title">Completed</h1>
                 <p class="hof-subtitle">${totalStr}</p>
             </div>
         </div>
