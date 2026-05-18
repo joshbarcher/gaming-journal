@@ -30,10 +30,18 @@ export async function getAlerts() {
                 fetchJson(`${base}/api/games/${appid}`),
                 fetchJson(`${base}/api/itad/${appid}`),
             ])
+
+            // The raw ITAD entry stores deals[], not a pre-computed bestPrice.
+            // Build bestPrice from the first (cheapest) deal in the sorted array.
+            const bestDeal = itad?.deals?.[0] ?? null
+            const bestPrice = bestDeal
+                ? { price: bestDeal.price, cut: bestDeal.cut, store: bestDeal.store, url: bestDeal.url ?? null }
+                : null
+
             return {
                 appid,
-                name:          game?.name          ?? `App ${appid}`,
-                bestPrice:     itad?.bestPrice      ?? null,
+                name:          game?.name           ?? `App ${appid}`,
+                bestPrice,
                 historicalLow: itad?.historicalLow  ?? null,
             }
         })

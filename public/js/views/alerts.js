@@ -56,6 +56,7 @@ function _saleCard(game) {
     const cut   = game.bestPrice?.cut   ?? 0
     const price = game.bestPrice?.price ?? null
     const store = game.bestPrice?.store ?? ''
+    const url   = game.bestPrice?.url   ?? `/game/${game.appid}`
     const hl    = game.historicalLow
 
     const hlHtml = hl
@@ -63,7 +64,7 @@ function _saleCard(game) {
         : ''
 
     return `
-        <a class="alerts-card" href="/game/${game.appid}">
+        <a class="alerts-card" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
             <div class="alerts-card-img-wrap">
                 <img class="alerts-card-img"
                      src="/relay/images/steam/games/${game.appid}/header.jpg"
@@ -85,9 +86,10 @@ function _saleCard(game) {
 function _watchRow(game) {
     const price = game.bestPrice?.price ?? null
     const store = game.bestPrice?.store ?? ''
+    const url   = game.bestPrice?.url   ?? `/game/${game.appid}`
 
     return `
-        <a class="alerts-watch-row" href="/game/${game.appid}">
+        <a class="alerts-watch-row" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
             <img class="alerts-watch-img"
                  src="/relay/images/steam/games/${game.appid}/header.jpg"
                  alt=""

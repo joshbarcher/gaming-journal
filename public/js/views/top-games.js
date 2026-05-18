@@ -29,19 +29,36 @@ function _fmt(n) {
     return n.toLocaleString()
 }
 
-function _sparkline(samples) {
-    if (!samples?.length) return '<svg class="tg-spark" viewBox="0 0 80 24"></svg>'
-    const vals  = samples.map(s => s[1])
+function _sparkline(samples, peakAllTime = null) {
+    if (!samples?.length) return '<svg class="tg-spark" aria-hidden="true"></svg>'
+
+    // The relay stores both the current count and the all-time peak as separate
+    // samples each collection cycle — filter the peak out so it doesn't corrupt the line.
+    const filtered = peakAllTime != null
+        ? samples.filter(s => s[1] !== peakAllTime)
+        : samples
+
+    // Downsample to at most 30 evenly-spaced points
+    const raw  = filtered.map(s => s[1])
+    const MAX  = 30
+    const vals = raw.length <= MAX ? raw : Array.from(
+        { length: MAX },
+        (_, i) => raw[Math.round(i * (raw.length - 1) / (MAX - 1))]
+    )
+
     const min   = Math.min(...vals)
     const max   = Math.max(...vals)
-    const range = max - min || 1
-    const W = 80, H = 24, PAD = 1
-    const pts = vals.map((v, i) => {
-        const x = PAD + (i / Math.max(vals.length - 1, 1)) * (W - PAD * 2)
-        const y = PAD + (1 - (v - min) / range) * (H - PAD * 2)
-        return `${x.toFixed(1)},${y.toFixed(1)}`
-    }).join(' ')
-    return `<svg class="tg-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`
+    const range = max - min
+    const n     = vals.length
+
+    // Y axis: 0 = top (max value), 100 = bottom (min value). Flat data → centre at 50.
+    const toY = v => range === 0 ? 50 : +(100 - ((v - min) / range * 100)).toFixed(2)
+
+    const d = vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${i} ${toY(v)}`).join(' ')
+
+    return `<svg class="tg-spark" viewBox="0 0 ${Math.max(n - 1, 1)} 100" preserveAspectRatio="none" aria-hidden="true">
+        <path fill="none" style="stroke:var(--clr-accent);opacity:0.8" stroke-width="2" vector-effect="non-scaling-stroke" d="${d}"/>
+    </svg>`
 }
 
 // ── Row ───────────────────────────────────────────────────────────────────────
@@ -66,7 +83,7 @@ function _row(entry, rank) {
                 <span class="tg-stat tg-stat--muted">${_fmt(entry.peak24h)}</span>
                 <span class="tg-stat tg-stat--muted">${_fmt(entry.peak7d)}</span>
                 <span class="tg-stat tg-stat--muted">${_fmt(entry.peakAllTime)}</span>
-                <span class="tg-spark-cell">${_sparkline(entry.samples24h)}</span>
+                <span class="tg-spark-cell">${_sparkline(entry.samples24h, entry.peakAllTime)}</span>
             </a>
             <button class="tg-mute-btn" data-appid="${entry.appid}" title="${entry.filtered ? 'Restore' : 'Hide'} ${name}">
                 ${entry.filtered ? _ICO_UNMUTE : _ICO_MUTE}
