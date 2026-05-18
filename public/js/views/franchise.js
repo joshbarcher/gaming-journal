@@ -92,7 +92,10 @@ function _renderTimeline(entries, flagsRes, ownedMap, wishlistMap) {
     if (entries.length === 0) return ''
 
     let completedCount = 0
-    const cellsHtml = entries.map(entry => {
+    const imagesHtml = []
+    const segsHtml   = []
+
+    for (const entry of entries) {
         const { appid, name } = entry
         const flags    = flagsRes[appid]
         const owned    = ownedMap.get(appid)
@@ -102,25 +105,23 @@ function _renderTimeline(entries, flagsRes, ownedMap, wishlistMap) {
         const fill     = _TIMELINE_FILL[status] ?? _TIMELINE_FILL.unplayed
         if (status === 'completed') completedCount++
 
-        const statusLabel = _STATUS_LABELS[status] ?? 'Unplayed'
-        return `
-            <div class="frc-tl-cell frc-tl-cell--${status}" title="${escapeHtml(name)} · ${statusLabel}">
-                <img class="frc-tl-img"
-                     src="${_capsuleUrl(appid)}"
-                     alt=""
-                     loading="lazy"
-                     onerror="this.style.opacity='0'">
-                <div class="frc-tl-track">
-                    <div class="frc-tl-fill frc-tl-fill--${fill.cls}" style="width:${fill.pct}%"></div>
-                </div>
-            </div>`
-    }).join('')
+        const label = `${escapeHtml(name)} · ${_STATUS_LABELS[status] ?? 'Unplayed'}`
+        imagesHtml.push(`
+            <a class="frc-tl-img-wrap frc-tl-cell--${status}" href="/game/${appid}" title="${label}">
+                <img class="frc-tl-img" src="${_capsuleUrl(appid)}" alt="" loading="lazy" onerror="this.style.opacity='0'">
+            </a>`)
+        segsHtml.push(`
+            <div class="frc-tl-seg" title="${label}">
+                <div class="frc-tl-fill frc-tl-fill--${fill.cls}" style="width:${fill.pct}%"></div>
+            </div>`)
+    }
 
     const pct = Math.round(completedCount / entries.length * 100)
 
     return `
         <div class="frc-timeline">
-            <div class="frc-tl-cells">${cellsHtml}</div>
+            <div class="frc-tl-images">${imagesHtml.join('')}</div>
+            <div class="frc-tl-bar">${segsHtml.join('')}</div>
             <div class="frc-tl-footer">
                 <span class="frc-tl-pct">${pct}% · ${completedCount}/${entries.length} completed</span>
             </div>
