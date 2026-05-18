@@ -1,3 +1,11 @@
+// Converts any date value to a local-timezone 'YYYY-MM-DD' string.
+// Never slice a UTC ISO string directly — that gives the wrong date for
+// sessions that start near midnight in non-UTC timezones.
+export function localDateStr(d) {
+    const date = (typeof d === 'string' || typeof d === 'number') ? new Date(d) : d
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 export function escapeHtml(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')

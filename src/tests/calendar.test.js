@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { _buildDayMap, _localDateStr, _splitAtMidnight } from '../../public/js/views/calendar.js';
+import { localDateStr as _localDateStr } from '../../public/js/utils.js';
+import { _buildDayMap, _splitAtMidnight } from '../../public/js/views/calendar.js';
 
 // ── _localDateStr ─────────────────────────────────────────────────────────────
 

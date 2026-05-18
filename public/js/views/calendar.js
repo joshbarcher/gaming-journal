@@ -1,4 +1,4 @@
-import { escapeHtml } from '../utils.js'
+import { escapeHtml, localDateStr as _localDateStr } from '../utils.js'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 const DOW    = ['Su','Mo','Tu','We','Th','Fr','Sa']
@@ -71,14 +71,6 @@ export async function renderReleases(container) {
 
     _year = new Date().getFullYear()
     _draw()
-}
-
-// ── Timezone-safe local date string ──────────────────────────────────────────
-// Always use local time — never slice an ISO UTC string.
-
-export function _localDateStr(d) {
-    const date = (typeof d === 'string' || typeof d === 'number') ? new Date(d) : d
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 // ── Live session poller ───────────────────────────────────────────────────────

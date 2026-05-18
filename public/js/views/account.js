@@ -1,4 +1,4 @@
-import { escapeHtml } from '../utils.js'
+import { escapeHtml, localDateStr } from '../utils.js'
 import { loadGameFilter } from './game-filter.js'
 
 export async function renderAccount(container) {
@@ -161,7 +161,7 @@ function _sessionHistory(sessions, shouldShow) {
     // Group by date
     const byDay = new Map()
     for (const s of flat) {
-        const day = s.startedAt.slice(0, 10)
+        const day = localDateStr(s.startedAt)
         if (!byDay.has(day)) byDay.set(day, [])
         byDay.get(day).push(s)
     }

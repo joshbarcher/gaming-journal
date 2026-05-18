@@ -8,4 +8,4 @@ x Show user reviews
 
 # Bugs
 
-- Play stats are not being persisted. Should we even bother with the full pull, or just using polling for more accurate results.
+x Play stats are not being persisted. Should we even bother with the full pull, or just using polling for more accurate results.
