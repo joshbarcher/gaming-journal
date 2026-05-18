@@ -102,7 +102,8 @@
 
 .tg-mute-btn {
     position: absolute;
-    right: 8px;
+    /* right edge of name column: padding(12) + spark(88) + 4×stat(90) + 5×gap(12) + margin(6) */
+    right: calc(12px + 88px + 4 * 90px + 5 * 12px + 6px);
     top: 50%;
     transform: translateY(-50%);
     display: flex;
@@ -149,7 +150,6 @@
     align-items: center;
     gap: 0 12px;
     padding: 0 12px;
-    padding-right: 40px; /* space for mute button */
 }
 
 .tg-rank {
