@@ -173,7 +173,7 @@ function _sessionHistory(sessions, shouldShow) {
             ${ss.map(s => `
             <div class="acct-session-row">
                 <span class="acct-session-name">${escapeHtml(s.name)}</span>
-                <span class="acct-session-dur">${s.durationMin} min</span>
+                <span class="acct-session-dur">${_fmtHrs(s.durationMin)}</span>
             </div>`).join('')}
         </div>`).join('')
 

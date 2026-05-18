@@ -32,14 +32,8 @@ function _fmt(n) {
 function _sparkline(samples, peakAllTime = null) {
     if (!samples?.length) return '<svg class="tg-spark" aria-hidden="true"></svg>'
 
-    // The relay stores both the current count and the all-time peak as separate
-    // samples each collection cycle — filter the peak out so it doesn't corrupt the line.
-    const filtered = peakAllTime != null
-        ? samples.filter(s => s[1] !== peakAllTime)
-        : samples
-
     // Downsample to at most 30 evenly-spaced points
-    const raw  = filtered.map(s => s[1])
+    const raw  = samples.map(s => s[1])
     const MAX  = 30
     const vals = raw.length <= MAX ? raw : Array.from(
         { length: MAX },
