@@ -208,7 +208,11 @@ export async function renderFranchises(container, navigate) {
     const header = document.createElement('div')
     header.className = 'frc-list-header'
     header.innerHTML = `
-        <h1 class="frc-list-title">Franchises</h1>
+        <div class="frc-list-header-body">
+            <p class="frc-list-eyebrow">Collection</p>
+            <h1 class="frc-list-title">Franchises</h1>
+            <p class="frc-list-subtitle">${franchises.length} franchise${franchises.length !== 1 ? 's' : ''}</p>
+        </div>
         <button class="frc-new-btn" id="frc-new-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Franchise

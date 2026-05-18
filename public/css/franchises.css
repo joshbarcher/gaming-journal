@@ -9,23 +9,78 @@
 /* ── Franchises list page ─────────────────────────────────────────────────────── */
 .frc-list-header {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
-    margin-bottom: 28px;
-    gap: 16px;
-    flex-wrap: wrap;
+    gap: 24px;
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(
+        ellipse 55% 140% at 15% 60%,
+        rgba(201, 145, 61, 0.11) 0%,
+        transparent 70%
+    );
+}
+
+.frc-list-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--frc-accent-glow) 1px, transparent 1px),
+        linear-gradient(90deg, var(--frc-accent-glow) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.08;
+    pointer-events: none;
+}
+
+.frc-list-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        var(--clr-bg) 0%,
+        transparent 60%,
+        var(--clr-bg) 100%
+    );
+    pointer-events: none;
+}
+
+.frc-list-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.frc-list-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--frc-accent);
+    margin: 0 0 6px;
 }
 
 .frc-list-title {
-    font-family: var(--font-display);
-    font-size: 28px;
+    font-family: var(--font-title);
+    font-size: 2.4rem;
     font-weight: 700;
-    color: var(--frc-accent-text);
-    letter-spacing: 0.04em;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.frc-list-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
     margin: 0;
 }
 
 .frc-new-btn {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -203,6 +258,10 @@
     min-height: 320px;
     overflow: hidden;
     background-color: var(--clr-bg-raised);
+}
+
+@media (max-width: 960px) {
+    .frc-list-header { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
 }
 
 @media (max-width: 700px) {

@@ -171,6 +171,29 @@
     letter-spacing: 0.06em;
 }
 
+.cal-entry-tag--live {
+    color: #7edb8a;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+/* Pulsing dot for live sessions */
+.cal-live-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #7edb8a;
+    flex-shrink: 0;
+    animation: cal-live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes cal-live-pulse {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
 /* ── Overflow badge ──────────────────────────────────────────────────────── */
 
 .cal-overflow {

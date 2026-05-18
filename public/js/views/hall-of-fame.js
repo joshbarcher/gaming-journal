@@ -57,23 +57,26 @@ function _totalHours(games) {
     return games.reduce((sum, g) => sum + (g.playtime ?? 0), 0)
 }
 
-// ── Trophy tier based on playtime ─────────────────────────────────────────────
+// ── Tier definitions ──────────────────────────────────────────────────────────
+
+const TIERS = [
+    { key: 'legend',    minH: 100, symbol: '◆', label: 'Legend',    sublabel: '100h+', cls: 'hof-tier--legend',    featured: true  },
+    { key: 'veteran',   minH: 50,  symbol: '▲', label: 'Veteran',   sublabel: '50h+',  cls: 'hof-tier--veteran',   featured: false },
+    { key: 'completed', minH: 20,  symbol: '●', label: 'Completed', sublabel: '20h+',  cls: 'hof-tier--completed', featured: false },
+    { key: 'finished',  minH: 0,   symbol: '○', label: 'Finished',  sublabel: '<20h',  cls: 'hof-tier--finished',  featured: false },
+]
 
 function _tier(playtimeMin) {
     const h = playtimeMin / 60
-    if (h >= 100) return { symbol: '◆', label: 'Legend',    cls: 'hof-tier--legend' }
-    if (h >= 50)  return { symbol: '▲', label: 'Veteran',   cls: 'hof-tier--veteran' }
-    if (h >= 20)  return { symbol: '●', label: 'Completed', cls: 'hof-tier--completed' }
-    return               { symbol: '○', label: 'Finished',  cls: 'hof-tier--finished' }
+    return TIERS.find(t => h >= t.minH) ?? TIERS[TIERS.length - 1]
 }
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-function _card(game, rank) {
-    const img     = `/relay/images/steam/games/${game.appid}/header.jpg`
-    const hours   = _fmtHours(game.playtime)
-    const tier    = _tier(game.playtime)
-    const featured = rank <= 3
+function _card(game, featured = false) {
+    const img  = `/relay/images/steam/games/${game.appid}/header.jpg`
+    const hours = _fmtHours(game.playtime)
+    const tier  = _tier(game.playtime)
 
     return `
         <a class="hof-card${featured ? ' hof-card--featured' : ''}" href="/game/${game.appid}" data-appid="${game.appid}">
@@ -89,6 +92,25 @@ function _card(game, rank) {
                 <span class="hof-card-label ${tier.cls}">${tier.label}</span>
             </div>
         </a>`
+}
+
+// ── Section ───────────────────────────────────────────────────────────────────
+
+function _section(tier, games) {
+    if (!games.length) return ''
+    const grid = tier.featured
+        ? `<div class="hof-featured-grid">${games.map(g => _card(g, true)).join('')}</div>`
+        : `<div class="hof-grid">${games.map(g => _card(g, false)).join('')}</div>`
+
+    return `
+        <div class="hof-section">
+            <div class="hof-section-heading">
+                <span class="hof-section-symbol ${tier.cls}">${tier.symbol}</span>
+                <span class="hof-section-name ${tier.cls}">${tier.label}</span>
+                <span class="hof-section-meta">${tier.sublabel} · ${games.length} game${games.length !== 1 ? 's' : ''}</span>
+            </div>
+            ${grid}
+        </div>`
 }
 
 // ── Main render ───────────────────────────────────────────────────────────────
@@ -122,9 +144,9 @@ export async function renderHallOfFame(container) {
     const totalMin = _totalHours(games)
     const totalStr = `${games.length} game${games.length !== 1 ? 's' : ''} conquered · ${_fmtHours(totalMin)} total`
 
-    // Split featured (top 3) from the rest
-    const featured = games.slice(0, 3)
-    const rest     = games.slice(3)
+    // Group by tier, preserving playtime-desc sort within each group
+    const grouped = new Map(TIERS.map(t => [t.key, []]))
+    for (const g of games) grouped.get(_tier(g.playtime).key).push(g)
 
     container.innerHTML = `
         <div class="hof-header">
@@ -134,14 +156,5 @@ export async function renderHallOfFame(container) {
                 <p class="hof-subtitle">${totalStr}</p>
             </div>
         </div>
-
-        ${featured.length ? `
-        <div class="hof-featured-grid">
-            ${featured.map((g, i) => _card(g, i + 1)).join('')}
-        </div>` : ''}
-
-        ${rest.length ? `
-        <div class="hof-grid">
-            ${rest.map((g, i) => _card(g, i + 4)).join('')}
-        </div>` : ''}`
+        ${TIERS.map(t => _section(t, grouped.get(t.key))).join('')}`
 }

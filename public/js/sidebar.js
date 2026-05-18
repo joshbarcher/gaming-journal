@@ -30,6 +30,7 @@ let _onNavigate = null
 let _activeId = null
 let _nowPlayingTimer   = null
 let _nowPlayingAppid   = null
+let _nowPlayingStart   = null   // ISO string — when current session was first detected
 let _alertsTimer       = null
 
 export function getPages() {
@@ -91,6 +92,16 @@ async function _fetchNowPlaying() {
     } catch { /* silent — non-critical */ }
 }
 
+function _fmtElapsed(startIso) {
+    if (!startIso) return ''
+    const min = Math.max(1, Math.floor((Date.now() - new Date(startIso).getTime()) / 60_000))
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+}
+
 function _renderNowPlaying(playing) {
     const nav = document.getElementById('sidebar-nav')
     if (!nav) return
@@ -98,11 +109,19 @@ function _renderNowPlaying(playing) {
 
     if (!playing) {
         if (existing) existing.remove()
-        _nowPlayingAppid = null
+        _nowPlayingAppid  = null
+        _nowPlayingStart  = null
         return
     }
 
-    if (_nowPlayingAppid === playing.appid) return  // no change
+    _nowPlayingStart = playing.sessionStartedAt ?? null
+
+    // Same game still playing — just tick the elapsed time in place (no re-render flicker)
+    if (_nowPlayingAppid === playing.appid && existing) {
+        const timeEl = existing.querySelector('.now-playing-time')
+        if (timeEl) timeEl.textContent = _fmtElapsed(_nowPlayingStart)
+        return
+    }
 
     _nowPlayingAppid = playing.appid
     if (existing) existing.remove()
@@ -116,6 +135,7 @@ function _renderNowPlaying(playing) {
             <div class="now-playing-body">
                 <span class="now-playing-eyebrow">Now Playing</span>
                 <span class="now-playing-title">${escapeHtml(playing.name)}</span>
+                ${_nowPlayingStart ? `<span class="now-playing-time">${_fmtElapsed(_nowPlayingStart)}</span>` : ''}
             </div>
         </a>
         <div class="now-playing-orbit">

@@ -9,15 +9,16 @@
 /* ── Header ──────────────────────────────────────────────────────────────── */
 
 .onhold-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
     padding: 40px 40px 32px;
     border-bottom: 1px solid var(--clr-border);
     margin-bottom: 32px;
     position: relative;
     overflow: hidden;
+    background: radial-gradient(
+        ellipse 55% 140% at 15% 60%,
+        rgba(224, 160, 82, 0.11) 0%,
+        transparent 70%
+    );
 }
 
 .onhold-header::before {
@@ -250,6 +251,6 @@
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 960px) {
-    .onhold-header { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
+    .onhold-header { padding: 24px 20px 20px; }
     .onhold-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }

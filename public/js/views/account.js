@@ -27,7 +27,7 @@ export async function renderAccount(container) {
         ${_statsStrip(stats)}
         ${_recentSection(recentlyPlayed)}
         ${_mostPlayed(mostPlayed)}
-        ${_sessionHistory(sessions)}
+        ${_sessionHistory(sessions, shouldShow)}
     `
 }
 
@@ -141,8 +141,8 @@ function _mostPlayed(mostPlayed) {
 
 // ── Session history ───────────────────────────────────────────────────────────
 
-function _sessionHistory(sessions) {
-    const entries = Object.entries(sessions)
+function _sessionHistory(sessions, shouldShow) {
+    const entries = Object.entries(sessions).filter(([appid]) => shouldShow(Number(appid)))
     if (!entries.length) return `
     <section class="acct-section">
         <h2 class="acct-section-title">Session History</h2>

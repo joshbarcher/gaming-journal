@@ -1110,12 +1110,16 @@
 /* Review list */
 .rev-list {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 240px);
+    grid-auto-flow: column;
+    grid-auto-columns: 300px;
     gap: 12px;
-    align-items: start;
-    max-height: 600px;
-    overflow-y: auto;
-    padding-right: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    /* custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--clr-border) transparent;
 }
 
 /* Review card */
@@ -1126,18 +1130,14 @@
     border-radius: var(--radius);
     display: flex;
     flex-direction: column;
-    height: 260px;
+    height: 100%;
+    min-width: 0;
 }
 
 .rev-card--mine {
-    grid-column: 1 / -1;
-    height: auto;
-}
-
-.rev-card--mine {
+    grid-row: 1 / -1;
     border-color: var(--clr-accent);
     background: color-mix(in srgb, var(--clr-accent) 6%, var(--clr-bg-raised));
-    height: auto;
 }
 
 .rev-card-header {

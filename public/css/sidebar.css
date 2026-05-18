@@ -458,6 +458,15 @@
     line-height: 1.2;
 }
 
+.now-playing-time {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--clr-accent);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    opacity: 0.9;
+}
+
 /* Orbiting particle — zero-size pivot sits at card center, particle hangs above */
 .now-playing-orbit {
     position: absolute;
