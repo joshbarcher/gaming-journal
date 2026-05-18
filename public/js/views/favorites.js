@@ -225,14 +225,10 @@ export async function renderFavorites(container) {
             </div>
         </div>
 
-        <div class="fav-hero-wrap">
-            ${_hero(hero, maxPlaytime)}
-        </div>
-
-        ${rest.length ? `
         <div class="fav-grid">
+            ${_hero(hero, maxPlaytime)}
             ${rest.map(g => _card(g, maxPlaytime)).join('')}
-        </div>` : ''}`
+        </div>`
 
     _startHeroSlideshow(container, hero.appid)
 }
