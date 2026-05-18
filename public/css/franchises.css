@@ -367,7 +367,8 @@
     font-weight: 700;
 }
 
-/* Segmented progress bar */
+/* ── Timeline progress ───────────────────────────────────────────────────────── */
+
 .frc-progress-section {
     margin-top: 32px;
     margin-bottom: 24px;
@@ -379,55 +380,98 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--clr-text-dim);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
-.frc-seg-bar {
-    height: 10px;
-    border-radius: 5px;
-    overflow: hidden;
+.frc-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.frc-tl-cells {
+    display: flex;
+    gap: 3px;
+    overflow-x: auto;
+    padding-bottom: 2px; /* room for scrollbar if it appears */
+}
+
+.frc-tl-cell {
+    flex: 1 0 0;
+    min-width: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: default;
+}
+
+/* ── Capsule image ── */
+.frc-tl-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 460 / 215;
+    object-fit: cover;
+    border-radius: 3px;
+    background: var(--clr-bg-raised);
+    transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.frc-tl-cell--unplayed .frc-tl-img,
+.frc-tl-cell--wishlist .frc-tl-img {
+    filter: saturate(0.2) brightness(0.55);
+}
+
+.frc-tl-cell--playing .frc-tl-img,
+.frc-tl-cell--on-hold .frc-tl-img {
+    filter: saturate(0.7) brightness(0.8);
+}
+
+.frc-tl-cell--dropped .frc-tl-img {
+    filter: saturate(0.4) brightness(0.7);
+}
+
+.frc-tl-cell--completed .frc-tl-img {
+    filter: none;
+}
+
+.frc-tl-cell:hover .frc-tl-img {
+    filter: none !important;
+}
+
+/* ── Track + fill ── */
+.frc-tl-track {
+    height: 6px;
+    border-radius: 3px;
     background: var(--clr-border);
-    display: flex;
-}
-
-.frc-seg {
-    height: 100%;
-    transition: width 0.4s ease;
-}
-
-.frc-seg--completed { background: #4caf72; }
-.frc-seg--dropped   { background: #e05252; }
-.frc-seg--on-hold   { background: #e0a052; }
-.frc-seg--playing   { background: var(--frc-accent); }
-.frc-seg--unplayed  { background: transparent; }
-
-.frc-legend {
-    display: flex;
-    gap: 14px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-}
-
-.frc-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    color: var(--clr-text-dim);
-}
-
-.frc-legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    overflow: hidden;
     flex-shrink: 0;
 }
 
-.frc-legend-dot--completed { background: #4caf72; }
-.frc-legend-dot--dropped   { background: #e05252; }
-.frc-legend-dot--on-hold   { background: #e0a052; }
-.frc-legend-dot--playing   { background: var(--frc-accent); }
-.frc-legend-dot--unplayed  { background: var(--clr-border); }
+.frc-tl-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.35s ease;
+}
+
+.frc-tl-fill--completed { background: #4caf72; }
+.frc-tl-fill--dropped   { background: #e05252; }
+.frc-tl-fill--on-hold   { background: #e0a052; }
+.frc-tl-fill--playing   { background: var(--frc-accent); }
+.frc-tl-fill--empty     { width: 0 !important; }
+
+/* ── Footer (total %) ── */
+.frc-tl-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.frc-tl-pct {
+    font-size: 11px;
+    color: var(--clr-text-dim);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+}
 
 /* Add game search */
 .frc-add-section {

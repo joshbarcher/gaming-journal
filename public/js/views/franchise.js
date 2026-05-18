@@ -77,40 +77,54 @@ function _computeStats(entries, flagsRes, ownedMap, wishlistMap) {
     return { completed, dropped, onHold, playing, wishlist, totalMins, total: entries.length }
 }
 
-// ── Segmented progress bar ────────────────────────────────────────────────────
+// ── Timeline progress ─────────────────────────────────────────────────────────
 
-function _renderProgressBar(stats) {
-    const { completed, dropped, onHold, playing, wishlist, total } = stats
-    if (total === 0) return `<div class="frc-seg-bar"></div><div class="frc-legend"></div>`
+const _TIMELINE_FILL = {
+    completed: { pct: 100, cls: 'completed' },
+    dropped:   { pct: 100, cls: 'dropped'   },
+    'on-hold': { pct:  55, cls: 'on-hold'   },
+    playing:   { pct:  30, cls: 'playing'   },
+    wishlist:  { pct:   0, cls: 'empty'     },
+    unplayed:  { pct:   0, cls: 'empty'     },
+}
 
-    const pct = (n) => `${(n / total * 100).toFixed(1)}%`
+function _renderTimeline(entries, flagsRes, ownedMap, wishlistMap) {
+    if (entries.length === 0) return ''
 
-    const segs = [
-        { cls: 'completed', n: completed },
-        { cls: 'dropped',   n: dropped   },
-        { cls: 'on-hold',   n: onHold    },
-        { cls: 'playing',   n: playing   },
-    ].filter(s => s.n > 0)
+    let completedCount = 0
+    const cellsHtml = entries.map(entry => {
+        const { appid, name } = entry
+        const flags    = flagsRes[appid]
+        const owned    = ownedMap.get(appid)
+        const wl       = wishlistMap.get(appid)
+        const playtime = owned?.playtimeMinutes ?? 0
+        const status   = _deriveStatus(flags, playtime, !!wl && !owned)
+        const fill     = _TIMELINE_FILL[status] ?? _TIMELINE_FILL.unplayed
+        if (status === 'completed') completedCount++
 
-    const segHtml = segs.map(s =>
-        `<div class="frc-seg frc-seg--${s.cls}" style="width:${pct(s.n)}" title="${s.n} ${s.cls}"></div>`
-    ).join('')
+        const statusLabel = _STATUS_LABELS[status] ?? 'Unplayed'
+        return `
+            <div class="frc-tl-cell frc-tl-cell--${status}" title="${escapeHtml(name)} · ${statusLabel}">
+                <img class="frc-tl-img"
+                     src="${_capsuleUrl(appid)}"
+                     alt=""
+                     loading="lazy"
+                     onerror="this.style.opacity='0'">
+                <div class="frc-tl-track">
+                    <div class="frc-tl-fill frc-tl-fill--${fill.cls}" style="width:${fill.pct}%"></div>
+                </div>
+            </div>`
+    }).join('')
 
-    const legendItems = [
-        { cls: 'completed', label: `Completed (${completed})`,  show: completed > 0 },
-        { cls: 'playing',   label: `Playing (${playing})`,      show: playing > 0   },
-        { cls: 'on-hold',   label: `On Hold (${onHold})`,       show: onHold > 0    },
-        { cls: 'dropped',   label: `Dropped (${dropped})`,      show: dropped > 0   },
-        { cls: 'wishlist',  label: `Wishlist (${wishlist})`,     show: wishlist > 0  },
-    ].filter(l => l.show)
-
-    const legendHtml = legendItems.map(l =>
-        `<span class="frc-legend-item"><span class="frc-legend-dot frc-legend-dot--${l.cls}"></span>${l.label}</span>`
-    ).join('')
+    const pct = Math.round(completedCount / entries.length * 100)
 
     return `
-        <div class="frc-seg-bar">${segHtml}</div>
-        <div class="frc-legend">${legendHtml}</div>`
+        <div class="frc-timeline">
+            <div class="frc-tl-cells">${cellsHtml}</div>
+            <div class="frc-tl-footer">
+                <span class="frc-tl-pct">${pct}% · ${completedCount}/${entries.length} completed</span>
+            </div>
+        </div>`
 }
 
 // ── Entry row ─────────────────────────────────────────────────────────────────
@@ -374,8 +388,8 @@ export async function renderFranchise(franchiseId, container, navigate) {
             </span>
             ${hrs ? `<span class="frc-hero-stat"><span class="frc-hero-stat-value">${hrs}</span> played</span>` : ''}`
 
-        // Progress bar
-        progressSection.querySelector('#frc-progress-bar').innerHTML = _renderProgressBar(stats)
+        // Progress timeline
+        progressSection.querySelector('#frc-progress-bar').innerHTML = _renderTimeline(entries, flagsRes, ownedMap, wishlistMap)
     }
 
     // ── Hero background cycler ────────────────────────────────────────────────
