@@ -1,0 +1,272 @@
+/* ── Hall of Fame — Completed games page ─────────────────────────────────── */
+
+/* Re-uses --clr-accent (gold) — you earned it */
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.hof-header {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Radial gold bloom behind the title */
+.hof-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse 60% 120% at 20% 50%,
+        rgba(201, 168, 76, 0.12) 0%,
+        transparent 70%
+    );
+    pointer-events: none;
+}
+
+/* Subtle diagonal light ray */
+.hof-header::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: -10%;
+    width: 50%;
+    height: 200%;
+    background: linear-gradient(
+        105deg,
+        transparent 45%,
+        rgba(201, 168, 76, 0.04) 50%,
+        transparent 55%
+    );
+    pointer-events: none;
+}
+
+.hof-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.hof-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--clr-accent);
+    margin: 0 0 6px;
+}
+
+.hof-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.hof-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Featured row (top 3, larger cards) ──────────────────────────────────── */
+
+.hof-featured-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 0 40px 24px;
+}
+
+/* ── Standard grid (the rest) ────────────────────────────────────────────── */
+
+.hof-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 0 40px 48px;
+}
+
+/* ── Card base ───────────────────────────────────────────────────────────── */
+
+.hof-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    transition: border-color var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hof-card:hover {
+    border-color: rgba(201, 168, 76, 0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 168, 76, 0.15);
+}
+
+/* Featured cards get a permanent gold border tint */
+.hof-card--featured {
+    border-color: rgba(201, 168, 76, 0.25);
+}
+
+.hof-card--featured:hover {
+    border-color: rgba(201, 168, 76, 0.65);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(201, 168, 76, 0.15);
+}
+
+/* ── Card image ──────────────────────────────────────────────────────────── */
+
+.hof-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    background: var(--clr-bg-raised);
+    overflow: hidden;
+}
+
+.hof-card-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Full colour — these games are celebrated, not faded */
+    filter: saturate(1.05) brightness(0.95);
+    transition: filter 0.2s ease, transform 0.3s ease;
+}
+
+.hof-card:hover .hof-card-img {
+    filter: saturate(1.15) brightness(1.05);
+    transform: scale(1.03);
+}
+
+/* Gold shimmer sweep on hover */
+.hof-card-shine {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(201, 168, 76, 0.12) 50%,
+        transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.hof-card:hover .hof-card-shine {
+    opacity: 1;
+}
+
+.hof-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        transparent 45%,
+        rgba(0, 0, 0, 0.6) 100%
+    );
+}
+
+/* ── Tier symbol (top-left) ──────────────────────────────────────────────── */
+
+.hof-card-tier {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    padding: 3px 7px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    line-height: 1;
+    border: 1px solid transparent;
+}
+
+.hof-tier--legend {
+    background: rgba(201, 168, 76, 0.25);
+    color: #f0d070;
+    border-color: rgba(201, 168, 76, 0.5);
+}
+
+.hof-tier--veteran {
+    background: rgba(180, 180, 180, 0.18);
+    color: #d0d0d0;
+    border-color: rgba(180, 180, 180, 0.35);
+}
+
+.hof-tier--completed {
+    background: rgba(80, 160, 120, 0.2);
+    color: #80c8a0;
+    border-color: rgba(80, 160, 120, 0.35);
+}
+
+.hof-tier--finished {
+    background: rgba(10, 10, 14, 0.6);
+    color: var(--clr-text-muted);
+    border-color: var(--clr-border);
+}
+
+/* ── Hours badge (bottom-right) ──────────────────────────────────────────── */
+
+.hof-card-hours {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(10, 10, 14, 0.75);
+    color: var(--clr-accent);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    backdrop-filter: blur(4px);
+    line-height: 1;
+}
+
+/* ── Card body ───────────────────────────────────────────────────────────── */
+
+.hof-card-body {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.hof-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--clr-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.hof-card-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.hof-card-label.hof-tier--legend   { color: #c9a84c; }
+.hof-card-label.hof-tier--veteran  { color: #aaaaaa; }
+.hof-card-label.hof-tier--completed { color: #60a882; }
+.hof-card-label.hof-tier--finished  { color: var(--clr-text-muted); opacity: 0.5; }
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+    .hof-header       { padding: 24px 20px 20px; }
+    .hof-featured-grid { grid-template-columns: 1fr; padding: 0 20px 16px; }
+    .hof-grid          { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}

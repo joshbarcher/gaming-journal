@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils.js'
+import { refreshAlertsBadge } from '../sidebar.js'
 
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
@@ -36,7 +37,8 @@ export async function renderGame(appid, container) {
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
             ${_screenshots(game)}
-            ${_communityReviews(communityReviews, myReview)}
+            ${_myReview(myReview)}
+            ${_communityReviews(communityReviews)}
             ${_itad(itadData)}
             ${_pcgw(pcgwData)}
         </div>`
@@ -710,6 +712,49 @@ function _initPlayerChart(data, container) {
     })
 }
 
+// ── My Review ─────────────────────────────────────────────────────────────────
+
+function _myReview(entry) {
+    // entry shape from relay: { fetchedAt, gameName, review: <raw Steam review | null> }
+    const r = entry?.review ?? null
+    if (!r) return ''
+
+    const recommended = r.voted_up
+    const text        = r.review ?? ''
+    const hours       = r.author?.playtime_at_review != null
+        ? Math.round(r.author.playtime_at_review / 60)
+        : null
+    const date        = r.timestamp_created
+        ? new Date(r.timestamp_created * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        : entry?.fetchedAt
+            ? new Date(entry.fetchedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+            : null
+    const helpful     = r.votes_up > 0 ? `${_fmtCount(r.votes_up)} found helpful` : null
+    const ea          = r.written_during_early_access ? `<span class="rev-card-badge">Early Access</span>` : ''
+
+    const thumb    = recommended ? _SVG_THUMB_UP : _SVG_THUMB_DOWN
+    const thumbCls = recommended ? 'rev-card-thumb--pos' : 'rev-card-thumb--neg'
+    const recLabel = recommended ? 'Recommended' : 'Not Recommended'
+
+    return `
+        <section class="game-section">
+            <h2 class="game-section-title">My Review</h2>
+            <div class="rev-mine">
+                <div class="rev-mine-header">
+                    <span class="rev-card-thumb ${thumbCls}">${thumb}</span>
+                    <span class="rev-mine-verdict">${recLabel}</span>
+                    <div class="rev-mine-meta">
+                        ${hours != null ? `<span class="rev-card-hours">${hours.toLocaleString()}h at review</span>` : ''}
+                        ${date ? `<span class="rev-card-date">${escapeHtml(date)}</span>` : ''}
+                        ${ea}
+                    </div>
+                    ${helpful ? `<span class="rev-card-helpful rev-mine-helpful">${escapeHtml(helpful)}</span>` : ''}
+                </div>
+                ${text ? `<p class="rev-mine-text">${escapeHtml(text)}</p>` : ''}
+            </div>
+        </section>`
+}
+
 // ── Community Reviews ─────────────────────────────────────────────────────────
 
 const _SVG_THUMB_UP   = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`
@@ -761,14 +806,13 @@ function _reviewCard(r, isMine = false) {
         </div>`
 }
 
-function _communityReviews(data, myReviewEntry) {
-    const hasData  = data && (data.totalReviews > 0 || data.reviews?.length > 0)
-    const myReview = myReviewEntry?.review ?? null
+function _communityReviews(data) {
+    const hasData = data && (data.totalReviews > 0 || data.reviews?.length > 0)
 
-    if (!hasData && !myReview) {
+    if (!hasData) {
         return `
             <section class="game-section">
-                <h2 class="game-section-title">Reviews</h2>
+                <h2 class="game-section-title">Community Reviews</h2>
                 <p class="game-section-empty">No review data cached yet.</p>
             </section>`
     }
@@ -788,17 +832,15 @@ function _communityReviews(data, myReviewEntry) {
             ${_ratioBar(s.ratio)}
         </div>` : ''
 
-    const myHtml  = myReview ? _reviewCard(myReview, true) : ''
     const topHtml = reviews.length
         ? `<div class="rev-list">${reviews.map(r => _reviewCard(r)).join('')}</div>`
-        : ''
+        : `<p class="game-section-empty">No English reviews cached yet.</p>`
 
     return `
         <section class="game-section">
-            <h2 class="game-section-title">Reviews</h2>
+            <h2 class="game-section-title">Community Reviews</h2>
             ${summaryHtml}
-            ${myHtml}
-            ${topHtml || (!myReview ? `<p class="game-section-empty">No English reviews cached yet.</p>` : '')}
+            ${topHtml}
         </section>`
 }
 
@@ -909,6 +951,7 @@ function _initFlagsBar(container) {
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ flag, value: newVal }),
             })
+            if (flag === 'alert') refreshAlertsBadge()
         } catch {
             // Revert on failure
             btn.classList.toggle('game-flag--active', active)

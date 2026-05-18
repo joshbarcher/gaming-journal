@@ -6,6 +6,7 @@ import healthRouter from './routes/health.js'
 import apiRouter from './routes/api.js'
 import relayRouter from './routes/relay.js'
 import { getJournalService } from './services/journalService.js'
+import { getFranchiseService } from './services/franchiseService.js'
 
 logger.startup({ name: 'gaming-journal', version: '1.0.0' })
 
@@ -27,6 +28,7 @@ app.get('*', (_req, res) => {
 const PORT = process.env.PORT ?? 8061
 
 await getJournalService().load()
+await getFranchiseService().load()
 logger.info('Journal data loaded')
 
 const server = app.listen(PORT, () => {
@@ -47,6 +49,7 @@ async function shutdown(reason, exitCode = 0) {
 
     try {
         await getJournalService().close()
+        await getFranchiseService().close()
     } catch (err) {
         logger.error('Flush failed during shutdown', { err })
     }

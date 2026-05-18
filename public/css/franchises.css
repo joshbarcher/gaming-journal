@@ -1,0 +1,716 @@
+/* ── Franchises — CSS variables ──────────────────────────────────────────────── */
+:root {
+    --frc-accent:      #c9913d;
+    --frc-accent-dim:  rgba(201, 145, 61, 0.18);
+    --frc-accent-glow: rgba(201, 145, 61, 0.35);
+    --frc-accent-text: #e8b870;
+}
+
+/* ── Franchises list page ─────────────────────────────────────────────────────── */
+.frc-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.frc-list-title {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--frc-accent-text);
+    letter-spacing: 0.04em;
+    margin: 0;
+}
+
+.frc-new-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: var(--frc-accent-dim);
+    border: 1px solid var(--frc-accent);
+    border-radius: var(--radius);
+    color: var(--frc-accent-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition), box-shadow var(--transition);
+    white-space: nowrap;
+}
+
+.frc-new-btn:hover {
+    background: rgba(201, 145, 61, 0.28);
+    box-shadow: 0 0 12px var(--frc-accent-glow);
+}
+
+/* ── Grid of franchise cards ─────────────────────────────────────────────────── */
+.frc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+}
+
+.frc-card {
+    background: #1b1916;
+    border: 1px solid var(--clr-border);
+    border-radius: calc(var(--radius) + 2px);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.frc-card:hover {
+    border-color: var(--frc-accent);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px var(--frc-accent-glow);
+    transform: translateY(-2px);
+}
+
+/* 2×2 mosaic of game capsule images */
+.frc-card-mosaic {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    height: 120px;
+    background: var(--clr-bg-hover);
+    overflow: hidden;
+    position: relative;
+}
+
+.frc-card-mosaic-cell {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--clr-bg-hover);
+}
+
+.frc-card-mosaic-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.frc-card-mosaic-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--clr-bg-hover) 0%, rgba(201,145,61,0.08) 100%);
+}
+
+.frc-card-mosaic-count {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    background: rgba(0,0,0,0.75);
+    color: var(--frc-accent-text);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+}
+
+.frc-card-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.frc-card-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.frc-card-stats {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--clr-text-dim);
+    flex-wrap: wrap;
+}
+
+.frc-card-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.frc-card-stat-value {
+    color: var(--frc-accent-text);
+    font-weight: 600;
+}
+
+/* Progress bar on card */
+.frc-card-bar-track {
+    height: 4px;
+    background: var(--clr-border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.frc-card-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--frc-accent), var(--frc-accent-text));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+
+/* Empty state */
+.frc-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--clr-text-dim);
+}
+
+.frc-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+.frc-empty-text {
+    font-size: 16px;
+    margin: 0 0 8px;
+}
+
+.frc-empty-sub {
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+/* ── Franchise detail page ────────────────────────────────────────────────────── */
+.frc-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Hero banner — bleeds edge-to-edge like .game-hero */
+.frc-hero {
+    position: relative;
+    margin: -48px -56px 0;
+    min-height: 320px;
+    overflow: hidden;
+    background-color: var(--clr-bg-raised);
+}
+
+@media (max-width: 700px) {
+    .frc-hero { margin: -64px -20px 0; }
+}
+
+.frc-hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center top;
+    filter: brightness(0.6);
+    transition: opacity 1.8s ease;
+}
+
+.frc-hero-bg--a,
+.frc-hero-bg--b {
+    opacity: 0;
+}
+
+.frc-hero-scrim {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to right,  rgba(13,11,9,0.35) 0%, rgba(13,11,9,0.15) 50%, transparent 100%),
+        linear-gradient(to bottom, transparent 0%, rgba(13,11,9,0.20) 100%);
+}
+
+.frc-hero-content {
+    position: relative;
+    z-index: 1;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 20px 40px 28px;
+    gap: 8px;
+}
+
+.frc-hero-back {
+    position: absolute;
+    top: 18px;
+    left: 40px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: rgba(237, 233, 223, 0.45);
+    cursor: pointer;
+    transition: color var(--transition);
+}
+
+.frc-hero-back:hover {
+    color: var(--clr-text);
+}
+
+.frc-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.frc-title-input {
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 2px 0;
+    outline: none;
+    width: 100%;
+    transition: border-color var(--transition);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+.frc-title-input:focus {
+    border-bottom-color: var(--frc-accent);
+}
+
+.frc-title-input::placeholder {
+    color: rgba(255,255,255,0.4);
+}
+
+.frc-hero-stats {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.frc-hero-stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+}
+
+.frc-hero-stat-value {
+    color: var(--frc-accent-text);
+    font-weight: 700;
+}
+
+/* Segmented progress bar */
+.frc-progress-section {
+    margin-top: 32px;
+    margin-bottom: 24px;
+}
+
+.frc-progress-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--clr-text-dim);
+    margin-bottom: 8px;
+}
+
+.frc-seg-bar {
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    background: var(--clr-border);
+    display: flex;
+}
+
+.frc-seg {
+    height: 100%;
+    transition: width 0.4s ease;
+}
+
+.frc-seg--completed { background: #4caf72; }
+.frc-seg--dropped   { background: #e05252; }
+.frc-seg--on-hold   { background: #e0a052; }
+.frc-seg--playing   { background: var(--frc-accent); }
+.frc-seg--unplayed  { background: transparent; }
+
+.frc-legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.frc-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--clr-text-dim);
+}
+
+.frc-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.frc-legend-dot--completed { background: #4caf72; }
+.frc-legend-dot--dropped   { background: #e05252; }
+.frc-legend-dot--on-hold   { background: #e0a052; }
+.frc-legend-dot--playing   { background: var(--frc-accent); }
+.frc-legend-dot--unplayed  { background: var(--clr-border); }
+
+/* Add game search */
+.frc-add-section {
+    margin-bottom: 24px;
+}
+
+.frc-add-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--clr-text-dim);
+    margin-bottom: 8px;
+}
+
+.frc-search-wrap {
+    position: relative;
+}
+
+.frc-search-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: #1b1916;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color var(--transition);
+    box-sizing: border-box;
+}
+
+.frc-search-input:focus {
+    border-color: var(--frc-accent);
+}
+
+.frc-search-input::placeholder {
+    color: var(--clr-text-dim);
+    opacity: 0.6;
+}
+
+.frc-search-results {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #1e1c18;
+    border: 1px solid var(--frc-accent);
+    border-radius: var(--radius);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+}
+
+.frc-search-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background var(--transition);
+    font-size: 13px;
+}
+
+.frc-search-item:hover {
+    background: var(--frc-accent-dim);
+}
+
+.frc-search-item img {
+    width: 32px;
+    height: 15px;
+    object-fit: cover;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.frc-search-item-name {
+    color: var(--clr-text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.frc-search-item-tag {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--clr-text-dim);
+    background: var(--clr-bg-hover);
+    padding: 2px 6px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.frc-search-item-tag--owned {
+    color: var(--frc-accent-text);
+    background: var(--frc-accent-dim);
+}
+
+.frc-search-no-results {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--clr-text-dim);
+    text-align: center;
+}
+
+/* ── Entry list ──────────────────────────────────────────────────────────────── */
+.frc-entries-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--clr-text-dim);
+    margin-bottom: 10px;
+}
+
+.frc-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.frc-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #1b1916;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    transition: border-color var(--transition), box-shadow var(--transition);
+    cursor: default;
+    user-select: none;
+}
+
+.frc-entry:hover {
+    border-color: var(--clr-border-hi);
+}
+
+.frc-entry--dragging {
+    opacity: 0.45;
+    border-color: var(--frc-accent);
+}
+
+.frc-entry--drag-over-before {
+    border-top: 2px solid var(--frc-accent);
+    box-shadow: 0 -2px 8px var(--frc-accent-glow);
+}
+
+.frc-entry--drag-over-after {
+    border-bottom: 2px solid var(--frc-accent);
+    box-shadow: 0 2px 8px var(--frc-accent-glow);
+}
+
+.frc-entry-handle {
+    color: var(--clr-text-dim);
+    cursor: grab;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    padding: 0 2px;
+    opacity: 0.5;
+    transition: opacity var(--transition);
+}
+
+.frc-entry:hover .frc-entry-handle {
+    opacity: 1;
+}
+
+.frc-entry-handle:active {
+    cursor: grabbing;
+}
+
+.frc-entry-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--clr-text-dim);
+    min-width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.frc-entry-thumb {
+    width: 46px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 3px;
+    flex-shrink: 0;
+    background: var(--clr-bg-hover);
+}
+
+.frc-entry-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.frc-entry-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color var(--transition);
+}
+
+.frc-entry-name:hover {
+    color: var(--frc-accent-text);
+}
+
+.frc-entry-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.frc-entry-hours {
+    font-size: 11px;
+    color: var(--clr-text-dim);
+}
+
+.frc-status-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.frc-status-badge--completed {
+    background: rgba(76, 175, 114, 0.15);
+    color: #4caf72;
+    border: 1px solid rgba(76, 175, 114, 0.3);
+}
+
+.frc-status-badge--dropped {
+    background: rgba(224, 82, 82, 0.12);
+    color: #e05252;
+    border: 1px solid rgba(224, 82, 82, 0.3);
+}
+
+.frc-status-badge--on-hold {
+    background: rgba(224, 160, 82, 0.12);
+    color: #e0a052;
+    border: 1px solid rgba(224, 160, 82, 0.3);
+}
+
+.frc-status-badge--playing {
+    background: var(--frc-accent-dim);
+    color: var(--frc-accent-text);
+    border: 1px solid rgba(201, 145, 61, 0.3);
+}
+
+.frc-status-badge--wishlist {
+    background: rgba(140, 100, 220, 0.1);
+    color: #a07ad4;
+    border: 1px solid rgba(140, 100, 220, 0.25);
+}
+
+.frc-entry-remove {
+    background: none;
+    border: none;
+    color: var(--clr-text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+    flex-shrink: 0;
+}
+
+.frc-entry:hover .frc-entry-remove {
+    opacity: 0.6;
+}
+
+.frc-entry-remove:hover {
+    opacity: 1 !important;
+    color: #e05252;
+}
+
+/* Delete franchise button */
+.frc-delete-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid rgba(224, 82, 82, 0.25);
+    border-radius: var(--radius);
+    color: rgba(224, 82, 82, 0.6);
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    margin-top: 32px;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.frc-delete-btn:hover {
+    border-color: #e05252;
+    color: #e05252;
+    background: rgba(224, 82, 82, 0.08);
+}
+
+/* Sidebar button */
+.sidebar-franchises-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--clr-text);
+    transition: border-color var(--transition), background var(--transition), color var(--transition);
+    user-select: none;
+}
+
+.sidebar-franchises-btn:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.sidebar-franchises-btn.active {
+    border-color: rgba(201, 145, 61, 0.4);
+    background: rgba(201, 145, 61, 0.09);
+    color: var(--frc-accent-text);
+    box-shadow: inset 3px 0 0 var(--frc-accent);
+}
+
+.sidebar-franchises-btn:focus-visible {
+    outline: 2px solid var(--frc-accent);
+    outline-offset: 2px;
+}

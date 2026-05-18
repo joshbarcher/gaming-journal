@@ -1,0 +1,255 @@
+/* ── On Hold page ─────────────────────────────────────────────────────────── */
+
+:root {
+    --onhold-accent:    #e0a052;
+    --onhold-accent-lo: rgba(224, 160, 82, 0.12);
+    --onhold-accent-bd: rgba(224, 160, 82, 0.32);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.onhold-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+.onhold-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--onhold-accent-bd) 1px, transparent 1px),
+        linear-gradient(90deg, var(--onhold-accent-bd) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.08;
+    pointer-events: none;
+}
+
+.onhold-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        var(--clr-bg) 0%,
+        transparent 60%,
+        var(--clr-bg) 100%
+    );
+    pointer-events: none;
+}
+
+.onhold-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.onhold-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--onhold-accent);
+    margin: 0 0 6px;
+}
+
+.onhold-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.onhold-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Game grid ───────────────────────────────────────────────────────────── */
+
+.onhold-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 0 40px 48px;
+}
+
+/* ── Game card ───────────────────────────────────────────────────────────── */
+
+.onhold-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+
+.onhold-card:hover {
+    border-color: var(--onhold-accent-bd);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Card image ──────────────────────────────────────────────────────────── */
+
+.onhold-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    background: var(--clr-bg-raised);
+    overflow: hidden;
+}
+
+.onhold-card-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter 0.2s ease;
+}
+
+.onhold-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        transparent 50%,
+        rgba(0, 0, 0, 0.55) 100%
+    );
+}
+
+/* Hours played badge — top right */
+.onhold-card-time {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    line-height: 1;
+    background: rgba(10, 10, 14, 0.75);
+    color: var(--onhold-accent);
+    border: 1px solid var(--onhold-accent-bd);
+    backdrop-filter: blur(4px);
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+
+.onhold-bar-wrap {
+    padding: 0 12px 10px;
+    border-top: 1px solid var(--clr-border);
+    background: #1b1916;
+    padding-top: 8px;
+}
+
+.onhold-bar-track {
+    position: relative;
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: visible;
+}
+
+.onhold-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #c9913d, #e8b870);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+/* Tier tick marks */
+.onhold-bar-tick {
+    position: absolute;
+    top: -2px;
+    width: 1.5px;
+    height: 9px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 1px;
+    transform: translateX(-50%);
+}
+
+/* ── Card body ───────────────────────────────────────────────────────────── */
+
+.onhold-card-body {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.onhold-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.onhold-card-progress-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--onhold-accent);
+    opacity: 0.9;
+    letter-spacing: 0.01em;
+}
+
+
+/* ── Sidebar button ──────────────────────────────────────────────────────── */
+
+.sidebar-onhold-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--clr-text);
+    transition: border-color var(--transition), background var(--transition), color var(--transition);
+    user-select: none;
+}
+
+.sidebar-onhold-btn:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.sidebar-onhold-btn.active {
+    border-color: rgba(224, 160, 82, 0.35);
+    background: rgba(224, 160, 82, 0.09);
+    color: var(--onhold-accent);
+    box-shadow: inset 3px 0 0 var(--onhold-accent);
+}
+
+.sidebar-onhold-btn:focus-visible {
+    outline: 2px solid var(--onhold-accent);
+    outline-offset: 2px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+    .onhold-header { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
+    .onhold-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}

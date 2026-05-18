@@ -1,0 +1,210 @@
+/* ── Abandoned Saves — Dropped games page ────────────────────────────────── */
+
+:root {
+    --ab-accent:    #c87941;
+    --ab-accent-lo: rgba(200, 121, 65, 0.12);
+    --ab-accent-bd: rgba(200, 121, 65, 0.3);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.ab-header {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Faded horizontal scan-lines — like a paused screen */
+.ab-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(200, 121, 65, 0.03) 3px,
+        rgba(200, 121, 65, 0.03) 4px
+    );
+    pointer-events: none;
+}
+
+.ab-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse at 0% 50%,
+        rgba(200, 121, 65, 0.06) 0%,
+        transparent 70%
+    );
+    pointer-events: none;
+}
+
+.ab-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.ab-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ab-accent);
+    margin: 0 0 6px;
+}
+
+.ab-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.ab-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Game grid ───────────────────────────────────────────────────────────── */
+
+.ab-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 0 40px 48px;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+
+.ab-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ab-card:hover {
+    border-color: var(--ab-accent-bd);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Card image ──────────────────────────────────────────────────────────── */
+
+.ab-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    background: var(--clr-bg-raised);
+    overflow: hidden;
+}
+
+.ab-card-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Heavy desaturation — the save file is gathering dust */
+    filter: saturate(0.2) brightness(0.75);
+    transition: filter 0.3s ease;
+}
+
+.ab-card:hover .ab-card-img {
+    filter: saturate(0.6) brightness(0.9);
+}
+
+/* Fog layer — semi-transparent white wash over the image */
+.ab-card-fog {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 16, 12, 0.35);
+    transition: opacity 0.3s ease;
+}
+
+.ab-card:hover .ab-card-fog {
+    opacity: 0;
+}
+
+.ab-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        transparent 40%,
+        rgba(0, 0, 0, 0.65) 100%
+    );
+}
+
+/* ── Time invested badge (top-left of image) ─────────────────────────────── */
+
+.ab-card-invested {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(10, 10, 14, 0.75);
+    color: var(--ab-accent);
+    border: 1px solid var(--ab-accent-bd);
+    backdrop-filter: blur(4px);
+    line-height: 1;
+}
+
+/* ── Card body ───────────────────────────────────────────────────────────── */
+
+.ab-card-body {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
+.ab-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--clr-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ab-card-meta {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ab-card-meta--unknown {
+    opacity: 0.45;
+    font-style: italic;
+}
+
+.ab-card-remaining {
+    color: var(--ab-accent);
+    font-weight: 600;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+    .ab-header { padding: 24px 20px 20px; }
+    .ab-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}

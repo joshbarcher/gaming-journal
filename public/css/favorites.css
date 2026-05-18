@@ -1,0 +1,343 @@
+/* ── Favorites — loved games collection ───────────────────────────────────── */
+
+:root {
+    --fav-accent:    #c45c7a;
+    --fav-accent-lo: rgba(196, 92, 122, 0.07);
+    --fav-accent-bd: rgba(196, 92, 122, 0.28);
+    --fav-accent-glow: rgba(196, 92, 122, 0.4);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.fav-header {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Rose radial bloom */
+.fav-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse 60% 120% at 20% 50%,
+        rgba(196, 92, 122, 0.13) 0%,
+        transparent 70%
+    );
+    pointer-events: none;
+    animation: fav-bloom-pulse 4s ease-in-out infinite;
+}
+
+@keyframes fav-bloom-pulse {
+    0%, 100% { opacity: 0.7; }
+    50%       { opacity: 1; }
+}
+
+/* Soft diagonal streak */
+.fav-header::after {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: -10%;
+    width: 50%;
+    height: 200%;
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(196, 92, 122, 0.04) 50%,
+        transparent 60%
+    );
+    pointer-events: none;
+}
+
+.fav-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.fav-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fav-accent);
+    margin: 0 0 6px;
+}
+
+.fav-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.fav-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Hero card (top favorite) ─────────────────────────────────────────────── */
+
+.fav-hero-wrap {
+    padding: 0 40px 28px;
+}
+
+.fav-hero {
+    display: block;
+    position: relative;
+    height: 260px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    border: 1px solid var(--fav-accent-bd);
+    animation: fav-hero-pulse 4s ease-in-out infinite;
+    transition: transform 0.2s ease;
+}
+
+.fav-hero:hover {
+    transform: translateY(-2px);
+    border-color: var(--fav-accent);
+}
+
+@keyframes fav-hero-pulse {
+    0%, 100% {
+        box-shadow: 0 0 16px 2px rgba(196, 92, 122, 0.15);
+    }
+    50% {
+        box-shadow: 0 0 40px 8px rgba(196, 92, 122, 0.32), inset 0 0 40px rgba(196, 92, 122, 0.04);
+    }
+}
+
+.fav-hero-bg-wrap {
+    position: absolute;
+    inset: 0;
+    filter: saturate(1.1) brightness(0.8);
+    transition: filter 0.3s ease, transform 0.4s ease;
+}
+
+.fav-hero:hover .fav-hero-bg-wrap {
+    filter: saturate(1.2) brightness(0.9);
+    transform: scale(1.02);
+}
+
+.fav-hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    /* transition managed entirely by JS — pan direction is randomised per image */
+}
+
+.fav-hero-bg--a { opacity: 1; }
+.fav-hero-bg--b { opacity: 0; }
+
+.fav-hero-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        rgba(10, 10, 14, 0.88) 0%,
+        rgba(10, 10, 14, 0.5)  45%,
+        rgba(10, 10, 14, 0.1)  100%
+    );
+}
+
+/* Rose shimmer sweep on hover */
+.fav-hero-shine {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(196, 92, 122, 0.1) 50%,
+        transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+}
+
+.fav-hero:hover .fav-hero-shine {
+    opacity: 1;
+}
+
+.fav-hero-body {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 24px 28px;
+    gap: 8px;
+}
+
+.fav-hero-name {
+    font-family: var(--font-title);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    letter-spacing: 0.01em;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.fav-hero-hours {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.65);
+    letter-spacing: 0.04em;
+}
+
+/* ── Love meter (hearts) ─────────────────────────────────────────────────── */
+
+.fav-hearts {
+    display: flex;
+    gap: 3px;
+    line-height: 1;
+}
+
+.fav-heart {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.2);
+    transition: color 0.2s ease;
+}
+
+.fav-heart--filled {
+    color: var(--fav-accent);
+    text-shadow: 0 0 6px rgba(196, 92, 122, 0.6);
+}
+
+/* Smaller hearts inside standard cards */
+.fav-card-body .fav-hearts {
+    margin-top: 2px;
+}
+
+.fav-card-body .fav-heart {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.15);
+}
+
+.fav-card-body .fav-heart--filled {
+    color: var(--fav-accent);
+    text-shadow: none;
+}
+
+/* ── Standard grid ───────────────────────────────────────────────────────── */
+
+.fav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 0 40px 48px;
+}
+
+/* ── Standard card ───────────────────────────────────────────────────────── */
+
+.fav-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fav-card:hover {
+    border-color: var(--fav-accent-bd);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(196, 92, 122, 0.12);
+}
+
+.fav-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    background: var(--clr-bg-raised);
+    overflow: hidden;
+}
+
+.fav-card-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(1.0) brightness(0.92);
+    transition: filter 0.2s ease, transform 0.3s ease;
+}
+
+.fav-card:hover .fav-card-img {
+    filter: saturate(1.15) brightness(1.02);
+    transform: scale(1.04);
+}
+
+/* Rose shimmer */
+.fav-card-shine {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 30%,
+        rgba(196, 92, 122, 0.1) 50%,
+        transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.fav-card:hover .fav-card-shine {
+    opacity: 1;
+}
+
+/* Hours badge bottom-right */
+.fav-card-hours {
+    position: absolute;
+    bottom: 7px;
+    right: 7px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(10, 10, 14, 0.75);
+    color: var(--fav-accent);
+    border: 1px solid var(--fav-accent-bd);
+    backdrop-filter: blur(4px);
+    line-height: 1;
+}
+
+.fav-card-body {
+    padding: 9px 11px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
+.fav-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--clr-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+    .fav-header   { padding: 24px 20px 20px; }
+    .fav-hero-wrap { padding: 0 20px 20px; }
+    .fav-hero     { height: 200px; }
+    .fav-hero-name { font-size: 1.25rem; }
+    .fav-grid     { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}

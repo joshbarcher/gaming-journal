@@ -7,6 +7,12 @@ const _SVG = (paths) =>
     `<svg class="sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
 
 const _ICONS = {
+    vault:     _SVG(`<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><rect x="9" y="12" width="6" height="9"/>`),
+    abandoned:  _SVG(`<path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M13 3h6"/><path d="M3 9v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-5"/><path d="m9 3 2 2-2 2"/>`),
+    hallOfFame: _SVG(`<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>`),
+    favorites:   _SVG(`<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`),
+    franchises:  _SVG(`<rect x="2" y="7" width="6" height="13" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="16" y="2" width="6" height="18" rx="1"/>`),
+    onHold:      _SVG(`<circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>`),
     home:     _SVG(`<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`),
     toc:      _SVG(`<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`),
     library:  _SVG(`<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>`),
@@ -58,7 +64,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-onhold-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -141,6 +147,10 @@ async function _fetchAlertsBadge() {
     } catch { /* silent */ }
 }
 
+export function refreshAlertsBadge() {
+    _fetchAlertsBadge()
+}
+
 function _updateAlertsBadge(count) {
     const badge = document.querySelector('.sidebar-alerts-badge')
     if (!badge) return
@@ -154,8 +164,6 @@ function renderSidebar(activeId) {
     const nav = document.getElementById('sidebar-nav')
     nav.innerHTML = ''
 
-    nav.appendChild(buildHomeButton(activeId === 'home'))
-    nav.appendChild(buildTocButton(activeId === 'toc'))
     nav.appendChild(buildLibraryButton(activeId === 'library'))
     nav.appendChild(buildWishlistButton(activeId === 'wishlist'))
     nav.appendChild(buildAlertsButton(activeId === 'alerts'))
@@ -163,18 +171,19 @@ function renderSidebar(activeId) {
     nav.appendChild(buildReleasesButton(activeId === 'releases'))
     nav.appendChild(buildTopGamesButton(activeId === 'top-games'))
 
-    if (_pages.length === 0) {
-        const empty = document.createElement('div')
-        empty.className = 'sidebar-empty'
-        empty.textContent = 'No pages yet'
-        nav.appendChild(empty)
-    } else {
-        for (const page of _pages) {
-            nav.appendChild(buildItem(page, page.id === activeId))
-        }
-    }
+    // ── Collection section ────────────────────────────────────────────────
+    const collectionSep = document.createElement('div')
+    collectionSep.className = 'sidebar-section-label'
+    collectionSep.textContent = 'Collection'
+    nav.appendChild(collectionSep)
+    nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
+    nav.appendChild(buildOnHoldButton(activeId === 'on-hold'))
+    nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
+    nav.appendChild(buildVaultButton(activeId === 'vault'))
+    nav.appendChild(buildAbandonedButton(activeId === 'abandoned'))
+    nav.appendChild(buildHallOfFameButton(activeId === 'hall-of-fame'))
 
-    // Bottom items — account & settings pinned after pages
+    // Bottom items — account & settings
     const bottomSep = document.createElement('div')
     bottomSep.className = 'sidebar-bottom-sep'
     nav.appendChild(bottomSep)
@@ -289,6 +298,90 @@ function buildTopGamesButton(isActive) {
     el.addEventListener('click', () => _onNavigate('top-games'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('top-games') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildHallOfFameButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-hof-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'hall-of-fame'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.hallOfFame} Hall of Fame`
+    el.addEventListener('click', () => _onNavigate('hall-of-fame'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('hall-of-fame') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildAbandonedButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-abandoned-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'abandoned'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.abandoned} Abandoned Saves`
+    el.addEventListener('click', () => _onNavigate('abandoned'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('abandoned') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildFavoritesButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-favorites-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'favorites'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.favorites} Favorites`
+    el.addEventListener('click', () => _onNavigate('favorites'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('favorites') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildOnHoldButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-onhold-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'on-hold'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.onHold} On Hold`
+    el.addEventListener('click', () => _onNavigate('on-hold'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('on-hold') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildFranchisesButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-franchises-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'franchises'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.franchises} Franchises`
+    el.addEventListener('click', () => _onNavigate('franchises'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('franchises') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildVaultButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-vault-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'vault'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.vault} The Vault`
+    el.addEventListener('click', () => _onNavigate('vault'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('vault') }
         _arrowNav(e)
     })
     return el
@@ -468,7 +561,7 @@ function _arrowNav(e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const nav = document.getElementById('sidebar-nav')
-    const focusable = [...nav.querySelectorAll('.sidebar-home-btn, .sidebar-toc-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-item')]
+    const focusable = [...nav.querySelectorAll('.sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn')]
     const idx = focusable.indexOf(document.activeElement)
     if (idx === -1) return
     if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()

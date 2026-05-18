@@ -17,9 +17,20 @@ let _page         = 1
 let _container    = null
 let _debounce     = null
 let _scrollDebounce = null
+let _scrollAbort  = null
 
 export async function renderLibrary(container) {
+    // Abort any previous scroll listener FIRST — before innerHTML is touched.
+    if (_scrollAbort) { _scrollAbort.abort(); _scrollAbort = null }
+
     _container = container
+
+    // Read persisted scroll BEFORE touching innerHTML — setting innerHTML collapses
+    // page height, firing a scroll event on the still-attached listener from the
+    // previous visit, which would overwrite STORAGE_SCROLL with 0.
+    const savedScroll = Number(localStorage.getItem(STORAGE_SCROLL) ?? 0)
+
+
     container.innerHTML = `<p class="page-loading">Loading library…</p>`
 
     try {
@@ -55,7 +66,6 @@ export async function renderLibrary(container) {
     const totalPages = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE))
     if (_page > totalPages) _page = totalPages
     _draw()
-    const savedScroll = Number(localStorage.getItem(STORAGE_SCROLL) ?? 0)
     if (savedScroll > 0) requestAnimationFrame(() => _container.scrollTop = savedScroll)
 }
 
@@ -136,12 +146,15 @@ function _draw() {
         _updateDirBtn()
     })
 
+    _scrollAbort = new AbortController()
     _container.addEventListener('scroll', () => {
+        // Guard: if library is no longer the active view, don't overwrite saved scroll.
+        if (!_container.querySelector('#lib-grid')) return
         clearTimeout(_scrollDebounce)
         _scrollDebounce = setTimeout(() => {
-            localStorage.setItem(STORAGE_SCROLL, _container.scrollTop)
+localStorage.setItem(STORAGE_SCROLL, _container.scrollTop)
         }, 150)
-    })
+    }, { signal: _scrollAbort.signal })
 
     _bindPager()
 }

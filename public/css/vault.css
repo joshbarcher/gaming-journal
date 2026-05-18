@@ -1,0 +1,247 @@
+/* ── The Vault — Backlog page ─────────────────────────────────────────────── */
+
+/* Indigo/slate accent for this page */
+:root {
+    --vault-accent:    #7c6fcd;
+    --vault-accent-lo: rgba(124, 111, 205, 0.15);
+    --vault-accent-bd: rgba(124, 111, 205, 0.35);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.vault-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle grid texture to give a "dusty archive" feel */
+.vault-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--vault-accent-bd) 1px, transparent 1px),
+        linear-gradient(90deg, var(--vault-accent-bd) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.08;
+    pointer-events: none;
+}
+
+.vault-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        var(--clr-bg) 0%,
+        transparent 60%,
+        var(--clr-bg) 100%
+    );
+    pointer-events: none;
+}
+
+.vault-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.vault-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--vault-accent);
+    margin: 0 0 6px;
+}
+
+.vault-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.vault-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Random pick button ──────────────────────────────────────────────────── */
+
+.vault-random-btn {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 1px solid var(--vault-accent-bd);
+    border-radius: var(--radius);
+    background: var(--vault-accent-lo);
+    color: var(--vault-accent);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.vault-random-btn svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.vault-random-btn:hover {
+    background: rgba(124, 111, 205, 0.25);
+    border-color: rgba(124, 111, 205, 0.6);
+    color: #a89fe0;
+}
+
+/* ── Game grid ───────────────────────────────────────────────────────────── */
+
+.vault-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 0 40px 48px;
+}
+
+/* ── Game card ───────────────────────────────────────────────────────────── */
+
+.vault-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+
+.vault-card:hover {
+    border-color: var(--vault-accent-bd);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.vault-card--picked {
+    border-color: var(--vault-accent) !important;
+    box-shadow: 0 0 0 2px var(--vault-accent), 0 8px 32px rgba(124, 111, 205, 0.4) !important;
+    transform: translateY(-3px) !important;
+    animation: vault-pick-pulse 0.5s ease;
+}
+
+@keyframes vault-pick-pulse {
+    0%   { box-shadow: 0 0 0 0   var(--vault-accent), 0 8px 32px rgba(124,111,205,0.4); }
+    50%  { box-shadow: 0 0 0 8px rgba(124,111,205,0),  0 8px 48px rgba(124,111,205,0.6); }
+    100% { box-shadow: 0 0 0 2px var(--vault-accent), 0 8px 32px rgba(124,111,205,0.4); }
+}
+
+/* ── Card image ──────────────────────────────────────────────────────────── */
+
+.vault-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    background: var(--clr-bg-raised);
+    overflow: hidden;
+}
+
+.vault-card-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Slight desaturation — games waiting, not yet played */
+    filter: saturate(0.75) brightness(0.9);
+    transition: filter 0.2s ease;
+}
+
+.vault-card:hover .vault-card-img {
+    filter: saturate(1) brightness(1);
+}
+
+.vault-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        transparent 50%,
+        rgba(0, 0, 0, 0.55) 100%
+    );
+}
+
+/* ── HLTB time badge (top-right of image) ────────────────────────────────── */
+
+.vault-card-time {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.vault-card-time--hltb {
+    background: rgba(10, 10, 14, 0.75);
+    color: var(--vault-accent);
+    border: 1px solid var(--vault-accent-bd);
+    backdrop-filter: blur(4px);
+}
+
+.vault-card-time--unknown {
+    background: rgba(10, 10, 14, 0.55);
+    color: var(--clr-text-muted);
+    border: 1px solid var(--clr-border);
+}
+
+/* ── Card body ───────────────────────────────────────────────────────────── */
+
+.vault-card-body {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.vault-card-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--clr-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.vault-card-played {
+    font-size: 0.7rem;
+    color: var(--clr-text-muted);
+    opacity: 0.7;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 960px) {
+    .vault-header { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
+    .vault-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}

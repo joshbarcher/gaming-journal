@@ -22,4 +22,14 @@ export const api = {
         remove:  (id)       => request('DELETE', `/pages/${id}`),
         reorder: (ids)      => request('PUT',    '/pages/order', { ids }),
     },
+    franchises: {
+        list:           ()               => request('GET',    '/franchises'),
+        get:            (id)             => request('GET',    `/franchises/${id}`),
+        create:         (body)           => request('POST',   '/franchises', body),
+        update:         (id, body)       => request('PUT',    `/franchises/${id}`, body),
+        delete:         (id)             => request('DELETE', `/franchises/${id}`),
+        addEntry:       (id, body)       => request('POST',   `/franchises/${id}/entries`, body),
+        removeEntry:    (id, appid)      => request('DELETE', `/franchises/${id}/entries/${appid}`),
+        reorderEntries: (id, appids)     => request('PUT',    `/franchises/${id}/entries/order`, { appids }),
+    },
 }

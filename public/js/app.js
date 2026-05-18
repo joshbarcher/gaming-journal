@@ -1,4 +1,4 @@
-import { navigate, getRoutePath, registerRenderer, addNewPage } from './router.js'
+import { navigate, getRoutePath, registerRenderer } from './router.js'
 import { renderList } from './views/list.js'
 import { renderProgress } from './views/progress.js'
 import { renderProgressBars } from './views/progress-bars.js'
@@ -71,7 +71,6 @@ window.addEventListener('popstate', () => {
 })
 
 async function init() {
-    document.getElementById('sidebar-add-btn')?.addEventListener('click', addNewPage)
     await navigate(getRoutePath(), { replace: true })
 }
 

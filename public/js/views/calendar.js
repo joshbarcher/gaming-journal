@@ -18,10 +18,14 @@ export async function renderCalendar(container) {
     container.innerHTML = `<p class="page-loading">Loading calendar…</p>`
 
     try {
-        const res = await fetch('/relay/api/account')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        _dayMap = _buildDayMap(data.sessions ?? {})
+        const [accountRes, flagsRes] = await Promise.all([
+            fetch('/relay/api/account'),
+            fetch('/api/flags'),
+        ])
+        if (!accountRes.ok) throw new Error(`HTTP ${accountRes.status}`)
+        const data  = await accountRes.json()
+        const flags = flagsRes.ok ? await flagsRes.json() : {}
+        _dayMap = _buildDayMap(data.sessions ?? {}, flags)
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load calendar: ${escapeHtml(err.message)}</p>`
         return
@@ -53,9 +57,10 @@ export async function renderReleases(container) {
 
 // ── Data builders ─────────────────────────────────────────────────────────────
 
-function _buildDayMap(sessions) {
+function _buildDayMap(sessions, flags = {}) {
     const map = new Map()
     for (const [appidStr, game] of Object.entries(sessions)) {
+        if (flags[appidStr]?.software || flags[Number(appidStr)]?.software) continue
         for (const session of game.sessions ?? []) {
             const day = session.startedAt.slice(0, 10)
             if (!map.has(day)) map.set(day, [])

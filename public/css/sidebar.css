@@ -73,7 +73,11 @@
 .sidebar-calendar-btn,
 .sidebar-releases-btn,
 .sidebar-top-games-btn,
-.sidebar-settings-btn {
+.sidebar-settings-btn,
+.sidebar-favorites-btn,
+.sidebar-vault-btn,
+.sidebar-abandoned-btn,
+.sidebar-hof-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -97,7 +101,11 @@
 .sidebar-calendar-btn:hover,
 .sidebar-releases-btn:hover,
 .sidebar-top-games-btn:hover,
-.sidebar-settings-btn:hover {
+.sidebar-settings-btn:hover,
+.sidebar-favorites-btn:hover,
+.sidebar-vault-btn:hover,
+.sidebar-abandoned-btn:hover,
+.sidebar-hof-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
@@ -109,7 +117,11 @@
 .sidebar-calendar-btn.active,
 .sidebar-releases-btn.active,
 .sidebar-top-games-btn.active,
-.sidebar-settings-btn.active {
+.sidebar-settings-btn.active,
+.sidebar-favorites-btn.active,
+.sidebar-vault-btn.active,
+.sidebar-abandoned-btn.active,
+.sidebar-hof-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
@@ -123,7 +135,11 @@
 .sidebar-calendar-btn:focus-visible,
 .sidebar-releases-btn:focus-visible,
 .sidebar-top-games-btn:focus-visible,
-.sidebar-settings-btn:focus-visible {
+.sidebar-settings-btn:focus-visible,
+.sidebar-favorites-btn:focus-visible,
+.sidebar-vault-btn:focus-visible,
+.sidebar-abandoned-btn:focus-visible,
+.sidebar-hof-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }
@@ -303,6 +319,18 @@
 
 .sidebar-item.active .sidebar-progress-fill {
     background: var(--clr-accent);
+}
+
+/* ── Collection section label ───────────────────────────────────────────────── */
+.sidebar-section-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    opacity: 0.5;
+    padding: 10px 14px 4px;
+    user-select: none;
 }
 
 /* ── Add page button ────────────────────────────────────────────────────────── */
