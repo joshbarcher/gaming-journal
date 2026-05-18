@@ -183,10 +183,13 @@ function _updateAlertsBadge(count) {
 
 async function _fetchCollectionCounts() {
     try {
-        const res = await fetch('/api/flags')
-        if (!res.ok) return
-        const flags = await res.json()
-        const counts = { favorites: 0, onHold: 0, backlog: 0, dropped: 0, completed: 0 }
+        const [flagsRes, accountRes] = await Promise.all([
+            fetch('/api/flags'),
+            fetch('/relay/api/account'),
+        ])
+        if (!flagsRes.ok) return
+        const flags = await flagsRes.json()
+        const counts = { favorites: 0, onHold: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0 }
         for (const f of Object.values(flags)) {
             if (f.favorite)  counts.favorites++
             if (f.onHold)    counts.onHold++
@@ -194,12 +197,19 @@ async function _fetchCollectionCounts() {
             if (f.dropped)   counts.dropped++
             if (f.completed) counts.completed++
         }
+        if (accountRes.ok) {
+            const account = await accountRes.json()
+            counts.library  = account?.stats?.totalGames   ?? 0
+            counts.wishlist = account?.stats?.wishlistCount ?? 0
+        }
         _updateCollectionBadges(counts)
     } catch { /* silent — non-critical */ }
 }
 
 function _updateCollectionBadges(counts) {
     const updates = [
+        ['.sidebar-library-btn',   counts.library],
+        ['.sidebar-wishlist-btn',  counts.wishlist],
         ['.sidebar-favorites-btn', counts.favorites],
         ['.sidebar-onhold-btn',    counts.onHold],
         ['.sidebar-vault-btn',     counts.backlog],
@@ -270,7 +280,7 @@ function buildLibraryButton(isActive) {
     el.className = 'sidebar-library-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'library'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.library} Steam Library`
+    el.innerHTML = `${_ICONS.library} Steam Library <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('library'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('library') }
@@ -284,7 +294,7 @@ function buildWishlistButton(isActive) {
     el.className = 'sidebar-wishlist-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'wishlist'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.wishlist} Wishlist`
+    el.innerHTML = `${_ICONS.wishlist} Wishlist <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('wishlist'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('wishlist') }
