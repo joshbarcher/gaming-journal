@@ -398,12 +398,13 @@
 .frc-tl-img-wrap {
     flex: 1 1 0;
     min-width: 0;
-    padding: 0 3px; /* slightly narrower than bar cell */
+    display: flex;
+    justify-content: center;
 }
 
 .frc-tl-img {
     display: block;
-    width: 100%;
+    width: 80%;
     aspect-ratio: 460 / 215;
     object-fit: cover;
     border-radius: 3px;
@@ -424,18 +425,18 @@
 /* Single unified bar — gaps show through as dividers */
 .frc-tl-bar {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     height: 10px;
     border-radius: 5px;
     overflow: hidden;
-    background: var(--clr-border); /* divider colour seen through gaps */
+    background: rgba(255, 255, 255, 0.2); /* visible divider colour */
 }
 
 .frc-tl-seg {
     flex: 1 1 0;
     min-width: 0;
     height: 100%;
-    background: var(--clr-bg-raised); /* empty track */
+    background: rgba(255, 255, 255, 0.06); /* empty track */
     position: relative;
     overflow: hidden;
 }
