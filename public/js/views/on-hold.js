@@ -158,12 +158,12 @@ export async function renderOnHold(container) {
             <div class="onhold-header">
                 <div class="onhold-header-body">
                     <p class="onhold-eyebrow">Collection</p>
-                    <h1 class="onhold-title">On Hold</h1>
+                    <h1 class="onhold-title">In Progress</h1>
                 </div>
             </div>
             <p class="page-empty" style="padding:40px">
                 No games on hold. Open any game page and toggle the
-                <strong>On Hold</strong> flag to track paused playthroughs here.
+                <strong>In Progress</strong> flag to track paused playthroughs here.
             </p>`
         return
     }
@@ -177,7 +177,7 @@ export async function renderOnHold(container) {
         <div class="onhold-header">
             <div class="onhold-header-body">
                 <p class="onhold-eyebrow">Collection</p>
-                <h1 class="onhold-title">On Hold</h1>
+                <h1 class="onhold-title">In Progress</h1>
                 <p class="onhold-subtitle">${totalStr}</p>
             </div>
         </div>

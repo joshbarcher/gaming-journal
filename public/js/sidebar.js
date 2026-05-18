@@ -328,7 +328,7 @@ function buildHallOfFameButton(isActive) {
     el.className = 'sidebar-hof-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'hall-of-fame'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.hallOfFame} Hall of Fame`
+    el.innerHTML = `${_ICONS.hallOfFame} Completed Games`
     el.addEventListener('click', () => _onNavigate('hall-of-fame'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('hall-of-fame') }
@@ -342,7 +342,7 @@ function buildAbandonedButton(isActive) {
     el.className = 'sidebar-abandoned-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'abandoned'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.abandoned} Abandoned Saves`
+    el.innerHTML = `${_ICONS.abandoned} Abandoned Games`
     el.addEventListener('click', () => _onNavigate('abandoned'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('abandoned') }
@@ -370,7 +370,7 @@ function buildOnHoldButton(isActive) {
     el.className = 'sidebar-onhold-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'on-hold'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.onHold} On Hold`
+    el.innerHTML = `${_ICONS.onHold} In Progress`
     el.addEventListener('click', () => _onNavigate('on-hold'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('on-hold') }
@@ -398,7 +398,7 @@ function buildVaultButton(isActive) {
     el.className = 'sidebar-vault-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'vault'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.vault} The Vault`
+    el.innerHTML = `${_ICONS.vault} Backlog`
     el.addEventListener('click', () => _onNavigate('vault'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('vault') }

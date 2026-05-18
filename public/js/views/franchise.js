@@ -30,7 +30,7 @@ function _deriveStatus(flags, playtime, isWishlist) {
 const _STATUS_LABELS = {
     completed: 'Completed',
     dropped:   'Dropped',
-    'on-hold': 'On Hold',
+    'on-hold': 'In Progress',
     playing:   'Playing',
     wishlist:  'Wishlisted',
     unplayed:  null,

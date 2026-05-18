@@ -141,7 +141,7 @@ export async function renderVault(container) {
             <div class="vault-header">
                 <div class="vault-header-body">
                     <p class="vault-eyebrow">Collection</p>
-                    <h1 class="vault-title">The Vault</h1>
+                    <h1 class="vault-title">Backlog</h1>
                 </div>
             </div>
             <p class="page-empty" style="padding:40px">
@@ -160,7 +160,7 @@ export async function renderVault(container) {
         <div class="vault-header">
             <div class="vault-header-body">
                 <p class="vault-eyebrow">Collection</p>
-                <h1 class="vault-title">The Vault</h1>
+                <h1 class="vault-title">Backlog</h1>
                 <p class="vault-subtitle">${totalStr}</p>
             </div>
             <button id="vault-random-btn" class="vault-random-btn" title="Pick a random game from your backlog">
