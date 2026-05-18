@@ -403,32 +403,40 @@
     justify-content: center;
 }
 
-/* Inner box — owns the border and the arrow so they form one shape */
+/* Inner box — owns the border and arrow so they read as one shape */
 .frc-tl-img-box {
     width: 80%;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.38);
+    border: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 3px;
 }
 
-/*
- * Rotated-square arrow: only border-right + border-bottom are drawn,
- * forming the two visible sides of the downward point.
- * background matches the page bg so it "erases" the box's bottom border
- * at the join, making the border flow continuously into the arrow.
- */
+/* Outer triangle — border colour, sets the stroke of the arrow */
+.frc-tl-img-box::before {
+    content: '';
+    position: absolute;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 12px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Inner triangle — page background, sits on top of outer to hollow it out */
 .frc-tl-img-box::after {
     content: '';
     position: absolute;
-    bottom: -6px;
+    bottom: -9px;
     left: 50%;
-    transform: translateX(-50%) rotate(45deg);
-    width: 10px;
-    height: 10px;
-    background: var(--clr-bg);
-    border-right: 1px solid rgba(255, 255, 255, 0.38);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.38);
-    z-index: 2;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 9px solid var(--clr-bg);
 }
 
 .frc-tl-img {
@@ -436,7 +444,7 @@
     width: 100%;
     aspect-ratio: 460 / 215;
     object-fit: cover;
-    border-radius: 2px;
+    border-radius: 1px;
     background: var(--clr-bg-raised);
     transition: filter 0.2s ease, opacity 0.2s ease;
 }
