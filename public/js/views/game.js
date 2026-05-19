@@ -66,8 +66,8 @@ export async function renderGame(appid, container) {
 function _hero(game) {
     // Use direct background-image inline style — CSS custom properties are
     // unreliable for background-image values across browser versions.
-    const bgUrl   = game.media?.background ? `/relay${game.media.background}` : ''
-    const logoUrl = game.media?.logo       ? `/relay${game.media.logo}`       : ''
+    const bgUrl   = game.media?.background ?? ''
+    const logoUrl = game.media?.logo       ?? ''
     const bgStyle = bgUrl ? ` style="background-image: url('${bgUrl}')"` : ''
 
     const desc   = game.store?.description ?? ''
@@ -328,7 +328,7 @@ function _screenshots(game) {
     const apiShots = (game.media?.screenshots ?? []).filter(Boolean)
 
     const urls = apiShots.length > 0
-        ? apiShots.map(p => `/relay${p}`)
+        ? apiShots
         : Array.from({ length: 25 }, (_, i) => `/relay/images/steam/screenshots/${game.appid}/${i}.jpg`)
 
     const imgsHtml = urls.map(url => `
