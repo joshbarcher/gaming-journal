@@ -172,7 +172,7 @@ async function _startHeroSlideshow(container, game) {
             if (!document.contains(bgA)) return
             incoming.style.transition         = `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
             incoming.style.opacity            = '1'
-            incoming.style.backgroundPosition = `center ${dir}`
+            incoming.style.backgroundPosition = `center ${randDir()}`
             outgoing.style.opacity = '0'
         }))
 
@@ -1021,7 +1021,7 @@ function _initWishlistBtn(container, game) {
 
         btn.classList.toggle('game-flag--active', !isLocal)
         btn.title = isLocal ? 'Add to Local Wishlist' : 'Remove from Local Wishlist'
-        btn.innerHTML = isLocal ? _WL_ICON : _WL_ICON_ADDED
+        btn.innerHTML = isLocal ? _WL_STAR : _WL_STAR_FILL
 
         try {
             const res = await fetch(`/api/local-wishlist/${appid}`, { method })
@@ -1030,7 +1030,7 @@ function _initWishlistBtn(container, game) {
             // Revert
             btn.classList.toggle('game-flag--active', isLocal)
             btn.title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
-            btn.innerHTML = isLocal ? _WL_ICON_ADDED : _WL_ICON
+            btn.innerHTML = isLocal ? _WL_STAR_FILL : _WL_STAR
         }
     })
 }
