@@ -3,10 +3,20 @@
     position: relative;
     margin: -48px -56px 0;
     background-color: var(--clr-bg-raised);
-    background-size: cover;
-    background-position: center top;
     min-height: 380px;
     overflow: hidden;
+}
+
+.game-hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center center;
+    z-index: 0;
+}
+
+.game-hero-bg--b {
+    opacity: 0;
 }
 
 /* Dark overlay — heavier on the left where text lives, lighter on the right */
@@ -17,12 +27,16 @@
     background:
         linear-gradient(to right,  rgba(13,11,9,0.78) 0%, rgba(13,11,9,0.60) 40%, rgba(13,11,9,0.25) 100%),
         linear-gradient(to top,    rgba(13,11,9,0.30) 0%, transparent 50%);
-    z-index: 0;
+    z-index: 1;
+}
+
+.game-hero-nav,
+.game-hero-body {
+    position: relative;
+    z-index: 2;
 }
 
 .game-hero-nav {
-    position: relative;
-    z-index: 1;
     padding: 18px 40px 0;
 }
 
@@ -40,8 +54,6 @@
 }
 
 .game-hero-body {
-    position: relative;
-    z-index: 1;
     display: grid;
     grid-template-columns: 1fr 300px;
     gap: 28px;

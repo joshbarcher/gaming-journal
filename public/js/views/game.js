@@ -48,6 +48,7 @@ export async function renderGame(appid, container) {
             ${_pcgw(pcgwData)}
         </div>`
 
+    _startHeroSlideshow(container, game)
     _initPlayerChart(playerCounts, container)
     _initFlagsBar(container)
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
@@ -65,11 +66,8 @@ export async function renderGame(appid, container) {
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
 function _hero(game) {
-    // Use direct background-image inline style — CSS custom properties are
-    // unreliable for background-image values across browser versions.
-    const bgUrl   = game.media?.background ?? ''
-    const logoUrl = game.media?.logo       ?? ''
-    const bgStyle = bgUrl ? ` style="background-image: url('${bgUrl}')"` : ''
+    const initBg  = game.media?.background ?? game.media?.header ?? ''
+    const logoUrl = game.media?.logo ?? ''
 
     const desc   = game.store?.description ?? ''
     const genres = game.store?.genres ?? []
@@ -81,13 +79,16 @@ function _hero(game) {
 
     const badgesHtml = tags.map(t => `<span class="game-badge">${escapeHtml(t)}</span>`).join('')
 
-    // Always render the title. Show logo above it if available; hide logo on error.
     const logoHtml = logoUrl
         ? `<img class="game-hero-logo" src="${logoUrl}" alt="" onerror="this.style.display='none'">`
         : ''
 
+    const bgAStyle = initBg ? ` style="background-image:url('${initBg}')"` : ''
+
     return `
-        <section class="game-hero"${bgStyle}>
+        <section class="game-hero">
+            <div class="game-hero-bg game-hero-bg--a"${bgAStyle}></div>
+            <div class="game-hero-bg game-hero-bg--b"></div>
             <nav class="game-hero-nav">
                 <a href="/library" class="game-back-link">&#8592; Library</a>
             </nav>
@@ -104,6 +105,75 @@ function _hero(game) {
                 </div>
             </div>
         </section>`
+}
+
+async function _startHeroSlideshow(container, game) {
+    const bgA = container.querySelector('.game-hero-bg--a')
+    const bgB = container.querySelector('.game-hero-bg--b')
+    if (!bgA || !bgB) return
+
+    const candidates = [
+        game.media?.background,
+        ...(game.media?.screenshots ?? []),
+    ].filter(Boolean)
+
+    if (candidates.length < 2) return
+
+    const frames = (await Promise.all(
+        candidates.map(url => new Promise(resolve => {
+            const img = new Image()
+            img.onload  = () => resolve(url)
+            img.onerror = () => resolve(null)
+            img.src = url
+        }))
+    )).filter(Boolean)
+
+    if (frames.length < 2) return
+
+    // Shuffle so order is random each visit
+    for (let i = frames.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [frames[i], frames[j]] = [frames[j], frames[i]]
+    }
+
+    const INTERVAL = 6_000
+    const PAN_DUR  = 10_000
+    const randDir  = () => Math.random() < 0.5 ? 'top' : 'bottom'
+
+    function _pan(el, dir) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            el.style.transition         = `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
+            el.style.backgroundPosition = `center ${dir}`
+        }))
+    }
+
+    _pan(bgA, randDir())
+
+    let idx = 1, showingA = true
+
+    const timer = setInterval(() => {
+        if (!document.contains(bgA)) { clearInterval(timer); return }
+
+        const url      = frames[idx % frames.length]
+        const incoming = showingA ? bgB : bgA
+        const outgoing = showingA ? bgA : bgB
+        idx++
+
+        incoming.style.transition         = 'none'
+        incoming.style.backgroundImage    = `url('${url}')`
+        incoming.style.backgroundPosition = 'center center'
+        incoming.style.opacity            = '0'
+
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (!document.contains(bgA)) return
+            incoming.style.transition         = `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
+            incoming.style.opacity            = '1'
+            incoming.style.backgroundPosition = `center ${dir}`
+            outgoing.style.opacity = '0'
+        }))
+
+        showingA = !showingA
+    }, INTERVAL)
 }
 
 function _dataPanel(game) {
