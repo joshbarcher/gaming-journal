@@ -283,6 +283,48 @@
     font-style: italic;
 }
 
+/* ── About This Game (rich Steam HTML) ───────────────────────────────────────── */
+.game-about-body {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--clr-text);
+    max-width: 860px;
+}
+
+.game-about-body h1,
+.game-about-body h2,
+.game-about-body h3 {
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--clr-text);
+    margin: 24px 0 8px;
+}
+
+.game-about-body p  { margin: 0 0 12px; }
+.game-about-body br { display: block; content: ''; margin-bottom: 4px; }
+
+.game-about-body ul,
+.game-about-body ol {
+    padding-left: 20px;
+    margin: 0 0 12px;
+}
+
+.game-about-body li { margin-bottom: 4px; }
+
+.game-about-body strong { color: var(--clr-text); font-weight: 700; }
+.game-about-body em     { font-style: italic; }
+
+.game-about-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    display: block;
+    margin: 16px 0;
+}
+
 /* ── HLTB bar ────────────────────────────────────────────────────────────────── */
 .hltb-bar-wrap {
     padding: 0 6px;

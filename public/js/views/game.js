@@ -38,6 +38,7 @@ export async function renderGame(appid, container) {
         </div>
         <div class="game-body">
             ${_localReviewSection(localReview, appid)}
+            ${_about(game)}
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
             ${_screenshots(game)}
@@ -342,6 +343,18 @@ function _screenshots(game) {
             <h2 class="game-section-title">Screenshots</h2>
             <div class="game-shots-grid">${imgsHtml}</div>
             <p class="game-section-empty game-shots-fallback">No screenshots available.</p>
+        </section>`
+}
+
+// ── About This Game ───────────────────────────────────────────────────────────
+
+function _about(game) {
+    const html = game.store?.detailedDescription
+    if (!html) return ''
+    return `
+        <section class="game-section game-about">
+            <h2 class="game-section-title">About This Game</h2>
+            <div class="game-about-body">${html}</div>
         </section>`
 }
 
