@@ -1,6 +1,7 @@
 import { escapeHtml } from '../utils.js'
 import { refreshAlertsBadge } from '../sidebar.js'
 import { openReviewModal, renderLocalReviewCard } from '../review-modal.js'
+import { gameBackLabel, gameBackPath } from '../router.js'
 
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
@@ -91,7 +92,7 @@ function _hero(game) {
             <div class="game-hero-bg game-hero-bg--a"${bgAStyle}></div>
             <div class="game-hero-bg game-hero-bg--b"></div>
             <nav class="game-hero-nav">
-                <a href="/library" class="game-back-link">&#8592; Library</a>
+                <a href="${gameBackPath()}" class="game-back-link">&#8592; ${escapeHtml(gameBackLabel())}</a>
             </nav>
             <div class="game-hero-body">
                 <div class="game-hero-left">

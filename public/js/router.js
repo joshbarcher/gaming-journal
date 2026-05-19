@@ -92,9 +92,47 @@ export function getRoutePath() {
     return window.location.pathname.slice(1)
 }
 
+const FROM_LABELS = {
+    library:          'Library',
+    wishlist:         'Wishlist',
+    discover:         'Discover',
+    'top-games':      'Top 100',
+    franchise:        'Franchise',
+    franchises:       'Franchises',
+    favorites:        'Favorites',
+    calendar:         'Calendar',
+    releases:         'Releases',
+    account:          'Account',
+    vault:            'Vault',
+    'hall-of-fame':   'Hall of Fame',
+    abandoned:        'Abandoned',
+    'on-hold':        'On Hold',
+    'my-reviews':     'My Reviews',
+}
+
+export function gameBackLabel() {
+    const from = sessionStorage.getItem('gj_game_from')
+    return from && FROM_LABELS[from] ? FROM_LABELS[from] : 'Library'
+}
+
+export function gameBackPath() {
+    const from = sessionStorage.getItem('gj_game_from')
+    return from && FROM_LABELS[from] ? `/${from}` : '/library'
+}
+
 export async function navigate(path, { replace = false } = {}) {
     if (typeof path !== 'string') path = ''
     const route = parseRoute(path)
+
+    // When navigating to a game, record which view we're leaving so the game
+    // page can render a context-aware back button. Don't overwrite if already
+    // navigating game-to-game (keeps the original origin view).
+    if (route.view === 'game' && _initialized) {
+        const prevRoute = parseRoute(getRoutePath())
+        if (prevRoute.view !== 'game') {
+            sessionStorage.setItem('gj_game_from', prevRoute.view)
+        }
+    }
 
     // Save scroll position of the page we're leaving — but not on the initial
     // page load, where scrollTop is 0 and would overwrite a valid stored position

@@ -5,6 +5,8 @@ x User ratings: Ability to leave 1-5 stars rating, feeling (negative, mixed, pos
 x Show user reviews
 - Does the app migrate wishlisted games to library games when bought?
 - Sync videos to relay server and show on game page.
+- Local wishlist
+- Use screenshots immediately in hero header on individual games. Rather than background.jpg.
 
 # Bugs
 
