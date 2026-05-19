@@ -6,9 +6,9 @@ import { gameBackLabel, gameBackPath } from '../router.js'
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
@@ -17,6 +17,7 @@ export async function renderGame(appid, container) {
             fetch(`/relay/api/player-counts/${appid}`),
             fetch(`/api/flags/${appid}`),
             fetch(`/api/local-reviews/${appid}`),
+            fetch(`/relay/api/videos/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
         game             = await gameRes.json()
@@ -27,6 +28,7 @@ export async function renderGame(appid, container) {
         playerCounts     = pcRes.ok        ? await pcRes.json()        : null
         flags            = flagsRes.ok     ? await flagsRes.json()     : {}
         localReview      = localRevRes.ok  ? await localRevRes.json()  : null
+        trailers         = trailersRes.ok  ? await trailersRes.json()  : []
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -39,6 +41,7 @@ export async function renderGame(appid, container) {
             ${_flagsBar(flags, game)}
         </div>
         <div class="game-body">
+            ${_trailers(appid, trailers)}
             ${_about(game)}
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
@@ -55,6 +58,7 @@ export async function renderGame(appid, container) {
     _initFlagsBar(container)
     _initWishlistBtn(container, game)
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
+    _initTrailers(container, appid)
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
@@ -395,6 +399,62 @@ function _itad(itad) {
             ${historicHtml}
             <div class="itad-cards">${cardsHtml}</div>
         </section>`
+}
+
+// ── Trailers ──────────────────────────────────────────────────────────────────
+
+function _trailers(appid, trailers) {
+    if (!trailers?.length) return ''
+
+    const thumbsHtml = trailers.length > 1
+        ? `<div class="trailers-list">
+            ${trailers.map((t, i) => `
+                <button class="trailers-thumb${i === 0 ? ' trailers-thumb--active' : ''}" data-index="${t.index}">
+                    <div class="trailers-thumb-img-wrap">
+                        ${t.thumbnail
+                            ? `<img class="trailers-thumb-img" src="${t.thumbnail}" alt="" loading="lazy" onerror="this.style.display='none'">`
+                            : ''}
+                        <span class="trailers-play-icon">&#9654;</span>
+                    </div>
+                    <span class="trailers-thumb-name">${escapeHtml(t.name)}</span>
+                </button>`).join('')}
+           </div>`
+        : ''
+
+    return `
+        <section class="game-section game-trailers" data-appid="${appid}">
+            <h2 class="game-section-title">Trailers</h2>
+            <div class="trailers-player-wrap">
+                <video class="trailers-player" controls preload="metadata"
+                       src="/relay/videos/steam/${appid}/0.mp4"></video>
+            </div>
+            ${thumbsHtml}
+        </section>`
+}
+
+function _initTrailers(container) {
+    const section = container.querySelector('.game-trailers')
+    if (!section) return
+
+    const appid  = section.dataset.appid
+    const player = section.querySelector('.trailers-player')
+    const thumbs = section.querySelectorAll('.trailers-thumb')
+
+    thumbs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx     = btn.dataset.index
+            const wasActive = btn.classList.contains('trailers-thumb--active')
+            if (wasActive) return
+
+            thumbs.forEach(b => b.classList.remove('trailers-thumb--active'))
+            btn.classList.add('trailers-thumb--active')
+
+            const pos = player.paused ? null : player.currentTime
+            player.src = `/relay/videos/steam/${appid}/${idx}.mp4`
+            player.load()
+            if (pos !== null) player.play()
+        })
+    })
 }
 
 // ── Screenshots ───────────────────────────────────────────────────────────────

@@ -299,8 +299,8 @@
 .game-flag--active.game-flag--alert     { color: #e0b830; }
 
 /* ── Wishlist button ─────────────────────────────────────────────────────────── */
-.game-flag--active.game-wishlist-btn       { color: #e8c84a; }
-.game-wishlist-btn--steam                  { color: #7aade0; cursor: default; }
+.game-flag--active.game-wishlist-btn       { color: #f5d132; border-color: rgba(245, 209, 50, 0.35); background: rgba(245, 209, 50, 0.08); }
+.game-wishlist-btn--steam                  { color: #7aade0; border-color: rgba(122, 173, 224, 0.3); cursor: default; }
 
 /* ── Game body (below hero) ──────────────────────────────────────────────────── */
 .game-body {
@@ -628,6 +628,99 @@
     font-size: 11px;
     color: var(--clr-text-muted);
     text-decoration: line-through;
+}
+
+/* ── Trailers ────────────────────────────────────────────────────────────────── */
+.trailers-player-wrap {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #000;
+    margin-bottom: 12px;
+}
+
+.trailers-player {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.trailers-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--clr-border) transparent;
+}
+
+.trailers-thumb {
+    flex-shrink: 0;
+    width: 180px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color var(--transition), transform 0.14s ease;
+    padding: 0;
+    text-align: left;
+}
+
+.trailers-thumb:hover {
+    border-color: var(--clr-border-hi);
+    transform: translateY(-2px);
+}
+
+.trailers-thumb--active {
+    border-color: var(--clr-accent);
+    box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.25);
+}
+
+.trailers-thumb-img-wrap {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #000;
+}
+
+.trailers-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.trailers-play-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.35);
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.85);
+    transition: background var(--transition);
+}
+
+.trailers-thumb:hover .trailers-play-icon,
+.trailers-thumb--active .trailers-play-icon {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.trailers-thumb-name {
+    display: block;
+    padding: 7px 10px;
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trailers-thumb--active .trailers-thumb-name {
+    color: var(--clr-text);
 }
 
 /* ── Screenshots grid ────────────────────────────────────────────────────────── */
