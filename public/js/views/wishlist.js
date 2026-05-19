@@ -106,6 +106,12 @@ function _applyFilter() {
                 const tb = b.wishlist?.dateAdded ?? 0
                 return flip * (ta - tb)
             }
+            case 'release': {
+                // Unreleased games have no ISO date — sort them first on desc, last on asc
+                const ra = a.releaseDateIso ?? (flip === -1 ? '0000' : '9999')
+                const rb = b.releaseDateIso ?? (flip === -1 ? '0000' : '9999')
+                return flip * ra.localeCompare(rb)
+            }
             case 'priority': {
                 const pa = a.wishlist?.priority ?? 9999
                 const pb = b.wishlist?.priority ?? 9999
@@ -144,6 +150,7 @@ function _draw() {
                 <option value="price"    ${_sort === 'price'    ? 'selected' : ''}>Price</option>
                 <option value="discount" ${_sort === 'discount' ? 'selected' : ''}>Discount</option>
                 <option value="added"    ${_sort === 'added'    ? 'selected' : ''}>Date Added</option>
+                <option value="release"  ${_sort === 'release'  ? 'selected' : ''}>Release Date</option>
             </select>
             <button id="wl-dir" class="lib-dir-btn" title="${_dir === 'asc' ? 'Ascending' : 'Descending'}">${_dir === 'asc' ? '↑' : '↓'}</button>
             <div id="wl-pager" class="lib-pager">${_buildPager(totalPages, '')}</div>
@@ -166,7 +173,7 @@ function _draw() {
 
     _container.querySelector('#wl-sort').addEventListener('change', e => {
         _sort = e.target.value
-        _dir  = (_sort === 'discount') ? 'desc' : 'asc'
+        _dir  = (_sort === 'discount' || _sort === 'release') ? 'desc' : 'asc'
         localStorage.setItem(STORAGE_SORT, _sort)
         localStorage.setItem(STORAGE_DIR,  _dir)
         _applyFilter()
