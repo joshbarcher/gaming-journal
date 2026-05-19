@@ -510,6 +510,7 @@
     font-size: 0.875rem;
     line-height: 1.6;
     color: var(--clr-text-muted, #888899);
+    white-space: pre-wrap;
     display: -webkit-box;
     -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
