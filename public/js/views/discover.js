@@ -168,29 +168,13 @@ function _renderGenreResults(container) {
 }
 
 function _renderSearchResults(container, results) {
-    console.log('[discover] _renderSearchResults', results.length)
     const el = container.querySelector('#disc-search-results')
     if (!results.length) {
         el.innerHTML = `<div class="disc-empty">No results for "${escapeHtml(_searchQuery)}".</div>`
         return
     }
-    try {
-        const html = results.map((item, i) => {
-            try {
-                return _card(item)
-            } catch (err) {
-                console.error('[discover] _card failed at index', i, item, err)
-                return ''
-            }
-        }).join('')
-        console.log('[discover] html generated, length', html.length)
-        el.innerHTML = html
-        _bindCards(el, container)
-        console.log('[discover] render complete')
-    } catch (err) {
-        console.error('[discover] render error', err)
-        _showError(el, `Render error: ${err.message}`)
-    }
+    el.innerHTML = results.map(_card).join('')
+    _bindCards(el, container)
 }
 
 function _card(item) {
@@ -259,25 +243,16 @@ async function _doSearch(container) {
     el.innerHTML = '<div class="disc-loading">Searching…</div>'
 
     try {
-        console.log('[discover] fetching search', q)
         const res = await fetch(`/relay/api/discover/search?q=${encodeURIComponent(q)}&limit=80`)
-        console.log('[discover] search response status', res.status)
         if (res.status === 503) {
             _showError(el, 'Search index is still loading — try again in a moment.')
             return
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const results = await res.json()
-        console.log('[discover] search results count', results.length, results[0])
         const resEl = container.querySelector('#disc-search-results')
-        console.log('[discover] resEl found', !!resEl)
-        if (resEl) {
-            console.log('[discover] calling _renderSearchResults')
-            _renderSearchResults(container, results)
-            console.log('[discover] _renderSearchResults done')
-        }
+        if (resEl) _renderSearchResults(container, results)
     } catch (err) {
-        console.error('[discover] search error', err)
         const resEl = container.querySelector('#disc-search-results')
         _showError(resEl, `Search unavailable: ${err.message}`)
     }
