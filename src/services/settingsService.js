@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { ManagedFile } from '../shared/managed-file.js'
 
-const DEFAULTS = { showChildLocked: false, showFiltered: false }
+const DEFAULTS = { showChildLocked: false, showFiltered: false, hideUnavailable: false }
 
 function makeFile() {
     const dataDir = process.env.DATA_DIR

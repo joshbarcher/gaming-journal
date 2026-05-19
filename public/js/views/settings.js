@@ -45,6 +45,12 @@ function _render(container, settings, flagCounts = {}) {
                     'Reveal games flagged as filtered (political themes, personal preference, etc.).',
                     settings.showFiltered, flagCounts.filtered)}
             </section>
+            <section class="settings-section">
+                <h2 class="settings-section-title">Wishlist</h2>
+                ${_toggle('hideUnavailable', 'Hide Unavailable Games',
+                    'Hide wishlist items that are no longer available on the Steam store.',
+                    settings.hideUnavailable)}
+            </section>
         </div>`
 
     container.querySelectorAll('.settings-toggle-row').forEach(row => {
@@ -73,7 +79,7 @@ function _toggle(key, label, desc, checked, count) {
         ? `<span class="settings-filter-count">${count} game${count === 1 ? '' : 's'}</span>`
         : ''
     return `
-        <label class="settings-toggle-row">
+        <label class="settings-toggle-row" data-key="${key}">
             <div class="settings-toggle-text">
                 <span class="settings-toggle-label">${escapeHtml(label)}${countBadge}</span>
                 <span class="settings-toggle-desc">${escapeHtml(desc)}</span>
@@ -84,3 +90,4 @@ function _toggle(key, label, desc, checked, count) {
             </div>
         </label>`
 }
+

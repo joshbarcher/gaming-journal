@@ -10,18 +10,19 @@ const STORAGE_LETTER = 'gj_wl_letter'
 
 const ALPHA_CHARS = ['A-Z', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
 
-let _all            = []
-let _filtered       = []
-let _available      = new Set()
-let _query          = ''
-let _sort           = 'priority'
-let _dir            = 'asc'
-let _page           = 1
-let _letter         = null
-let _container      = null
-let _debounce       = null
-let _scrollDebounce = null
-let _scrollAbort    = null
+let _all               = []
+let _filtered          = []
+let _available         = new Set()
+let _query             = ''
+let _sort              = 'priority'
+let _dir               = 'asc'
+let _page              = 1
+let _letter            = null
+let _hideUnavailable   = false
+let _container         = null
+let _debounce          = null
+let _scrollDebounce    = null
+let _scrollAbort       = null
 
 export async function renderWishlist(container) {
     // Abort any previous scroll listener FIRST — before innerHTML is touched.
@@ -40,12 +41,15 @@ export async function renderWishlist(container) {
     container.innerHTML = `<p class="page-loading">Loading wishlist…</p>`
 
     try {
-        const [res, shouldShow] = await Promise.all([
+        const [res, shouldShow, settingsRes] = await Promise.all([
             fetch('/relay/api/wishlist'),
             loadGameFilter(),
+            fetch('/api/settings'),
         ])
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const raw = await res.json()
+        const raw      = await res.json()
+        const settings = settingsRes.ok ? await settingsRes.json() : {}
+        _hideUnavailable = settings.hideUnavailable === true
         _all = raw.filter(g => shouldShow(g.appid))
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load wishlist: ${escapeHtml(err.message)}</p>`
@@ -68,7 +72,8 @@ export async function renderWishlist(container) {
 
 function _applyFilter() {
     const q = _query.toLowerCase()
-    const searched = q ? _all.filter(g => g.name.toLowerCase().includes(q)) : [..._all]
+    const afterAvail = _hideUnavailable ? _all.filter(g => !g.store?.unavailable) : _all
+    const searched = q ? afterAvail.filter(g => g.name.toLowerCase().includes(q)) : [...afterAvail]
 
     // Compute which letters have games (from search results, before letter filter)
     _available = new Set()
@@ -264,6 +269,9 @@ function _buildCard(game) {
     const imgSrc    = `/relay/images/steam/games/${game.appid}/header.jpg`
     const bp     = game.itad?.bestPrice
     const retail = game.store?.price
+    const unavailableHtml = game.store?.unavailable
+        ? `<span class="wl-card-unavailable">Unavailable</span>`
+        : ''
 
     let priceHtml
     if (bp) {
@@ -279,9 +287,10 @@ function _buildCard(game) {
     }
 
     return `
-        <a class="lib-card" href="/game/${game.appid}">
+        <a class="lib-card${game.store?.unavailable ? ' lib-card--unavailable' : ''}" href="/game/${game.appid}">
             <div class="lib-card-img-wrap">
                 <img class="lib-card-img" src="${imgSrc}" alt="${escapeHtml(game.name)}" loading="lazy">
+                ${unavailableHtml}
             </div>
             <div class="lib-card-info">
                 <span class="lib-card-name">${escapeHtml(game.name)}</span>

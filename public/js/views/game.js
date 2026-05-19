@@ -33,6 +33,7 @@ export async function renderGame(appid, container) {
 
     container.innerHTML = `
         ${_hero(game)}
+        ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         <div class="game-flags-bar" data-appid="${appid}">
             ${_flagsBar(flags)}
         </div>
