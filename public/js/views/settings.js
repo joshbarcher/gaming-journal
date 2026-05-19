@@ -3,20 +3,30 @@ import { escapeHtml } from '../utils.js'
 export async function renderSettings(container) {
     container.innerHTML = `<p class="page-loading">Loading settings…</p>`
 
-    let settings
+    let settings, flagCounts
     try {
-        const res = await fetch('/api/settings')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        settings = await res.json()
+        const [settingsRes, flagsRes] = await Promise.all([
+            fetch('/api/settings'),
+            fetch('/api/flags').catch(() => null),
+        ])
+        if (!settingsRes.ok) throw new Error(`HTTP ${settingsRes.status}`)
+        settings = await settingsRes.json()
+
+        const flags = flagsRes?.ok ? await flagsRes.json() : {}
+        const entries = Object.values(flags)
+        flagCounts = {
+            childLocked: entries.filter(f => f?.childLock).length,
+            filtered:    entries.filter(f => f?.filtered).length,
+        }
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load settings: ${escapeHtml(err.message)}</p>`
         return
     }
 
-    _render(container, settings)
+    _render(container, settings, flagCounts)
 }
 
-function _render(container, settings) {
+function _render(container, settings, flagCounts = {}) {
     container.innerHTML = `
         <div class="page-header">
             <h1 class="page-title">Settings</h1>
@@ -30,10 +40,10 @@ function _render(container, settings) {
                 </p>
                 ${_toggle('showChildLocked', 'Show Child Locked Games',
                     'Reveal games flagged with the child lock in library, wishlist, and all other lists.',
-                    settings.showChildLocked)}
+                    settings.showChildLocked, flagCounts.childLocked)}
                 ${_toggle('showFiltered', 'Show Filtered Games',
                     'Reveal games flagged as filtered (political themes, personal preference, etc.).',
-                    settings.showFiltered)}
+                    settings.showFiltered, flagCounts.filtered)}
             </section>
         </div>`
 
@@ -58,11 +68,14 @@ function _render(container, settings) {
     })
 }
 
-function _toggle(key, label, desc, checked) {
+function _toggle(key, label, desc, checked, count) {
+    const countBadge = count > 0
+        ? `<span class="settings-filter-count">${count} game${count === 1 ? '' : 's'}</span>`
+        : ''
     return `
         <label class="settings-toggle-row">
             <div class="settings-toggle-text">
-                <span class="settings-toggle-label">${escapeHtml(label)}</span>
+                <span class="settings-toggle-label">${escapeHtml(label)}${countBadge}</span>
                 <span class="settings-toggle-desc">${escapeHtml(desc)}</span>
             </div>
             <div class="settings-toggle-switch">

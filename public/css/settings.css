@@ -49,6 +49,22 @@
     font-weight: 600;
     color: var(--clr-text);
     line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.settings-filter-count {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--clr-text-muted);
+    background: var(--clr-bg-hover, rgba(255,255,255,0.06));
+    border: 1px solid var(--clr-border);
+    border-radius: 20px;
+    padding: 2px 8px;
+    line-height: 1.4;
 }
 
 .settings-toggle-desc {
