@@ -24,9 +24,10 @@ let _genre        = ''
 let _searchQuery  = ''
 let _debounceTimer = null
 
-let _featuredData = null  // sections array from /featured
-let _genreData    = null  // tabs array from /genre/:genre
-let _genreTabId   = ''
+let _featuredData  = null  // sections array from /featured
+let _genreData     = null  // tabs array from /genre/:genre
+let _genreTabId    = ''
+let _lastResults   = null  // cached search results for back-navigation
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -35,7 +36,17 @@ export async function renderDiscover(container, navigate) {
     container.innerHTML = _skeleton()
     _bind(container)
     _loadOwnership()
-    _loadFeatured(container)
+
+    if (_mode === 'search' && _lastResults !== null) {
+        // Returning from a game page — restore previous search results immediately
+        const browse = container.querySelector('#disc-browse')
+        const panel  = container.querySelector('#disc-search-panel')
+        browse.style.display = 'none'
+        panel.style.display  = ''
+        _renderSearchResults(container, _lastResults)
+    } else {
+        _loadFeatured(container)
+    }
 }
 
 // ── Templates ─────────────────────────────────────────────────────────────────
@@ -250,6 +261,7 @@ async function _doSearch(container) {
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const results = await res.json()
+        _lastResults = results
         const resEl = container.querySelector('#disc-search-results')
         if (resEl) _renderSearchResults(container, results)
     } catch (err) {
@@ -275,7 +287,8 @@ function _bind(container) {
             panel.style.display  = ''
             _debounceTimer = setTimeout(() => _doSearch(container), 350)
         } else {
-            _mode = 'browse'
+            _mode        = 'browse'
+            _lastResults = null
             browse.style.display = ''
             panel.style.display  = 'none'
         }
