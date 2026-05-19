@@ -2,11 +2,13 @@ import logger from '../logger.js'
 import express from 'express'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { readFile } from 'node:fs/promises'
 import healthRouter from './routes/health.js'
 import apiRouter from './routes/api.js'
 import relayRouter from './routes/relay.js'
 import { getJournalService } from './services/journalService.js'
 import { getFranchiseService } from './services/franchiseService.js'
+import { cleanupOwned } from './services/localWishlistService.js'
 
 logger.startup({ name: 'gaming-journal', version: '1.0.0' })
 
@@ -33,6 +35,11 @@ logger.info('Journal data loaded')
 
 const server = app.listen(PORT, () => {
     logger.info('Server listening', { port: PORT })
+    // Remove any local wishlist items that have since been added to the library
+    readFile(join(process.env.DATA_DIR, 'relay', 'steam', 'games.json'), 'utf8')
+        .then(raw => JSON.parse(raw).games ?? [])
+        .then(games => cleanupOwned(games.map(g => g.appid)))
+        .catch(() => { /* relay games not synced yet — skip */ })
 })
 
 let _shuttingDown = false

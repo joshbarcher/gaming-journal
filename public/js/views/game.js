@@ -37,6 +37,7 @@ export async function renderGame(appid, container) {
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         <div class="game-flags-bar" data-appid="${appid}">
             ${_flagsBar(flags)}
+            ${_wishlistBtn(game)}
         </div>
         <div class="game-body">
             ${_about(game)}
@@ -53,6 +54,7 @@ export async function renderGame(appid, container) {
     _startHeroSlideshow(container, game)
     _initPlayerChart(playerCounts, container)
     _initFlagsBar(container)
+    _initWishlistBtn(container, game)
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
@@ -981,6 +983,58 @@ function _openModal(srcs, idx = 0) {
 
 function _closeModal() {
     _modalEl?.classList.remove('shot-modal--open')
+}
+
+// ── Local wishlist button ─────────────────────────────────────────────────────
+
+const _WL_ICON = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><line x1="12" x2="12" y1="7" y2="13"/><line x1="9" x2="15" y1="10" y2="10"/></svg>`
+const _WL_ICON_ADDED = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`
+const _WL_ICON_STEAM = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><polyline points="9 11 12 14 22 4"/></svg>`
+
+function _wishlistBtn(game) {
+    // Don't show for owned games
+    if (game.source === 'library' || game.source === 'both') return ''
+
+    const isSteam = game.wishlist && !game.wishlist.local
+    const isLocal = game.wishlist?.local === true
+
+    if (isSteam) {
+        return `<div class="game-wishlist-wrap">
+            <button class="game-flag game-wishlist-btn game-wishlist-btn--steam" disabled title="On Steam Wishlist">${_WL_ICON_STEAM}</button>
+        </div>`
+    }
+
+    const cls   = isLocal ? ' game-flag--active' : ''
+    const title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
+    const icon  = isLocal ? _WL_ICON_ADDED : _WL_ICON
+    return `<div class="game-wishlist-wrap">
+        <button class="game-flag game-wishlist-btn${cls}" data-wishlist-appid="${game.appid}" title="${title}">${icon}</button>
+    </div>`
+}
+
+function _initWishlistBtn(container, game) {
+    const btn = container.querySelector('.game-wishlist-btn[data-wishlist-appid]')
+    if (!btn) return
+
+    btn.addEventListener('click', async () => {
+        const appid   = btn.dataset.wishlistAppid
+        const isLocal = btn.classList.contains('game-flag--active')
+        const method  = isLocal ? 'DELETE' : 'POST'
+
+        btn.classList.toggle('game-flag--active', !isLocal)
+        btn.title = isLocal ? 'Add to Local Wishlist' : 'Remove from Local Wishlist'
+        btn.innerHTML = isLocal ? _WL_ICON : _WL_ICON_ADDED
+
+        try {
+            const res = await fetch(`/api/local-wishlist/${appid}`, { method })
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        } catch {
+            // Revert
+            btn.classList.toggle('game-flag--active', isLocal)
+            btn.title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
+            btn.innerHTML = isLocal ? _WL_ICON_ADDED : _WL_ICON
+        }
+    })
 }
 
 // ── Flags bar ─────────────────────────────────────────────────────────────────

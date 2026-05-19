@@ -272,6 +272,9 @@ function _buildCard(game) {
     const unavailableHtml = game.store?.unavailable
         ? `<span class="wl-card-unavailable">Unavailable</span>`
         : ''
+    const localHtml = game.wishlist?.local
+        ? `<span class="wl-card-local">Local Wishlist</span>`
+        : ''
 
     let priceHtml
     if (bp) {
@@ -291,6 +294,7 @@ function _buildCard(game) {
             <div class="lib-card-img-wrap">
                 <img class="lib-card-img" src="${imgSrc}" alt="${escapeHtml(game.name)}" loading="lazy">
                 ${unavailableHtml}
+                ${localHtml}
             </div>
             <div class="lib-card-info">
                 <span class="lib-card-name">${escapeHtml(game.name)}</span>
