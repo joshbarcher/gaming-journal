@@ -79,7 +79,8 @@
 .sidebar-abandoned-btn,
 .sidebar-hof-btn,
 .sidebar-onhold-btn,
-.sidebar-myreviews-btn {
+.sidebar-myreviews-btn,
+.sidebar-discover-btn {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -109,7 +110,8 @@
 .sidebar-abandoned-btn:hover,
 .sidebar-hof-btn:hover,
 .sidebar-onhold-btn:hover,
-.sidebar-myreviews-btn:hover {
+.sidebar-myreviews-btn:hover,
+.sidebar-discover-btn:hover {
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
 }
@@ -127,7 +129,8 @@
 .sidebar-abandoned-btn.active,
 .sidebar-hof-btn.active,
 .sidebar-onhold-btn.active,
-.sidebar-myreviews-btn.active {
+.sidebar-myreviews-btn.active,
+.sidebar-discover-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
     background: rgba(201, 168, 76, 0.07);
     color: var(--clr-accent);
@@ -147,7 +150,8 @@
 .sidebar-abandoned-btn:focus-visible,
 .sidebar-hof-btn:focus-visible,
 .sidebar-onhold-btn:focus-visible,
-.sidebar-myreviews-btn:focus-visible {
+.sidebar-myreviews-btn:focus-visible,
+.sidebar-discover-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);
     outline-offset: 1px;
 }
