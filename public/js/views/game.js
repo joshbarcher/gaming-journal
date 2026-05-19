@@ -36,8 +36,7 @@ export async function renderGame(appid, container) {
         ${_hero(game)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         <div class="game-flags-bar" data-appid="${appid}">
-            ${_flagsBar(flags)}
-            ${_wishlistBtn(game)}
+            ${_flagsBar(flags, game)}
         </div>
         <div class="game-body">
             ${_about(game)}
@@ -987,27 +986,26 @@ function _closeModal() {
 
 // ── Local wishlist button ─────────────────────────────────────────────────────
 
-const _WL_ICON = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><line x1="12" x2="12" y1="7" y2="13"/><line x1="9" x2="15" y1="10" y2="10"/></svg>`
-const _WL_ICON_ADDED = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`
-const _WL_ICON_STEAM = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><polyline points="9 11 12 14 22 4"/></svg>`
+const _WL_STAR     = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+const _WL_STAR_FILL = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
 
-function _wishlistBtn(game) {
-    // Don't show for owned games
+// Returns a flags-group element to be injected inside game-flags-inner, or '' if not applicable.
+function _wishlistGroup(game) {
     if (game.source === 'library' || game.source === 'both') return ''
 
     const isSteam = game.wishlist && !game.wishlist.local
     const isLocal = game.wishlist?.local === true
 
     if (isSteam) {
-        return `<div class="game-wishlist-wrap">
-            <button class="game-flag game-wishlist-btn game-wishlist-btn--steam" disabled title="On Steam Wishlist">${_WL_ICON_STEAM}</button>
+        return `<div class="game-flags-group">
+            <button class="game-flag game-wishlist-btn game-wishlist-btn--steam" disabled title="On Steam Wishlist">${_WL_STAR_FILL}</button>
         </div>`
     }
 
     const cls   = isLocal ? ' game-flag--active' : ''
     const title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
-    const icon  = isLocal ? _WL_ICON_ADDED : _WL_ICON
-    return `<div class="game-wishlist-wrap">
+    const icon  = isLocal ? _WL_STAR_FILL : _WL_STAR
+    return `<div class="game-flags-group">
         <button class="game-flag game-wishlist-btn${cls}" data-wishlist-appid="${game.appid}" title="${title}">${icon}</button>
     </div>`
 }
@@ -1063,7 +1061,7 @@ const _FLAG_GROUPS = [
     ],
 ]
 
-function _flagsBar(flags) {
+function _flagsBar(flags, game) {
     const groups = _FLAG_GROUPS.map((group, gi) => {
         const btns = group.map(f => {
             const active = flags?.[f.key] ? ' game-flag--active' : ''
@@ -1072,7 +1070,9 @@ function _flagsBar(flags) {
         const divider = gi < _FLAG_GROUPS.length - 1 ? `<div class="game-flags-divider"></div>` : ''
         return `<div class="game-flags-group">${btns}</div>${divider}`
     }).join('')
-    return `<div class="game-flags-inner">${groups}</div>`
+    const wlGroup = _wishlistGroup(game)
+    const wlHtml  = wlGroup ? `<div class="game-flags-divider"></div>${wlGroup}` : ''
+    return `<div class="game-flags-inner">${groups}${wlHtml}</div>`
 }
 
 function _initFlagsBar(container) {

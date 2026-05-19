@@ -299,43 +299,8 @@
 .game-flag--active.game-flag--alert     { color: #e0b830; }
 
 /* ── Wishlist button ─────────────────────────────────────────────────────────── */
-.game-wishlist-wrap {
-    margin-left: auto;
-}
-
-.game-wishlist-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 5px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    min-width: 0;
-    width: auto;
-}
-
-.game-wishlist-btn::after {
-    content: 'Local Wishlist';
-    white-space: nowrap;
-}
-
-.game-wishlist-btn.game-flag--active {
-    color: #7ab5f0;
-    border-color: rgba(122, 181, 240, 0.3);
-    background: rgba(122, 181, 240, 0.08);
-}
-
-.game-wishlist-btn--steam {
-    color: var(--clr-text-muted);
-    cursor: default;
-    opacity: 0.7;
-}
-
-.game-wishlist-btn--steam::after {
-    content: 'Steam Wishlist';
-}
+.game-flag--active.game-wishlist-btn       { color: #e8c84a; }
+.game-wishlist-btn--steam                  { color: #7aade0; cursor: default; }
 
 /* ── Game body (below hero) ──────────────────────────────────────────────────── */
 .game-body {
