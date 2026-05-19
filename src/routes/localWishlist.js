@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import logger from '../logger.js'
+import logger from '../../logger.js'
 import { getAll, add, remove } from '../services/localWishlistService.js'
 
 const router = Router()
