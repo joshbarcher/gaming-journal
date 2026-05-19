@@ -129,11 +129,14 @@ function _draw() {
                 <option value="recent"   ${_sort === 'recent'   ? 'selected' : ''}>Recently Played</option>
             </select>
             <button id="lib-dir" class="lib-dir-btn" title="${_dir === 'asc' ? 'Ascending' : 'Descending'}">${_dir === 'asc' ? '↑' : '↓'}</button>
-            <div id="lib-pager" class="lib-pager">${_buildPager(totalPages)}</div>
+            <div id="lib-pager" class="lib-pager">${_buildPager(totalPages, '')}</div>
         </div>
         ${_buildAlphaBar('lib-alpha')}
         <div id="lib-grid" class="lib-grid">${_buildGrid()}</div>
-        <button class="lib-back-top" id="lib-back-top">&#8593; Back to top</button>`
+        <div class="lib-bottom-row">
+            <button class="lib-back-top" id="lib-back-top">&#8593; Back to top</button>
+            <div id="lib-pager-b" class="lib-pager">${_buildPager(totalPages, 'b')}</div>
+        </div>`
 
     _container.querySelector('#lib-search').addEventListener('input', e => {
         clearTimeout(_debounce)
@@ -192,7 +195,8 @@ function _redraw() {
     const totalPages = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE))
     _container.querySelector('.lib-subtitle').textContent  = _subtitleText()
     _container.querySelector('#lib-grid').innerHTML        = _buildGrid()
-    _container.querySelector('#lib-pager').innerHTML       = _buildPager(totalPages)
+    _container.querySelector('#lib-pager').innerHTML       = _buildPager(totalPages, '')
+    _container.querySelector('#lib-pager-b').innerHTML     = _buildPager(totalPages, 'b')
     _container.querySelector('#lib-alpha').innerHTML       = _buildAlphaButtons()
     _bindPager()
 }
@@ -257,14 +261,15 @@ function _buildCard(game) {
         </a>`
 }
 
-function _buildPager(totalPages) {
+function _buildPager(totalPages, suffix = '') {
     if (totalPages <= 1) return ''
+    const s   = suffix ? `-${suffix}` : ''
     const prevDisabled = _page <= 1          ? 'disabled' : ''
     const nextDisabled = _page >= totalPages ? 'disabled' : ''
     return `
-        <button id="lib-prev" class="lib-pager-btn" ${prevDisabled}>&#8592; Prev</button>
+        <button id="lib-prev${s}" class="lib-pager-btn" ${prevDisabled}>&#8592; Prev</button>
         <span class="lib-pager-info">Page ${_page} of ${totalPages}</span>
-        <button id="lib-next" class="lib-pager-btn" ${nextDisabled}>Next &#8594;</button>`
+        <button id="lib-next${s}" class="lib-pager-btn" ${nextDisabled}>Next &#8594;</button>`
 }
 
 function _updateDirBtn() {
@@ -274,9 +279,25 @@ function _updateDirBtn() {
     btn.title = _dir === 'asc' ? 'Ascending' : 'Descending'
 }
 
+function _page_prev() {
+    _page--
+    localStorage.setItem(STORAGE_PAGE, _page)
+    localStorage.setItem(STORAGE_SCROLL, 0)
+    _redraw()
+    _container.scrollTo(0, 0)
+}
+
+function _page_next() {
+    _page++
+    localStorage.setItem(STORAGE_PAGE, _page)
+    localStorage.setItem(STORAGE_SCROLL, 0)
+    _redraw()
+    _container.scrollTo(0, 0)
+}
+
 function _bindPager() {
-    const prev = _container.querySelector('#lib-prev')
-    const next = _container.querySelector('#lib-next')
-    if (prev) prev.addEventListener('click', () => { _page--; localStorage.setItem(STORAGE_PAGE, _page); localStorage.setItem(STORAGE_SCROLL, 0); _redraw(); _container.scrollTo(0, 0) })
-    if (next) next.addEventListener('click', () => { _page++; localStorage.setItem(STORAGE_PAGE, _page); localStorage.setItem(STORAGE_SCROLL, 0); _redraw(); _container.scrollTo(0, 0) })
+    _container.querySelector('#lib-prev')  ?.addEventListener('click', _page_prev)
+    _container.querySelector('#lib-next')  ?.addEventListener('click', _page_next)
+    _container.querySelector('#lib-prev-b')?.addEventListener('click', _page_prev)
+    _container.querySelector('#lib-next-b')?.addEventListener('click', _page_next)
 }

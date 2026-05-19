@@ -109,11 +109,15 @@
     cursor: default;
 }
 
-/* ── Back to top ─────────────────────────────────────────────────────────────── */
+/* ── Bottom row (back-to-top + mirrored pager) ───────────────────────────────── */
+.lib-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 0 48px;
+}
+
 .lib-back-top {
-    display: block;
-    width: fit-content;
-    margin: 8px auto 48px;
     padding: 9px 24px;
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
