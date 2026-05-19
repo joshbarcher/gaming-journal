@@ -68,7 +68,8 @@ export async function renderGame(appid, container) {
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
 function _hero(game) {
-    const initBg  = game.media?.background ?? game.media?.header ?? ''
+    const screenshots = game.media?.screenshots ?? []
+    const initBg  = screenshots[0] ?? game.media?.background ?? game.media?.header ?? ''
     const logoUrl = game.media?.logo ?? ''
 
     const desc   = game.store?.description ?? ''
@@ -114,10 +115,10 @@ async function _startHeroSlideshow(container, game) {
     const bgB = container.querySelector('.game-hero-bg--b')
     if (!bgA || !bgB) return
 
-    const candidates = [
-        game.media?.background,
-        ...(game.media?.screenshots ?? []),
-    ].filter(Boolean)
+    const shots = game.media?.screenshots ?? []
+    const candidates = shots.length > 0
+        ? shots
+        : [game.media?.background].filter(Boolean)
 
     if (candidates.length < 2) return
 
