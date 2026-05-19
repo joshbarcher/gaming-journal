@@ -7,17 +7,22 @@ const STORAGE_DIR    = 'gj_lib_dir'
 const STORAGE_PAGE   = 'gj_lib_page'
 const STORAGE_QUERY  = 'gj_lib_query'
 const STORAGE_SCROLL = 'gj_lib_scroll'
+const STORAGE_LETTER = 'gj_lib_letter'
 
-let _all          = []
-let _filtered     = []
-let _query        = ''
-let _sort         = 'name'
-let _dir          = 'asc'
-let _page         = 1
-let _container    = null
-let _debounce     = null
+const ALPHA_CHARS = ['A-Z', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
+
+let _all            = []
+let _filtered       = []
+let _available      = new Set()
+let _query          = ''
+let _sort           = 'name'
+let _dir            = 'asc'
+let _page           = 1
+let _letter         = null
+let _container      = null
+let _debounce       = null
 let _scrollDebounce = null
-let _scrollAbort  = null
+let _scrollAbort    = null
 
 export async function renderLibrary(container) {
     // Abort any previous scroll listener FIRST — before innerHTML is touched.
@@ -58,10 +63,11 @@ export async function renderLibrary(container) {
         return
     }
 
-    _query = localStorage.getItem(STORAGE_QUERY) ?? ''
-    _sort  = localStorage.getItem(STORAGE_SORT)  ?? 'name'
-    _dir   = localStorage.getItem(STORAGE_DIR)   ?? 'asc'
-    _page  = Number(localStorage.getItem(STORAGE_PAGE) ?? 1)
+    _query  = localStorage.getItem(STORAGE_QUERY)  ?? ''
+    _sort   = localStorage.getItem(STORAGE_SORT)   ?? 'name'
+    _dir    = localStorage.getItem(STORAGE_DIR)    ?? 'asc'
+    _page   = Number(localStorage.getItem(STORAGE_PAGE) ?? 1)
+    _letter = localStorage.getItem(STORAGE_LETTER) || null
     _applyFilter()
     const totalPages = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE))
     if (_page > totalPages) _page = totalPages
@@ -71,9 +77,24 @@ export async function renderLibrary(container) {
 
 function _applyFilter() {
     const q = _query.toLowerCase()
-    _filtered = q
-        ? _all.filter(g => g.name.toLowerCase().includes(q))
-        : [..._all]
+    const searched = q ? _all.filter(g => g.name.toLowerCase().includes(q)) : [..._all]
+
+    // Compute which letters have games (from search results, before letter filter)
+    _available = new Set()
+    for (const g of searched) {
+        const first = g.name[0]?.toUpperCase()
+        if (first && /[A-Z]/.test(first)) _available.add(first)
+        else if (first)                   _available.add('#')
+    }
+
+    // Apply letter filter
+    if (_letter === '#') {
+        _filtered = searched.filter(g => !/^[A-Za-z]/.test(g.name))
+    } else if (_letter) {
+        _filtered = searched.filter(g => g.name.toUpperCase().startsWith(_letter))
+    } else {
+        _filtered = searched
+    }
 
     const flip = _dir === 'asc' ? 1 : -1
     if (_sort === 'playtime') {
@@ -110,7 +131,9 @@ function _draw() {
             <button id="lib-dir" class="lib-dir-btn" title="${_dir === 'asc' ? 'Ascending' : 'Descending'}">${_dir === 'asc' ? '↑' : '↓'}</button>
             <div id="lib-pager" class="lib-pager">${_buildPager(totalPages)}</div>
         </div>
-        <div id="lib-grid" class="lib-grid">${_buildGrid()}</div>`
+        ${_buildAlphaBar('lib-alpha')}
+        <div id="lib-grid" class="lib-grid">${_buildGrid()}</div>
+        <button class="lib-back-top" id="lib-back-top">&#8593; Back to top</button>`
 
     _container.querySelector('#lib-search').addEventListener('input', e => {
         clearTimeout(_debounce)
@@ -146,6 +169,12 @@ function _draw() {
         _updateDirBtn()
     })
 
+    _bindAlpha('lib-alpha')
+
+    _container.querySelector('#lib-back-top')?.addEventListener('click', () => {
+        _container.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+
     _scrollAbort = new AbortController()
     _container.addEventListener('scroll', () => {
         // Guard: if library is no longer the active view, don't overwrite saved scroll.
@@ -164,6 +193,7 @@ function _redraw() {
     _container.querySelector('.lib-subtitle').textContent  = _subtitleText()
     _container.querySelector('#lib-grid').innerHTML        = _buildGrid()
     _container.querySelector('#lib-pager').innerHTML       = _buildPager(totalPages)
+    _container.querySelector('#lib-alpha').innerHTML       = _buildAlphaButtons()
     _bindPager()
 }
 
@@ -173,6 +203,32 @@ function _subtitleText() {
     const pages    = Math.max(1, Math.ceil(showing / PAGE_SIZE))
     if (_query) return `${showing} of ${total} games — page ${_page} of ${pages}`
     return `${total} games — page ${_page} of ${pages}`
+}
+
+function _buildAlphaButtons() {
+    return ALPHA_CHARS.map(ch => {
+        const active   = (_letter === null && ch === 'A-Z') || _letter === ch
+        const disabled = ch !== 'A-Z' && !_available.has(ch) ? 'disabled' : ''
+        return `<button class="lib-alpha-btn${active ? ' lib-alpha-btn--active' : ''}" data-letter="${ch}" ${disabled}>${ch}</button>`
+    }).join('')
+}
+
+function _buildAlphaBar(id) {
+    return `<div class="lib-alpha" id="${id}">${_buildAlphaButtons()}</div>`
+}
+
+function _bindAlpha(id) {
+    _container.querySelector(`#${id}`)?.addEventListener('click', e => {
+        const btn = e.target.closest('.lib-alpha-btn')
+        if (!btn || btn.disabled) return
+        const ch = btn.dataset.letter
+        _letter = ch === 'A-Z' ? null : ch
+        localStorage.setItem(STORAGE_LETTER, _letter ?? '')
+        _page = 1
+        localStorage.setItem(STORAGE_PAGE, '1')
+        _applyFilter()
+        _redraw()
+    })
 }
 
 function _buildGrid() {

@@ -69,6 +69,67 @@
     border-color: var(--clr-border-hi);
 }
 
+/* ── Alpha filter bar ────────────────────────────────────────────────────────── */
+.lib-alpha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 20px;
+}
+
+.lib-alpha-btn {
+    padding: 5px 8px;
+    min-width: 34px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    background: var(--clr-bg-raised);
+    color: var(--clr-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    text-align: center;
+    line-height: 1;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.lib-alpha-btn:hover:not(:disabled) {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+}
+
+.lib-alpha-btn--active {
+    border-color: var(--clr-accent);
+    background: var(--clr-accent-bg);
+    color: var(--clr-accent);
+}
+
+.lib-alpha-btn:disabled {
+    opacity: 0.22;
+    cursor: default;
+}
+
+/* ── Back to top ─────────────────────────────────────────────────────────────── */
+.lib-back-top {
+    display: block;
+    width: fit-content;
+    margin: 8px auto 48px;
+    padding: 9px 24px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    background: var(--clr-bg-raised);
+    color: var(--clr-text-muted);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition);
+}
+
+.lib-back-top:hover {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+}
+
 /* ── Game grid ───────────────────────────────────────────────────────────────── */
 .lib-grid {
     display: grid;

@@ -1,22 +1,27 @@
 import { escapeHtml } from '../utils.js'
 import { loadGameFilter } from './game-filter.js'
 
-const PAGE_SIZE     = 48
-const STORAGE_SORT  = 'gj_wl_sort'
-const STORAGE_DIR   = 'gj_wl_dir'
-const STORAGE_PAGE  = 'gj_wl_page'
+const PAGE_SIZE      = 48
+const STORAGE_SORT   = 'gj_wl_sort'
+const STORAGE_DIR    = 'gj_wl_dir'
+const STORAGE_PAGE   = 'gj_wl_page'
 const STORAGE_SCROLL = 'gj_wl_scroll'
+const STORAGE_LETTER = 'gj_wl_letter'
 
-let _all           = []
-let _filtered      = []
-let _query         = ''
-let _sort          = 'priority'
-let _dir           = 'asc'
-let _page          = 1
-let _container     = null
-let _debounce      = null
+const ALPHA_CHARS = ['A-Z', '#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ']
+
+let _all            = []
+let _filtered       = []
+let _available      = new Set()
+let _query          = ''
+let _sort           = 'priority'
+let _dir            = 'asc'
+let _page           = 1
+let _letter         = null
+let _container      = null
+let _debounce       = null
 let _scrollDebounce = null
-let _scrollAbort   = null
+let _scrollAbort    = null
 
 export async function renderWishlist(container) {
     // Abort any previous scroll listener FIRST — before innerHTML is touched.
@@ -47,9 +52,10 @@ export async function renderWishlist(container) {
         return
     }
 
-    _query = ''
-    _sort  = localStorage.getItem(STORAGE_SORT) ?? 'priority'
-    _dir   = localStorage.getItem(STORAGE_DIR)  ?? 'asc'
+    _query  = ''
+    _sort   = localStorage.getItem(STORAGE_SORT)   ?? 'priority'
+    _dir    = localStorage.getItem(STORAGE_DIR)    ?? 'asc'
+    _letter = localStorage.getItem(STORAGE_LETTER) || null
     _applyFilter()
     // Restore page after _applyFilter (which resets _page to 1)
     _page = restoredPage
@@ -62,9 +68,24 @@ export async function renderWishlist(container) {
 
 function _applyFilter() {
     const q = _query.toLowerCase()
-    _filtered = q
-        ? _all.filter(g => g.name.toLowerCase().includes(q))
-        : [..._all]
+    const searched = q ? _all.filter(g => g.name.toLowerCase().includes(q)) : [..._all]
+
+    // Compute which letters have games (from search results, before letter filter)
+    _available = new Set()
+    for (const g of searched) {
+        const first = g.name[0]?.toUpperCase()
+        if (first && /[A-Z]/.test(first)) _available.add(first)
+        else if (first)                   _available.add('#')
+    }
+
+    // Apply letter filter
+    if (_letter === '#') {
+        _filtered = searched.filter(g => !/^[A-Za-z]/.test(g.name))
+    } else if (_letter) {
+        _filtered = searched.filter(g => g.name.toUpperCase().startsWith(_letter))
+    } else {
+        _filtered = searched
+    }
 
     const flip = _dir === 'asc' ? 1 : -1
 
@@ -125,9 +146,11 @@ function _draw() {
                 <option value="added"    ${_sort === 'added'    ? 'selected' : ''}>Date Added</option>
             </select>
             <button id="wl-dir" class="lib-dir-btn" title="${_dir === 'asc' ? 'Ascending' : 'Descending'}">${_dir === 'asc' ? '↑' : '↓'}</button>
+            <div id="wl-pager" class="lib-pager">${_buildPager(totalPages)}</div>
         </div>
+        ${_buildAlphaBar('wl-alpha')}
         <div id="wl-grid" class="lib-grid">${_buildGrid()}</div>
-        <div id="wl-pager" class="lib-pager">${_buildPager(totalPages)}</div>`
+        <button class="lib-back-top" id="wl-back-top">&#8593; Back to top</button>`
 
     _container.querySelector('#wl-search').addEventListener('input', e => {
         clearTimeout(_debounce)
@@ -157,6 +180,11 @@ function _draw() {
     })
 
     _bindPager()
+    _bindAlpha('wl-alpha')
+
+    _container.querySelector('#wl-back-top')?.addEventListener('click', () => {
+        _container.scrollTo({ top: 0, behavior: 'smooth' })
+    })
 
     _scrollAbort = new AbortController()
     _container.addEventListener('scroll', () => {
@@ -175,6 +203,7 @@ function _redraw() {
     _container.querySelector('.lib-subtitle').textContent = _subtitleText()
     _container.querySelector('#wl-grid').innerHTML        = _buildGrid()
     _container.querySelector('#wl-pager').innerHTML       = _buildPager(totalPages)
+    _container.querySelector('#wl-alpha').innerHTML       = _buildAlphaButtons()
     _bindPager()
 }
 
@@ -184,6 +213,32 @@ function _subtitleText() {
     const pages   = Math.max(1, Math.ceil(showing / PAGE_SIZE))
     if (_query) return `${showing} of ${total} games — page ${_page} of ${pages}`
     return `${total} games — page ${_page} of ${pages}`
+}
+
+function _buildAlphaButtons() {
+    return ALPHA_CHARS.map(ch => {
+        const active   = (_letter === null && ch === 'A-Z') || _letter === ch
+        const disabled = ch !== 'A-Z' && !_available.has(ch) ? 'disabled' : ''
+        return `<button class="lib-alpha-btn${active ? ' lib-alpha-btn--active' : ''}" data-letter="${ch}" ${disabled}>${ch}</button>`
+    }).join('')
+}
+
+function _buildAlphaBar(id) {
+    return `<div class="lib-alpha" id="${id}">${_buildAlphaButtons()}</div>`
+}
+
+function _bindAlpha(id) {
+    _container.querySelector(`#${id}`)?.addEventListener('click', e => {
+        const btn = e.target.closest('.lib-alpha-btn')
+        if (!btn || btn.disabled) return
+        const ch = btn.dataset.letter
+        _letter = ch === 'A-Z' ? null : ch
+        localStorage.setItem(STORAGE_LETTER, _letter ?? '')
+        _page = 1
+        localStorage.setItem(STORAGE_PAGE, '1')
+        _applyFilter()
+        _redraw()
+    })
 }
 
 function _buildGrid() {
