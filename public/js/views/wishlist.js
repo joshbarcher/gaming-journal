@@ -107,9 +107,10 @@ function _applyFilter() {
                 return flip * (ta - tb)
             }
             case 'release': {
-                // Unreleased games have no ISO date — sort them first on desc, last on asc
-                const ra = a.releaseDateIso ?? (flip === -1 ? '0000' : '9999')
-                const rb = b.releaseDateIso ?? (flip === -1 ? '0000' : '9999')
+                // comingSoon with no parseable date → treat as far future so they lead on desc
+                const fallback = flip === -1 ? '9999-99-99' : '0000-00-00'
+                const ra = a.store?.releaseDateIso ?? (a.store?.comingSoon ? '9999-99-99' : fallback)
+                const rb = b.store?.releaseDateIso ?? (b.store?.comingSoon ? '9999-99-99' : fallback)
                 return flip * ra.localeCompare(rb)
             }
             case 'priority': {
