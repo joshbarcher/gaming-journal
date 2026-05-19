@@ -17,6 +17,7 @@ import { renderFranchises } from './views/franchises.js'
 import { renderFranchise } from './views/franchise.js'
 import { renderOnHold } from './views/on-hold.js'
 import { renderMyReviews } from './views/my-reviews.js'
+import { renderDiscover } from './views/discover.js'
 import { newPageDialog, showError } from './dialog.js'
 
 function _closeMobile() {
@@ -80,6 +81,7 @@ export function parseRoute(path) {
     if (path === 'settings')             return { view: 'settings' }
     if (path === 'franchises')           return { view: 'franchises' }
     if (path === 'my-reviews')             return { view: 'my-reviews' }
+    if (path === 'discover')               return { view: 'discover' }
     if (path.startsWith('franchise/'))   return { view: 'franchise', franchiseId: path.slice(10) }
     if (path.startsWith('game/'))        return { view: 'game', appid: path.slice(5) }
     return { view: 'page', pageId: path }
@@ -236,6 +238,13 @@ export async function navigate(path, { replace = false } = {}) {
     if (route.view === 'my-reviews') {
         setActiveItem('my-reviews')
         await renderMyReviews(mainEl(), navigate)
+        _restoreScroll(path)
+        return
+    }
+
+    if (route.view === 'discover') {
+        setActiveItem('discover')
+        await renderDiscover(mainEl(), navigate)
         _restoreScroll(path)
         return
     }

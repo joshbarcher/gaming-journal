@@ -1,0 +1,247 @@
+/* ── Discover layout ─────────────────────────────────────────────────────────── */
+.disc-wrap {
+    max-width: 1400px;
+}
+
+.disc-title {
+    font-family: var(--font-title);
+    margin-bottom: 20px;
+}
+
+/* ── Search bar ──────────────────────────────────────────────────────────────── */
+.disc-search-wrap {
+    margin-bottom: 20px;
+}
+
+.disc-search {
+    width: 100%;
+    padding: 11px 16px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 15px;
+    font-family: var(--font-ui);
+    outline: none;
+    transition: border-color var(--transition);
+    box-sizing: border-box;
+}
+
+.disc-search::placeholder { color: var(--clr-text-muted); }
+.disc-search:focus         { border-color: var(--clr-border-hi); }
+
+/* hide the native clear button in Chrome/Safari */
+.disc-search::-webkit-search-cancel-button { display: none; }
+
+/* ── Browse header (tabs + genre) ────────────────────────────────────────────── */
+.disc-browse-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────────── */
+.disc-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.disc-tab {
+    padding: 8px 14px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text-muted);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.disc-tab:hover:not(.disc-tab--active) {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+}
+
+.disc-tab--active {
+    border-color: var(--clr-accent);
+    background: var(--clr-accent-bg);
+    color: var(--clr-accent);
+}
+
+/* ── Genre picker ────────────────────────────────────────────────────────────── */
+.disc-genre-wrap {
+    margin-left: auto;
+}
+
+.disc-genre {
+    padding: 8px 12px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.disc-genre:focus,
+.disc-genre:hover {
+    border-color: var(--clr-border-hi);
+}
+
+/* ── Results grid (reuses .lib-card) ────────────────────────────────────────── */
+.disc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+/* ── Genre sub-tabs ──────────────────────────────────────────────────────────── */
+.disc-subtabs {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.disc-subtab {
+    padding: 6px 12px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text-muted);
+    font-size: 12px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.disc-subtab:hover:not(.disc-subtab--active) {
+    border-color: var(--clr-border-hi);
+    color: var(--clr-text);
+}
+
+.disc-subtab--active {
+    border-color: var(--clr-accent);
+    background: var(--clr-accent-bg);
+    color: var(--clr-accent);
+}
+
+.disc-subgrid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+/* ── Card extras ─────────────────────────────────────────────────────────────── */
+.disc-card {
+    position: relative;
+}
+
+.disc-card .lib-card-img-wrap {
+    position: relative;
+}
+
+/* Ownership badges */
+.disc-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.disc-badge--owned {
+    background: var(--clr-accent);
+    color: #fff;
+}
+
+.disc-badge--wish {
+    background: rgba(255, 200, 50, 0.85);
+    color: #111;
+}
+
+/* Price row */
+.disc-price-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 1px;
+}
+
+.disc-price {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--clr-text);
+}
+
+.disc-price--free {
+    color: var(--clr-accent);
+}
+
+.disc-price--was {
+    color: var(--clr-text-muted);
+    font-weight: 400;
+    text-decoration: line-through;
+}
+
+.disc-discount {
+    padding: 1px 5px;
+    background: #4c7a3d;
+    color: #a3d977;
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    font-family: var(--font-ui);
+}
+
+/* ── States ──────────────────────────────────────────────────────────────────── */
+.disc-loading,
+.disc-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--clr-text-muted);
+    padding: 48px 0;
+    font-size: 14px;
+}
+
+.disc-error {
+    color: #e87070;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+    .disc-grid,
+    .disc-subgrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .disc-grid,
+    .disc-subgrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .disc-genre-wrap {
+        margin-left: 0;
+    }
+}
