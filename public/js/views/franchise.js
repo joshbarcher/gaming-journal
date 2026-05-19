@@ -17,13 +17,11 @@ function _fmtHours(mins) {
 }
 
 function _deriveStatus(flags, playtime, isWishlist) {
-    if (!flags && isWishlist) return 'wishlist'
-    if (!flags) return 'unplayed'
-    if (flags.completed) return 'completed'
-    if (flags.dropped)   return 'dropped'
-    if (flags.onHold)    return 'on-hold'
-    if (playtime > 0)    return 'playing'
-    if (isWishlist)      return 'wishlist'
+    if (flags?.completed) return 'completed'
+    if (flags?.dropped)   return 'dropped'
+    if (flags?.onHold)    return 'on-hold'
+    if (playtime > 0)     return 'playing'
+    if (isWishlist)       return 'wishlist'
     return 'unplayed'
 }
 
