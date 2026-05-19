@@ -383,9 +383,22 @@
     color: var(--rev-accent);
 }
 
-.rev-local-star--legendary.rev-local-star--active {
-    color: #f0c040;
-    text-shadow: 0 0 6px #f0c04066;
+.rev-legendary-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    margin-left: 10px;
+    background: linear-gradient(120deg, #b8902a 0%, #f0c040 45%, #c8a84b 100%);
+    color: #1a1208;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    box-shadow: 0 0 10px #f0c04033, 0 0 24px #c8a84b22;
+    vertical-align: middle;
+    line-height: 1;
 }
 
 .rev-edit-btn {
@@ -404,12 +417,35 @@
     border-color: var(--rev-accent);
 }
 
+/* Two-column body layout */
+.rev-local-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 32px;
+    align-items: start;
+}
+
+.rev-local-body--single {
+    grid-template-columns: 1fr;
+}
+
+@media (max-width: 600px) {
+    .rev-local-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+.rev-local-right {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
 /* Characteristic bars */
 .rev-bars {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 16px;
 }
 
 .rev-bar-row {
@@ -454,7 +490,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .rev-tag-pill {

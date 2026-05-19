@@ -398,17 +398,17 @@ export function openReviewModal(appid, gameName, existing = null) {
 export function renderLocalReviewCard(review, appid) {
     if (!review) return ''
 
-    // Stars row
+    // Stars row — legendary gets 5 gold stars + a special badge instead of a 6th star
+    const isLegendary = review.stars === 6
+    const displayStars = isLegendary ? 5 : review.stars
     let starsHtml = ''
-    for (let i = 1; i <= 6; i++) {
-        const filled = i <= review.stars
-        if (i === 6) {
-            const cls = 'rev-local-star rev-local-star--legendary' + (filled ? ' rev-local-star--active' : '')
-            starsHtml += `<span class="${cls}">✦</span>`
-        } else {
-            const cls = 'rev-local-star' + (filled ? ' rev-local-star--active' : '')
-            starsHtml += `<span class="${cls}">${filled ? '★' : '☆'}</span>`
-        }
+    for (let i = 1; i <= 5; i++) {
+        const filled = i <= displayStars
+        const cls = 'rev-local-star' + (filled ? ' rev-local-star--active' : '')
+        starsHtml += `<span class="${cls}">${filled ? '★' : '☆'}</span>`
+    }
+    if (isLegendary) {
+        starsHtml += `<span class="rev-legendary-badge">✦ Legendary</span>`
     }
 
     // Characteristic bars — only where value > 0
@@ -444,14 +444,19 @@ export function renderLocalReviewCard(review, appid) {
             <button class="rev-show-more">Show more</button>`
     }
 
+    const hasLeft  = !!barsHtml
+    const hasRight = !!(tagsHtml || reviewTextHtml)
+
     return `
         <div class="rev-local-card">
             <div class="rev-local-header">
                 <div class="rev-local-stars">${starsHtml}</div>
                 <button class="rev-edit-btn" data-appid="${appid}">Edit Review</button>
             </div>
-            ${barsHtml ? `<div class="rev-bars">${barsHtml}</div>` : ''}
-            ${tagsHtml}
-            ${reviewTextHtml}
+            ${hasLeft || hasRight ? `
+            <div class="rev-local-body${!hasLeft || !hasRight ? ' rev-local-body--single' : ''}">
+                ${hasLeft  ? `<div class="rev-local-left"><div class="rev-bars">${barsHtml}</div></div>` : ''}
+                ${hasRight ? `<div class="rev-local-right">${tagsHtml}${reviewTextHtml}</div>` : ''}
+            </div>` : ''}
         </div>`
 }
