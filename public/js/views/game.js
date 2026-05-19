@@ -37,11 +37,11 @@ export async function renderGame(appid, container) {
             ${_flagsBar(flags)}
         </div>
         <div class="game-body">
-            ${_localReviewSection(localReview, appid)}
             ${_about(game)}
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
             ${_screenshots(game)}
+            ${_localReviewSection(localReview, appid)}
             ${_myReview(myReview)}
             ${_communityReviews(communityReviews)}
             ${_itad(itadData)}
