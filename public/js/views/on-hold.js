@@ -1,5 +1,10 @@
 import { escapeHtml } from '../utils.js'
 
+// ── Module state ──────────────────────────────────────────────────────────────
+
+let _currentGames = []
+let _draggedAppid = null
+
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 async function _loadGames() {
@@ -45,8 +50,45 @@ async function _loadGames() {
         return { appid, name: name ?? `App ${appid}`, hltb, playtime }
     }))
 
-    // Most time invested first — these are the ones you're most committed to
+    // Default: most time invested first
     return results.sort((a, b) => b.playtime - a.playtime)
+}
+
+// ── Order persistence ─────────────────────────────────────────────────────────
+
+function _loadOrder() {
+    try {
+        const raw = localStorage.getItem('onhold-order')
+        return raw ? JSON.parse(raw) : []
+    } catch {
+        return []
+    }
+}
+
+function _saveOrder(appids) {
+    try {
+        localStorage.setItem('onhold-order', JSON.stringify(appids))
+    } catch { /* ignore */ }
+}
+
+function _applyOrder(games) {
+    const order   = _loadOrder()
+    const gameMap = new Map(games.map(g => [g.appid, g]))
+    const ordered = []
+    const seen    = new Set()
+
+    for (const appid of order) {
+        if (gameMap.has(appid)) {
+            ordered.push(gameMap.get(appid))
+            seen.add(appid)
+        }
+    }
+
+    for (const g of games) {
+        if (!seen.has(g.appid)) ordered.push(g)
+    }
+
+    return ordered
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -116,21 +158,28 @@ function _progressBar(game) {
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-function _card(game) {
+function _card(game, position = null) {
     const img     = `/relay/images/steam/games/${game.appid}/header.jpg`
     const playedH = _fmtHours(game.playtime)
     const { bar, label } = _progressBar(game)
 
-    const badge = playedH
+    const timeBadge = playedH
         ? `<span class="onhold-card-time" title="Time played so far">${escapeHtml(playedH)}</span>`
         : ''
 
+    const numBadge = position !== null
+        ? `<span class="onhold-card-num">${position}</span>`
+        : ''
+
+    const upNextClass = position !== null ? ' onhold-card--up-next' : ''
+
     return `
-        <a class="onhold-card" href="/game/${game.appid}" data-appid="${game.appid}">
+        <a class="onhold-card${upNextClass}" href="/game/${game.appid}" data-appid="${game.appid}" draggable="true">
             <div class="onhold-card-img-wrap">
                 <img class="onhold-card-img" src="${img}" alt="" loading="lazy" onerror="this.style.opacity='0'">
                 <div class="onhold-card-overlay"></div>
-                ${badge}
+                ${numBadge}
+                ${timeBadge}
             </div>
             <div class="onhold-card-body">
                 <span class="onhold-card-name">${escapeHtml(game.name)}</span>
@@ -138,6 +187,115 @@ function _card(game) {
             </div>
             ${bar}
         </a>`
+}
+
+// ── Drag and drop ─────────────────────────────────────────────────────────────
+
+function _clearDropIndicators(container) {
+    container.querySelectorAll('.onhold-card--drop-before, .onhold-card--drop-after').forEach(el => {
+        el.classList.remove('onhold-card--drop-before', 'onhold-card--drop-after')
+    })
+}
+
+function _initDrag(container) {
+    container.querySelectorAll('.onhold-card[data-appid]').forEach(el => {
+        el.addEventListener('dragstart', () => {
+            _draggedAppid = Number(el.dataset.appid)
+            requestAnimationFrame(() => el.classList.add('onhold-card--dragging'))
+        })
+
+        el.addEventListener('dragend', () => {
+            _draggedAppid = null
+            el.classList.remove('onhold-card--dragging')
+            _clearDropIndicators(container)
+        })
+
+        el.addEventListener('dragover', e => {
+            e.preventDefault()
+            if (_draggedAppid === null || _draggedAppid === Number(el.dataset.appid)) return
+            _clearDropIndicators(container)
+            const rect = el.getBoundingClientRect()
+            const mid  = rect.left + rect.width / 2
+            if (e.clientX < mid) {
+                el.classList.add('onhold-card--drop-before')
+            } else {
+                el.classList.add('onhold-card--drop-after')
+            }
+        })
+
+        el.addEventListener('dragleave', e => {
+            if (!el.contains(e.relatedTarget)) {
+                el.classList.remove('onhold-card--drop-before', 'onhold-card--drop-after')
+            }
+        })
+
+        el.addEventListener('drop', e => {
+            e.preventDefault()
+            if (_draggedAppid === null) return
+
+            const targetAppid = Number(el.dataset.appid)
+            if (_draggedAppid === targetAppid) return
+
+            const isBefore   = el.classList.contains('onhold-card--drop-before')
+            _clearDropIndicators(container)
+
+            const draggedIdx = _currentGames.findIndex(g => g.appid === _draggedAppid)
+            if (draggedIdx === -1) return
+            const [dragged] = _currentGames.splice(draggedIdx, 1)
+
+            const targetIdx = _currentGames.findIndex(g => g.appid === targetAppid)
+            if (targetIdx === -1) {
+                _currentGames.push(dragged)
+            } else {
+                _currentGames.splice(isBefore ? targetIdx : targetIdx + 1, 0, dragged)
+            }
+
+            _saveOrder(_currentGames.map(g => g.appid))
+            _renderDynamic(container, _currentGames)
+        })
+    })
+}
+
+// ── Dynamic section render ────────────────────────────────────────────────────
+
+function _renderDynamic(container, games) {
+    _currentGames = games
+
+    const dynamic = container.querySelector('.onhold-dynamic')
+    if (!dynamic) return
+
+    const queueGames = games.slice(0, 3)
+    const restGames  = games.slice(3)
+
+    const queueCards = queueGames.map((g, i) => _card(g, i + 1)).join('')
+
+    const sepHtml = restGames.length > 0 ? `
+        <div class="onhold-rest-sep">
+            <span class="onhold-rest-sep-label">Queue &middot; ${restGames.length} more</span>
+        </div>` : ''
+
+    const restHtml = restGames.length > 0 ? `
+        <div class="onhold-grid">
+            ${restGames.map(g => _card(g)).join('')}
+        </div>` : ''
+
+    dynamic.innerHTML = `
+        <div class="onhold-queue">
+            <div class="onhold-queue-header">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <span class="onhold-queue-label">Up Next</span>
+                <span class="onhold-queue-hint">Drag to reorder</span>
+            </div>
+            <div class="onhold-queue-row">
+                ${queueCards}
+            </div>
+        </div>
+        ${sepHtml}
+        ${restHtml}`
+
+    _initDrag(container)
 }
 
 // ── Main render ───────────────────────────────────────────────────────────────
@@ -168,10 +326,11 @@ export async function renderOnHold(container) {
         return
     }
 
-    const totalMins = _totalPlaytime(games)
+    const ordered   = _applyOrder(games)
+    const totalMins = _totalPlaytime(ordered)
     const totalStr  = totalMins > 0
-        ? `${_fmtHours(totalMins)} invested across ${games.length} paused game${games.length !== 1 ? 's' : ''}`
-        : `${games.length} game${games.length !== 1 ? 's' : ''} paused`
+        ? `${_fmtHours(totalMins)} invested across ${ordered.length} paused game${ordered.length !== 1 ? 's' : ''}`
+        : `${ordered.length} game${ordered.length !== 1 ? 's' : ''} paused`
 
     container.innerHTML = `
         <div class="onhold-header">
@@ -181,7 +340,7 @@ export async function renderOnHold(container) {
                 <p class="onhold-subtitle">${totalStr}</p>
             </div>
         </div>
-        <div class="onhold-grid">
-            ${games.map(_card).join('')}
-        </div>`
+        <div class="onhold-dynamic"></div>`
+
+    _renderDynamic(container, ordered)
 }

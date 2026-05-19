@@ -9,6 +9,10 @@
 /* ── Header ──────────────────────────────────────────────────────────────── */
 
 .onhold-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
     padding: 40px 40px 32px;
     border-bottom: 1px solid var(--clr-border);
     margin-bottom: 32px;
@@ -73,6 +77,137 @@
     font-size: 0.85rem;
     color: var(--clr-text-muted);
     margin: 0;
+}
+
+/* ── Up Next queue ───────────────────────────────────────────────────────── */
+
+.onhold-queue {
+    padding: 0 40px 32px;
+}
+
+.onhold-queue-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--onhold-accent);
+}
+
+.onhold-queue-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.onhold-queue-hint {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--clr-text-muted);
+    opacity: 0.55;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.onhold-queue-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    position: relative;
+}
+
+.onhold-queue-row::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 3%;
+    right: 3%;
+    height: 10px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--onhold-accent-bd);
+    border-radius: 0 0 var(--radius) var(--radius);
+    opacity: 0.45;
+    z-index: -1;
+}
+
+/* ── Up Next card variant ────────────────────────────────────────────────── */
+
+.onhold-card--up-next {
+    border-color: var(--onhold-accent-bd);
+}
+
+.onhold-card--up-next:hover {
+    border-color: var(--onhold-accent);
+    box-shadow: 0 8px 24px rgba(224, 160, 82, 0.25);
+}
+
+/* ── Position number badge ───────────────────────────────────────────────── */
+
+.onhold-card-num {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--onhold-accent);
+    color: #1a1208;
+    font-size: 0.65rem;
+    font-weight: 900;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Rest separator ──────────────────────────────────────────────────────── */
+
+.onhold-rest-sep {
+    padding: 0 40px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.onhold-rest-sep::before,
+.onhold-rest-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--clr-border);
+}
+
+.onhold-rest-sep-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+/* ── Drag and drop ───────────────────────────────────────────────────────── */
+
+.onhold-card[draggable="true"] {
+    cursor: grab;
+}
+
+.onhold-card--dragging {
+    opacity: 0.35;
+    cursor: grabbing;
+}
+
+.onhold-card--drop-before {
+    box-shadow: -3px 0 0 0 var(--onhold-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    transform: translateY(-2px);
+}
+
+.onhold-card--drop-after {
+    box-shadow: 3px 0 0 0 var(--onhold-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    transform: translateY(-2px);
 }
 
 /* ── Game grid ───────────────────────────────────────────────────────────── */
@@ -251,6 +386,9 @@
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 960px) {
-    .onhold-header { padding: 24px 20px 20px; }
-    .onhold-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .onhold-header    { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
+    .onhold-queue     { padding: 0 20px 24px; }
+    .onhold-queue-row { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .onhold-rest-sep  { padding: 0 20px 16px; }
+    .onhold-grid      { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
