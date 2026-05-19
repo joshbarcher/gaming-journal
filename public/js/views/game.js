@@ -246,7 +246,7 @@ function _dataPanel(game) {
     }
 
     rows.push(`<div class="gdp-divider"></div>`)
-    rows.push(_gdpRow('Steam ID', `<a class="gdp-steam-link" href="https://store.steampowered.com/app/${game.appid}" target="_blank" rel="noopener">${game.appid} ↗</a>`))
+    rows.push(_gdpRow('Steam ID', `<a class="gdp-steam-link" href="https://store.steampowered.com/app/${game.appid}" target="_blank" rel="noopener">${game.appid} ↗</a>`, true))
 
     return `<div class="game-data-panel">${rows.join('')}</div>`
 }
