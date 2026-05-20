@@ -47,6 +47,34 @@ const BADGES = [
         id: 'surprisedMe', label: 'Surprised Me', color: '#a35ae8',
         icon: _badgeIcon(`<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`),
     },
+    {
+        id: 'soulsLike', label: 'Souls-like', color: '#c0392b',
+        icon: _badgeIcon(`<path d="M12 2a9 9 0 0 0-9 9 8.87 8.87 0 0 0 2.1 5.66A5 5 0 0 0 9 20v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1a5 5 0 0 0 3.9-3.34A8.87 8.87 0 0 0 21 11a9 9 0 0 0-9-9"/><path d="M9 17v1"/><path d="M15 17v1"/><circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/>`),
+    },
+    {
+        id: 'rogueLike', label: 'Rogue-like', color: '#e67e22',
+        icon: _badgeIcon(`<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.5 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.7l-.5-.8"/><path d="m18 14 4 4-4 4"/>`),
+    },
+    {
+        id: 'survivor', label: 'Survivor', color: '#27ae60',
+        icon: _badgeIcon(`<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>`),
+    },
+    {
+        id: 'handheld', label: 'Great Handheld', color: '#00bcd4',
+        icon: _badgeIcon(`<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>`),
+    },
+    {
+        id: 'coop', label: 'Co-op', color: '#f1c40f',
+        icon: _badgeIcon(`<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`),
+    },
+    {
+        id: 'completionist', label: 'Completionist', color: '#c0ca33',
+        icon: _badgeIcon(`<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>`),
+    },
+    {
+        id: 'modded', label: 'Modded', color: '#78909c',
+        icon: _badgeIcon(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`),
+    },
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
