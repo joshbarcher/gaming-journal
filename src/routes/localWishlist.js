@@ -12,6 +12,19 @@ router.get('/', async (_req, res) => {
     }
 })
 
+router.get('/:appid', async (req, res) => {
+    try {
+        const appid = Number(req.params.appid)
+        if (!appid) return res.status(400).json({ error: 'invalid appid' })
+        const data = await getAll()
+        const wishlisted = !!data.items[String(appid)]
+        logger.info('[local-wishlist] GET status', { appid, wishlisted })
+        res.json({ wishlisted })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
+
 function _relayUrl() {
     return (process.env.RELAY_URL ?? 'http://localhost:8050').replace(/\/$/, '')
 }

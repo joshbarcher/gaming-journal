@@ -6,9 +6,9 @@ import { gameBackLabel, gameBackPath } from '../router.js'
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
@@ -18,6 +18,7 @@ export async function renderGame(appid, container) {
             fetch(`/api/flags/${appid}`),
             fetch(`/api/local-reviews/${appid}`),
             fetch(`/relay/api/videos/${appid}`),
+            fetch(`/api/local-wishlist/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
         game             = await gameRes.json()
@@ -29,6 +30,7 @@ export async function renderGame(appid, container) {
         flags            = flagsRes.ok     ? await flagsRes.json()     : {}
         localReview      = localRevRes.ok  ? await localRevRes.json()  : null
         trailers         = trailersRes.ok  ? await trailersRes.json()  : []
+        localWishlisted  = localWlRes.ok   ? (await localWlRes.json()).wishlisted : false
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -38,7 +40,7 @@ export async function renderGame(appid, container) {
         ${_hero(game)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         <div class="game-flags-bar" data-appid="${appid}">
-            ${_flagsBar(flags, game)}
+            ${_flagsBar(flags, game, localWishlisted)}
         </div>
         <div class="game-body">
             ${_trailers(appid, trailers)}
@@ -1073,11 +1075,11 @@ const _WL_STAR     = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/
 const _WL_STAR_FILL = `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
 
 // Returns a flags-group element to be injected inside game-flags-inner, or '' if not applicable.
-function _wishlistGroup(game) {
+function _wishlistGroup(game, localWishlisted) {
     if (game.source === 'library' || game.source === 'both') return ''
 
-    const isSteam = game.wishlist && !game.wishlist.local
-    const isLocal = game.wishlist?.local === true
+    const isSteam = game.wishlist?.steam === true
+    const isLocal = localWishlisted || game.wishlist?.local === true
 
     if (isSteam) {
         return `<div class="game-flags-group">
@@ -1144,7 +1146,7 @@ const _FLAG_GROUPS = [
     ],
 ]
 
-function _flagsBar(flags, game) {
+function _flagsBar(flags, game, localWishlisted = false) {
     const groups = _FLAG_GROUPS.map((group, gi) => {
         const btns = group.map(f => {
             const active = flags?.[f.key] ? ' game-flag--active' : ''
@@ -1153,7 +1155,7 @@ function _flagsBar(flags, game) {
         const divider = gi < _FLAG_GROUPS.length - 1 ? `<div class="game-flags-divider"></div>` : ''
         return `<div class="game-flags-group">${btns}</div>${divider}`
     }).join('')
-    const wlGroup = _wishlistGroup(game)
+    const wlGroup = _wishlistGroup(game, localWishlisted)
     const wlHtml  = wlGroup ? `<div class="game-flags-divider"></div>${wlGroup}` : ''
     return `<div class="game-flags-inner">${groups}${wlHtml}</div>`
 }
