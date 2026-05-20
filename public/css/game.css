@@ -299,8 +299,12 @@
 .game-flag--active.game-flag--alert     { color: #e0b830; }
 
 /* ── Wishlist button ─────────────────────────────────────────────────────────── */
-.game-flag--active.game-wishlist-btn       { color: #f5d132; border-color: rgba(245, 209, 50, 0.35); background: rgba(245, 209, 50, 0.08); }
-.game-wishlist-btn--steam                  { color: #7aade0; border-color: rgba(122, 173, 224, 0.3); cursor: default; }
+.game-wishlist-btn .game-flag-icon                 { fill: none; }
+.game-flag--active.game-wishlist-btn .game-flag-icon { fill: currentColor; }
+.game-flag--active.game-wishlist-btn               { color: #f5d132; }
+.game-flag--active.game-wishlist-btn:hover         { color: #f5d132; }
+.game-wishlist-btn--steam                          { color: #7aade0; border-color: rgba(122, 173, 224, 0.3); cursor: default; }
+.game-wishlist-btn--steam .game-flag-icon          { fill: currentColor; }
 
 /* ── Game body (below hero) ──────────────────────────────────────────────────── */
 .game-body {

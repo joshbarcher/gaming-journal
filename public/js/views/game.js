@@ -1089,9 +1089,8 @@ function _wishlistGroup(game, localWishlisted) {
 
     const cls   = isLocal ? ' game-flag--active' : ''
     const title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
-    const icon  = isLocal ? _WL_STAR_FILL : _WL_STAR
     return `<div class="game-flags-group">
-        <button class="game-flag game-wishlist-btn${cls}" data-wishlist-appid="${game.appid}" title="${title}">${icon}</button>
+        <button class="game-flag game-wishlist-btn${cls}" data-wishlist-appid="${game.appid}" title="${title}">${_WL_STAR_FILL}</button>
     </div>`
 }
 
@@ -1106,7 +1105,6 @@ function _initWishlistBtn(container, game) {
 
         btn.classList.toggle('game-flag--active', !isLocal)
         btn.title = isLocal ? 'Add to Local Wishlist' : 'Remove from Local Wishlist'
-        btn.innerHTML = isLocal ? _WL_STAR : _WL_STAR_FILL
 
         try {
             const res = await fetch(`/api/local-wishlist/${appid}`, { method })
@@ -1115,7 +1113,6 @@ function _initWishlistBtn(container, game) {
             // Revert
             btn.classList.toggle('game-flag--active', isLocal)
             btn.title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
-            btn.innerHTML = isLocal ? _WL_STAR_FILL : _WL_STAR
         }
     })
 }
