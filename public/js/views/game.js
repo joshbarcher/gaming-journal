@@ -6,9 +6,9 @@ import { gameBackLabel, gameBackPath } from '../router.js'
 export async function renderGame(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes, newsRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
@@ -19,6 +19,7 @@ export async function renderGame(appid, container) {
             fetch(`/api/local-reviews/${appid}`),
             fetch(`/relay/api/videos/${appid}`),
             fetch(`/api/local-wishlist/${appid}`),
+            fetch(`/relay/api/news/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
         game             = await gameRes.json()
@@ -31,6 +32,9 @@ export async function renderGame(appid, container) {
         localReview      = localRevRes.ok  ? await localRevRes.json()  : null
         trailers         = trailersRes.ok  ? await trailersRes.json()  : []
         localWishlisted  = localWlRes.ok   ? (await localWlRes.json()).wishlisted : false
+        news             = newsRes.ok      ? await newsRes.json()      : null
+        // Background refresh — fire and forget
+        fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }).catch(() => {})
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -44,6 +48,7 @@ export async function renderGame(appid, container) {
         </div>
         <div class="game-body">
             ${_trailers(appid, trailers)}
+            ${_news(news)}
             ${_about(game)}
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
@@ -62,6 +67,7 @@ export async function renderGame(appid, container) {
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
     _initSteamReview(container)
     _initTrailers(container, appid)
+    _initNews(container)
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
@@ -466,6 +472,92 @@ function _initTrailers(container) {
             player.poster = btn.dataset.thumbnail ?? ''
             player.src = `/relay/videos/steam/${appid}/${btn.dataset.index}.mp4`
             player.play().catch(() => {})
+        })
+    })
+}
+
+// ── News ──────────────────────────────────────────────────────────────────────
+
+function _news(news) {
+    const items = news?.items
+    if (!items?.length) return ''
+
+    const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+    const listHtml = items.map((item, i) => {
+        const date = item.date ? fmt.format(new Date(item.date * 1000)) : ''
+        return `
+            <button class="news-item${i === 0 ? ' news-item--active' : ''}" data-index="${i}">
+                <span class="news-item-feed">${escapeHtml(item.feedlabel)}</span>
+                <span class="news-item-title">${escapeHtml(item.title)}</span>
+                <span class="news-item-date">${date}</span>
+            </button>`
+    }).join('')
+
+    const first = items[0]
+    const firstDate = first.date ? fmt.format(new Date(first.date * 1000)) : ''
+    const panelHtml = `
+        <div class="news-panel">
+            <div class="news-panel-meta">
+                <span class="news-panel-feed">${escapeHtml(first.feedlabel)}</span>
+                <span class="news-panel-date">${firstDate}</span>
+                ${first.url ? `<a class="news-panel-link" href="${first.url}" target="_blank" rel="noopener noreferrer">Read full article ↗</a>` : ''}
+            </div>
+            <h3 class="news-panel-title">${escapeHtml(first.title)}</h3>
+            <div class="news-panel-body">${first.contents ?? ''}</div>
+        </div>`
+
+    const newsJson = JSON.stringify(items).replace(/"/g, '&quot;')
+
+    return `
+        <section class="game-section game-news" data-news="${newsJson}">
+            <h2 class="game-section-title">News</h2>
+            <div class="news-layout">
+                <div class="news-list">${listHtml}</div>
+                ${panelHtml}
+            </div>
+        </section>`
+}
+
+function _initNews(container) {
+    const section = container.querySelector('.game-news')
+    if (!section) return
+
+    const items   = section.querySelectorAll('.news-item')
+    const panel   = section.querySelector('.news-panel')
+    if (!items.length || !panel) return
+
+    // Pre-parse all item data from the DOM isn't ideal — store on element instead
+    const newsData = Array.from(items).map(btn => {
+        const idx = Number(btn.dataset.index)
+        return { btn, idx }
+    })
+
+    // Collect raw content from the already-rendered first item; others come from JS data.
+    // We store the news payload on the section element at render time.
+    const raw = JSON.parse(section.dataset.news ?? '[]')
+    const fmt  = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+    items.forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.classList.contains('news-item--active')) return
+            items.forEach(b => b.classList.remove('news-item--active'))
+            btn.classList.add('news-item--active')
+
+            const item = raw[Number(btn.dataset.index)]
+            if (!item) return
+
+            const date = item.date ? fmt.format(new Date(item.date * 1000)) : ''
+            const link = item.url
+                ? `<a class="news-panel-link" href="${item.url}" target="_blank" rel="noopener noreferrer">Read full article ↗</a>`
+                : ''
+
+            panel.querySelector('.news-panel-meta').innerHTML =
+                `<span class="news-panel-feed">${escapeHtml(item.feedlabel)}</span>
+                 <span class="news-panel-date">${date}</span>
+                 ${link}`
+            panel.querySelector('.news-panel-title').textContent = item.title
+            panel.querySelector('.news-panel-body').innerHTML    = item.contents ?? ''
         })
     })
 }
