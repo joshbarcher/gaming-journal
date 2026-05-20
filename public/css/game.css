@@ -631,13 +631,19 @@
 }
 
 /* ── Trailers ────────────────────────────────────────────────────────────────── */
+.trailers-layout {
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 12px;
+    align-items: start;
+}
+
 .trailers-player-wrap {
     width: 100%;
     aspect-ratio: 16 / 9;
     border-radius: var(--radius);
     overflow: hidden;
     background: #000;
-    margin-bottom: 12px;
 }
 
 .trailers-player {
@@ -648,16 +654,16 @@
 
 .trailers-list {
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 4px;
+    overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--clr-border) transparent;
 }
 
 .trailers-thumb {
     flex-shrink: 0;
-    width: 180px;
+    width: 100%;
     background: var(--clr-bg-raised);
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
@@ -721,6 +727,20 @@
 
 .trailers-thumb--active .trailers-thumb-name {
     color: var(--clr-text);
+}
+
+@media (max-width: 640px) {
+    .trailers-layout {
+        grid-template-columns: 1fr;
+    }
+    .trailers-list {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    .trailers-thumb {
+        width: 180px;
+    }
 }
 
 /* ── Screenshots grid ────────────────────────────────────────────────────────── */

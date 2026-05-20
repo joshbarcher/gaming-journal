@@ -406,8 +406,22 @@ function _itad(itad) {
 function _trailers(appid, trailers) {
     if (!trailers?.length) return ''
 
-    const thumbsHtml = trailers.length > 1
-        ? `<div class="trailers-list">
+    const playerHtml = `
+        <div class="trailers-player-wrap">
+            <video class="trailers-player" controls preload="metadata"
+                   src="/relay/videos/steam/${appid}/0.mp4"></video>
+        </div>`
+
+    if (trailers.length === 1) {
+        return `
+            <section class="game-section game-trailers" data-appid="${appid}">
+                <h2 class="game-section-title">Trailers</h2>
+                ${playerHtml}
+            </section>`
+    }
+
+    const listHtml = `
+        <div class="trailers-list">
             ${trailers.map((t, i) => `
                 <button class="trailers-thumb${i === 0 ? ' trailers-thumb--active' : ''}" data-index="${t.index}">
                     <div class="trailers-thumb-img-wrap">
@@ -418,17 +432,15 @@ function _trailers(appid, trailers) {
                     </div>
                     <span class="trailers-thumb-name">${escapeHtml(t.name)}</span>
                 </button>`).join('')}
-           </div>`
-        : ''
+        </div>`
 
     return `
         <section class="game-section game-trailers" data-appid="${appid}">
             <h2 class="game-section-title">Trailers</h2>
-            <div class="trailers-player-wrap">
-                <video class="trailers-player" controls preload="metadata"
-                       src="/relay/videos/steam/${appid}/0.mp4"></video>
+            <div class="trailers-layout">
+                ${playerHtml}
+                ${listHtml}
             </div>
-            ${thumbsHtml}
         </section>`
 }
 
