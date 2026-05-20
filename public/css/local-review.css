@@ -569,9 +569,10 @@
 
 /* ── Badge picker (modal) ─────────────────────────────────────────────────── */
 .rev-badge-picker {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
     gap: 8px;
+    align-items: start;
 }
 
 .rev-badge-pick {
