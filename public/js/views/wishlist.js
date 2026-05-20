@@ -275,6 +275,11 @@ function _buildCard(game) {
     const localHtml = game.wishlist?.local
         ? `<span class="wl-card-local">Local Wishlist</span>`
         : ''
+    const _bell = `<svg class="wl-alert-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`
+    const onSale  = (bp?.cut ?? 0) > 0
+    const alertHtml = game.flags?.alert
+        ? `<span class="wl-card-alert${onSale ? ' wl-card-alert--active' : ''}">${_bell}${onSale ? `ON SALE` : `Watching`}</span>`
+        : ''
 
     let priceHtml
     if (bp) {
@@ -295,6 +300,7 @@ function _buildCard(game) {
                 <img class="lib-card-img" src="${imgSrc}" alt="${escapeHtml(game.name)}" loading="lazy">
                 ${unavailableHtml}
                 ${localHtml}
+                ${alertHtml}
             </div>
             <div class="lib-card-info">
                 <span class="lib-card-name">${escapeHtml(game.name)}</span>
