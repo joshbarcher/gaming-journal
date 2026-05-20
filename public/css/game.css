@@ -635,9 +635,13 @@
 }
 
 /* ── Trailers ────────────────────────────────────────────────────────────────── */
+.trailers-single {
+    max-width: 50%;
+}
+
 .trailers-layout {
     display: grid;
-    grid-template-columns: minmax(0, 50%) 1fr;
+    grid-template-columns: minmax(0, 50%) 200px;
     gap: 12px;
     align-items: start;
 }

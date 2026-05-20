@@ -420,7 +420,7 @@ function _trailers(appid, trailers) {
         return `
             <section class="game-section game-trailers" data-appid="${appid}">
                 <h2 class="game-section-title">Trailers</h2>
-                ${playerHtml}
+                <div class="trailers-single">${playerHtml}</div>
             </section>`
     }
 
