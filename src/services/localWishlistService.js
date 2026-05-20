@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { ManagedFile } from '../shared/managed-file.js'
+import logger from '../../logger.js'
 
 function makeFile() {
     const dataDir = process.env.DATA_DIR
@@ -12,33 +13,44 @@ function makeFile() {
 }
 
 export async function getAll() {
+    logger.info('[local-wishlist-svc] getAll called')
     const file = makeFile()
     await file.load()
     const data = file.get()
+    const count = Object.keys(data.items ?? {}).length
+    logger.info('[local-wishlist-svc] getAll result', { count })
     await file.close()
     return data
 }
 
 export async function add(appid) {
+    logger.info('[local-wishlist-svc] add called', { appid })
     const file = makeFile()
     await file.load()
     const data = file.get()
-    if (!data.items[String(appid)]) {
-        data.items[String(appid)] = { dateAdded: Math.floor(Date.now() / 1000) }
+    const key = String(appid)
+    if (!data.items[key]) {
+        data.items[key] = { dateAdded: Math.floor(Date.now() / 1000) }
         await file.set(data)
         await file.flush()
+        logger.info('[local-wishlist-svc] add flushed to disk', { appid })
+    } else {
+        logger.info('[local-wishlist-svc] add skipped (already exists)', { appid })
     }
     await file.close()
-    return data.items[String(appid)]
+    return data.items[key]
 }
 
 export async function remove(appid) {
+    logger.info('[local-wishlist-svc] remove called', { appid })
     const file = makeFile()
     await file.load()
     const data = file.get()
+    const existed = !!data.items[String(appid)]
     delete data.items[String(appid)]
     await file.set(data)
     await file.flush()
+    logger.info('[local-wishlist-svc] remove flushed to disk', { appid, existed })
     await file.close()
 }
 
