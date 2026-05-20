@@ -406,10 +406,11 @@ function _itad(itad) {
 function _trailers(appid, trailers) {
     if (!trailers?.length) return ''
 
+    const firstThumb = trailers[0]?.thumbnail ?? ''
     const playerHtml = `
         <div class="trailers-player-wrap">
             <video class="trailers-player" controls preload="metadata"
-                   src="/relay/videos/steam/${appid}/0.mp4"></video>
+                   src="/relay/videos/steam/${appid}/0.mp4"${firstThumb ? ` poster="${firstThumb}"` : ''}></video>
         </div>`
 
     if (trailers.length === 1) {
@@ -423,7 +424,7 @@ function _trailers(appid, trailers) {
     const listHtml = `
         <div class="trailers-list">
             ${trailers.map((t, i) => `
-                <button class="trailers-thumb${i === 0 ? ' trailers-thumb--active' : ''}" data-index="${t.index}">
+                <button class="trailers-thumb${i === 0 ? ' trailers-thumb--active' : ''}" data-index="${t.index}" data-thumbnail="${t.thumbnail ?? ''}">
                     <div class="trailers-thumb-img-wrap">
                         ${t.thumbnail
                             ? `<img class="trailers-thumb-img" src="${t.thumbnail}" alt="" loading="lazy" onerror="this.style.display='none'">`
@@ -459,6 +460,7 @@ function _initTrailers(container) {
             thumbs.forEach(b => b.classList.remove('trailers-thumb--active'))
             btn.classList.add('trailers-thumb--active')
 
+            player.poster = btn.dataset.thumbnail ?? ''
             player.src = `/relay/videos/steam/${appid}/${btn.dataset.index}.mp4`
             player.play().catch(() => {})
         })
