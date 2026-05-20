@@ -442,17 +442,13 @@ function _initTrailers(container) {
 
     thumbs.forEach(btn => {
         btn.addEventListener('click', () => {
-            const idx     = btn.dataset.index
-            const wasActive = btn.classList.contains('trailers-thumb--active')
-            if (wasActive) return
+            if (btn.classList.contains('trailers-thumb--active')) return
 
             thumbs.forEach(b => b.classList.remove('trailers-thumb--active'))
             btn.classList.add('trailers-thumb--active')
 
-            const pos = player.paused ? null : player.currentTime
-            player.src = `/relay/videos/steam/${appid}/${idx}.mp4`
-            player.load()
-            if (pos !== null) player.play()
+            player.src = `/relay/videos/steam/${appid}/${btn.dataset.index}.mp4`
+            player.play().catch(() => {})
         })
     })
 }

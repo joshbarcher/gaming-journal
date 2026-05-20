@@ -2,9 +2,9 @@
  * sync-videos.mjs — Download Steam store trailers to local NAS storage.
  *
  * Usage:
- *   node --env-file .env scripts/sync-videos.mjs
- *   node --env-file .env scripts/sync-videos.mjs --force    # re-download existing files
- *   node --env-file .env scripts/sync-videos.mjs --dry-run  # show what would be downloaded
+ *   node --env-file .env scripts/sync-videos.js
+ *   node --env-file .env scripts/sync-videos.js --force    # re-download existing files
+ *   node --env-file .env scripts/sync-videos.js --dry-run  # show what would be downloaded
  *
  * Steam now serves trailers as HLS/DASH streams (not direct files).
  * This script downloads via ffmpeg, which selects the highest-quality
@@ -23,10 +23,12 @@ import { spawn }                               from 'node:child_process'
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const DATA_DIR   = process.env.DATA_DIR ?? String.raw`\\192.168.86.74\app-data`
-const GAMES_FILE = join(DATA_DIR, 'relay', 'steam', 'games.json')
-const MOVIES_DIR = join(DATA_DIR, 'relay', 'steam', 'movies')
-const VIDEOS_DIR = join(DATA_DIR, 'relay', 'steam', 'videos')
+const DATA_DIR      = process.env.DATA_DIR ?? String.raw`\\192.168.86.74\app-data`
+const GAMES_FILE          = join(DATA_DIR, 'relay', 'steam', 'games.json')
+const STEAM_WISHLIST_FILE = join(DATA_DIR, 'relay', 'steam', 'wishlist.json')
+const LOCAL_WISHLIST_FILE = join(DATA_DIR, 'gaming-journal', 'local-wishlist.json')
+const MOVIES_DIR          = join(DATA_DIR, 'relay', 'steam', 'movies')
+const VIDEOS_DIR          = join(DATA_DIR, 'relay', 'steam', 'videos')
 
 const FORCE   = process.argv.includes('--force')
 const DRY_RUN = process.argv.includes('--dry-run')
@@ -106,10 +108,38 @@ function ffmpegDownload(url, outPath) {
 
 async function main() {
     const { games = [] } = JSON.parse(await readFile(GAMES_FILE, 'utf8'))
-    const total = games.length
+
+    const libraryIds = new Set(games.map(g => g.appid))
+
+    // Steam wishlist: { items: { "appid": { priority, date_added } } }
+    let steamWishlistIds = []
+    try {
+        const { items = {} } = JSON.parse(await readFile(STEAM_WISHLIST_FILE, 'utf8'))
+        steamWishlistIds = Object.keys(items).map(Number).filter(id => !libraryIds.has(id))
+    } catch { /* absent — skip */ }
+
+    // Local wishlist: { items: { "appid": { dateAdded } } }
+    // Exclude anything already covered by library or Steam wishlist
+    const steamWishlistSet = new Set(steamWishlistIds)
+    let localWishlistIds = []
+    try {
+        const { items = {} } = JSON.parse(await readFile(LOCAL_WISHLIST_FILE, 'utf8'))
+        localWishlistIds = Object.keys(items)
+            .map(Number)
+            .filter(id => !libraryIds.has(id) && !steamWishlistSet.has(id))
+    } catch { /* absent — skip */ }
+
+    const wishlistOnly = [...steamWishlistIds, ...localWishlistIds]
+        .map(id => ({ appid: id, name: String(id) }))
+
+    const targets = [...games, ...wishlistOnly]
+    const total   = targets.length
 
     console.log(`Steam trailer sync`)
-    console.log(`  Games:    ${total}`)
+    console.log(`  Library:         ${games.length}`)
+    console.log(`  Steam wishlist:  ${steamWishlistIds.length}`)
+    console.log(`  Local wishlist:  ${localWishlistIds.length}`)
+    console.log(`  Total:           ${total}`)
     console.log(`  Videos → ${VIDEOS_DIR}`)
     console.log(`  Flags:    ${[FORCE && '--force', DRY_RUN && '--dry-run'].filter(Boolean).join(' ') || 'none'}`)
     console.log()
@@ -122,8 +152,8 @@ async function main() {
     const errorLog  = []
 
     for (let i = 0; i < total; i++) {
-        const { appid } = games[i]
-        const name      = games[i].name ?? String(appid)
+        const { appid } = targets[i]
+        const name      = targets[i].name ?? String(appid)
         const prefix    = `[${pad(i + 1, total)}/${total}]`
 
         // ── Fetch movie metadata ──────────────────────────────────────────────
@@ -207,7 +237,7 @@ async function main() {
         // Periodic summary
         if ((i + 1) % 100 === 0) {
             console.log()
-            console.log(`  ── ${i + 1}/${total} games processed ──`)
+            console.log(`  ── ${i + 1}/${total} titles processed ──`)
             console.log(`     Downloaded: ${downloaded}  Skipped: ${skipped}  No trailer: ${noTrailer}  Errors: ${errorCount}`)
             console.log()
         }
@@ -216,7 +246,7 @@ async function main() {
     // ── Summary ───────────────────────────────────────────────────────────────
     console.log()
     console.log('═══════════════════════════════════')
-    console.log(`  Games processed:  ${total}`)
+    console.log(`  Titles processed: ${total} (${games.length} library + ${steamWishlistIds.length} Steam wishlist + ${localWishlistIds.length} local wishlist)`)
     console.log(`  API calls made:   ${apiFetched}`)
     console.log(`  Downloaded:       ${downloaded}`)
     console.log(`  Already present:  ${skipped}`)
