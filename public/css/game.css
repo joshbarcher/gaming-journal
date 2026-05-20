@@ -1218,7 +1218,21 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 12px;
+}
+
+.rev-mine-show-more {
+    background: none;
+    border: none;
+    color: var(--clr-accent, #7c6ff7);
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    margin-left: auto;
+}
+
+.rev-mine-body {
+    margin-top: 12px;
 }
 
 .rev-mine-verdict {

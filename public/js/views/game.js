@@ -58,6 +58,7 @@ export async function renderGame(appid, container) {
     _initFlagsBar(container)
     _initWishlistBtn(container, game)
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
+    _initSteamReview(container)
     _initTrailers(container, appid)
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
@@ -900,7 +901,7 @@ function _myReview(entry) {
 
     return `
         <section class="game-section">
-            <h2 class="game-section-title">My Review</h2>
+            <h2 class="game-section-title">Steam Review</h2>
             <div class="rev-mine">
                 <div class="rev-mine-header">
                     <span class="rev-card-thumb ${thumbCls}">${thumb}</span>
@@ -911,10 +912,22 @@ function _myReview(entry) {
                         ${ea}
                     </div>
                     ${helpful ? `<span class="rev-card-helpful rev-mine-helpful">${escapeHtml(helpful)}</span>` : ''}
+                    ${text ? `<button class="rev-mine-show-more">Show review</button>` : ''}
                 </div>
-                ${text ? `<p class="rev-mine-text">${escapeHtml(text)}</p>` : ''}
+                ${text ? `<div class="rev-mine-body" hidden><p class="rev-mine-text">${escapeHtml(text)}</p></div>` : ''}
             </div>
         </section>`
+}
+
+function _initSteamReview(container) {
+    const btn  = container.querySelector('.rev-mine-show-more')
+    const body = container.querySelector('.rev-mine-body')
+    if (!btn || !body) return
+    btn.addEventListener('click', () => {
+        const hidden = body.hasAttribute('hidden')
+        body.toggleAttribute('hidden', !hidden)
+        btn.textContent = hidden ? 'Hide review' : 'Show review'
+    })
 }
 
 // ── Community Reviews ─────────────────────────────────────────────────────────
@@ -1213,7 +1226,7 @@ function _localReviewSection(review, appid) {
 
     return `
         <section class="game-section rev-local-section">
-            <h2 class="game-section-title">My Journal</h2>
+            <h2 class="game-section-title">Local Review</h2>
             ${cardHtml}
             <div class="rev-notes-section">
                 <div class="rev-notes-grid" id="rev-notes-grid-${appid}">
@@ -1262,16 +1275,6 @@ function _initLocalReviewSection(container, appid, gameName) {
             const existing = res.ok ? await res.json() : null
             const saved = await openReviewModal(appid, gameName, existing)
             if (saved) await _refresh()
-        })
-    }
-
-    // Show more toggle
-    const reviewText = section.querySelector('.rev-review-text')
-    const showMoreBtn = section.querySelector('.rev-show-more')
-    if (reviewText && showMoreBtn) {
-        showMoreBtn.addEventListener('click', () => {
-            const expanded = reviewText.classList.toggle('rev-review-text--expanded')
-            showMoreBtn.textContent = expanded ? 'Show less' : 'Show more'
         })
     }
 

@@ -417,28 +417,23 @@
     border-color: var(--rev-accent);
 }
 
-/* Two-column body layout */
+/* Float layout — bars float left, tags + text wrap around */
 .rev-local-body {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px 32px;
-    align-items: start;
+    overflow: hidden;
 }
 
-.rev-local-body--single {
-    grid-template-columns: 1fr;
+.rev-local-left {
+    float: left;
+    margin-right: 24px;
+    margin-bottom: 8px;
 }
 
 @media (max-width: 600px) {
-    .rev-local-body {
-        grid-template-columns: 1fr;
+    .rev-local-left {
+        float: none;
+        margin-right: 0;
+        margin-bottom: 14px;
     }
-}
-
-.rev-local-right {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
 }
 
 /* Characteristic bars */
@@ -511,27 +506,7 @@
     line-height: 1.6;
     color: var(--clr-text-muted, #888899);
     white-space: pre-wrap;
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    margin-bottom: 6px;
-}
-
-.rev-review-text--expanded {
-    display: block;
-    -webkit-line-clamp: unset;
-    overflow: visible;
-}
-
-.rev-show-more {
-    background: none;
-    border: none;
-    color: var(--clr-accent, #7c6ff7);
-    font-size: 0.78rem;
-    cursor: pointer;
-    padding: 0;
-    text-decoration: underline;
+    margin: 0;
 }
 
 /* No review prompt */
