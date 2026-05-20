@@ -47,9 +47,9 @@ function _render(container, settings, flagCounts = {}) {
             </section>
             <section class="settings-section">
                 <h2 class="settings-section-title">Wishlist</h2>
-                ${_toggle('hideUnavailable', 'Hide Unavailable Games',
-                    'Hide wishlist items that are no longer available on the Steam store.',
-                    settings.hideUnavailable)}
+                ${_toggle('hideUnavailable', 'Show Unavailable Games',
+                    'Show wishlist items that are no longer available on the Steam store.',
+                    !settings.hideUnavailable)}
             </section>
         </div>`
 
@@ -58,12 +58,15 @@ function _render(container, settings, flagCounts = {}) {
         input.addEventListener('change', async () => {
             const key = input.dataset.key
             const val = input.checked
+            // hideUnavailable is stored inverted relative to the toggle
+            // (toggle ON = show unavailable = hideUnavailable: false)
+            const apiVal = key === 'hideUnavailable' ? !val : val
             // Optimistic — checkbox already reflects new state
             try {
                 const res = await fetch('/api/settings', {
                     method:  'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ [key]: val }),
+                    body:    JSON.stringify({ [key]: apiVal }),
                 })
                 if (!res.ok) throw new Error(`HTTP ${res.status}`)
             } catch {

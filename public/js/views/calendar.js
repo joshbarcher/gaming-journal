@@ -34,14 +34,16 @@ export async function renderCalendar(container) {
     container.innerHTML = `<p class="page-loading">Loading calendar…</p>`
 
     try {
-        const [accountRes, flagsRes] = await Promise.all([
+        const [accountRes, flagsRes, settingsRes] = await Promise.all([
             fetch('/relay/api/account'),
             fetch('/api/flags'),
+            fetch('/api/settings'),
         ])
         if (!accountRes.ok) throw new Error(`HTTP ${accountRes.status}`)
-        const data  = await accountRes.json()
-        const flags = flagsRes.ok ? await flagsRes.json() : {}
-        _dayMap = _buildDayMap(data.sessions ?? {}, flags)
+        const data     = await accountRes.json()
+        const flags    = flagsRes.ok    ? await flagsRes.json()    : {}
+        const settings = settingsRes.ok ? await settingsRes.json() : {}
+        _dayMap = _buildDayMap(data.sessions ?? {}, flags, settings)
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load calendar: ${escapeHtml(err.message)}</p>`
         return
@@ -260,7 +262,7 @@ export function _splitAtMidnight(session) {
     return parts
 }
 
-export function _buildDayMap(sessions, flags = {}) {
+export function _buildDayMap(sessions, flags = {}, settings = {}) {
     // Two-level aggregation: day → Map<appid, entry>
     // Cross-midnight sessions are split so each calendar day only shows the time
     // played within that day. Multiple sessions for the same game on the same day
@@ -268,7 +270,10 @@ export function _buildDayMap(sessions, flags = {}) {
     const raw = new Map()
 
     for (const [appidStr, game] of Object.entries(sessions)) {
-        if (flags[appidStr]?.software || flags[Number(appidStr)]?.software) continue
+        const f = flags[appidStr] ?? flags[Number(appidStr)] ?? {}
+        if (f.software)                          continue
+        if (f.childLock && !settings.showChildLocked) continue
+        if (f.filtered  && !settings.showFiltered)    continue
         const appid = Number(appidStr)
         for (const session of game.sessions ?? []) {
             for (const part of _splitAtMidnight(session)) {
