@@ -67,8 +67,9 @@
     position: absolute;
     bottom: 6px;
     left: 6px;
-    background: #f5d132;
-    color: #1a1510;
+    background: rgba(10, 14, 20, 0.82);
+    color: #7aade0;
+    border: 1px solid rgba(122, 173, 224, 0.5);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.06em;
