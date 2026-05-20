@@ -22,6 +22,14 @@ const PRESET_TAGS = [
 
 const STAR_LABELS = ['Not Rated', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars', 'Legendary']
 
+const BADGES = [
+    { id: 'comfortGame',  label: 'Comfort Game',   icon: '🛋️', color: '#e8975a' },
+    { id: 'replayed',     label: 'Replayed',        icon: '🔄', color: '#5ab4e8', hasCount: true },
+    { id: 'hiddenGem',    label: 'Hidden Gem',      icon: '💎', color: '#4ecb8d' },
+    { id: 'didntLiveUp',  label: "Didn't Live Up",  icon: '💔', color: '#e85a6e' },
+    { id: 'surprisedMe',  label: 'Surprised Me',    icon: '⚡', color: '#a35ae8' },
+]
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function _starChar(index, isFilled) {
@@ -44,6 +52,10 @@ export function openReviewModal(appid, gameName, existing = null) {
         const customTags = new Set(
             (existing?.tags ?? []).filter(t => !PRESET_TAGS.includes(t))
         )
+        const badgeVals = {}
+        for (const b of BADGES) {
+            badgeVals[b.id] = existing?.badges?.[b.id] ?? (b.hasCount ? 0 : false)
+        }
 
         // ── Overlay ────────────────────────────────────────────────────────────
         const overlay = document.createElement('div')
@@ -285,6 +297,93 @@ export function openReviewModal(appid, gameName, existing = null) {
         tagsSection.appendChild(tagsWrap)
         tagsSection.appendChild(customRow)
 
+        // -- Badges section ─────────────────────────────────────────────────────
+        const badgesSection = document.createElement('div')
+
+        const badgesLabel = document.createElement('span')
+        badgesLabel.className = 'rev-modal-section-label'
+        badgesLabel.textContent = 'Badges'
+
+        const badgesPicker = document.createElement('div')
+        badgesPicker.className = 'rev-badge-picker'
+
+        for (const b of BADGES) {
+            const card = document.createElement('button')
+            card.type = 'button'
+            card.className = 'rev-badge-pick' + (badgeVals[b.id] ? ' rev-badge-pick--active' : '')
+            card.style.setProperty('--badge-clr', b.color)
+
+            const iconEl = document.createElement('span')
+            iconEl.className = 'rev-badge-pick-icon'
+            iconEl.textContent = b.icon
+
+            const labelEl = document.createElement('span')
+            labelEl.className = 'rev-badge-pick-label'
+            labelEl.textContent = b.label
+
+            card.appendChild(iconEl)
+            card.appendChild(labelEl)
+
+            if (b.hasCount) {
+                const countRow = document.createElement('div')
+                countRow.className = 'rev-badge-pick-count'
+                countRow.hidden = badgeVals[b.id] === 0
+
+                const minusBtn = document.createElement('button')
+                minusBtn.type = 'button'
+                minusBtn.className = 'rev-badge-count-btn'
+                minusBtn.textContent = '−'
+
+                const countEl = document.createElement('span')
+                countEl.className = 'rev-badge-count-val'
+                countEl.textContent = String(Math.max(1, badgeVals[b.id]))
+
+                const plusBtn = document.createElement('button')
+                plusBtn.type = 'button'
+                plusBtn.className = 'rev-badge-count-btn'
+                plusBtn.textContent = '+'
+
+                countRow.appendChild(minusBtn)
+                countRow.appendChild(countEl)
+                countRow.appendChild(plusBtn)
+                card.appendChild(countRow)
+
+                minusBtn.addEventListener('click', e => {
+                    e.stopPropagation()
+                    if (badgeVals[b.id] > 1) {
+                        badgeVals[b.id]--
+                        countEl.textContent = String(badgeVals[b.id])
+                    }
+                })
+
+                plusBtn.addEventListener('click', e => {
+                    e.stopPropagation()
+                    badgeVals[b.id]++
+                    countEl.textContent = String(badgeVals[b.id])
+                })
+
+                card.addEventListener('click', () => {
+                    if (badgeVals[b.id] > 0) {
+                        badgeVals[b.id] = 0
+                    } else {
+                        badgeVals[b.id] = Number(countEl.textContent) || 1
+                    }
+                    card.classList.toggle('rev-badge-pick--active', badgeVals[b.id] > 0)
+                    countRow.hidden = badgeVals[b.id] === 0
+                })
+            } else {
+                card.addEventListener('click', () => {
+                    badgeVals[b.id] = !badgeVals[b.id]
+                    card.classList.toggle('rev-badge-pick--active', badgeVals[b.id])
+                })
+            }
+
+            badgesPicker.appendChild(card)
+        }
+
+        badgesSection.appendChild(badgesLabel)
+        badgesSection.appendChild(badgesPicker)
+
         // -- Review text section ────────────────────────────────────────────────
         const reviewSection = document.createElement('div')
 
@@ -305,6 +404,7 @@ export function openReviewModal(appid, gameName, existing = null) {
         body.appendChild(starsSection)
         body.appendChild(slidersSection)
         body.appendChild(tagsSection)
+        body.appendChild(badgesSection)
         body.appendChild(reviewSection)
 
         // ── Footer ─────────────────────────────────────────────────────────────
@@ -367,6 +467,7 @@ export function openReviewModal(appid, gameName, existing = null) {
                 tags:    [...activeTags],
                 notes:   existing?.notes ?? [],
                 review:  textarea.value.trim(),
+                badges:  { ...badgeVals },
             }
 
             try {
@@ -436,13 +537,27 @@ export function renderLocalReviewCard(review, appid) {
         ).join('')}</div>`
     }
 
+    // Badges
+    let badgesHtml = ''
+    const badgeData = review.badges ?? {}
+    for (const b of BADGES) {
+        const val = badgeData[b.id]
+        if (!val) continue
+        const suffix = b.hasCount && val > 1 ? ` ×${val}` : ''
+        badgesHtml += `<div class="rev-badge rev-badge--${b.id}" style="--badge-clr:${b.color}">
+            <span class="rev-badge-icon">${b.icon}</span>
+            <span class="rev-badge-label">${escapeHtml(b.label)}${suffix}</span>
+        </div>`
+    }
+    const badgesRowHtml = badgesHtml ? `<div class="rev-badges-row">${badgesHtml}</div>` : ''
+
     // Review text
     let reviewTextHtml = ''
     if (review.review) {
         reviewTextHtml = `<p class="rev-review-text">${escapeHtml(review.review)}</p>`
     }
 
-    const hasColumns = !!(barsHtml || tagsHtml)
+    const hasColumns = !!(barsHtml || tagsHtml || badgesRowHtml)
 
     return `
         <div class="rev-local-card">
@@ -453,7 +568,7 @@ export function renderLocalReviewCard(review, appid) {
             ${hasColumns ? `
             <div class="rev-local-body">
                 <div class="rev-local-left"><div class="rev-bars">${barsHtml}</div></div>
-                <div class="rev-local-right">${tagsHtml}</div>
+                <div class="rev-local-right">${tagsHtml}${badgesRowHtml}</div>
             </div>` : ''}
             ${reviewTextHtml}
         </div>`
