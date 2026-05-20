@@ -22,12 +22,31 @@ const PRESET_TAGS = [
 
 const STAR_LABELS = ['Not Rated', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars', 'Legendary']
 
+function _badgeIcon(paths) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
+}
+
 const BADGES = [
-    { id: 'comfortGame',  label: 'Comfort Game',   icon: '🛋️', color: '#e8975a' },
-    { id: 'replayed',     label: 'Replayed',        icon: '🔄', color: '#5ab4e8', hasCount: true },
-    { id: 'hiddenGem',    label: 'Hidden Gem',      icon: '💎', color: '#4ecb8d' },
-    { id: 'didntLiveUp',  label: "Didn't Live Up",  icon: '💔', color: '#e85a6e' },
-    { id: 'surprisedMe',  label: 'Surprised Me',    icon: '⚡', color: '#a35ae8' },
+    {
+        id: 'comfortGame', label: 'Comfort Game', color: '#e8975a',
+        icon: _badgeIcon(`<path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"/><path d="M4 18v2"/><path d="M20 18v2"/><path d="M12 4v9"/>`),
+    },
+    {
+        id: 'replayed', label: 'Replayed', color: '#5ab4e8', hasCount: true,
+        icon: _badgeIcon(`<path d="m2 9 3-3 3 3"/><path d="M13 18H7a4 4 0 0 1-4-4V6"/><path d="m22 15-3 3-3-3"/><path d="M11 6h6a4 4 0 0 1 4 4v8"/>`),
+    },
+    {
+        id: 'hiddenGem', label: 'Hidden Gem', color: '#4ecb8d',
+        icon: _badgeIcon(`<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>`),
+    },
+    {
+        id: 'didntLiveUp', label: "Didn't Live Up", color: '#e85a6e',
+        icon: _badgeIcon(`<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/>`),
+    },
+    {
+        id: 'surprisedMe', label: 'Surprised Me', color: '#a35ae8',
+        icon: _badgeIcon(`<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`),
+    },
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -313,15 +332,15 @@ export function openReviewModal(appid, gameName, existing = null) {
             card.className = 'rev-badge-pick' + (badgeVals[b.id] ? ' rev-badge-pick--active' : '')
             card.style.setProperty('--badge-clr', b.color)
 
-            const iconEl = document.createElement('span')
-            iconEl.className = 'rev-badge-pick-icon'
-            iconEl.textContent = b.icon
+            const circleEl = document.createElement('div')
+            circleEl.className = 'rev-badge-pick-circle'
+            circleEl.innerHTML = b.icon
 
             const labelEl = document.createElement('span')
             labelEl.className = 'rev-badge-pick-label'
             labelEl.textContent = b.label
 
-            card.appendChild(iconEl)
+            card.appendChild(circleEl)
             card.appendChild(labelEl)
 
             if (b.hasCount) {
@@ -543,11 +562,13 @@ export function renderLocalReviewCard(review, appid) {
     for (const b of BADGES) {
         const val = badgeData[b.id]
         if (!val) continue
-        const suffix = b.hasCount && val > 1 ? ` ×${val}` : ''
-        badgesHtml += `<div class="rev-badge rev-badge--${b.id}" style="--badge-clr:${b.color}">
-            <span class="rev-badge-icon">${b.icon}</span>
-            <span class="rev-badge-label">${escapeHtml(b.label)}${suffix}</span>
-        </div>`
+        const countHtml = b.hasCount && val > 1 ? `<span class="rev-badge-count">×${val}</span>` : ''
+        badgesHtml += `
+            <div class="rev-badge" style="--badge-clr:${b.color}">
+                <div class="rev-badge-circle">${b.icon}</div>
+                <span class="rev-badge-label">${escapeHtml(b.label)}</span>
+                ${countHtml}
+            </div>`
     }
     const badgesRowHtml = badgesHtml ? `<div class="rev-badges-row">${badgesHtml}</div>` : ''
 

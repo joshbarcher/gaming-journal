@@ -4,7 +4,7 @@ x Franchises: groups of games, ordered, with progress indicators through the ser
 x User ratings: Ability to leave 1-5 stars rating, feeling (negative, mixed, positive), as well as thoughts in text area
 x Show user reviews
 - Does the app migrate wishlisted games to library games when bought?
-- Sync videos to relay server and show on game page.
+x Sync videos to relay server and show on game page.
 - Local wishlist
 x Use screenshots immediately in hero header on individual games. Rather than background.jpg.
 
