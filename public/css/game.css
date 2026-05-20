@@ -652,6 +652,7 @@
     border-radius: var(--radius);
     overflow: hidden;
     background: #000;
+    border: 1px solid var(--clr-border);
 }
 
 .trailers-player {
