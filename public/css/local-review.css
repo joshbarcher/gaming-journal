@@ -417,26 +417,25 @@
     border-color: var(--rev-accent);
 }
 
-/* Float layout — bars occupy ~50% width, text snakes around */
+/* Two-column body: bars left, tags+badges right */
 .rev-local-body {
-    overflow: hidden;
-}
-
-.rev-local-left {
-    float: left;
-    width: 50%;
-    margin-right: 32px;
-    margin-bottom: 8px;
-    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 32px;
+    align-items: start;
+    margin-bottom: 16px;
 }
 
 @media (max-width: 600px) {
-    .rev-local-left {
-        float: none;
-        width: 100%;
-        margin-right: 0;
-        margin-bottom: 14px;
+    .rev-local-body {
+        grid-template-columns: 1fr;
     }
+}
+
+.rev-local-right {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 /* Characteristic bars */

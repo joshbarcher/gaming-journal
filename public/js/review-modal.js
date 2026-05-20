@@ -442,7 +442,7 @@ export function renderLocalReviewCard(review, appid) {
         reviewTextHtml = `<p class="rev-review-text">${escapeHtml(review.review)}</p>`
     }
 
-    const hasContent = !!(barsHtml || tagsHtml || reviewTextHtml)
+    const hasColumns = !!(barsHtml || tagsHtml)
 
     return `
         <div class="rev-local-card">
@@ -450,10 +450,11 @@ export function renderLocalReviewCard(review, appid) {
                 <div class="rev-local-stars">${starsHtml}</div>
                 <button class="rev-edit-btn" data-appid="${appid}">Edit Review</button>
             </div>
-            ${hasContent ? `
+            ${hasColumns ? `
             <div class="rev-local-body">
-                ${barsHtml ? `<div class="rev-local-left"><div class="rev-bars">${barsHtml}</div></div>` : ''}
-                ${tagsHtml}${reviewTextHtml}
+                <div class="rev-local-left"><div class="rev-bars">${barsHtml}</div></div>
+                <div class="rev-local-right">${tagsHtml}</div>
             </div>` : ''}
+            ${reviewTextHtml}
         </div>`
 }
