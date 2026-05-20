@@ -417,20 +417,23 @@
     border-color: var(--rev-accent);
 }
 
-/* Float layout — bars float left, tags + text wrap around */
+/* Float layout — bars occupy ~50% width, text snakes around */
 .rev-local-body {
     overflow: hidden;
 }
 
 .rev-local-left {
     float: left;
-    margin-right: 24px;
+    width: 50%;
+    margin-right: 32px;
     margin-bottom: 8px;
+    box-sizing: border-box;
 }
 
 @media (max-width: 600px) {
     .rev-local-left {
         float: none;
+        width: 100%;
         margin-right: 0;
         margin-bottom: 14px;
     }
