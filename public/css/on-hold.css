@@ -117,19 +117,6 @@
     position: relative;
 }
 
-.onhold-queue-row::after {
-    content: '';
-    position: absolute;
-    bottom: -5px;
-    left: 3%;
-    right: 3%;
-    height: 10px;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--onhold-accent-bd);
-    border-radius: 0 0 var(--radius) var(--radius);
-    opacity: 0.45;
-    z-index: -1;
-}
 
 /* ── Up Next card variant ────────────────────────────────────────────────── */
 
