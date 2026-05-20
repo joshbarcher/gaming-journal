@@ -1098,7 +1098,7 @@ function _initWishlistBtn(container, game) {
     const btn = container.querySelector('.game-wishlist-btn[data-wishlist-appid]')
     if (!btn) return
 
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
         const appid   = btn.dataset.wishlistAppid
         const isLocal = btn.classList.contains('game-flag--active')
         const method  = isLocal ? 'DELETE' : 'POST'
@@ -1106,14 +1106,11 @@ function _initWishlistBtn(container, game) {
         btn.classList.toggle('game-flag--active', !isLocal)
         btn.title = isLocal ? 'Add to Local Wishlist' : 'Remove from Local Wishlist'
 
-        try {
-            const res = await fetch(`/api/local-wishlist/${appid}`, { method })
-            if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        } catch {
-            // Revert
+        fetch(`/api/local-wishlist/${appid}`, { method }).catch(err => {
+            console.warn('[wishlist] request failed, reverting', err)
             btn.classList.toggle('game-flag--active', isLocal)
             btn.title = isLocal ? 'Remove from Local Wishlist' : 'Add to Local Wishlist'
-        }
+        })
     })
 }
 
