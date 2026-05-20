@@ -618,12 +618,13 @@ export function renderLocalReviewCard(review, appid) {
     for (const b of BADGES) {
         const val = badgeData[b.id]
         if (!val) continue
-        const countHtml = b.hasCount && val > 1 ? `<span class="rev-badge-count">×${val}</span>` : ''
+        const circleInner = b.hasCount && val > 1
+            ? `<span class="rev-badge-num">×${val}</span>`
+            : b.icon
         badgesHtml += `
             <div class="rev-badge" style="--badge-clr:${b.color}">
-                <div class="rev-badge-circle">${b.icon}</div>
+                <div class="rev-badge-circle">${circleInner}</div>
                 <span class="rev-badge-label">${escapeHtml(b.label)}</span>
-                ${countHtml}
             </div>`
     }
     const badgesRowHtml = badgesHtml ? `<div class="rev-badges-row">${badgesHtml}</div>` : ''

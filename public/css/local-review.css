@@ -548,6 +548,16 @@
     filter: drop-shadow(0 0 4px color-mix(in srgb, var(--badge-clr) 55%, transparent));
 }
 
+.rev-badge-num {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--badge-clr);
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--badge-clr) 60%, transparent));
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
 .rev-badge-label {
     font-size: 0.62rem;
     font-weight: 700;
