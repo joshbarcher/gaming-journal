@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
     getLocalReview,
+    getOrSeedLocalReview,
     getAllLocalReviews,
     setLocalReview,
     deleteLocalReview,
@@ -20,7 +21,7 @@ router.get('/', async (_req, res) => {
 
 router.get('/:appid', async (req, res) => {
     try {
-        const review = await getLocalReview(Number(req.params.appid))
+        const review = await getOrSeedLocalReview(Number(req.params.appid))
         if (review === null) return res.status(404).json({ error: 'No review found' })
         res.json(review)
     } catch (err) {
