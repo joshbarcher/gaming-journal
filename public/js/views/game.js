@@ -69,6 +69,11 @@ export async function renderGame(appid, container) {
     _initTrailers(container, appid)
     _initNews(container)
 
+    // Fetch missing "About" description in the background and swap it in when ready
+    if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
+        _loadAboutDynamic(container, appid)
+    }
+
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
         if (img) {
@@ -589,12 +594,42 @@ function _screenshots(game) {
 
 function _about(game) {
     const html = game.store?.detailedDescription
-    if (!html) return ''
-    return `
-        <section class="game-section game-about">
-            <h2 class="game-section-title">About This Game</h2>
-            <div class="game-about-body">${html}</div>
-        </section>`
+    if (html) {
+        return `
+            <section class="game-section game-about">
+                <h2 class="game-section-title">About This Game</h2>
+                <div class="game-about-body">${html}</div>
+            </section>`
+    }
+    // Known library/wishlist game with store data but missing description —
+    // render a placeholder that _loadAboutDynamic will replace on load.
+    if (game.store && !game.store.unavailable && game.source !== 'discovered') {
+        return `<div class="game-about-pending"></div>`
+    }
+    return ''
+}
+
+async function _loadAboutDynamic(container, appid) {
+    const placeholder = container.querySelector('.game-about-pending')
+    if (!placeholder) return
+
+    try {
+        const res = await fetch(`/relay/api/games/${appid}?refresh=true`)
+        if (!res.ok) { placeholder.remove(); return }
+
+        const refreshed = await res.json()
+        if (!refreshed.store?.detailedDescription) { placeholder.remove(); return }
+
+        const tmp = document.createElement('div')
+        tmp.innerHTML = `
+            <section class="game-section game-about">
+                <h2 class="game-section-title">About This Game</h2>
+                <div class="game-about-body">${refreshed.store.detailedDescription}</div>
+            </section>`
+        placeholder.replaceWith(tmp.firstElementChild)
+    } catch {
+        placeholder.remove()
+    }
 }
 
 // ── PCGamingWiki ──────────────────────────────────────────────────────────────
