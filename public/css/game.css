@@ -395,7 +395,8 @@
 .game-about-body strong { color: var(--clr-text); font-weight: 700; }
 .game-about-body em     { font-style: italic; }
 
-.game-about-body img {
+.game-about-body img,
+.game-about-body video {
     max-width: min(560px, 100%);  /* cap at 560px, never overflow on narrow viewports */
     width: auto;
     height: auto;
