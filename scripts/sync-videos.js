@@ -36,7 +36,7 @@ const DRY_RUN = process.argv.includes('--dry-run')
 // Steam rate-limit headroom: ~200 req / 5 min → safe at 1.5s between uncached calls
 const API_DELAY_MS        = 1_500
 const RATE_LIMIT_BACKOFF  = 90_000   // wait 90s if we hit a 429
-const MAX_TRAILERS_PER_GAME = 5      // cap per game (most have 1-3)
+const MAX_TRAILERS_PER_GAME = 15     // cap per game (most have 1-3)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
