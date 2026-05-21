@@ -748,12 +748,16 @@
     grid-template-columns: 30% 1fr;
     gap: 12px;
     align-items: stretch;
+    height: 520px;
 }
 
 .news-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--clr-border) transparent;
 }
 
 .news-item {
