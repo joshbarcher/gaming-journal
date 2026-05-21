@@ -215,6 +215,44 @@
     font-family: var(--font-ui);
 }
 
+/* ── Pagination ──────────────────────────────────────────────────────────────── */
+.disc-pagination {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px 0 4px;
+}
+
+.disc-page-btn {
+    padding: 7px 16px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition);
+}
+
+.disc-page-btn:hover:not(:disabled) {
+    border-color: var(--clr-border-hi);
+}
+
+.disc-page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.disc-page-info {
+    color: var(--clr-text-muted);
+    font-size: 13px;
+    font-family: var(--font-ui);
+}
+
 /* ── States ──────────────────────────────────────────────────────────────────── */
 .disc-loading,
 .disc-empty {

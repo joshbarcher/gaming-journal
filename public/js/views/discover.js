@@ -24,7 +24,8 @@ let _genre        = ''
 let _searchQuery  = ''
 let _debounceTimer = null
 
-let _featuredData  = null  // sections array from /featured
+let _featuredData  = null  // sections array from /featured (each has { id, label, items, page, pages, total })
+let _tabPages      = {}    // tab → last loaded page
 let _genreData     = null  // tabs array from /genre/:genre
 let _genreTabId    = ''
 let _lastResults   = null  // cached search results for back-navigation
@@ -114,9 +115,28 @@ async function _loadFeatured(container) {
         const res = await fetch('/relay/api/discover/featured')
         if (!res.ok) throw new Error(`${res.status}`)
         _featuredData = await res.json()
+        for (const s of _featuredData) {
+            if (!_tabPages[s.id]) _tabPages[s.id] = 1
+        }
         _renderFeaturedTab(container)
     } catch (err) {
         _showError(container.querySelector('#disc-results'), 'Failed to load featured games.')
+    }
+}
+
+async function _loadFeaturedTab(container, tab, page) {
+    const resultsEl = container.querySelector('#disc-results')
+    resultsEl.innerHTML = '<div class="disc-loading">Loading…</div>'
+    try {
+        const res = await fetch(`/relay/api/discover/featured?tab=${encodeURIComponent(tab)}&page=${page}`)
+        if (!res.ok) throw new Error(`${res.status}`)
+        const section = await res.json()
+        const idx = _featuredData ? _featuredData.findIndex(s => s.id === tab) : -1
+        if (idx >= 0) _featuredData[idx] = section
+        _tabPages[tab] = section.page
+        _renderFeaturedTab(container)
+    } catch {
+        _showError(resultsEl, `Failed to load page ${page}.`)
     }
 }
 
@@ -143,8 +163,28 @@ function _renderFeaturedTab(container) {
     if (!_featuredData) return
     const section = _featuredData.find(s => s.id === _featuredTab)
     if (!section) { resultsEl.innerHTML = '<div class="disc-empty">No data for this section.</div>'; return }
-    resultsEl.innerHTML = section.items.map(_card).join('')
+
+    const { items, page, pages } = section
+    if (!items.length) {
+        resultsEl.innerHTML = '<div class="disc-empty">No results yet — check back soon.</div>'
+        return
+    }
+
+    const paginationHtml = pages > 1 ? `
+        <div class="disc-pagination">
+            <button class="disc-page-btn" data-dir="-1"${page <= 1 ? ' disabled' : ''}>← Prev</button>
+            <span class="disc-page-info">Page ${page} of ${pages}</span>
+            <button class="disc-page-btn" data-dir="1"${page >= pages ? ' disabled' : ''}>Next →</button>
+        </div>` : ''
+
+    resultsEl.innerHTML = items.map(_card).join('') + paginationHtml
     _bindCards(resultsEl, container)
+
+    resultsEl.querySelectorAll('.disc-page-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _loadFeaturedTab(container, _featuredTab, page + parseInt(btn.dataset.dir, 10))
+        })
+    })
 }
 
 function _renderGenreResults(container) {
@@ -314,7 +354,12 @@ function _bind(container) {
         container.querySelectorAll('.disc-tab').forEach(b => b.classList.remove('disc-tab--active'))
         btn.classList.add('disc-tab--active')
         _featuredTab = btn.dataset.tab
-        if (_featuredData) _renderFeaturedTab(container)
+        const existing = _featuredData?.find(s => s.id === _featuredTab)
+        if (existing) {
+            _renderFeaturedTab(container)
+        } else {
+            _loadFeaturedTab(container, _featuredTab, _tabPages[_featuredTab] ?? 1)
+        }
     })
 
     // Genre select
