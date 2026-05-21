@@ -48,11 +48,11 @@ export async function renderGame(appid, container) {
         </div>
         <div class="game-body">
             ${_trailers(appid, trailers)}
-            ${_news(news)}
             ${_about(game)}
             ${_hltb(game)}
             ${_playerCounts(playerCounts)}
             ${_screenshots(game)}
+            ${_news(news)}
             ${_localReviewSection(localReview, appid)}
             ${_myReview(myReview)}
             ${_communityReviews(communityReviews)}

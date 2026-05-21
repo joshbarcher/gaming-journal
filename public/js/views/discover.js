@@ -1,10 +1,5 @@
 import { escapeHtml } from '../utils.js'
 
-const GENRES = [
-    'Action', 'Adventure', 'Casual', 'Free to Play', 'Indie',
-    'Massively Multiplayer', 'Racing', 'RPG', 'Simulation', 'Sports', 'Strategy',
-]
-
 const FEATURED_TABS = [
     { id: 'new_releases', label: 'New Releases' },
     { id: 'top_sellers',  label: 'Top Sellers'  },
@@ -18,17 +13,14 @@ let _wishlist = new Set()
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-let _mode         = 'browse'  // 'browse' | 'search'
-let _featuredTab  = 'new_releases'
-let _genre        = ''
-let _searchQuery  = ''
+let _mode          = 'browse'  // 'browse' | 'search'
+let _featuredTab   = 'new_releases'
+let _searchQuery   = ''
 let _debounceTimer = null
 
-let _featuredData  = null  // sections array from /featured (each has { id, label, items, page, pages, total })
-let _tabPages      = {}    // tab → last loaded page
-let _genreData     = null  // tabs array from /genre/:genre
-let _genreTabId    = ''
-let _lastResults   = null  // cached search results for back-navigation
+let _featuredData = null  // sections array from /featured (each has { id, label, items, page, pages, total })
+let _tabPages     = {}    // tab → last loaded page
+let _lastResults  = null  // cached search results for back-navigation
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -53,10 +45,6 @@ export async function renderDiscover(container, navigate) {
 // ── Templates ─────────────────────────────────────────────────────────────────
 
 function _skeleton() {
-    const genreOptions = GENRES.map(g =>
-        `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`
-    ).join('')
-
     const featuredTabsHtml = FEATURED_TABS.map(t =>
         `<button class="disc-tab${t.id === _featuredTab ? ' disc-tab--active' : ''}" data-tab="${t.id}">${t.label}</button>`
     ).join('')
@@ -72,16 +60,8 @@ function _skeleton() {
     </div>
 
     <div id="disc-browse" class="disc-browse">
-        <div class="disc-browse-header">
-            <div id="disc-featured-tabs" class="disc-tabs">
-                ${featuredTabsHtml}
-            </div>
-            <div class="disc-genre-wrap">
-                <select id="disc-genre" class="disc-genre">
-                    <option value="">Browse by genre…</option>
-                    ${genreOptions}
-                </select>
-            </div>
+        <div id="disc-featured-tabs" class="disc-tabs">
+            ${featuredTabsHtml}
         </div>
         <div id="disc-results" class="disc-grid">
             <div class="disc-loading">Loading…</div>
@@ -119,7 +99,7 @@ async function _loadFeatured(container) {
             if (!_tabPages[s.id]) _tabPages[s.id] = 1
         }
         _renderFeaturedTab(container)
-    } catch (err) {
+    } catch {
         _showError(container.querySelector('#disc-results'), 'Failed to load featured games.')
     }
 }
@@ -137,22 +117,6 @@ async function _loadFeaturedTab(container, tab, page) {
         _renderFeaturedTab(container)
     } catch {
         _showError(resultsEl, `Failed to load page ${page}.`)
-    }
-}
-
-async function _loadGenre(container, genre) {
-    const resultsEl = container.querySelector('#disc-results')
-    resultsEl.innerHTML = '<div class="disc-loading">Loading…</div>'
-    _genreData  = null
-    _genreTabId = ''
-    try {
-        const res = await fetch(`/relay/api/discover/genre/${encodeURIComponent(genre)}`)
-        if (!res.ok) throw new Error(`${res.status}`)
-        _genreData  = await res.json()
-        _genreTabId = _genreData[0]?.id ?? ''
-        _renderGenreResults(container)
-    } catch {
-        _showError(resultsEl, `Failed to load ${genre} games.`)
     }
 }
 
@@ -185,37 +149,6 @@ function _renderFeaturedTab(container) {
             _loadFeaturedTab(container, _featuredTab, page + parseInt(btn.dataset.dir, 10))
         })
     })
-}
-
-function _renderGenreResults(container) {
-    const resultsEl = container.querySelector('#disc-results')
-    if (!_genreData) return
-    const tab = _genreData.find(t => t.id === _genreTabId) ?? _genreData[0]
-    if (!tab) { resultsEl.innerHTML = '<div class="disc-empty">No results.</div>'; return }
-
-    const subtabsHtml = _genreData.map(t =>
-        `<button class="disc-subtab${t.id === tab.id ? ' disc-subtab--active' : ''}" data-subtab="${t.id}">${escapeHtml(t.label)}</button>`
-    ).join('')
-
-    resultsEl.innerHTML = `
-        <div class="disc-subtabs">${subtabsHtml}</div>
-        <div id="disc-genre-items" class="disc-subgrid">${tab.items.map(_card).join('')}</div>`
-
-    resultsEl.querySelectorAll('.disc-subtab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            _genreTabId = btn.dataset.subtab
-            const newTab = _genreData.find(t => t.id === _genreTabId)
-            if (!newTab) return
-            resultsEl.querySelectorAll('.disc-subtab').forEach(b => b.classList.toggle('disc-subtab--active', b === btn))
-            const items = resultsEl.querySelector('#disc-genre-items')
-            if (items) {
-                items.innerHTML = newTab.items.map(_card).join('')
-                _bindCards(items, container)
-            }
-        })
-    })
-
-    _bindCards(resultsEl, container)
 }
 
 function _renderSearchResults(container, results) {
@@ -348,9 +281,6 @@ function _bind(container) {
     container.querySelector('#disc-featured-tabs').addEventListener('click', e => {
         const btn = e.target.closest('.disc-tab')
         if (!btn) return
-        _genre       = ''
-        _genreData   = null
-        container.querySelector('#disc-genre').value = ''
         container.querySelectorAll('.disc-tab').forEach(b => b.classList.remove('disc-tab--active'))
         btn.classList.add('disc-tab--active')
         _featuredTab = btn.dataset.tab
@@ -360,20 +290,5 @@ function _bind(container) {
         } else {
             _loadFeaturedTab(container, _featuredTab, _tabPages[_featuredTab] ?? 1)
         }
-    })
-
-    // Genre select
-    container.querySelector('#disc-genre').addEventListener('change', e => {
-        _genre = e.target.value
-        if (!_genre) {
-            // Back to featured
-            container.querySelectorAll('.disc-tab').forEach((b, i) => b.classList.toggle('disc-tab--active', i === 0))
-            _featuredTab = FEATURED_TABS[0].id
-            if (_featuredData) _renderFeaturedTab(container)
-            return
-        }
-        // Clear featured tab selection when genre is picked
-        container.querySelectorAll('.disc-tab').forEach(b => b.classList.remove('disc-tab--active'))
-        _loadGenre(container, _genre)
     })
 }

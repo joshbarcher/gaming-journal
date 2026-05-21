@@ -33,20 +33,12 @@
 /* hide the native clear button in Chrome/Safari */
 .disc-search::-webkit-search-cancel-button { display: none; }
 
-/* ── Browse header (tabs + genre) ────────────────────────────────────────────── */
-.disc-browse-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-}
-
 /* ── Tabs ────────────────────────────────────────────────────────────────────── */
 .disc-tabs {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+    margin-bottom: 16px;
 }
 
 .disc-tab {
@@ -73,71 +65,8 @@
     color: var(--clr-accent);
 }
 
-/* ── Genre picker ────────────────────────────────────────────────────────────── */
-.disc-genre-wrap {
-    margin-left: auto;
-}
-
-.disc-genre {
-    padding: 8px 12px;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius);
-    color: var(--clr-text);
-    font-size: 13px;
-    font-family: var(--font-ui);
-    cursor: pointer;
-    outline: none;
-    transition: border-color var(--transition);
-}
-
-.disc-genre:focus,
-.disc-genre:hover {
-    border-color: var(--clr-border-hi);
-}
-
 /* ── Results grid (reuses .lib-card) ────────────────────────────────────────── */
 .disc-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-}
-
-/* ── Genre sub-tabs ──────────────────────────────────────────────────────────── */
-.disc-subtabs {
-    grid-column: 1 / -1;
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
-}
-
-.disc-subtab {
-    padding: 6px 12px;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius);
-    color: var(--clr-text-muted);
-    font-size: 12px;
-    font-family: var(--font-ui);
-    font-weight: 600;
-    cursor: pointer;
-    transition: border-color var(--transition), color var(--transition), background var(--transition);
-}
-
-.disc-subtab:hover:not(.disc-subtab--active) {
-    border-color: var(--clr-border-hi);
-    color: var(--clr-text);
-}
-
-.disc-subtab--active {
-    border-color: var(--clr-accent);
-    background: var(--clr-accent-bg);
-    color: var(--clr-accent);
-}
-
-.disc-subgrid {
-    grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
