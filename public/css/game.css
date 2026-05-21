@@ -396,11 +396,12 @@
 .game-about-body em     { font-style: italic; }
 
 .game-about-body img {
-    max-width: 100%;
+    max-width: min(560px, 100%);  /* cap at 560px, never overflow on narrow viewports */
+    width: auto;
     height: auto;
     border-radius: var(--radius);
     display: block;
-    margin: 16px 0;
+    margin: 16px auto;  /* centre within the text column */
 }
 
 /* ── HLTB bar ────────────────────────────────────────────────────────────────── */
