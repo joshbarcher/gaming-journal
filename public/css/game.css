@@ -397,7 +397,7 @@
 
 .game-about-body img,
 .game-about-body video {
-    max-width: min(560px, 100%);  /* cap at 560px, never overflow on narrow viewports */
+    max-width: 100%;  /* constrained by the parent .game-about-body (max-width: 860px) */
     width: auto;
     height: auto;
     border-radius: var(--radius);
