@@ -56,9 +56,9 @@ export async function renderGame(appid, container) {
             ${_news(news)}
             ${_localReviewSection(localReview, appid)}
             ${_myReview(myReview)}
-            ${_communityReviews(communityReviews)}
-            ${_itad(itadData)}
-            ${_pcgw(pcgwData)}
+            ${_communityReviews(communityReviews, game)}
+            ${_itad(itadData, game)}
+            ${_pcgw(pcgwData, game)}
         </div>`
 
     _startHeroSlideshow(container, game)
@@ -73,6 +73,11 @@ export async function renderGame(appid, container) {
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
         _loadAboutDynamic(container, appid)
+    }
+
+    // For discovered games, progressively load HLTB / ITAD / PCGW as each resolves
+    if (container.querySelector('.game-hltb-pending, .game-itad-pending, .game-pcgw-pending')) {
+        _loadDiscoveredData(container, game)
     }
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
@@ -297,6 +302,8 @@ function _hltb(game) {
         (hltb.gameplayMain ?? hltb.gameplayMainExtra ?? hltb.gameplayCompletionist) != null
 
     if (!hasData) {
+        // Discovered game, data not yet fetched — inject placeholder for async load
+        if (game.source === 'discovered' && game.hltb === null) return '<div class="game-hltb-pending"></div>'
         return `
             <section class="game-section">
                 <h2 class="game-section-title">How Long To Beat</h2>
@@ -384,8 +391,12 @@ function _storeIconHtml(storeName) {
     return file ? `<img class="itad-store-icon" data-store="${file}" src="/images/stores/${src}" alt="">` : ''
 }
 
-function _itad(itad) {
-    if (!itad?.deals?.length) return ''
+function _itad(itad, game) {
+    if (!itad?.deals?.length) {
+        // Discovered game, data not yet fetched — placeholder for async load
+        if (game?.source === 'discovered' && itad === null) return '<div class="game-itad-pending"></div>'
+        return ''
+    }
 
     const deals = itad.deals.filter(d => !_HIDDEN_STORES.has(d.store.toLowerCase()))
 
@@ -685,8 +696,13 @@ function _pcgwRows(obj, defs) {
         }).join('')
 }
 
-function _pcgw(pcgwData) {
-    if (!pcgwData?.found) return ''
+function _pcgw(pcgwData, game) {
+    if (!pcgwData?.found) {
+        // Discovered released/EA game, data not yet fetched — placeholder for async load
+        if (game?.source === 'discovered' && pcgwData === null && _releaseStatus(game) !== 'coming_soon')
+            return '<div class="game-pcgw-pending"></div>'
+        return ''
+    }
 
     const v      = pcgwData.video        ?? {}
     const inp    = pcgwData.input        ?? {}
@@ -1120,7 +1136,9 @@ function _reviewCard(r, isMine = false) {
         </div>`
 }
 
-function _communityReviews(data) {
+function _communityReviews(data, game) {
+    if (_releaseStatus(game) === 'coming_soon') return ''
+
     const hasData = data && (data.totalReviews > 0 || data.reviews?.length > 0)
 
     if (!hasData) {
@@ -1454,6 +1472,75 @@ function _initLocalReviewSection(container, appid, gameName) {
             }
         })
     })
+}
+
+// ── Discovered game — progressive enrichment ──────────────────────────────────
+
+// Fires after the initial render for discovered games that are missing HLTB / ITAD / PCGW.
+// Each service runs independently and swaps its placeholder out when it resolves.
+function _loadDiscoveredData(container, game) {
+    const appid  = game.appid
+    const name   = encodeURIComponent(game.name)
+    const status = _releaseStatus(game)
+
+    // Helper — replaces a placeholder element with rendered HTML, or removes it
+    function _swap(el, html) {
+        if (!html) { el.remove(); return }
+        const tmp = document.createElement('div')
+        tmp.innerHTML = html
+        const newEl = tmp.firstElementChild
+        if (newEl) el.replaceWith(newEl)
+        else el.remove()
+    }
+
+    // HLTB — released / early access only (unreleased games have no completion data)
+    if (status !== 'coming_soon') {
+        ;(async () => {
+            const el = container.querySelector('.game-hltb-pending')
+            if (!el) return
+            try {
+                const res = await fetch(`/relay/api/hltb/${appid}?fetch=true&name=${name}`)
+                if (!res.ok) { el.remove(); return }
+                const entry = await res.json()
+                if (!entry.matched) { el.remove(); return }
+                const hasTimes = (entry.gameplayMain ?? entry.gameplayMainExtra ?? entry.gameplayCompletionist) != null
+                if (!hasTimes) { el.remove(); return }
+                _swap(el, _hltb({ ...game, hltb: entry }))
+            } catch { el.remove() }
+        })()
+    } else {
+        container.querySelector('.game-hltb-pending')?.remove()
+    }
+
+    // ITAD — all discovered games, including coming-soon (pre-purchase data is real)
+    ;(async () => {
+        const el = container.querySelector('.game-itad-pending')
+        if (!el) return
+        try {
+            const res = await fetch(`/relay/api/itad/${appid}?fetch=true&name=${name}`)
+            if (!res.ok) { el.remove(); return }
+            const entry = await res.json()
+            if (!entry.deals?.length && !entry.historicalLow) { el.remove(); return }
+            _swap(el, _itad(entry, game))
+        } catch { el.remove() }
+    })()
+
+    // PCGW — released / early access only (unreleased games rarely have wiki pages)
+    if (status !== 'coming_soon') {
+        ;(async () => {
+            const el = container.querySelector('.game-pcgw-pending')
+            if (!el) return
+            try {
+                const res = await fetch(`/relay/api/pcgw/${appid}?fetch=true&name=${name}`)
+                if (!res.ok) { el.remove(); return }
+                const entry = await res.json()
+                if (!entry.found) { el.remove(); return }
+                _swap(el, _pcgw(entry, game))
+            } catch { el.remove() }
+        })()
+    } else {
+        container.querySelector('.game-pcgw-pending')?.remove()
+    }
 }
 
 // ── Release status ────────────────────────────────────────────────────────────
