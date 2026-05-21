@@ -43,6 +43,7 @@ export async function renderGame(appid, container) {
     container.innerHTML = `
         ${_hero(game)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
+        ${_releaseBanner(game)}
         <div class="game-flags-bar" data-appid="${appid}">
             ${_flagsBar(flags, game, localWishlisted)}
         </div>
@@ -50,7 +51,7 @@ export async function renderGame(appid, container) {
             ${_trailers(appid, trailers)}
             ${_about(game)}
             ${_hltb(game)}
-            ${_playerCounts(playerCounts)}
+            ${_playerCounts(playerCounts, game)}
             ${_screenshots(game)}
             ${_news(news)}
             ${_localReviewSection(localReview, appid)}
@@ -254,8 +255,13 @@ function _dataPanel(game) {
 
     // Release / developer / publisher / platforms
     rows.push(`<div class="gdp-divider"></div>`)
-    if (game.store?.releaseDate)
-        rows.push(_gdpRow('Released', escapeHtml(game.store.releaseDate)))
+    if (game.store?.releaseDate) {
+        const rs = _releaseStatus(game)
+        const relLabel = rs === 'coming_soon'  ? 'Releases'
+                       : rs === 'early_access' ? 'Early Access Since'
+                       :                        'Released'
+        rows.push(_gdpRow(relLabel, escapeHtml(game.store.releaseDate)))
+    }
     if (game.store?.developers?.length)
         rows.push(_gdpRow('Developer', escapeHtml(game.store.developers[0])))
     if (game.store?.publishers?.length && game.store.publishers[0] !== game.store.developers?.[0])
@@ -284,6 +290,8 @@ function _gdpRow(label, value, raw = false) {
 // ── HLTB bar ──────────────────────────────────────────────────────────────────
 
 function _hltb(game) {
+    if (_releaseStatus(game) === 'coming_soon') return ''
+
     const hltb    = game.hltb
     const hasData = hltb?.matched &&
         (hltb.gameplayMain ?? hltb.gameplayMainExtra ?? hltb.gameplayCompletionist) != null
@@ -883,7 +891,9 @@ function _fmtPlayerCount(n) {
     return n.toLocaleString()
 }
 
-function _playerCounts(data) {
+function _playerCounts(data, game) {
+    if (_releaseStatus(game) === 'coming_soon') return ''
+
     if (!data?.samples?.length) {
         return `
             <section class="game-section">
@@ -1444,6 +1454,69 @@ function _initLocalReviewSection(container, appid, gameName) {
             }
         })
     })
+}
+
+// ── Release status ────────────────────────────────────────────────────────────
+
+// Returns 'released' | 'coming_soon' | 'early_access' | 'unknown'
+function _releaseStatus(game) {
+    if (!game.store || game.store.unavailable) return 'unknown'
+
+    // Early access is still purchasable — check categories first
+    if ((game.store.categories ?? []).includes('Early Access')) return 'early_access'
+
+    const dateStr = (game.store.releaseDate ?? '').trim()
+    if (!dateStr) return 'unknown'
+
+    const lower = dateStr.toLowerCase()
+
+    // Explicit not-released strings from Steam
+    if (['coming soon', 'to be announced', 'tba', 'tbd'].includes(lower)) return 'coming_soon'
+
+    // Quarter patterns: Q1 2025, Q2 2026, etc.
+    if (/^q[1-4]\s*\d{4}$/i.test(dateStr)) return 'coming_soon'
+
+    // Year only: future year = coming soon, past/current = released
+    if (/^\d{4}$/.test(dateStr)) {
+        return parseInt(dateStr, 10) > new Date().getFullYear() ? 'coming_soon' : 'released'
+    }
+
+    // General date parse — Steam format is usually "14 Nov, 2023"
+    const parsed = new Date(dateStr)
+    if (!isNaN(parsed.getTime())) {
+        return parsed > new Date() ? 'coming_soon' : 'released'
+    }
+
+    return 'unknown'
+}
+
+function _releaseBanner(game) {
+    const status = _releaseStatus(game)
+
+    if (status === 'coming_soon') {
+        const dateStr = game.store?.releaseDate ?? ''
+        const lower   = dateStr.toLowerCase()
+        const datePart = (dateStr && !['coming soon', 'tba', 'tbd'].includes(lower))
+            ? ` — ${escapeHtml(dateStr)}`
+            : ''
+        return `
+            <div class="game-release-banner game-release-banner--soon">
+                <span class="game-release-banner-icon">&#x231B;</span>
+                Coming Soon${datePart}
+            </div>`
+    }
+
+    if (status === 'early_access') {
+        const dateStr = game.store?.releaseDate ?? ''
+        const datePart = dateStr ? ` — in Early Access since ${escapeHtml(dateStr)}` : ''
+        return `
+            <div class="game-release-banner game-release-banner--ea">
+                <span class="game-release-banner-icon">&#x25CE;</span>
+                Early Access${datePart}
+            </div>`
+    }
+
+    return ''
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

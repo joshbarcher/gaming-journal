@@ -79,6 +79,36 @@
     flex-shrink: 0;
 }
 
+/* ── Release status banners ──────────────────────────────────────────────────── */
+.game-release-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    padding: 10px 20px;
+    margin: 0 -56px;
+}
+
+.game-release-banner-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.game-release-banner--soon {
+    background: rgba(180, 120, 20, 0.15);
+    border-left: 3px solid #b07820;
+    color: #d4a040;
+}
+
+.game-release-banner--ea {
+    background: rgba(30, 120, 70, 0.15);
+    border-left: 3px solid #1e7846;
+    color: #4cb87a;
+}
+
 /* ── Hero left (logo + desc + badges) ────────────────────────────────────────── */
 .game-hero-left {
     display: flex;
