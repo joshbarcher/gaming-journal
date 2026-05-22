@@ -1,0 +1,196 @@
+/* ── Home landing page ───────────────────────────────────────────────────────── */
+
+.home-wrap {
+    margin: -48px -56px;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 45fr 55fr;
+    gap: 2px;
+    background: #000;
+}
+
+.home-wrap--solo {
+    grid-template-rows: 1fr;
+}
+
+.home-row {
+    display: grid;
+    gap: 2px;
+    min-height: 0;
+}
+
+/* ── Individual card ─────────────────────────────────────────────────────────── */
+
+.home-card {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    text-decoration: none;
+    color: var(--clr-text);
+    min-width: 0;
+    min-height: 0;
+}
+
+.home-card:hover .home-card-bg {
+    transform: scale(1.04);
+    filter: brightness(1.12);
+}
+
+.home-card:hover .home-card-arrow {
+    transform: translateX(4px);
+}
+
+/* ── Background art ──────────────────────────────────────────────────────────── */
+
+.home-card-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center center;
+    transition: transform 0.5s ease, filter 0.5s ease;
+    will-change: transform;
+}
+
+/* Gradient overlay — heavy at bottom for text legibility */
+.home-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(to top,  rgba(8, 7, 6, 0.92) 0%,  rgba(8, 7, 6, 0.50) 40%, rgba(8, 7, 6, 0.10) 100%),
+        linear-gradient(to right, rgba(8, 7, 6, 0.45) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+/* ── Card body (sits above gradient) ─────────────────────────────────────────── */
+
+.home-card-body {
+    position: relative;
+    z-index: 1;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ── Chip / badge ─────────────────────────────────────────────────────────────── */
+
+.home-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 2px;
+    align-self: flex-start;
+    margin-bottom: 2px;
+}
+
+.home-chip--release {
+    background: #c9a84c;
+    color: #0d0c0a;
+}
+
+.home-chip--sale {
+    background: #4caf50;
+    color: #0a160a;
+}
+
+.home-chip--resume {
+    background: #4ecdc4;
+    color: #061313;
+}
+
+.home-chip--anchor {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(237, 233, 223, 0.70);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* ── Title + meta ─────────────────────────────────────────────────────────────── */
+
+.home-card-title {
+    font-family: var(--font-title);
+    font-size: clamp(14px, 2.2vw, 26px);
+    font-weight: 700;
+    line-height: 1.15;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.home-card-meta {
+    font-size: 12px;
+    color: rgba(237, 233, 223, 0.65);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.home-card-arrow {
+    display: inline-block;
+    font-size: 14px;
+    color: rgba(237, 233, 223, 0.50);
+    transition: transform var(--transition);
+    margin-top: 2px;
+    align-self: flex-start;
+}
+
+/* ── Anchor card mosaic background ───────────────────────────────────────────── */
+
+.home-mosaic {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 2px;
+    overflow: hidden;
+}
+
+.home-mosaic-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    filter: brightness(0.55) saturate(0.8);
+    transition: filter 0.5s ease;
+}
+
+.home-card:hover .home-mosaic-img {
+    filter: brightness(0.70) saturate(0.9);
+}
+
+/* Anchor card centred label layout */
+.home-card--anchor {
+    justify-content: center;
+    align-items: center;
+}
+
+.home-card--anchor .home-card-body {
+    align-items: center;
+    text-align: center;
+}
+
+.home-card--anchor .home-card-title {
+    font-size: clamp(13px, 1.8vw, 22px);
+    letter-spacing: 0.04em;
+}
+
+.home-card--anchor .home-card-arrow {
+    align-self: center;
+}
+
+/* ── Release chip star icon ──────────────────────────────────────────────────── */
+
+.home-chip-icon {
+    font-style: normal;
+    font-size: 11px;
+}

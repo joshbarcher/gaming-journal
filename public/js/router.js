@@ -2,6 +2,7 @@ import { api } from './api.js'
 import { escapeHtml } from './utils.js'
 import { loadSidebar, setActiveItem, getPages, addPageToSidebar } from './sidebar.js'
 import { renderToc } from './views/toc.js'
+import { renderHome } from './views/home.js'
 import { renderHeatmap } from './views/heatmap.js'
 import { renderLibrary } from './views/library.js'
 import { renderWishlist } from './views/wishlist.js'
@@ -155,8 +156,7 @@ export async function navigate(path, { replace = false } = {}) {
 
     if (route.view === 'home') {
         setActiveItem('home')
-        await renderHeatmap(getPages(), mainEl())
-        _restoreScroll(path)
+        await renderHome(mainEl())
         return
     }
 
