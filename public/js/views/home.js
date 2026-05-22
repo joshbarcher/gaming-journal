@@ -159,8 +159,7 @@ function _cardAnchor(href, label, posters) {
         <a class="home-card home-card--anchor" href="${escapeHtml(href)}">
             <div class="home-mosaic">${mosaicImgs}</div>
             <div class="home-card-body">
-                <span class="home-chip home-chip--anchor">${escapeHtml(label)}</span>
-                <span class="home-card-title">${escapeHtml(label)}</span>
+                <span class="home-anchor-label">${escapeHtml(label)}</span>
                 <span class="home-card-arrow">→</span>
             </div>
         </a>`
