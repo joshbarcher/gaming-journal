@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils.js'
+import { loadGameFilter } from './game-filter.js'
 
 const RESUME_WINDOW_S = 7 * 24 * 60 * 60   // 7 days in seconds
 const MOSAIC_COUNT    = 6
@@ -11,15 +12,17 @@ export async function renderHome(container) {
     // /relay/api/games is the enriched combined endpoint — library + wishlist
     // with store data (releaseDate, media, etc.) and source tagging.
     // /relay/api/steam/games is the thin Steam endpoint that has rtime_last_played.
-    const [allGamesResult, steamResult, alertsResult, discResult] = await Promise.allSettled([
+    const [allGamesResult, steamResult, alertsResult, discResult, shouldShow] = await Promise.allSettled([
         fetch('/relay/api/games').then(r => r.ok ? r.json() : null),
         fetch('/relay/api/steam/games').then(r => r.ok ? r.json() : null),
         fetch('/api/alerts').then(r => r.ok ? r.json() : null),
         fetch('/relay/api/discover/featured').then(r => r.ok ? r.json() : null),
+        loadGameFilter(),
     ])
 
-    const allGames = Array.isArray(allGamesResult.value) ? allGamesResult.value : []
-    const steamLib = _unwrapLibrary(steamResult.value)
+    const allGames  = Array.isArray(allGamesResult.value) ? allGamesResult.value : []
+    const filterFn  = shouldShow.value ?? (() => true)
+    const steamLib  = _unwrapLibrary(steamResult.value).filter(g => filterFn(g.appid))
     const alerts   = alertsResult.value ?? {}
     const discover = discResult.value   ?? []
 
@@ -54,8 +57,9 @@ export async function renderHome(container) {
     const libPosters  = _sample(libGames, MOSAIC_COUNT)
     const wlPosters   = _sample(wlGames,  MOSAIC_COUNT)
     const discItems   = discover.flatMap(s => s.items ?? [])
+    // Discover items carry their own CDN headerImage — use it directly
     const discPosters = _sample(discItems, MOSAIC_COUNT).map(g => ({
-        appid: g.appid ?? _appidFromUrl(g.headerImage),
+        src: g.headerImage ?? null,
     }))
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -134,13 +138,20 @@ function _cardResume(game, steamGame) {
 
 // ── Anchor cards ──────────────────────────────────────────────────────────────
 
-function _cardAnchor(href, label, games) {
-    const mosaicImgs = games.map(g => {
+function _cardAnchor(href, label, posters) {
+    const mosaicImgs = posters.map(g => {
+        // Discover items supply a direct CDN src; library/wishlist use relay appid paths
+        if (g?.src) {
+            return `<img class="home-mosaic-img"
+                         src="${escapeHtml(g.src)}"
+                         onerror="this.onerror=null;this.style.visibility='hidden'"
+                         alt="" loading="lazy">`
+        }
         const id = g?.appid
         if (!id) return '<div class="home-mosaic-img" style="background:#111"></div>'
         return `<img class="home-mosaic-img"
                      src="/relay/images/steam/games/${id}/capsule.jpg"
-                     onerror="this.src='/relay/images/steam/games/${id}/header.jpg'"
+                     onerror="this.onerror=null;this.src='/relay/images/steam/games/${id}/header.jpg'"
                      alt="" loading="lazy">`
     }).join('')
 
