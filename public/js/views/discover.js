@@ -7,7 +7,8 @@ const FEATURED_TABS = [
     { id: 'specials',     label: 'On Sale'       },
 ]
 
-const STORAGE_KEY = 'disc-state'
+const STORAGE_KEY      = 'disc-state'
+const SEARCH_PAGE_SIZE = 40
 
 let _navigate = null
 let _owned    = new Set()
@@ -23,6 +24,7 @@ let _debounceTimer = null
 let _featuredData = null  // sections array from /featured (each has { id, label, items, page, pages, total })
 let _tabPages     = {}    // tab → last loaded page
 let _lastResults  = null  // cached search results for back-navigation
+let _searchPage   = 1     // current page within search results
 
 // ── State persistence ─────────────────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ function _saveState() {
             tabPages:    _tabPages,
             searchQuery: _searchQuery,
             lastResults: _lastResults,
+            searchPage:  _searchPage,
         }))
     } catch { /* storage full / private mode */ }
 }
@@ -48,6 +51,7 @@ function _restoreState() {
         if (s.tabPages)                  _tabPages    = s.tabPages
         if (s.searchQuery != null)       _searchQuery = s.searchQuery
         if (s.lastResults !== undefined) _lastResults = s.lastResults
+        if (s.searchPage)                _searchPage  = s.searchPage
     } catch { /* corrupt storage */ }
 }
 
@@ -102,6 +106,7 @@ function _skeleton() {
     </div>
 
     <div id="disc-search-panel" class="disc-browse" style="display:none">
+        <div id="disc-search-meta" class="disc-search-meta"></div>
         <div id="disc-search-results" class="disc-grid"></div>
     </div>
 </div>`
@@ -215,13 +220,51 @@ function _renderFeaturedTab(container) {
 }
 
 function _renderSearchResults(container, results) {
-    const el = container.querySelector('#disc-search-results')
+    const metaEl    = container.querySelector('#disc-search-meta')
+    const resultsEl = container.querySelector('#disc-search-results')
+
     if (!results.length) {
-        el.innerHTML = `<div class="disc-empty">No results for "${escapeHtml(_searchQuery)}".</div>`
+        if (metaEl) metaEl.innerHTML = ''
+        resultsEl.innerHTML = `<div class="disc-empty">No results for "${escapeHtml(_searchQuery)}".</div>`
         return
     }
-    el.innerHTML = results.map(_card).join('')
-    _bindCards(el, container)
+
+    const total = results.length
+    const pages = Math.ceil(total / SEARCH_PAGE_SIZE)
+    const page  = Math.max(1, Math.min(_searchPage, pages))
+    const start = (page - 1) * SEARCH_PAGE_SIZE
+    const slice = results.slice(start, start + SEARCH_PAGE_SIZE)
+
+    const _pagHtml = (withClass) => pages > 1 ? `
+        <${withClass ? `div class="${withClass}"` : 'div'}>
+            <button class="disc-page-btn" data-dir="-1"${page <= 1 ? ' disabled' : ''}>← Prev</button>
+            <span class="disc-page-info">Page ${page} of ${pages}</span>
+            <button class="disc-page-btn" data-dir="1"${page >= pages ? ' disabled' : ''}>Next →</button>
+        </div>` : ''
+
+    const _bindPagBtns = (el) => {
+        el.querySelectorAll('.disc-page-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                _searchPage = page + parseInt(btn.dataset.dir, 10)
+                _saveState()
+                _renderSearchResults(container, results)
+                container.querySelector('#disc-search-meta')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+            })
+        })
+    }
+
+    // Meta bar: result count + top pagination
+    if (metaEl) {
+        metaEl.innerHTML = `
+            <span class="disc-result-count">${total} result${total !== 1 ? 's' : ''}</span>
+            ${_pagHtml('disc-top-pagination')}`
+        _bindPagBtns(metaEl)
+    }
+
+    // Cards + bottom pagination (inside grid so grid-column spans)
+    resultsEl.innerHTML = slice.map(_card).join('') + _pagHtml('disc-pagination')
+    _bindCards(resultsEl, container)
+    _bindPagBtns(resultsEl)
 }
 
 function _card(item) {
@@ -285,12 +328,16 @@ async function _doSearch(container) {
     const q = _searchQuery.trim()
     if (!q) return
 
-    const el = container.querySelector('#disc-search-results')
+    _searchPage = 1  // reset to first page on every new search
+
+    const metaEl = container.querySelector('#disc-search-meta')
+    const el     = container.querySelector('#disc-search-results')
     if (!el) return
+    if (metaEl) metaEl.innerHTML = ''
     el.innerHTML = '<div class="disc-loading">Searching…</div>'
 
     try {
-        const res = await fetch(`/relay/api/discover/search?q=${encodeURIComponent(q)}&limit=80`)
+        const res = await fetch(`/relay/api/discover/search?q=${encodeURIComponent(q)}&limit=200`)
         if (res.status === 503) {
             _showError(el, 'Search index is still loading — try again in a moment.')
             return
@@ -326,6 +373,7 @@ function _bind(container) {
         } else {
             _mode        = 'browse'
             _lastResults = null
+            _searchPage  = 1
             browse.style.display = ''
             panel.style.display  = 'none'
             _saveState()
@@ -338,6 +386,7 @@ function _bind(container) {
             _searchQuery   = ''
             _mode          = 'browse'
             _lastResults   = null
+            _searchPage    = 1
             browse.style.display = ''
             panel.style.display  = 'none'
             _saveState()

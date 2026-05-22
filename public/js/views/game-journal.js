@@ -500,7 +500,7 @@ function _achItem(a, isUnlocked, isHidden) {
         : `this.outerHTML='<div class="gj-ach-badge ${badgeCls}">${letter}</div>'`
 
     const badgeHtml = imgSrc
-        ? `<img class="gj-ach-badge" src="${imgSrc}" style="width:32px;height:32px;border-radius:4px;object-fit:cover" onerror="${errHandler}">`
+        ? `<img class="gj-ach-badge" src="${imgSrc}" onerror="${errHandler}">`
         : `<div class="gj-ach-badge ${badgeCls}">${letter}</div>`
 
     return `
