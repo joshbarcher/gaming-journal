@@ -33,12 +33,28 @@
 /* hide the native clear button in Chrome/Safari */
 .disc-search::-webkit-search-cancel-button { display: none; }
 
+/* ── Tabs bar (tabs left, top-pagination right) ──────────────────────────────── */
+.disc-tabs-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
 /* ── Tabs ────────────────────────────────────────────────────────────────────── */
 .disc-tabs {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
-    margin-bottom: 16px;
+}
+
+/* ── Top pagination slot (right side of tabs bar) ────────────────────────────── */
+.disc-top-pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: 16px;
 }
 
 .disc-tab {

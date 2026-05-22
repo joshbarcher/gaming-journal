@@ -7,13 +7,15 @@ const FEATURED_TABS = [
     { id: 'specials',     label: 'On Sale'       },
 ]
 
+const STORAGE_KEY = 'disc-state'
+
 let _navigate = null
 let _owned    = new Set()
 let _wishlist = new Set()
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-let _mode          = 'browse'  // 'browse' | 'search'
+let _mode          = 'browse'        // 'browse' | 'search'
 let _featuredTab   = 'new_releases'
 let _searchQuery   = ''
 let _debounceTimer = null
@@ -22,10 +24,38 @@ let _featuredData = null  // sections array from /featured (each has { id, label
 let _tabPages     = {}    // tab → last loaded page
 let _lastResults  = null  // cached search results for back-navigation
 
+// ── State persistence ─────────────────────────────────────────────────────────
+
+function _saveState() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            mode:        _mode,
+            tab:         _featuredTab,
+            tabPages:    _tabPages,
+            searchQuery: _searchQuery,
+            lastResults: _lastResults,
+        }))
+    } catch { /* storage full / private mode */ }
+}
+
+function _restoreState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return
+        const s = JSON.parse(raw)
+        if (s.mode)                      _mode        = s.mode
+        if (s.tab)                       _featuredTab = s.tab
+        if (s.tabPages)                  _tabPages    = s.tabPages
+        if (s.searchQuery != null)       _searchQuery = s.searchQuery
+        if (s.lastResults !== undefined) _lastResults = s.lastResults
+    } catch { /* corrupt storage */ }
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export async function renderDiscover(container, navigate) {
     _navigate = navigate
+    _restoreState()
     container.innerHTML = _skeleton()
     _bind(container)
     _loadOwnership()
@@ -60,8 +90,11 @@ function _skeleton() {
     </div>
 
     <div id="disc-browse" class="disc-browse">
-        <div id="disc-featured-tabs" class="disc-tabs">
-            ${featuredTabsHtml}
+        <div class="disc-tabs-bar">
+            <div id="disc-featured-tabs" class="disc-tabs">
+                ${featuredTabsHtml}
+            </div>
+            <div id="disc-top-pagination" class="disc-top-pagination"></div>
         </div>
         <div id="disc-results" class="disc-grid">
             <div class="disc-loading">Loading…</div>
@@ -98,7 +131,13 @@ async function _loadFeatured(container) {
         for (const s of _featuredData) {
             if (!_tabPages[s.id]) _tabPages[s.id] = 1
         }
-        _renderFeaturedTab(container)
+        // If the active tab has a saved page > 1, jump straight to it
+        const savedPage = _tabPages[_featuredTab] ?? 1
+        if (savedPage > 1) {
+            _loadFeaturedTab(container, _featuredTab, savedPage)
+        } else {
+            _renderFeaturedTab(container)
+        }
     } catch {
         _showError(container.querySelector('#disc-results'), 'Failed to load featured games.')
     }
@@ -114,6 +153,7 @@ async function _loadFeaturedTab(container, tab, page) {
         const idx = _featuredData ? _featuredData.findIndex(s => s.id === tab) : -1
         if (idx >= 0) _featuredData[idx] = section
         _tabPages[tab] = section.page
+        _saveState()
         _renderFeaturedTab(container)
     } catch {
         _showError(resultsEl, `Failed to load page ${page}.`)
@@ -124,13 +164,19 @@ async function _loadFeaturedTab(container, tab, page) {
 
 function _renderFeaturedTab(container) {
     const resultsEl = container.querySelector('#disc-results')
+    const topPagEl  = container.querySelector('#disc-top-pagination')
     if (!_featuredData) return
     const section = _featuredData.find(s => s.id === _featuredTab)
-    if (!section) { resultsEl.innerHTML = '<div class="disc-empty">No data for this section.</div>'; return }
+    if (!section) {
+        resultsEl.innerHTML = '<div class="disc-empty">No data for this section.</div>'
+        if (topPagEl) topPagEl.innerHTML = ''
+        return
+    }
 
     const { items, page, pages } = section
     if (!items.length) {
         resultsEl.innerHTML = '<div class="disc-empty">No results yet — check back soon.</div>'
+        if (topPagEl) topPagEl.innerHTML = ''
         return
     }
 
@@ -149,6 +195,23 @@ function _renderFeaturedTab(container) {
             _loadFeaturedTab(container, _featuredTab, page + parseInt(btn.dataset.dir, 10))
         })
     })
+
+    // Mirror pagination above the tabs bar (outside the grid, no grid-column needed)
+    if (topPagEl) {
+        if (pages > 1) {
+            topPagEl.innerHTML = `
+                <button class="disc-page-btn" data-dir="-1"${page <= 1 ? ' disabled' : ''}>← Prev</button>
+                <span class="disc-page-info">Page ${page} of ${pages}</span>
+                <button class="disc-page-btn" data-dir="1"${page >= pages ? ' disabled' : ''}>Next →</button>`
+            topPagEl.querySelectorAll('.disc-page-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    _loadFeaturedTab(container, _featuredTab, page + parseInt(btn.dataset.dir, 10))
+                })
+            })
+        } else {
+            topPagEl.innerHTML = ''
+        }
+    }
 }
 
 function _renderSearchResults(container, results) {
@@ -235,6 +298,7 @@ async function _doSearch(container) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const results = await res.json()
         _lastResults = results
+        _saveState()
         const resEl = container.querySelector('#disc-search-results')
         if (resEl) _renderSearchResults(container, results)
     } catch (err) {
@@ -264,6 +328,7 @@ function _bind(container) {
             _lastResults = null
             browse.style.display = ''
             panel.style.display  = 'none'
+            _saveState()
         }
     })
 
@@ -271,9 +336,11 @@ function _bind(container) {
         if (e.key === 'Escape') {
             searchEl.value = ''
             _searchQuery   = ''
-            _mode = 'browse'
+            _mode          = 'browse'
+            _lastResults   = null
             browse.style.display = ''
             panel.style.display  = 'none'
+            _saveState()
         }
     })
 
@@ -284,6 +351,7 @@ function _bind(container) {
         container.querySelectorAll('.disc-tab').forEach(b => b.classList.remove('disc-tab--active'))
         btn.classList.add('disc-tab--active')
         _featuredTab = btn.dataset.tab
+        _saveState()
         const existing = _featuredData?.find(s => s.id === _featuredTab)
         if (existing) {
             _renderFeaturedTab(container)
