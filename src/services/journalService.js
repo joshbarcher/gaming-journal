@@ -109,6 +109,13 @@ export class JournalService {
         return true
     }
 
+    getByAppid(appid) {
+        const key = String(appid)
+        return this._mf.get().pages
+            .filter(p => p.appid === key)
+            .map(p => ({ ...p }))
+    }
+
     async reorder(ids) {
         const current = this._mf.get()
         const map = new Map(current.pages.map(p => [p.id, p]))

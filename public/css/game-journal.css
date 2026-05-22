@@ -1,0 +1,764 @@
+/* ── Game Journal — shared header ────────────────────────────────────────────── */
+
+.gj-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+}
+
+.gj-back {
+    font-size: 13px;
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+    white-space: nowrap;
+}
+.gj-back:hover { color: var(--clr-accent); }
+
+.gj-header-title {
+    font-family: var(--font-title);
+    font-size: clamp(15px, 2vw, 22px);
+    font-weight: 700;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gj-header-sep {
+    color: var(--clr-text-muted);
+    opacity: 0.4;
+}
+
+.gj-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+}
+
+.gj-btn {
+    padding: 7px 14px;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    background: var(--clr-bg-raised);
+    color: var(--clr-text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+    white-space: nowrap;
+}
+.gj-btn:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+.gj-btn--accent {
+    border-color: rgba(201, 168, 76, 0.4);
+    background: rgba(201, 168, 76, 0.08);
+    color: var(--clr-accent);
+}
+.gj-btn--accent:hover {
+    border-color: var(--clr-accent);
+    background: rgba(201, 168, 76, 0.16);
+}
+
+/* ── Dashboard grid ───────────────────────────────────────────────────────────── */
+
+.gj-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.gj-card {
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.gj-card--wide { grid-column: 1 / -1; }
+
+.gj-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.gj-card-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+}
+
+.gj-view-all {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+    white-space: nowrap;
+}
+.gj-view-all:hover { color: var(--clr-accent); }
+
+.gj-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 4px;
+}
+
+/* ── Rating card ──────────────────────────────────────────────────────────────── */
+
+.gj-rating-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.gj-rating-stars {
+    font-size: 20px;
+    letter-spacing: 1px;
+    color: var(--clr-accent);
+    line-height: 1;
+}
+
+.gj-rating-label {
+    font-size: 12px;
+    color: var(--clr-text-muted);
+}
+
+.gj-rating-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gj-rating-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gj-rating-row-label {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    width: 72px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.gj-rating-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.gj-rating-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--clr-accent);
+    transition: width 0.3s ease;
+}
+
+.gj-rating-val {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    width: 14px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.gj-no-data {
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    font-style: italic;
+}
+
+/* ── Achievements card ────────────────────────────────────────────────────────── */
+
+.gj-ach-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gj-ach-summary-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--clr-text);
+}
+
+.gj-ach-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.gj-ach-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--clr-accent);
+    transition: width 0.4s ease;
+}
+
+.gj-ach-recent-label {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.gj-ach-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.gj-ach-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.gj-ach-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.gj-ach-dot--unlocked { background: var(--clr-accent); }
+.gj-ach-dot--locked   { background: rgba(255,255,255,0.15); }
+
+.gj-ach-name {
+    font-size: 11px;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.gj-ach-date {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+/* ── HLTB card ────────────────────────────────────────────────────────────────── */
+
+.gj-hltb-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.gj-hltb-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gj-hltb-stat-label {
+    font-size: 9px;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.gj-hltb-stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--clr-text);
+    line-height: 1.1;
+}
+
+.gj-hltb-stat-value--accent { color: var(--clr-accent); }
+
+.gj-hltb-bar-wrap {
+    position: relative;
+    padding-bottom: 22px;
+}
+
+.gj-hltb-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+    position: relative;
+}
+
+.gj-hltb-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--clr-accent);
+    max-width: 100%;
+}
+
+.gj-hltb-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--clr-accent);
+    border: 2px solid #0a0908;
+    box-shadow: 0 0 0 1px var(--clr-accent);
+    pointer-events: none;
+}
+
+.gj-hltb-tick {
+    position: absolute;
+    top: -3px;
+    width: 1px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateX(-50%);
+}
+
+.gj-hltb-tick-label {
+    position: absolute;
+    top: 13px;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: var(--clr-text-muted);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+}
+
+/* ── Notes card ───────────────────────────────────────────────────────────────── */
+
+.gj-notes-row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    min-height: 72px;
+    align-items: flex-start;
+}
+
+.gj-note-card {
+    background: rgba(201, 168, 76, 0.06);
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    min-width: 150px;
+    max-width: 200px;
+    flex-shrink: 0;
+    position: relative;
+    font-size: 12px;
+    color: var(--clr-text);
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.gj-note-card--plain {
+    background: var(--clr-bg-hover);
+    border-color: var(--clr-border);
+}
+
+.gj-note-btns {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+.gj-note-card:hover .gj-note-btns { opacity: 1; }
+
+.gj-note-btn {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 3px;
+    line-height: 1;
+    border-radius: 3px;
+    transition: color var(--transition), background var(--transition);
+}
+.gj-note-btn:hover          { color: var(--clr-text); background: rgba(255,255,255,0.08); }
+.gj-note-btn--del:hover     { color: #dc5050; }
+
+.gj-note-date {
+    font-size: 9px;
+    color: var(--clr-text-muted);
+    margin-top: 6px;
+    opacity: 0.7;
+}
+
+.gj-add-note {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.gj-add-note-input {
+    flex: 1;
+    background: var(--clr-bg-hover);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 12px;
+    padding: 7px 10px;
+    min-width: 0;
+    transition: border-color var(--transition);
+}
+.gj-add-note-input:focus {
+    outline: none;
+    border-color: var(--clr-border-hi);
+}
+
+.gj-pin-toggle {
+    font-size: 14px;
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+    line-height: 1;
+}
+.gj-pin-toggle.active {
+    color: var(--clr-accent);
+    border-color: rgba(201, 168, 76, 0.4);
+    background: rgba(201, 168, 76, 0.08);
+}
+
+/* ── Progress card ────────────────────────────────────────────────────────────── */
+
+.gj-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gj-progress-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.gj-progress-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.gj-progress-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gj-progress-pct {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.gj-progress-track {
+    height: 5px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.gj-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--clr-accent);
+}
+
+/* ── Pages card ───────────────────────────────────────────────────────────────── */
+
+.gj-pages-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gj-page-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--clr-text);
+    cursor: pointer;
+    transition: background var(--transition);
+    min-width: 0;
+}
+.gj-page-item:hover { background: var(--clr-bg-hover); }
+
+.gj-page-icon { font-size: 13px; flex-shrink: 0; opacity: 0.55; }
+
+.gj-page-name {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.gj-page-date {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+/* ── Sub-view header ──────────────────────────────────────────────────────────── */
+
+.gj-sub-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+}
+
+.gj-sub-back {
+    font-size: 13px;
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+.gj-sub-back:hover { color: var(--clr-accent); }
+
+.gj-sub-title {
+    font-family: var(--font-title);
+    font-size: clamp(15px, 2vw, 20px);
+    font-weight: 700;
+}
+
+.gj-sub-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+/* ── Achievements full view ───────────────────────────────────────────────────── */
+
+.gj-ach-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.gj-ach-full-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    min-width: 0;
+}
+
+.gj-ach-full-item--unlocked {
+    border-color: rgba(201, 168, 76, 0.2);
+    background: rgba(201, 168, 76, 0.04);
+}
+
+.gj-ach-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.gj-ach-badge--unlocked {
+    background: rgba(201, 168, 76, 0.2);
+    color: var(--clr-accent);
+    border: 1px solid rgba(201, 168, 76, 0.35);
+}
+
+.gj-ach-badge--locked {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--clr-text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gj-ach-info { flex: 1; min-width: 0; }
+
+.gj-ach-full-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gj-ach-full-date {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    margin-top: 2px;
+}
+
+.gj-ach-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    margin: 20px 0 10px;
+}
+
+.gj-ach-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+/* ── Notes full view ──────────────────────────────────────────────────────────── */
+
+.gj-notes-full-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.gj-note-full-card {
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    position: relative;
+    font-size: 13px;
+    line-height: 1.55;
+    word-break: break-word;
+}
+
+.gj-note-full-card--pinned {
+    border-color: rgba(201, 168, 76, 0.25);
+    background: rgba(201, 168, 76, 0.05);
+}
+
+.gj-note-full-btns {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+.gj-note-full-card:hover .gj-note-full-btns { opacity: 1; }
+
+/* ── Progress + Pages full view ───────────────────────────────────────────────── */
+
+.gj-full-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.gj-full-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--clr-text);
+    transition: border-color var(--transition), background var(--transition);
+    min-width: 0;
+}
+.gj-full-item:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.gj-full-item-icon { font-size: 16px; flex-shrink: 0; opacity: 0.6; }
+
+.gj-full-item-body { flex: 1; min-width: 0; }
+
+.gj-full-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gj-full-item-meta {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    margin-top: 2px;
+}
+
+.gj-full-item-pct {
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+/* ── Game page journal button ─────────────────────────────────────────────────── */
+
+.game-journal-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 16px;
+    background: rgba(201, 168, 76, 0.08);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    border-radius: 4px;
+    color: var(--clr-accent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    width: 100%;
+    box-sizing: border-box;
+}
+.game-journal-btn:hover {
+    background: rgba(201, 168, 76, 0.16);
+    border-color: rgba(201, 168, 76, 0.55);
+}

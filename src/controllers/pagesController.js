@@ -2,7 +2,10 @@ import logger from '../../logger.js'
 import { VALID_TYPES } from '../services/journalService.js'
 
 export function listPages(req, res) {
-    res.json(req.journal.getAll())
+    const { appid } = req.query
+    let pages = req.journal.getAll()
+    if (appid) pages = pages.filter(p => p.appid === String(appid))
+    res.json(pages)
 }
 
 export function getPage(req, res) {

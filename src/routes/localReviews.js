@@ -7,6 +7,7 @@ import {
     deleteLocalReview,
     addNote,
     deleteNote,
+    updateNote,
 } from '../services/localReviewsService.js'
 
 const router = Router()
@@ -54,6 +55,17 @@ router.post('/:appid/notes', async (req, res) => {
             return res.status(400).json({ error: 'text is required' })
         }
         const note = await addNote(Number(req.params.appid), text)
+        res.json(note)
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
+
+router.patch('/:appid/notes/:noteId', async (req, res) => {
+    try {
+        const { pinned } = req.body
+        const note = await updateNote(Number(req.params.appid), req.params.noteId, { pinned: Boolean(pinned) })
+        if (!note) return res.status(404).json({ error: 'Note not found' })
         res.json(note)
     } catch (err) {
         res.status(500).json({ error: err.message })

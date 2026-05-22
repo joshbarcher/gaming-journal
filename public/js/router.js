@@ -85,6 +85,10 @@ export function parseRoute(path) {
     if (path === 'discover')               return { view: 'discover' }
     if (path.startsWith('franchise/'))   return { view: 'franchise', franchiseId: path.slice(10) }
     if (path.startsWith('game/'))        return { view: 'game', appid: path.slice(5) }
+    if (path.startsWith('journal/')) {
+        const parts = path.split('/')
+        return { view: 'journal', appid: parts[1], sub: parts[2] ?? null }
+    }
     return { view: 'page', pageId: path }
 }
 
@@ -291,6 +295,14 @@ export async function navigate(path, { replace = false } = {}) {
         setActiveItem('library')
         const { renderGame } = await import('./views/game.js')
         await renderGame(route.appid, mainEl())
+        _restoreScroll(path)
+        return
+    }
+
+    if (route.view === 'journal') {
+        setActiveItem(null)
+        const { renderGameJournal } = await import('./views/game-journal.js')
+        await renderGameJournal(route.appid, route.sub, mainEl(), navigate)
         _restoreScroll(path)
         return
     }

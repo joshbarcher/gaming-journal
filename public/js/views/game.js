@@ -319,7 +319,10 @@ function _dataPanel(game, communityReviews) {
     rows.push(`<div class="gdp-divider"></div>`)
     rows.push(_gdpRow('Steam ID', `<a class="gdp-steam-link" href="https://store.steampowered.com/app/${game.appid}" target="_blank" rel="noopener">${game.appid} ↗</a>`, true))
 
-    return `<div class="game-data-panel">${rows.join('')}</div>`
+    return `<div class="game-data-panel">
+        ${rows.join('')}
+        <a href="/journal/${game.appid}" class="game-journal-btn">✦ Open Journal</a>
+    </div>`
 }
 
 function _gdpRow(label, value, raw = false) {

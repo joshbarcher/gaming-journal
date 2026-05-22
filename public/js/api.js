@@ -15,12 +15,20 @@ async function request(method, path, body) {
 
 export const api = {
     pages: {
-        list:    ()         => request('GET',    '/pages'),
-        get:     (id)       => request('GET',    `/pages/${id}`),
-        create:  (body)     => request('POST',   '/pages', body),
-        update:  (id, body) => request('PUT',    `/pages/${id}`, body),
-        remove:  (id)       => request('DELETE', `/pages/${id}`),
-        reorder: (ids)      => request('PUT',    '/pages/order', { ids }),
+        list:        ()             => request('GET',    '/pages'),
+        listByGame:  (appid)        => request('GET',    `/pages?appid=${appid}`),
+        get:         (id)           => request('GET',    `/pages/${id}`),
+        create:      (body)         => request('POST',   '/pages', body),
+        update:      (id, body)     => request('PUT',    `/pages/${id}`, body),
+        remove:      (id)           => request('DELETE', `/pages/${id}`),
+        reorder:     (ids)          => request('PUT',    '/pages/order', { ids }),
+    },
+    localReviews: {
+        get:        (appid)               => request('GET',   `/local-reviews/${appid}`),
+        set:        (appid, body)         => request('PUT',   `/local-reviews/${appid}`, body),
+        addNote:    (appid, text)         => request('POST',  `/local-reviews/${appid}/notes`, { text }),
+        updateNote: (appid, noteId, body) => request('PATCH', `/local-reviews/${appid}/notes/${noteId}`, body),
+        deleteNote: (appid, noteId)       => request('DELETE',`/local-reviews/${appid}/notes/${noteId}`),
     },
     franchises: {
         list:           ()               => request('GET',    '/franchises'),

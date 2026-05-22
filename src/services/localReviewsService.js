@@ -77,6 +77,7 @@ export async function addNote(appid, text) {
     const note = {
         id:        _noteId(),
         text:      String(text).trim(),
+        pinned:    false,
         createdAt: new Date().toISOString(),
     }
 
@@ -102,6 +103,22 @@ export async function deleteNote(appid, noteId) {
     await file.set(data)
     await file.flush()
     await file.close()
+}
+
+export async function updateNote(appid, noteId, updates) {
+    const file = makeFile()
+    await file.load()
+    const data = file.get()
+    if (!data[appid]) return null
+    const notes = data[appid].notes ?? []
+    const idx = notes.findIndex(n => n.id === noteId)
+    if (idx === -1) return null
+    notes[idx] = { ...notes[idx], ...updates }
+    data[appid].updatedAt = new Date().toISOString()
+    await file.set(data)
+    await file.flush()
+    await file.close()
+    return notes[idx]
 }
 
 // ── Steam review seeding ──────────────────────────────────────────────────────
