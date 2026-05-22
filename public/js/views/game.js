@@ -179,15 +179,18 @@ async function _startHeroSlideshow(container, game) {
     const INTERVAL = 6_000
     const PAN_DUR  = 10_000
     const randDir  = () => Math.random() < 0.5 ? 'top' : 'bottom'
+    const willPan  = () => Math.random() < 0.2
 
-    function _pan(el, dir) {
+    function _applyTransition(el, pan) {
         requestAnimationFrame(() => requestAnimationFrame(() => {
-            el.style.transition         = `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
-            el.style.backgroundPosition = `center ${dir}`
+            el.style.transition         = pan
+                ? `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
+                : 'opacity 1.5s ease'
+            if (pan) el.style.backgroundPosition = `center ${randDir()}`
         }))
     }
 
-    _pan(bgA, randDir())
+    _applyTransition(bgA, willPan())
 
     let idx = 1, showingA = true
 
@@ -197,6 +200,7 @@ async function _startHeroSlideshow(container, game) {
         const url      = frames[idx % frames.length]
         const incoming = showingA ? bgB : bgA
         const outgoing = showingA ? bgA : bgB
+        const pan      = willPan()
         idx++
 
         incoming.style.transition         = 'none'
@@ -206,9 +210,11 @@ async function _startHeroSlideshow(container, game) {
 
         requestAnimationFrame(() => requestAnimationFrame(() => {
             if (!document.contains(bgA)) return
-            incoming.style.transition         = `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
+            incoming.style.transition = pan
+                ? `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
+                : 'opacity 1.5s ease'
             incoming.style.opacity            = '1'
-            incoming.style.backgroundPosition = `center ${randDir()}`
+            if (pan) incoming.style.backgroundPosition = `center ${randDir()}`
             outgoing.style.opacity = '0'
         }))
 

@@ -54,12 +54,12 @@ export async function renderHome(container) {
 
     // ── Anchor card poster pools ──────────────────────────────────────────────
 
-    const libPosters  = _sample(libGames, MOSAIC_COUNT)
-    const wlPosters   = _sample(wlGames,  MOSAIC_COUNT)
+    const libPosters  = _sample(libGames.filter(g => filterFn(g.appid)), MOSAIC_COUNT)
+    const wlPosters   = _sample(wlGames.filter(g => filterFn(g.appid)),  MOSAIC_COUNT)
     const discItems   = discover.flatMap(s => s.items ?? [])
-    // Discover items carry their own CDN headerImage — use it directly
+    // Discover items carry their own CDN image URLs — prefer portrait poster
     const discPosters = _sample(discItems, MOSAIC_COUNT).map(g => ({
-        src: g.headerImage ?? null,
+        src: g.posterImage ?? g.headerImage ?? null,
     }))
 
     // ── Render ────────────────────────────────────────────────────────────────

@@ -135,6 +135,9 @@
     line-height: 1.15;
     color: #fff;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .home-card-meta {

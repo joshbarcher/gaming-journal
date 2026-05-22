@@ -236,6 +236,7 @@ function renderSidebar(activeId) {
     const nav = document.getElementById('sidebar-nav')
     nav.innerHTML = ''
 
+    nav.appendChild(buildHomeButton(activeId === 'home'))
     nav.appendChild(buildLibraryButton(activeId === 'library'))
     nav.appendChild(buildWishlistButton(activeId === 'wishlist'))
     nav.appendChild(buildDiscoverButton(activeId === 'discover'))
@@ -246,8 +247,7 @@ function renderSidebar(activeId) {
 
     // ── Collection section ────────────────────────────────────────────────
     const collectionSep = document.createElement('div')
-    collectionSep.className = 'sidebar-section-label'
-    collectionSep.textContent = 'Collection'
+    collectionSep.className = 'sidebar-bottom-sep'
     nav.appendChild(collectionSep)
     nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
     nav.appendChild(buildOnHoldButton(activeId === 'on-hold'))

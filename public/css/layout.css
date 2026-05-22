@@ -18,11 +18,11 @@
 
 #sidebar-nav {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: hidden;
     padding: 12px 12px 6px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 /* ── Main content column ────────────────────────────────────────────────────── */
@@ -95,6 +95,7 @@
 
     #sidebar-nav {
         padding-top: 62px;
+        overflow-y: auto;
     }
 
     #main-content {
