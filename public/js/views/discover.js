@@ -21,10 +21,12 @@ let _featuredTab   = 'new_releases'
 let _searchQuery   = ''
 let _debounceTimer = null
 
-let _featuredData = null  // sections array from /featured (each has { id, label, items, page, pages, total })
-let _tabPages     = {}    // tab → last loaded page
-let _lastResults  = null  // cached search results for back-navigation
-let _searchPage   = 1     // current page within search results
+let _featuredData = null     // sections array from /featured (each has { id, label, items, page, pages, total })
+let _tabPages     = {}       // tab → last loaded page
+let _lastResults  = null     // current page's results — persisted to localStorage for back-navigation
+let _searchTotal  = 0        // total result count reported by the server
+let _searchCache  = new Map() // page → results[], in-memory only (cleared on new query)
+let _searchPage   = 1        // current page within search results
 
 // ── State persistence ─────────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ function _saveState() {
             tabPages:    _tabPages,
             searchQuery: _searchQuery,
             lastResults: _lastResults,
+            searchTotal: _searchTotal,
             searchPage:  _searchPage,
         }))
     } catch { /* storage full / private mode */ }
@@ -51,6 +54,7 @@ function _restoreState() {
         if (s.tabPages)                  _tabPages    = s.tabPages
         if (s.searchQuery != null)       _searchQuery = s.searchQuery
         if (s.lastResults !== undefined) _lastResults = s.lastResults
+        if (s.searchTotal)               _searchTotal = s.searchTotal
         if (s.searchPage)                _searchPage  = s.searchPage
     } catch { /* corrupt storage */ }
 }
@@ -65,12 +69,13 @@ export async function renderDiscover(container, navigate) {
     _loadOwnership()
 
     if (_mode === 'search' && _lastResults !== null) {
-        // Returning from a game page — restore previous search results immediately
+        // Returning from a game page — restore current page immediately from localStorage
+        _searchCache = new Map([[_searchPage, _lastResults]])
         const browse = container.querySelector('#disc-browse')
         const panel  = container.querySelector('#disc-search-panel')
         browse.style.display = 'none'
         panel.style.display  = ''
-        _renderSearchResults(container, _lastResults)
+        _renderSearchResults(container)
     } else {
         _loadFeatured(container)
     }
@@ -219,36 +224,31 @@ function _renderFeaturedTab(container) {
     }
 }
 
-function _renderSearchResults(container, results) {
+function _renderSearchResults(container) {
     const metaEl    = container.querySelector('#disc-search-meta')
     const resultsEl = container.querySelector('#disc-search-results')
+    const results   = _searchCache.get(_searchPage) ?? []
+    const total     = _searchTotal
+    const pages     = total > 0 ? Math.ceil(total / SEARCH_PAGE_SIZE) : 1
+    const page      = _searchPage
 
-    if (!results.length) {
+    if (total === 0 && !results.length) {
         if (metaEl) metaEl.innerHTML = ''
         resultsEl.innerHTML = `<div class="disc-empty">No results for "${escapeHtml(_searchQuery)}".</div>`
         return
     }
 
-    const total = results.length
-    const pages = Math.ceil(total / SEARCH_PAGE_SIZE)
-    const page  = Math.max(1, Math.min(_searchPage, pages))
-    const start = (page - 1) * SEARCH_PAGE_SIZE
-    const slice = results.slice(start, start + SEARCH_PAGE_SIZE)
-
-    const _pagHtml = (withClass) => pages > 1 ? `
-        <${withClass ? `div class="${withClass}"` : 'div'}>
+    const _pagHtml = (cls) => pages > 1 ? `
+        <div class="${cls}">
             <button class="disc-page-btn" data-dir="-1"${page <= 1 ? ' disabled' : ''}>← Prev</button>
-            <span class="disc-page-info">Page ${page} of ${pages}</span>
+            <span class="disc-page-info">Page ${page} of ${pages} <span class="disc-page-total">(${total.toLocaleString()} results)</span></span>
             <button class="disc-page-btn" data-dir="1"${page >= pages ? ' disabled' : ''}>Next →</button>
         </div>` : ''
 
     const _bindPagBtns = (el) => {
         el.querySelectorAll('.disc-page-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                _searchPage = page + parseInt(btn.dataset.dir, 10)
-                _saveState()
-                _renderSearchResults(container, results)
-                container.querySelector('#disc-search-meta')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                _goSearchPage(container, page + parseInt(btn.dataset.dir, 10))
             })
         })
     }
@@ -256,15 +256,51 @@ function _renderSearchResults(container, results) {
     // Meta bar: result count + top pagination
     if (metaEl) {
         metaEl.innerHTML = `
-            <span class="disc-result-count">${total} result${total !== 1 ? 's' : ''}</span>
+            <span class="disc-result-count">${total.toLocaleString()} result${total !== 1 ? 's' : ''}</span>
             ${_pagHtml('disc-top-pagination')}`
         _bindPagBtns(metaEl)
     }
 
     // Cards + bottom pagination (inside grid so grid-column spans)
-    resultsEl.innerHTML = slice.map(_card).join('') + _pagHtml('disc-pagination')
+    resultsEl.innerHTML = results.map(_card).join('') + _pagHtml('disc-pagination')
     _bindCards(resultsEl, container)
     _bindPagBtns(resultsEl)
+}
+
+async function _goSearchPage(container, page) {
+    // Cache hit — render immediately
+    if (_searchCache.has(page)) {
+        _searchPage  = page
+        _lastResults = _searchCache.get(page)
+        _saveState()
+        _renderSearchResults(container)
+        container.querySelector('#disc-search-meta')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        return
+    }
+
+    // Cache miss — fetch from server
+    const metaEl    = container.querySelector('#disc-search-meta')
+    const resultsEl = container.querySelector('#disc-search-results')
+    if (metaEl) metaEl.innerHTML = `<span class="disc-result-count">Loading…</span>`
+    resultsEl.innerHTML = '<div class="disc-loading">Loading…</div>'
+
+    try {
+        const offset = (page - 1) * SEARCH_PAGE_SIZE
+        const res = await fetch(
+            `/relay/api/discover/search?q=${encodeURIComponent(_searchQuery)}&limit=${SEARCH_PAGE_SIZE}&offset=${offset}`
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const { results, total } = await res.json()
+        _searchCache.set(page, results)
+        _searchTotal = total   // refresh total in case index rebuilt
+        _searchPage  = page
+        _lastResults = results
+        _saveState()
+        _renderSearchResults(container)
+        container.querySelector('#disc-search-meta')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    } catch (err) {
+        _showError(resultsEl, `Failed to load page ${page}: ${err.message}`)
+    }
 }
 
 function _card(item) {
@@ -328,7 +364,11 @@ async function _doSearch(container) {
     const q = _searchQuery.trim()
     if (!q) return
 
-    _searchPage = 1  // reset to first page on every new search
+    // Reset all search state for the new query
+    _searchPage  = 1
+    _searchTotal = 0
+    _lastResults = null
+    _searchCache = new Map()
 
     const metaEl = container.querySelector('#disc-search-meta')
     const el     = container.querySelector('#disc-search-results')
@@ -337,20 +377,22 @@ async function _doSearch(container) {
     el.innerHTML = '<div class="disc-loading">Searching…</div>'
 
     try {
-        const res = await fetch(`/relay/api/discover/search?q=${encodeURIComponent(q)}&limit=200`)
+        const res = await fetch(
+            `/relay/api/discover/search?q=${encodeURIComponent(q)}&limit=${SEARCH_PAGE_SIZE}&offset=0`
+        )
         if (res.status === 503) {
             _showError(el, 'Search index is still loading — try again in a moment.')
             return
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const results = await res.json()
+        const { results, total } = await res.json()
+        _searchCache.set(1, results)
+        _searchTotal = total
         _lastResults = results
         _saveState()
-        const resEl = container.querySelector('#disc-search-results')
-        if (resEl) _renderSearchResults(container, results)
+        _renderSearchResults(container)
     } catch (err) {
-        const resEl = container.querySelector('#disc-search-results')
-        _showError(resEl, `Search unavailable: ${err.message}`)
+        _showError(container.querySelector('#disc-search-results'), `Search unavailable: ${err.message}`)
     }
 }
 
@@ -373,7 +415,9 @@ function _bind(container) {
         } else {
             _mode        = 'browse'
             _lastResults = null
+            _searchTotal = 0
             _searchPage  = 1
+            _searchCache = new Map()
             browse.style.display = ''
             panel.style.display  = 'none'
             _saveState()
@@ -386,7 +430,9 @@ function _bind(container) {
             _searchQuery   = ''
             _mode          = 'browse'
             _lastResults   = null
+            _searchTotal   = 0
             _searchPage    = 1
+            _searchCache   = new Map()
             browse.style.display = ''
             panel.style.display  = 'none'
             _saveState()

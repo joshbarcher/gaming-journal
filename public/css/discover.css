@@ -213,6 +213,11 @@
     font-family: var(--font-ui);
 }
 
+.disc-page-total {
+    opacity: 0.6;
+    font-size: 11px;
+}
+
 /* ── States ──────────────────────────────────────────────────────────────────── */
 .disc-loading,
 .disc-empty {
