@@ -92,6 +92,12 @@ export async function renderGame(appid, container) {
         _loadDiscoveredData(container, game)
     }
 
+    // Community reviews: fetch on demand if not yet cached (covers discovered games + any
+    // library game that hasn't been through the community-reviews sync yet)
+    if (communityReviews === null && _releaseStatus(game) !== 'coming_soon') {
+        _loadCommunityReviews(container, game)
+    }
+
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
         if (img) {
@@ -229,15 +235,16 @@ function _scoreColor(n) {
     return             { clr: '#e05050', bg: 'rgba(224,80,80,0.13)' }
 }
 
-function _scoreChip(source, score, display) {
+function _scoreChip(source, score, display, id = '') {
+    const idAttr = id ? ` id="${id}"` : ''
     if (score == null) {
-        return `<div class="gdp-score-chip gdp-score-chip--missing">
+        return `<div class="gdp-score-chip gdp-score-chip--missing"${idAttr}>
             <span class="gdp-score-chip-source">${source}</span>
             <span class="gdp-score-chip-value">—</span>
         </div>`
     }
     const c = _scoreColor(score)
-    return `<div class="gdp-score-chip" style="--chip-clr:${c.clr};--chip-bg:${c.bg}">
+    return `<div class="gdp-score-chip"${idAttr} style="--chip-clr:${c.clr};--chip-bg:${c.bg}">
         <span class="gdp-score-chip-source">${source}</span>
         <span class="gdp-score-chip-value">${display}</span>
     </div>`
@@ -252,7 +259,7 @@ function _dataPanel(game, communityReviews) {
     const mcScore    = mcData?.score ?? (typeof mcData === 'number' ? mcData : null)
 
     rows.push(`<div class="gdp-score-row">
-        ${_scoreChip('Steam',       steamRatio, steamRatio != null ? Math.round(steamRatio) + '%' : null)}
+        ${_scoreChip('Steam',       steamRatio, steamRatio != null ? Math.round(steamRatio) + '%' : null, 'gdp-steam-chip')}
         ${_scoreChip('OpenCritic',  null,       null)}
         ${_scoreChip('Metacritic',  mcScore,    mcScore)}
     </div>`)
@@ -1187,13 +1194,20 @@ function _reviewCard(r, isMine = false) {
 function _communityReviews(data, game) {
     if (_releaseStatus(game) === 'coming_soon') return ''
 
-    const hasData = data && (data.totalReviews > 0 || data.reviews?.length > 0)
-
-    if (!hasData) {
+    if (!data) {
+        // null = not yet fetched — async fetch will replace this section
         return `
             <section class="game-section" id="game-sec-community-reviews">
                 <h2 class="game-section-title">Community Reviews</h2>
-                <p class="game-section-empty">No review data cached yet.</p>
+                <p class="game-section-empty">Loading community reviews…</p>
+            </section>`
+    }
+
+    if (!data.totalReviews) {
+        return `
+            <section class="game-section" id="game-sec-community-reviews">
+                <h2 class="game-section-title">Community Reviews</h2>
+                <p class="game-section-empty">No community reviews on Steam yet.</p>
             </section>`
     }
 
@@ -1222,6 +1236,34 @@ function _communityReviews(data, game) {
             ${summaryHtml}
             ${topHtml}
         </section>`
+}
+
+// Fires when community reviews aren't cached yet — syncs then swaps in both
+// the hero Steam score chip and the full reviews section without a page reload.
+async function _loadCommunityReviews(container, game) {
+    try {
+        await fetch(`/relay/api/steam/community-reviews/${game.appid}/sync`, { method: 'POST' })
+
+        const res = await fetch(`/relay/api/steam/community-reviews/${game.appid}`)
+        if (!res.ok) return
+        const data = await res.json()
+
+        // Update Steam score chip in the hero data panel
+        const chip = container.querySelector('#gdp-steam-chip')
+        if (chip) {
+            const ratio = data?.summary?.ratio ?? null
+            chip.outerHTML = _scoreChip('Steam', ratio, ratio != null ? Math.round(ratio) + '%' : null, 'gdp-steam-chip')
+        }
+
+        // Swap the community reviews section
+        const section = container.querySelector('#game-sec-community-reviews')
+        if (section) {
+            const tmp = document.createElement('div')
+            tmp.innerHTML = _communityReviews(data, game)
+            const newEl = tmp.firstElementChild
+            if (newEl) section.replaceWith(newEl)
+        }
+    } catch { /* non-critical — page is fully usable without reviews */ }
 }
 
 // ── Screenshot modal ──────────────────────────────────────────────────────────
