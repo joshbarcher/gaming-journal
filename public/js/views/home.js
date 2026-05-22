@@ -150,7 +150,7 @@ function _cardAnchor(href, label, posters) {
         const id = g?.appid
         if (!id) return '<div class="home-mosaic-img" style="background:#111"></div>'
         return `<img class="home-mosaic-img"
-                     src="/relay/images/steam/games/${id}/capsule.jpg"
+                     src="/relay/images/steam/games/${id}/poster.jpg"
                      onerror="this.onerror=null;this.src='/relay/images/steam/games/${id}/header.jpg'"
                      alt="" loading="lazy">`
     }).join('')
