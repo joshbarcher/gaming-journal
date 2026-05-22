@@ -116,7 +116,7 @@ function _skeleton() {
 
 async function _loadOwnership() {
     try {
-        const res = await fetch('/relay/api/games')
+        const res = await fetch('/relay/api/games/ownership')
         if (!res.ok) return
         const games = await res.json()
         _owned    = new Set()

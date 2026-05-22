@@ -113,20 +113,20 @@ async function _renderDashboard(appid, container, navigate) {
         fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
         api.localReviews.get(appid).catch(() => null),
         api.pages.listByGame(appid).catch(() => []),
-        fetch('/relay/api/steam/achievements').then(r => r.ok ? r.json() : null),
+        fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null),
     ])
 
-    const game   = gameRes.value   ?? null
-    const review = reviewRes.value ?? null
-    const pages  = pagesRes.value  ?? []
-    const allAch = achRes.value    ?? null
+    const game    = gameRes.value   ?? null
+    const review  = reviewRes.value ?? null
+    const pages   = pagesRes.value  ?? []
+    const achData = achRes.value    ?? null
 
     if (!game) {
         container.innerHTML = `<p class="page-error">Failed to load game data.</p>`
         return
     }
 
-    const achList       = allAch?.[String(appid)]?.achievements ?? []
+    const achList       = achData?.achievements ?? []
     const progressPages = pages.filter(p => p.type === 'progress' || p.type === 'progress-bars')
     const journalPages  = pages.filter(p => p.type === 'page'     || p.type === 'notes')
     const pinnedNotes   = (review?.notes ?? []).filter(n => n.pinned)
@@ -437,8 +437,8 @@ async function _doAddNote(appid, input, getPinned, container, navigate) {
 async function _renderAchievements(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    const achRes  = await fetch('/relay/api/steam/achievements').then(r => r.ok ? r.json() : null).catch(() => null)
-    const achList = achRes?.[String(appid)]?.achievements ?? []
+    const achRes  = await fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null).catch(() => null)
+    const achList = achRes?.achievements ?? []
 
     const unlocked     = achList.filter(a => a.achieved).sort((a, b) => b.unlocktime - a.unlocktime)
     const lockedVis    = achList.filter(a => !a.achieved && !a.hidden)
