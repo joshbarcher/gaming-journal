@@ -4,6 +4,10 @@ import { openReviewModal, renderLocalReviewCard } from '../review-modal.js'
 import { gameBackLabel, gameBackPath } from '../router.js'
 
 export async function renderGame(appid, container) {
+    // Clean up any nav rail left over from a previous game page
+    _navRailEl?.remove()
+    _navRailEl = null
+
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
     let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news
@@ -69,6 +73,7 @@ export async function renderGame(appid, container) {
     _initSteamReview(container)
     _initTrailers(container, appid)
     _initNews(container)
+    _initNavRail(container)
 
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
@@ -114,7 +119,7 @@ function _hero(game) {
     const bgAStyle = initBg ? ` style="background-image:url('${initBg}')"` : ''
 
     return `
-        <section class="game-hero">
+        <section class="game-hero" id="game-sec-hero">
             <div class="game-hero-bg game-hero-bg--a"${bgAStyle}></div>
             <div class="game-hero-bg game-hero-bg--b"></div>
             <nav class="game-hero-nav">
@@ -305,7 +310,7 @@ function _hltb(game) {
         // Discovered game, data not yet fetched — inject placeholder for async load
         if (game.source === 'discovered' && game.hltb === null) return '<div class="game-hltb-pending"></div>'
         return `
-            <section class="game-section">
+            <section class="game-section" id="game-sec-hltb">
                 <h2 class="game-section-title">How Long To Beat</h2>
                 <p class="game-section-empty">No data available for this game.</p>
             </section>`
@@ -320,7 +325,7 @@ function _hltb(game) {
 
     if (!milestones.length) {
         return `
-            <section class="game-section">
+            <section class="game-section" id="game-sec-hltb">
                 <h2 class="game-section-title">How Long To Beat</h2>
                 <p class="game-section-empty">No data available for this game.</p>
             </section>`
@@ -351,7 +356,7 @@ function _hltb(game) {
         : ''
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-hltb">
             <h2 class="game-section-title">How Long To Beat</h2>
             <div class="hltb-bar-wrap">
                 <div class="hltb-labels-row">${labelsHtml}</div>
@@ -427,7 +432,7 @@ function _itad(itad, game) {
     }).join('')
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-prices">
             <h2 class="game-section-title">Prices</h2>
             ${historicHtml}
             <div class="itad-cards">${cardsHtml}</div>
@@ -448,7 +453,7 @@ function _trailers(appid, trailers) {
 
     if (trailers.length === 1) {
         return `
-            <section class="game-section game-trailers" data-appid="${appid}">
+            <section class="game-section game-trailers" id="game-sec-trailers" data-appid="${appid}">
                 <h2 class="game-section-title">Trailers</h2>
                 <div class="trailers-single">${playerHtml}</div>
             </section>`
@@ -469,7 +474,7 @@ function _trailers(appid, trailers) {
         </div>`
 
     return `
-        <section class="game-section game-trailers" data-appid="${appid}">
+        <section class="game-section game-trailers" id="game-sec-trailers" data-appid="${appid}">
             <h2 class="game-section-title">Trailers</h2>
             <div class="trailers-layout">
                 ${playerHtml}
@@ -534,7 +539,7 @@ function _news(news) {
     const newsJson = JSON.stringify(items).replace(/"/g, '&quot;')
 
     return `
-        <section class="game-section game-news" data-news="${newsJson}">
+        <section class="game-section game-news" id="game-sec-news" data-news="${newsJson}">
             <h2 class="game-section-title">News</h2>
             <div class="news-layout">
                 <div class="news-list">${listHtml}</div>
@@ -602,7 +607,7 @@ function _screenshots(game) {
         </div>`).join('')
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-screenshots">
             <h2 class="game-section-title">Screenshots</h2>
             <div class="game-shots-grid">${imgsHtml}</div>
             <p class="game-section-empty game-shots-fallback">No screenshots available.</p>
@@ -615,7 +620,7 @@ function _about(game) {
     const html = game.store?.detailedDescription
     if (html) {
         return `
-            <section class="game-section game-about">
+            <section class="game-section game-about" id="game-sec-about">
                 <h2 class="game-section-title">About This Game</h2>
                 <div class="game-about-body">${html}</div>
             </section>`
@@ -641,11 +646,12 @@ async function _loadAboutDynamic(container, appid) {
 
         const tmp = document.createElement('div')
         tmp.innerHTML = `
-            <section class="game-section game-about">
+            <section class="game-section game-about" id="game-sec-about">
                 <h2 class="game-section-title">About This Game</h2>
                 <div class="game-about-body">${refreshed.store.detailedDescription}</div>
             </section>`
         placeholder.replaceWith(tmp.firstElementChild)
+        _navRailEl?._rebuild?.()
     } catch {
         placeholder.remove()
     }
@@ -824,7 +830,7 @@ function _pcgw(pcgwData, game) {
         </details>`).join('')
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-pcgw">
             <h2 class="game-section-title">
                 PCGamingWiki${pcgwData.pageUrl
                     ? ` <a class="pcgw-wiki-link" href="${escapeHtml(pcgwData.pageUrl)}" target="_blank" rel="noopener">${_PI.extLink}</a>`
@@ -912,7 +918,7 @@ function _playerCounts(data, game) {
 
     if (!data?.samples?.length) {
         return `
-            <section class="game-section">
+            <section class="game-section" id="game-sec-player-count">
                 <h2 class="game-section-title">Player Count</h2>
                 <p class="game-section-empty">No player count data collected yet.</p>
             </section>`
@@ -925,7 +931,7 @@ function _playerCounts(data, game) {
     ).join('')
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-player-count">
             <h2 class="game-section-title">Player Count</h2>
             <div class="pc-header">
                 <span class="pc-current">${_fmtPlayerCount(latest)} <span class="pc-current-label">playing now</span></span>
@@ -1055,7 +1061,7 @@ function _myReview(entry) {
     const recLabel = recommended ? 'Recommended' : 'Not Recommended'
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-steam-review">
             <h2 class="game-section-title">Steam Review</h2>
             <div class="rev-mine">
                 <div class="rev-mine-header">
@@ -1143,7 +1149,7 @@ function _communityReviews(data, game) {
 
     if (!hasData) {
         return `
-            <section class="game-section">
+            <section class="game-section" id="game-sec-community-reviews">
                 <h2 class="game-section-title">Community Reviews</h2>
                 <p class="game-section-empty">No review data cached yet.</p>
             </section>`
@@ -1169,7 +1175,7 @@ function _communityReviews(data, game) {
         : `<p class="game-section-empty">No English reviews cached yet.</p>`
 
     return `
-        <section class="game-section">
+        <section class="game-section" id="game-sec-community-reviews">
             <h2 class="game-section-title">Community Reviews</h2>
             ${summaryHtml}
             ${topHtml}
@@ -1376,7 +1382,7 @@ function _localReviewSection(review, appid) {
     const writeBtn = review ? '' : ''
 
     return `
-        <section class="game-section rev-local-section">
+        <section class="game-section rev-local-section" id="game-sec-local-review">
             <h2 class="game-section-title">Local Review</h2>
             ${cardHtml}
             <div class="rev-notes-section">
@@ -1489,7 +1495,7 @@ function _loadDiscoveredData(container, game) {
         const tmp = document.createElement('div')
         tmp.innerHTML = html
         const newEl = tmp.firstElementChild
-        if (newEl) el.replaceWith(newEl)
+        if (newEl) { el.replaceWith(newEl); _navRailEl?._rebuild?.() }
         else el.remove()
     }
 
@@ -1604,6 +1610,102 @@ function _releaseBanner(game) {
     }
 
     return ''
+}
+
+// ── Page nav rail ─────────────────────────────────────────────────────────────
+
+const _NAV_ICONS = {
+    home:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    video:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
+    bookOpen:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z"/></svg>`,
+    clock:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    barChart:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+    image:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+    newspaper: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M10 16H8"/></svg>`,
+    star:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    thumbsUp:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`,
+    msgCircle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    tag:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
+    monitor:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+}
+
+const _NAV_ITEMS = [
+    { id: 'game-sec-hero',              label: 'Top',               icon: _NAV_ICONS.home      },
+    { id: 'game-sec-trailers',          label: 'Trailers',          icon: _NAV_ICONS.video     },
+    { id: 'game-sec-about',             label: 'About',             icon: _NAV_ICONS.bookOpen  },
+    { id: 'game-sec-hltb',              label: 'How Long To Beat',  icon: _NAV_ICONS.clock     },
+    { id: 'game-sec-player-count',      label: 'Player Count',      icon: _NAV_ICONS.barChart  },
+    { id: 'game-sec-screenshots',       label: 'Screenshots',       icon: _NAV_ICONS.image     },
+    { id: 'game-sec-news',              label: 'News',              icon: _NAV_ICONS.newspaper },
+    { id: 'game-sec-local-review',      label: 'Local Review',      icon: _NAV_ICONS.star      },
+    { id: 'game-sec-steam-review',      label: 'Steam Review',      icon: _NAV_ICONS.thumbsUp  },
+    { id: 'game-sec-community-reviews', label: 'Community Reviews', icon: _NAV_ICONS.msgCircle },
+    { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
+    { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
+]
+
+let _navRailEl = null
+
+function _initNavRail(container) {
+    const scrollEl = document.getElementById('main-content')
+    if (!scrollEl) return
+
+    const rail = document.createElement('nav')
+    rail.className = 'game-nav-rail'
+    rail.setAttribute('aria-label', 'Page sections')
+    document.body.appendChild(rail)
+    _navRailEl = rail
+
+    function _updateActive() {
+        if (!rail.isConnected) return
+        const btns = [...rail.querySelectorAll('.gnr-btn')]
+        if (!btns.length) return
+        // Default to the first visible item (hero / top)
+        let activeId = btns[0]?.dataset.target ?? null
+        for (const btn of btns) {
+            const el = document.getElementById(btn.dataset.target)
+            if (!el) continue
+            // Section becomes active once its top edge crosses 40% down the viewport
+            if (el.getBoundingClientRect().top <= window.innerHeight * 0.4) {
+                activeId = btn.dataset.target
+            }
+        }
+        btns.forEach(btn =>
+            btn.classList.toggle('gnr-btn--active', btn.dataset.target === activeId)
+        )
+    }
+
+    function _rebuild() {
+        const visible = _NAV_ITEMS.filter(item => document.getElementById(item.id))
+        rail.innerHTML = visible.map(item => `
+            <button class="gnr-btn" data-target="${item.id}" data-label="${item.label}" title="${item.label}">
+                ${item.icon}
+            </button>`).join('')
+        rail.querySelectorAll('.gnr-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = document.getElementById(btn.dataset.target)
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            })
+        })
+        _updateActive()
+    }
+
+    // Expose rebuild so async section loads can call it
+    rail._rebuild = _rebuild
+    _rebuild()
+
+    scrollEl.addEventListener('scroll', _updateActive, { passive: true })
+
+    // Clean up when the SPA navigates away from the game page
+    const mo = new MutationObserver(() => {
+        if (!document.getElementById('game-sec-hero')) {
+            rail.remove()
+            _navRailEl = null
+            scrollEl.removeEventListener('scroll', _updateActive)
+            mo.disconnect()
+        }
+    })
+    mo.observe(container, { childList: true })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

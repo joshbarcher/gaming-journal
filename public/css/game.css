@@ -1657,3 +1657,97 @@
 .rev-card--mine .rev-card-text {
     overflow-y: visible;
 }
+
+/* ── Game page nav rail ──────────────────────────────────────────────────────── */
+
+/*
+ * Fixed icon strip in the left gutter (the 56px padding of #main-content).
+ * Centered horizontally: sidebar (300px) + (56px gutter − 34px button) / 2 = 311px.
+ */
+.game-nav-rail {
+    position: fixed;
+    left: calc(var(--sidebar-w) + 11px);
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    z-index: 90;
+    max-height: 90vh;
+    overflow-y: auto;
+    overflow-x: visible;
+    scrollbar-width: none;
+    padding: 4px 0;
+}
+
+.game-nav-rail::-webkit-scrollbar { display: none; }
+
+.gnr-btn {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    transition: color var(--transition), background var(--transition), border-color var(--transition), opacity var(--transition);
+    padding: 0;
+    opacity: 0.38;
+    flex-shrink: 0;
+}
+
+.gnr-btn svg {
+    width: 17px;
+    height: 17px;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.gnr-btn:hover {
+    background: var(--clr-bg-raised);
+    border-color: var(--clr-border);
+    color: var(--clr-text);
+    opacity: 1;
+}
+
+.gnr-btn--active {
+    color: var(--clr-accent);
+    opacity: 1;
+}
+
+/* CSS tooltip — appears to the right of each button */
+.gnr-btn::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border-hi);
+    color: var(--clr-text);
+    font-size: 11px;
+    font-family: var(--font-ui);
+    white-space: nowrap;
+    padding: 4px 9px;
+    border-radius: var(--radius);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.gnr-btn:hover::after {
+    opacity: 1;
+}
+
+/* Hide on screens too narrow for the left gutter to exist */
+@media (max-width: 960px) {
+    .game-nav-rail {
+        display: none;
+    }
+}
