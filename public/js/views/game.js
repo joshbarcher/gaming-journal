@@ -1216,6 +1216,7 @@ function _openModal(srcs, idx = 0) {
             if (e.key === 'ArrowLeft')  _modalNav(-1)
             if (e.key === 'ArrowRight') _modalNav(1)
         })
+        window.addEventListener('popstate', () => _closeModal())
     }
     _modalSrcs = srcs
     _modalIdx  = idx

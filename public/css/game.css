@@ -1057,7 +1057,9 @@
 }
 
 .shot-modal-nav {
-    position: relative;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 2;
     width: 48px;
     height: 72px;
@@ -1071,10 +1073,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    margin: 0 12px;
     transition: background var(--transition), border-color var(--transition);
 }
+
+.shot-modal-prev { left: 16px; }
+.shot-modal-next { right: 16px; }
 
 .shot-modal-nav:hover {
     background: rgba(255, 255, 255, 0.18);
@@ -1345,8 +1348,10 @@
 .pcgw-fix-body .fixbox-icon,
 .pcgw-fix-body .reference   { display: none; }
 .pcgw-fix-body table        { width: 100%; border-collapse: collapse; }
-.pcgw-fix-body th.fixbox-title { font-weight: 600; display: block; padding-bottom: 8px; }
-.pcgw-fix-body td.fixbox-body  { display: block; }
+.pcgw-fix-body th.fixbox-title { font-weight: 600; display: block; padding-bottom: 8px; text-align: left; }
+.pcgw-fix-body td.fixbox-body  { display: block; text-align: left; }
+.pcgw-fix-body th,
+.pcgw-fix-body td              { text-align: left !important; }
 .pcgw-fix-body code.file-code  {
     font-family: 'Courier New', monospace;
     font-size: 11px;
