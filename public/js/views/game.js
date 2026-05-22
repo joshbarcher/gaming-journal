@@ -321,7 +321,7 @@ function _dataPanel(game, communityReviews) {
 
     return `<div class="game-data-panel">
         ${rows.join('')}
-        <a href="/journal/${game.appid}" class="game-journal-btn">✦ Open Journal</a>
+        <a href="/journal/${game.appid}" class="game-journal-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg> Open Journal</a>
     </div>`
 }
 

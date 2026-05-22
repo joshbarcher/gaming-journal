@@ -1,6 +1,19 @@
 import { api } from '../api.js'
 import { escapeHtml } from '../utils.js'
 
+// ── SVG icons (Lucide paths) ───────────────────────────────────────────────────
+
+const _ic = (d, size = 14) =>
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle">${d}</svg>`
+
+const IC = {
+    pin:    _ic(`<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>`),
+    bars:   _ic(`<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>`),
+    check:  _ic(`<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>`),
+    file:   _ic(`<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/>`),
+    notes:  _ic(`<path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><polyline points="15 3 15 9 21 9"/><line x1="9" x2="15" y1="13" y2="13"/><line x1="9" x2="12" y1="17" y2="17"/>`),
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function _fmt(date) {
@@ -36,9 +49,9 @@ function _progressPct(page) {
     return 0
 }
 
-const STAR_LABELS  = ['', 'Terrible', 'Bad', 'Mixed', 'Good', 'Great', 'Masterpiece']
-const RATING_KEYS  = ['story', 'soundMusic', 'gameplay', 'graphics', 'replayability', 'performance', 'agendaFree']
-const RATING_LBLS  = { story: 'Story', soundMusic: 'Sound', gameplay: 'Gameplay', graphics: 'Graphics', replayability: 'Replay', performance: 'Perf.', agendaFree: 'Agenda-Free' }
+const STAR_LABELS = ['', 'Terrible', 'Bad', 'Mixed', 'Good', 'Great', 'Masterpiece']
+const RATING_KEYS = ['story', 'soundMusic', 'gameplay', 'graphics', 'replayability', 'performance', 'agendaFree']
+const RATING_LBLS = { story: 'Story', soundMusic: 'Sound', gameplay: 'Gameplay', graphics: 'Graphics', replayability: 'Replay', performance: 'Perf.', agendaFree: 'Agenda-Free' }
 
 function _starStr(stars) {
     if (stars == null) return ''
@@ -46,6 +59,39 @@ function _starStr(stars) {
     const half  = stars % 2
     const empty = 3 - full - half
     return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty)
+}
+
+function _fmtHours(h) {
+    if (h == null) return '—'
+    if (h >= 100)  return `${Math.round(h)}h`
+    if (h >= 10)   return `${(Math.round(h * 2) / 2)}h`
+    return `${(Math.round(h * 10) / 10)}h`
+}
+
+// Inline create form — replaces a button with an input+confirm+cancel row
+function _showInlineCreate(btn, placeholder, onCreate) {
+    btn.hidden = true
+    const wrap = btn.parentElement
+    const form = document.createElement('div')
+    form.className = 'gj-inline-create'
+    form.innerHTML = `
+        <input class="gj-add-note-input" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
+        <button class="gj-btn gj-btn--accent" data-role="ic-confirm">Create</button>
+        <button class="gj-btn" data-role="ic-cancel">&times;</button>`
+    wrap.insertBefore(form, btn)
+
+    const input = form.querySelector('input')
+    input.focus()
+
+    const close   = () => { form.remove(); btn.hidden = false }
+    const confirm = () => { const v = input.value.trim(); if (v) onCreate(v); close() }
+
+    form.querySelector('[data-role="ic-confirm"]').addEventListener('click', confirm)
+    form.querySelector('[data-role="ic-cancel"]').addEventListener('click', close)
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); confirm() }
+        if (e.key === 'Escape') close()
+    })
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -88,7 +134,6 @@ async function _renderDashboard(appid, container, navigate) {
     container.innerHTML = `
         <div class="gj-header">
             <a href="/game/${appid}" class="gj-back">&#8592; ${escapeHtml(game.name)}</a>
-            <span class="gj-header-sep">›</span>
             <span class="gj-header-title">Journal</span>
         </div>
         <div class="gj-grid">
@@ -161,7 +206,7 @@ function _achCard(achList, appid) {
            <p class="gj-ach-recent-label">Recent</p>
            <div class="gj-ach-recent-list">
                ${recent.map(a => {
-                   const src = a.localIcon ?? a.icon ?? null
+                   const src      = a.localIcon ?? a.icon ?? null
                    const fallback = a.icon ?? null
                    const errHandler = src && fallback && src !== fallback
                        ? `this.onerror=null;this.src='${fallback}'`
@@ -169,7 +214,7 @@ function _achCard(achList, appid) {
                    return `
                <div class="gj-ach-item">
                    ${src
-                     ? `<img class="gj-ach-dot" src="${src}" style="width:20px;height:20px;border-radius:3px;flex-shrink:0" onerror="${errHandler}">`
+                     ? `<img src="${src}" style="width:20px;height:20px;border-radius:3px;flex-shrink:0;object-fit:cover" onerror="${errHandler}">`
                      : `<div class="gj-ach-dot gj-ach-dot--unlocked"></div>`}
                    <span class="gj-ach-name">${escapeHtml(a.displayName ?? _cleanAchName(a.apiname))}</span>
                    <span class="gj-ach-date">${_fmt(new Date(a.unlocktime * 1000))}</span>
@@ -188,46 +233,60 @@ function _achCard(achList, appid) {
 }
 
 function _hltbCard(game) {
-    const played = (game.playtimeMinutes ?? 0) / 60
-    const hltb   = game.hltb?.matched ? game.hltb : null
+    const playerHours = (game.playtimeMinutes ?? 0) / 60
+    const hltb        = game.hltb?.matched ? game.hltb : null
 
-    const milestones = []
-    if (hltb?.gameplayMain          != null) milestones.push({ label: 'Main',    h: hltb.gameplayMain })
-    if (hltb?.gameplayMainExtra     != null) milestones.push({ label: '+Extras', h: hltb.gameplayMainExtra })
-    if (hltb?.gameplayCompletionist != null) milestones.push({ label: '100%',    h: hltb.gameplayCompletionist })
+    const milestones = [
+        { label: 'Main',          h: hltb?.gameplayMain          },
+        { label: 'Main + Extras', h: hltb?.gameplayMainExtra     },
+        { label: 'Completionist', h: hltb?.gameplayCompletionist },
+    ].filter(m => m.h != null && m.h > 0)
 
-    const max = Math.max(played, ...milestones.map(m => m.h), 1)
-    const pct = n => Math.min(n / max * 100, 100)
-
-    const statsHtml = `
-        <div class="gj-hltb-stats">
-            <div class="gj-hltb-stat">
-                <span class="gj-hltb-stat-label">My Time</span>
-                <span class="gj-hltb-stat-value gj-hltb-stat-value--accent">${played > 0 ? played.toFixed(1) + 'h' : '–'}</span>
-            </div>
-            ${milestones.map(m => `
-            <div class="gj-hltb-stat">
-                <span class="gj-hltb-stat-label">${m.label}</span>
-                <span class="gj-hltb-stat-value">${m.h.toFixed(1)}h</span>
-            </div>`).join('')}
+    if (!milestones.length) {
+        return `
+        <div class="gj-card gj-card--wide">
+            <div class="gj-card-header"><span class="gj-card-title">How Long to Beat</span></div>
+            <p class="gj-no-data">${playerHours > 0 ? `Played ${_fmtHours(playerHours)} — no HLTB data` : 'No playtime or HLTB data'}</p>
         </div>`
+    }
 
-    const barHtml = milestones.length
-        ? `<div class="gj-hltb-bar-wrap">
-               <div class="gj-hltb-track">
-                   <div class="gj-hltb-fill" style="width:${pct(played)}%"></div>
-                   ${played > 0 ? `<div class="gj-hltb-marker" style="left:${pct(played)}%"></div>` : ''}
-                   ${milestones.map(m => `<div class="gj-hltb-tick" style="left:${pct(m.h)}%"></div>`).join('')}
-               </div>
-               ${milestones.map(m => `<span class="gj-hltb-tick-label" style="left:${pct(m.h)}%">${m.label} ${m.h.toFixed(0)}h</span>`).join('')}
-           </div>`
+    // Sqrt scale — prevents wide ranges from clustering left (mirrors game.js)
+    const allVals  = [...milestones.map(m => m.h), playerHours > 0 ? playerHours : null].filter(Boolean)
+    const maxScale = Math.max(...allVals) * 1.08
+    const pct      = h => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
+
+    const labelsHtml = milestones.map(m =>
+        `<span class="hltb-lbl" style="left:${pct(m.h).toFixed(2)}%">${escapeHtml(m.label)}</span>`
+    ).join('')
+
+    const ticksHtml = milestones.map(m =>
+        `<div class="hltb-tick" style="left:${pct(m.h).toFixed(2)}%"></div>`
+    ).join('')
+
+    const hoursHtml = milestones.map(m =>
+        `<span class="hltb-hr" style="left:${pct(m.h).toFixed(2)}%">${_fmtHours(m.h)}</span>`
+    ).join('')
+
+    const pinPos  = playerHours > 0 ? pct(playerHours) : null
+    const fillPct = pinPos ?? pct(milestones[0].h)
+    const pinHtml = pinPos != null
+        ? `<div class="hltb-pin" style="left:${pinPos.toFixed(2)}%" data-label="${_fmtHours(playerHours)} played"></div>`
         : ''
 
     return `
         <div class="gj-card gj-card--wide">
-            <div class="gj-card-header"><span class="gj-card-title">Time to Beat</span></div>
-            ${statsHtml}
-            ${barHtml}
+            <div class="gj-card-header"><span class="gj-card-title">How Long to Beat</span></div>
+            <div class="hltb-bar-wrap">
+                <div class="hltb-labels-row">${labelsHtml}</div>
+                <div class="hltb-track-wrap">
+                    <div class="hltb-track">
+                        <div class="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>
+                    </div>
+                    ${ticksHtml}
+                    ${pinHtml}
+                </div>
+                <div class="hltb-hours-row">${hoursHtml}</div>
+            </div>
         </div>`
 }
 
@@ -237,7 +296,7 @@ function _notesCard(pinnedNotes, appid) {
             <div class="gj-note-card" data-id="${escapeHtml(n.id)}">
                 ${escapeHtml(n.text)}
                 <div class="gj-note-btns">
-                    <button class="gj-note-btn" data-role="unpin-note" data-id="${escapeHtml(n.id)}" title="Unpin">📌</button>
+                    <button class="gj-note-btn" data-role="unpin-note" data-id="${escapeHtml(n.id)}" title="Unpin">${IC.pin}</button>
                     <button class="gj-note-btn gj-note-btn--del" data-role="del-note" data-id="${escapeHtml(n.id)}" title="Delete">&times;</button>
                 </div>
                 <div class="gj-note-date">${_fmt(n.createdAt)}</div>
@@ -253,7 +312,7 @@ function _notesCard(pinnedNotes, appid) {
             <div class="gj-notes-row">${notesHtml}</div>
             <div class="gj-add-note">
                 <input class="gj-add-note-input" placeholder="Quick note…" data-role="note-input">
-                <button class="gj-pin-toggle" data-role="pin-toggle" title="Toggle pin">📌</button>
+                <button class="gj-pin-toggle" data-role="pin-toggle" title="Pin note">${IC.pin}</button>
                 <button class="gj-btn gj-btn--accent" data-role="add-note">Add</button>
             </div>
         </div>`
@@ -278,7 +337,7 @@ function _progressCard(pages, appid) {
         <div class="gj-card">
             <div class="gj-card-header">
                 <span class="gj-card-title">Progress Trackers</span>
-                ${pages.length > 4 ? `<a href="/journal/${appid}/progress" class="gj-view-all">View All →</a>` : ''}
+                <a href="/journal/${appid}/progress" class="gj-view-all">View All →</a>
             </div>
             <div class="gj-progress-list">${listHtml}</div>
             <div class="gj-card-actions">
@@ -291,7 +350,7 @@ function _pagesCard(pages, appid) {
     const listHtml = pages.length
         ? pages.slice(0, 5).map(p => `
             <a class="gj-page-item" href="/${p.id}">
-                <span class="gj-page-icon">${p.type === 'notes' ? '≡' : '◻'}</span>
+                <span class="gj-page-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
                 <span class="gj-page-name">${escapeHtml(p.title)}</span>
                 <span class="gj-page-date">${_fmt(p.updatedAt)}</span>
             </a>`).join('')
@@ -301,7 +360,7 @@ function _pagesCard(pages, appid) {
         <div class="gj-card">
             <div class="gj-card-header">
                 <span class="gj-card-title">Journal Pages</span>
-                ${pages.length > 5 ? `<a href="/journal/${appid}/pages" class="gj-view-all">View All →</a>` : ''}
+                <a href="/journal/${appid}/pages" class="gj-view-all">View All →</a>
             </div>
             <div class="gj-pages-list">${listHtml}</div>
             <div class="gj-card-actions">
@@ -348,18 +407,18 @@ function _initDashboard(container, appid, game, navigate) {
         _renderDashboard(appid, container, navigate)
     })
 
-    container.querySelector('[data-role="new-progress"]')?.addEventListener('click', async () => {
-        const title = prompt('Tracker name:')
-        if (!title?.trim()) return
-        const page = await api.pages.create({ type: 'progress-bars', title: title.trim(), appid: String(appid) })
-        navigate(page.id)
+    container.querySelector('[data-role="new-progress"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
+            const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
+            navigate(page.id)
+        })
     })
 
-    container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', async () => {
-        const title = prompt('Page title:')
-        if (!title?.trim()) return
-        const page = await api.pages.create({ type: 'notes', title: title.trim(), appid: String(appid) })
-        navigate(page.id)
+    container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Page title…', async title => {
+            const page = await api.pages.create({ type: 'notes', title, appid: String(appid) })
+            navigate(page.id)
+        })
     })
 }
 
@@ -378,10 +437,9 @@ async function _doAddNote(appid, input, getPinned, container, navigate) {
 async function _renderAchievements(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    const achRes = await fetch('/relay/api/steam/achievements').then(r => r.ok ? r.json() : null).catch(() => null)
+    const achRes  = await fetch('/relay/api/steam/achievements').then(r => r.ok ? r.json() : null).catch(() => null)
     const achList = achRes?.[String(appid)]?.achievements ?? []
 
-    // Separate into three buckets
     const unlocked     = achList.filter(a => a.achieved).sort((a, b) => b.unlocktime - a.unlocktime)
     const lockedVis    = achList.filter(a => !a.achieved && !a.hidden)
     const lockedHidden = achList.filter(a => !a.achieved && a.hidden)
@@ -429,8 +487,8 @@ async function _renderAchievements(appid, container) {
 
 function _achItem(a, isUnlocked, isHidden) {
     const name        = a.displayName ?? _cleanAchName(a.apiname)
-    const localSrc    = isUnlocked ? (a.localIcon ?? null)     : (a.localIconGray ?? null)
-    const cdnFallback = isUnlocked ? (a.icon ?? null)          : (a.icongray ?? a.icon ?? null)
+    const localSrc    = isUnlocked ? (a.localIcon ?? null) : (a.localIconGray ?? null)
+    const cdnFallback = isUnlocked ? (a.icon ?? null)      : (a.icongray ?? a.icon ?? null)
     const imgSrc      = localSrc ?? cdnFallback
     const letter      = name[0]?.toUpperCase() ?? '?'
     const date        = isUnlocked && a.unlocktime ? _fmt(new Date(a.unlocktime * 1000)) : ''
@@ -449,7 +507,7 @@ function _achItem(a, isUnlocked, isHidden) {
         <div class="gj-ach-full-item ${isUnlocked ? 'gj-ach-full-item--unlocked' : ''}">
             ${badgeHtml}
             <div class="gj-ach-info">
-                <div class="gj-ach-full-name">${isHidden && !name ? '???' : escapeHtml(name)}</div>
+                <div class="gj-ach-full-name">${escapeHtml(name)}</div>
                 ${desc ? `<div class="gj-ach-full-date" style="margin-top:3px;font-size:10px;opacity:0.7;white-space:normal">${escapeHtml(desc)}</div>` : ''}
                 ${date ? `<div class="gj-ach-full-date">${date}</div>` : ''}
             </div>
@@ -478,7 +536,7 @@ async function _renderNotes(appid, container) {
             </div>
             <div class="gj-add-note" style="margin-bottom:20px">
                 <input class="gj-add-note-input" placeholder="New note…" data-role="note-input">
-                <button class="gj-pin-toggle" data-role="pin-toggle" title="Toggle pin">📌</button>
+                <button class="gj-pin-toggle" data-role="pin-toggle" title="Pin note">${IC.pin}</button>
                 <button class="gj-btn gj-btn--accent" data-role="add-note">Add</button>
             </div>
             ${all.length ? `
@@ -487,7 +545,7 @@ async function _renderNotes(appid, container) {
                 <div class="gj-note-full-card ${n.pinned ? 'gj-note-full-card--pinned' : ''}" data-id="${escapeHtml(n.id)}">
                     ${escapeHtml(n.text)}
                     <div class="gj-note-full-btns">
-                        <button class="gj-note-btn" data-role="toggle-pin" data-id="${escapeHtml(n.id)}" data-pinned="${n.pinned}" title="${n.pinned ? 'Unpin' : 'Pin'}">📌</button>
+                        <button class="gj-note-btn" data-role="toggle-pin" data-id="${escapeHtml(n.id)}" data-pinned="${n.pinned}" title="${n.pinned ? 'Unpin' : 'Pin'}">${IC.pin}</button>
                         <button class="gj-note-btn gj-note-btn--del" data-role="del-note" data-id="${escapeHtml(n.id)}" title="Delete">&times;</button>
                     </div>
                     <div class="gj-note-date">${_fmt(n.createdAt)}</div>
@@ -539,7 +597,7 @@ async function _renderProgress(appid, container, navigate) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
     const pagesRes = await api.pages.listByGame(appid).catch(() => [])
-    const pages = (pagesRes ?? []).filter(p => p.type === 'progress' || p.type === 'progress-bars')
+    const pages    = (pagesRes ?? []).filter(p => p.type === 'progress' || p.type === 'progress-bars')
 
     container.innerHTML = `
         <div class="gj-sub-header">
@@ -554,7 +612,7 @@ async function _renderProgress(appid, container, navigate) {
                 const pct = _progressPct(p)
                 return `
                 <a class="gj-full-item" href="/${p.id}">
-                    <span class="gj-full-item-icon">${p.type === 'progress-bars' ? '▤' : '◈'}</span>
+                    <span class="gj-full-item-icon">${p.type === 'progress-bars' ? IC.bars : IC.check}</span>
                     <div class="gj-full-item-body">
                         <div class="gj-full-item-title">${escapeHtml(p.title)}</div>
                         <div class="gj-full-item-meta">${p.type === 'progress-bars' ? 'Multi-bar tracker' : 'Step tracker'} · Updated ${_fmt(p.updatedAt)}</div>
@@ -565,11 +623,11 @@ async function _renderProgress(appid, container, navigate) {
             ${!pages.length ? `<p class="gj-no-data">No trackers yet. Create one to start tracking progress.</p>` : ''}
         </div>`
 
-    container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', async () => {
-        const title = prompt('Tracker name:')
-        if (!title?.trim()) return
-        const page = await api.pages.create({ type: 'progress-bars', title: title.trim(), appid: String(appid) })
-        navigate(page.id)
+    container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
+            const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
+            navigate(page.id)
+        })
     })
 }
 
@@ -579,7 +637,7 @@ async function _renderPages(appid, container, navigate) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
     const pagesRes = await api.pages.listByGame(appid).catch(() => [])
-    const pages = (pagesRes ?? []).filter(p => p.type === 'page' || p.type === 'notes')
+    const pages    = (pagesRes ?? []).filter(p => p.type === 'page' || p.type === 'notes')
 
     container.innerHTML = `
         <div class="gj-sub-header">
@@ -592,7 +650,7 @@ async function _renderPages(appid, container, navigate) {
         <div class="gj-full-list">
             ${pages.map(p => `
             <a class="gj-full-item" href="/${p.id}">
-                <span class="gj-full-item-icon">${p.type === 'notes' ? '≡' : '◻'}</span>
+                <span class="gj-full-item-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
                 <div class="gj-full-item-body">
                     <div class="gj-full-item-title">${escapeHtml(p.title)}</div>
                     <div class="gj-full-item-meta">${p.type === 'notes' ? 'Notes page' : 'Rich page'} · Updated ${_fmt(p.updatedAt)}</div>
@@ -601,10 +659,10 @@ async function _renderPages(appid, container, navigate) {
             ${!pages.length ? `<p class="gj-no-data">No pages yet. Create one to start writing.</p>` : ''}
         </div>`
 
-    container.querySelector('[data-role="new-page"]')?.addEventListener('click', async () => {
-        const title = prompt('Page title:')
-        if (!title?.trim()) return
-        const page = await api.pages.create({ type: 'notes', title: title.trim(), appid: String(appid) })
-        navigate(page.id)
+    container.querySelector('[data-role="new-page"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Page title…', async title => {
+            const page = await api.pages.create({ type: 'notes', title, appid: String(appid) })
+            navigate(page.id)
+        })
     })
 }
