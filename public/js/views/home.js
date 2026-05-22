@@ -8,49 +8,60 @@ const MOSAIC_COUNT    = 6
 export async function renderHome(container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    const [libResult, wlResult, alertsResult, discResult] = await Promise.allSettled([
+    // /relay/api/games is the enriched combined endpoint — library + wishlist
+    // with store data (releaseDate, media, etc.) and source tagging.
+    // /relay/api/steam/games is the thin Steam endpoint that has rtime_last_played.
+    const [allGamesResult, steamResult, alertsResult, discResult] = await Promise.allSettled([
+        fetch('/relay/api/games').then(r => r.ok ? r.json() : null),
         fetch('/relay/api/steam/games').then(r => r.ok ? r.json() : null),
-        fetch('/relay/api/wishlist').then(r => r.ok ? r.json() : null),
         fetch('/api/alerts').then(r => r.ok ? r.json() : null),
         fetch('/relay/api/discover/featured').then(r => r.ok ? r.json() : null),
     ])
 
-    const library   = _unwrapLibrary(libResult.value)
-    const wishlist  = Array.isArray(wlResult.value)  ? wlResult.value  : []
-    const alerts    = alertsResult.value ?? {}
-    const discover  = discResult.value   ?? []
+    const allGames = Array.isArray(allGamesResult.value) ? allGamesResult.value : []
+    const steamLib = _unwrapLibrary(steamResult.value)
+    const alerts   = alertsResult.value ?? {}
+    const discover = discResult.value   ?? []
+
+    const libGames = allGames.filter(g => g.source === 'library' || g.source === 'both')
+    const wlGames  = allGames.filter(g => g.source === 'wishlist' || g.source === 'both')
 
     // ── Conditional cards ─────────────────────────────────────────────────────
 
-    const today       = new Date().toISOString().slice(0, 10)
-    const releaseGame = wishlist.find(g => g.store?.releaseDateIso === today) ?? null
+    // Library-owned releases first, then wishlist-only
+    const releaseGame = libGames.find(_isToday) ?? wlGames.find(_isToday) ?? null
 
-    const onSale    = alerts.onSale ?? []
-    const saleGame  = onSale.length ? onSale[Math.floor(Math.random() * onSale.length)] : null
+    const onSale   = alerts.onSale ?? []
+    const saleGame = onSale.length ? onSale[Math.floor(Math.random() * onSale.length)] : null
 
-    const nowSec    = Math.floor(Date.now() / 1000)
-    const resumeGame = library
+    const nowSec     = Math.floor(Date.now() / 1000)
+    const resumeSteam = steamLib
         .filter(g => g.rtime_last_played && (nowSec - g.rtime_last_played) < RESUME_WINDOW_S)
         .sort((a, b) => b.rtime_last_played - a.rtime_last_played)[0] ?? null
+    // Merge with rich data for art/name (keep steam obj for playtime fields)
+    const resumeGame = resumeSteam
+        ? { ...resumeSteam, ...(allGames.find(g => String(g.appid) === String(resumeSteam.appid)) ?? {}) }
+        : null
 
     const conditionals = [
-        releaseGame ? _cardRelease(releaseGame)          : null,
-        saleGame    ? _cardSale(saleGame)                : null,
-        resumeGame  ? _cardResume(resumeGame)            : null,
+        releaseGame  ? _cardRelease(releaseGame)          : null,
+        saleGame     ? _cardSale(saleGame)                : null,
+        resumeGame   ? _cardResume(resumeGame, resumeSteam) : null,
     ].filter(Boolean)
 
     // ── Anchor card poster pools ──────────────────────────────────────────────
 
-    const libPosters  = _sample(library, MOSAIC_COUNT).map(g => g.appid)
-    const wlPosters   = _sample(wishlist, MOSAIC_COUNT).map(g => g.appid)
-
+    const libPosters  = _sample(libGames, MOSAIC_COUNT)
+    const wlPosters   = _sample(wlGames,  MOSAIC_COUNT)
     const discItems   = discover.flatMap(s => s.items ?? [])
-    const discPosters = _sample(discItems, MOSAIC_COUNT).map(g => g.appid ?? _appidFromUrl(g.headerImage))
+    const discPosters = _sample(discItems, MOSAIC_COUNT).map(g => ({
+        appid: g.appid ?? _appidFromUrl(g.headerImage),
+    }))
 
     // ── Render ────────────────────────────────────────────────────────────────
 
     const hasConditional = conditionals.length > 0
-    const condCols = conditionals.length || 1
+    const condCols       = conditionals.length || 1
 
     container.innerHTML = `
         <div class="home-wrap${hasConditional ? '' : ' home-wrap--solo'}">
@@ -59,18 +70,17 @@ export async function renderHome(container) {
                 ${conditionals.join('')}
             </div>` : ''}
             <div class="home-row" style="grid-template-columns: 1fr 1fr 1fr">
-                ${_cardAnchor('/library',  'View Library',     libPosters)}
-                ${_cardAnchor('/wishlist', 'View Wishlist',    wlPosters)}
-                ${_cardAnchor('/discover', 'Discover Games',   discPosters)}
+                ${_cardAnchor('/library',  'View Library',   libPosters)}
+                ${_cardAnchor('/wishlist', 'View Wishlist',  wlPosters)}
+                ${_cardAnchor('/discover', 'Discover Games', discPosters)}
             </div>
         </div>`
-
 }
 
 // ── Conditional cards ─────────────────────────────────────────────────────────
 
 function _cardRelease(game) {
-    const bg = _heroBg(game.appid)
+    const bg = _heroBg(game)
     return `
         <a class="home-card" href="/game/${game.appid}">
             <div class="home-card-bg" style="background-image:url('${bg}')"></div>
@@ -84,9 +94,9 @@ function _cardRelease(game) {
 }
 
 function _cardSale(game) {
-    const bg   = _heroBg(game.appid)
-    const cut  = game.bestPrice?.cut   ?? 0
-    const url  = game.bestPrice?.url   ?? `/game/${game.appid}`
+    const bg    = `/relay/images/steam/games/${game.appid}/header.jpg`
+    const cut   = game.bestPrice?.cut   ?? 0
+    const url   = game.bestPrice?.url   ?? `/game/${game.appid}`
     const store = game.bestPrice?.store ?? ''
     const price = game.bestPrice?.price != null ? `$${game.bestPrice.price.toFixed(2)}` : ''
     const external = url.startsWith('http')
@@ -102,10 +112,13 @@ function _cardSale(game) {
         </a>`
 }
 
-function _cardResume(game) {
-    const bg    = _heroBg(game.appid)
-    const hours = ((game.playtime_forever ?? 0) / 60).toFixed(1)
-    const days  = Math.floor((Date.now() / 1000 - game.rtime_last_played) / 86400)
+function _cardResume(game, steamGame) {
+    const bg    = _heroBg(game)
+    // playtime_forever (minutes) comes from the raw steam obj; playtimeMinutes from enriched
+    const mins  = steamGame?.playtime_forever ?? game.playtimeMinutes ?? 0
+    const hours = (mins / 60).toFixed(1)
+    const last  = steamGame?.rtime_last_played ?? 0
+    const days  = Math.floor((Date.now() / 1000 - last) / 86400)
     const when  = days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`
     return `
         <a class="home-card" href="/game/${game.appid}">
@@ -121,14 +134,15 @@ function _cardResume(game) {
 
 // ── Anchor cards ──────────────────────────────────────────────────────────────
 
-function _cardAnchor(href, label, appids) {
-    const mosaicImgs = appids.map(id => id
-        ? `<img class="home-mosaic-img"
-                src="https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/library_600x900.jpg"
-                onerror="this.src='/relay/images/steam/games/${id}/header.jpg'"
-                alt="" loading="lazy">`
-        : '<div class="home-mosaic-img" style="background:#111"></div>'
-    ).join('')
+function _cardAnchor(href, label, games) {
+    const mosaicImgs = games.map(g => {
+        const id = g?.appid
+        if (!id) return '<div class="home-mosaic-img" style="background:#111"></div>'
+        return `<img class="home-mosaic-img"
+                     src="/relay/images/steam/games/${id}/capsule.jpg"
+                     onerror="this.src='/relay/images/steam/games/${id}/header.jpg'"
+                     alt="" loading="lazy">`
+    }).join('')
 
     return `
         <a class="home-card home-card--anchor" href="${escapeHtml(href)}">
@@ -143,8 +157,20 @@ function _cardAnchor(href, label, appids) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function _heroBg(appid) {
-    return `/relay/images/steam/games/${appid}/header.jpg`
+function _heroBg(game) {
+    // Prefer the relay-served header; media.header is already the relay path
+    return game.media?.header ?? `/relay/images/steam/games/${game.appid}/header.jpg`
+}
+
+function _isToday(game) {
+    const str = game.store?.releaseDate
+    if (!str) return false
+    const parsed = new Date(str)
+    if (isNaN(parsed.getTime())) return false
+    const now = new Date()
+    return parsed.getDate()     === now.getDate()     &&
+           parsed.getMonth()    === now.getMonth()    &&
+           parsed.getFullYear() === now.getFullYear()
 }
 
 function _sample(arr, n) {
@@ -159,10 +185,10 @@ function _sample(arr, n) {
 
 function _unwrapLibrary(json) {
     if (!json) return []
-    if (Array.isArray(json))                           return json
-    if (Array.isArray(json.games))                     return json.games
-    if (Array.isArray(json.data))                      return json.data
-    if (json.response && Array.isArray(json.response.games)) return json.response.games
+    if (Array.isArray(json))                                    return json
+    if (Array.isArray(json.games))                              return json.games
+    if (Array.isArray(json.data))                               return json.data
+    if (json.response && Array.isArray(json.response.games))    return json.response.games
     return []
 }
 
@@ -171,4 +197,3 @@ function _appidFromUrl(url) {
     const m = url.match(/\/apps\/(\d+)\//)
     return m ? m[1] : null
 }
-
