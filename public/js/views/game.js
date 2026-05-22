@@ -1656,6 +1656,15 @@ function _initNavRail(container) {
     document.body.appendChild(rail)
     _navRailEl = rail
 
+    // Clamp the rail's top to the bottom of the hero so it never overlaps it.
+    // Once the hero scrolls off-screen the value goes negative and we floor at 20px.
+    function _updatePosition() {
+        if (!rail.isConnected) return
+        const hero = document.getElementById('game-sec-hero')
+        if (!hero) return
+        rail.style.top = Math.max(hero.getBoundingClientRect().bottom, 20) + 'px'
+    }
+
     function _updateActive() {
         if (!rail.isConnected) return
         const btns = [...rail.querySelectorAll('.gnr-btn')]
@@ -1675,6 +1684,11 @@ function _initNavRail(container) {
         )
     }
 
+    function _onScroll() {
+        _updatePosition()
+        _updateActive()
+    }
+
     function _rebuild() {
         const visible = _NAV_ITEMS.filter(item => document.getElementById(item.id))
         rail.innerHTML = visible.map(item => `
@@ -1687,6 +1701,7 @@ function _initNavRail(container) {
                 if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
             })
         })
+        _updatePosition()
         _updateActive()
     }
 
@@ -1694,14 +1709,14 @@ function _initNavRail(container) {
     rail._rebuild = _rebuild
     _rebuild()
 
-    scrollEl.addEventListener('scroll', _updateActive, { passive: true })
+    scrollEl.addEventListener('scroll', _onScroll, { passive: true })
 
     // Clean up when the SPA navigates away from the game page
     const mo = new MutationObserver(() => {
         if (!document.getElementById('game-sec-hero')) {
             rail.remove()
             _navRailEl = null
-            scrollEl.removeEventListener('scroll', _updateActive)
+            scrollEl.removeEventListener('scroll', _onScroll)
             mo.disconnect()
         }
     })

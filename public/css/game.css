@@ -1667,13 +1667,12 @@
 .game-nav-rail {
     position: fixed;
     left: calc(var(--sidebar-w) + 11px);
-    top: 50%;
-    transform: translateY(-50%);
+    top: 20px; /* overridden each frame by JS — see _initNavRail */
     display: flex;
     flex-direction: column;
     gap: 3px;
     z-index: 90;
-    max-height: 90vh;
+    max-height: calc(100vh - 40px);
     overflow-y: auto;
     overflow-x: visible;
     scrollbar-width: none;
