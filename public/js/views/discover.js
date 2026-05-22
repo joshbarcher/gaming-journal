@@ -324,6 +324,10 @@ function _card(item) {
         }
     }
 
+    // Fallback chain for search results where we only have appid (no content hash).
+    // Newer games on the Fastly CDN require a hash we don't have from the applist;
+    // see relay-server/docs/steam-cdn.md for the full migration context.
+    // Chain: akamai header.jpg → akamai capsule_616x353.jpg → hide
     const capsule  = `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/capsule_616x353.jpg`
     const errChain = `if(this.src!=='${capsule}'){this.src='${capsule}';}else{this.style.visibility='hidden';}`
 
