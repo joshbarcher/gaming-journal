@@ -324,12 +324,15 @@ function _card(item) {
         }
     }
 
+    const capsule  = `https://cdn.akamai.steamstatic.com/steam/apps/${item.appid}/capsule_616x353.jpg`
+    const errChain = `if(this.src!=='${capsule}'){this.src='${capsule}';}else{this.style.visibility='hidden';}`
+
     return `
 <div class="lib-card disc-card" data-appid="${item.appid}" tabindex="0">
     <div class="lib-card-img-wrap">
         <img class="lib-card-img" src="${escapeHtml(item.headerImage)}"
              alt="${escapeHtml(item.name)}" loading="lazy"
-             onerror="this.style.visibility='hidden'">
+             onerror="${errChain}">
         ${badge}
     </div>
     <div class="lib-card-info">
