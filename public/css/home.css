@@ -6,7 +6,7 @@
     overflow: hidden;
     display: grid;
     grid-template-rows: 45fr 55fr;
-    gap: 20px;
+    gap: 40px;
     padding: 24px;
     background: var(--clr-bg);
     box-sizing: border-box;
@@ -18,7 +18,7 @@
 
 .home-row {
     display: grid;
-    gap: 20px;
+    gap: 40px;
     min-height: 0;
 }
 
@@ -51,9 +51,6 @@
     filter: brightness(1.12);
 }
 
-.home-card:hover .home-card-arrow {
-    transform: translateX(4px);
-}
 
 /* ── Background art ──────────────────────────────────────────────────────────── */
 
@@ -66,15 +63,18 @@
     will-change: transform;
 }
 
-/* Gradient overlay — heavy at bottom for text legibility */
+/* Conditional card scrim — punchy dark band at the bottom, open at the top */
 .home-card::after {
     content: '';
     position: absolute;
     inset: 0;
-    background:
-        linear-gradient(to top,  rgba(8, 7, 6, 0.94) 0%, rgba(8, 7, 6, 0.55) 38%, rgba(8, 7, 6, 0.08) 100%),
-        linear-gradient(to right, rgba(8, 7, 6, 0.50) 0%, transparent 60%);
+    background: linear-gradient(to top, rgba(8, 7, 6, 0.97) 0%, rgba(8, 7, 6, 0.75) 25%, rgba(8, 7, 6, 0.0) 60%);
     pointer-events: none;
+}
+
+/* Anchor card scrim — just a soft centre vignette so art stays visible */
+.home-card--anchor::after {
+    background: radial-gradient(ellipse at center, rgba(8, 7, 6, 0.35) 0%, rgba(8, 7, 6, 0.15) 100%);
 }
 
 /* ── Card body (sits above gradient) ─────────────────────────────────────────── */
@@ -145,15 +145,6 @@
     gap: 8px;
 }
 
-.home-card-arrow {
-    display: inline-block;
-    font-size: 14px;
-    color: rgba(237, 233, 223, 0.50);
-    transition: transform var(--transition);
-    margin-top: 2px;
-    align-self: flex-start;
-}
-
 /* ── Anchor card mosaic background ───────────────────────────────────────────── */
 
 .home-mosaic {
@@ -212,9 +203,6 @@
     border-color: rgba(255, 255, 255, 0.30);
 }
 
-.home-card--anchor .home-card-arrow {
-    align-self: center;
-}
 
 /* ── Release chip star icon ──────────────────────────────────────────────────── */
 

@@ -92,7 +92,7 @@ function _cardRelease(game) {
                 <span class="home-chip home-chip--release"><em class="home-chip-icon">★</em> Released Today</span>
                 <span class="home-card-title">${escapeHtml(game.name)}</span>
                 <span class="home-card-meta">Available now on Steam</span>
-                <span class="home-card-arrow">→</span>
+
             </div>
         </a>`
 }
@@ -111,7 +111,7 @@ function _cardSale(game) {
                 <span class="home-chip home-chip--sale">On Sale  −${cut}%</span>
                 <span class="home-card-title">${escapeHtml(game.name)}</span>
                 <span class="home-card-meta">${price ? `${price} · ` : ''}${escapeHtml(store)}</span>
-                <span class="home-card-arrow">→</span>
+
             </div>
         </a>`
 }
@@ -131,7 +131,7 @@ function _cardResume(game, steamGame) {
                 <span class="home-chip home-chip--resume">▶ Resume</span>
                 <span class="home-card-title">${escapeHtml(game.name)}</span>
                 <span class="home-card-meta">${hours}h played · last played ${when}</span>
-                <span class="home-card-arrow">→</span>
+
             </div>
         </a>`
 }
@@ -160,7 +160,7 @@ function _cardAnchor(href, label, posters) {
             <div class="home-mosaic">${mosaicImgs}</div>
             <div class="home-card-body">
                 <span class="home-anchor-label">${escapeHtml(label)}</span>
-                <span class="home-card-arrow">→</span>
+
             </div>
         </a>`
 }
