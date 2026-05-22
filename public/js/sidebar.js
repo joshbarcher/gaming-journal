@@ -270,7 +270,7 @@ function buildHomeButton(isActive) {
     el.className = 'sidebar-home-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'home'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.home} Journal`
+    el.innerHTML = `${_ICONS.home} Home`
     el.addEventListener('click', () => _onNavigate(''))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('') }

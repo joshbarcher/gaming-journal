@@ -59,7 +59,8 @@ export async function renderHome(container) {
     const discItems   = discover.flatMap(s => s.items ?? [])
     // Discover items carry their own CDN image URLs — prefer portrait poster
     const discPosters = _sample(discItems, MOSAIC_COUNT).map(g => ({
-        src: g.posterImage ?? g.headerImage ?? null,
+        src:      g.posterImage  ?? g.headerImage ?? null,
+        fallback: g.headerImage  ?? null,
     }))
 
     // ── Render ────────────────────────────────────────────────────────────────
@@ -142,9 +143,12 @@ function _cardAnchor(href, label, posters) {
     const mosaicImgs = posters.map(g => {
         // Discover items supply a direct CDN src; library/wishlist use relay appid paths
         if (g?.src) {
+            const onErr = g.fallback && g.fallback !== g.src
+                ? `this.onerror=null;this.src='${g.fallback}'`
+                : `this.onerror=null;this.style.visibility='hidden'`
             return `<img class="home-mosaic-img"
                          src="${escapeHtml(g.src)}"
-                         onerror="this.onerror=null;this.style.visibility='hidden'"
+                         onerror="${escapeHtml(onErr)}"
                          alt="" loading="lazy">`
         }
         const id = g?.appid

@@ -43,12 +43,13 @@ export async function getAlerts() {
                 name:          game?.name           ?? `App ${appid}`,
                 bestPrice,
                 historicalLow: itad?.historicalLow  ?? null,
+                isLibrary:     game?.source === 'library' || game?.source === 'both',
             }
         })
     )
 
-    const onSale   = results.filter(r => (r.bestPrice?.cut ?? 0) > 0)
-    const watching = results.filter(r => (r.bestPrice?.cut ?? 0) === 0)
+    const onSale   = results.filter(r => !r.isLibrary && (r.bestPrice?.cut ?? 0) > 0)
+    const watching = results.filter(r => !r.isLibrary && (r.bestPrice?.cut ?? 0) === 0)
 
     onSale.sort((a, b) => (b.bestPrice?.cut ?? 0) - (a.bestPrice?.cut ?? 0))
 
