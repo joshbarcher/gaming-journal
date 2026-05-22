@@ -1656,13 +1656,18 @@ function _initNavRail(container) {
     document.body.appendChild(rail)
     _navRailEl = rail
 
-    // Clamp the rail's top to the bottom of the hero so it never overlaps it.
-    // Once the hero scrolls off-screen the value goes negative and we floor at 20px.
+    // Align the rail's first icon with the first flag button.
+    // .game-flags-inner has padding: 10px 0; the rail has padding: 4px 0 — so +6 corrects
+    // for that difference. Once the flags bar scrolls off-screen we floor at 20px.
     function _updatePosition() {
         if (!rail.isConnected) return
-        const hero = document.getElementById('game-sec-hero')
-        if (!hero) return
-        rail.style.top = Math.max(hero.getBoundingClientRect().bottom, 20) + 'px'
+        const flagsInner = container.querySelector('.game-flags-inner')
+        const hero       = document.getElementById('game-sec-hero')
+        if (!flagsInner && !hero) return
+        const top = flagsInner
+            ? flagsInner.getBoundingClientRect().top + 6
+            : hero.getBoundingClientRect().bottom
+        rail.style.top = Math.max(top, 20) + 'px'
     }
 
     function _updateActive() {
