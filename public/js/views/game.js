@@ -52,7 +52,7 @@ export async function renderGame(appid, container) {
     }
 
     container.innerHTML = `
-        ${_hero(game)}
+        ${_hero(game, communityReviews)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         ${_releaseBanner(game)}
         <div class="game-flags-bar" data-appid="${appid}">
@@ -104,7 +104,7 @@ export async function renderGame(appid, container) {
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
-function _hero(game) {
+function _hero(game, communityReviews) {
     const screenshots = game.media?.screenshots ?? []
     const initBg  = screenshots[0] ?? game.media?.background ?? game.media?.header ?? ''
     const logoUrl = game.media?.logo ?? ''
@@ -141,7 +141,7 @@ function _hero(game) {
                     ${badgesHtml ? `<div class="game-hero-badges">${badgesHtml}</div>` : ''}
                 </div>
                 <div class="game-hero-right">
-                    ${_dataPanel(game)}
+                    ${_dataPanel(game, communityReviews)}
                 </div>
             </div>
         </section>`
@@ -222,20 +222,40 @@ async function _startHeroSlideshow(container, game) {
     }, INTERVAL)
 }
 
-function _dataPanel(game) {
+function _scoreColor(n) {
+    if (n == null) return null
+    if (n >= 75) return { clr: '#4caf50', bg: 'rgba(76,175,80,0.13)' }
+    if (n >= 50) return { clr: '#c9a84c', bg: 'rgba(201,168,76,0.13)' }
+    return             { clr: '#e05050', bg: 'rgba(224,80,80,0.13)' }
+}
+
+function _scoreChip(source, score, display) {
+    if (score == null) {
+        return `<div class="gdp-score-chip gdp-score-chip--missing">
+            <span class="gdp-score-chip-source">${source}</span>
+            <span class="gdp-score-chip-value">—</span>
+        </div>`
+    }
+    const c = _scoreColor(score)
+    return `<div class="gdp-score-chip" style="--chip-clr:${c.clr};--chip-bg:${c.bg}">
+        <span class="gdp-score-chip-source">${source}</span>
+        <span class="gdp-score-chip-value">${display}</span>
+    </div>`
+}
+
+function _dataPanel(game, communityReviews) {
     const rows = []
 
-    // Metacritic
-    const mcData = game.store?.metacritic
-    const mc     = mcData?.score ?? (typeof mcData === 'number' ? mcData : null)
-    if (mc != null) {
-        const mcColor = mc >= 75 ? '#4a8c2a' : mc >= 50 ? '#a07010' : '#982020'
-        rows.push(`
-            <div class="gdp-row gdp-row--score">
-                <span class="gdp-metacritic" style="background:${mcColor}">${mc}</span>
-                <span class="gdp-score-label">Metacritic</span>
-            </div>`)
-    }
+    // Scores row — Steam · OpenCritic (placeholder) · Metacritic
+    const steamRatio = communityReviews?.summary?.ratio ?? null
+    const mcData     = game.store?.metacritic
+    const mcScore    = mcData?.score ?? (typeof mcData === 'number' ? mcData : null)
+
+    rows.push(`<div class="gdp-score-row">
+        ${_scoreChip('Steam',       steamRatio, steamRatio != null ? Math.round(steamRatio) + '%' : null)}
+        ${_scoreChip('OpenCritic',  null,       null)}
+        ${_scoreChip('Metacritic',  mcScore,    mcScore)}
+    </div>`)
 
     // Playtime
     const playerHours = (game.playtimeMinutes ?? 0) / 60

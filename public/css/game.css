@@ -185,32 +185,48 @@
     gap: 0;
 }
 
-.gdp-row--score {
+.gdp-score-row {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: 6px;
     padding-bottom: 10px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.gdp-metacritic {
-    width: 38px;
-    height: 38px;
-    border-radius: 4px;
-    display: inline-flex;
+.gdp-score-chip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    font-size: 17px;
-    font-weight: 700;
-    color: #fff;
-    flex-shrink: 0;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    gap: 3px;
+    padding: 7px 4px 6px;
+    border-radius: 5px;
+    border: 1px solid var(--chip-clr, rgba(255, 255, 255, 0.18));
+    background: var(--chip-bg, rgba(255, 255, 255, 0.04));
+    min-width: 0;
 }
 
-.gdp-score-label {
-    font-size: 11.5px;
-    color: var(--clr-text-muted);
+.gdp-score-chip--missing {
+    opacity: 0.32;
+    border-style: dashed;
+    --chip-clr: rgba(255, 255, 255, 0.28);
+    --chip-bg: transparent;
+}
+
+.gdp-score-chip-source {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--chip-clr, rgba(237, 233, 223, 0.55));
+    white-space: nowrap;
+}
+
+.gdp-score-chip-value {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--chip-clr, rgba(237, 233, 223, 0.7));
 }
 
 .gdp-row {
