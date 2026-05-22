@@ -37,8 +37,15 @@ export async function renderGame(appid, container) {
         trailers         = trailersRes.ok  ? await trailersRes.json()  : []
         localWishlisted  = localWlRes.ok   ? (await localWlRes.json()).wishlisted : false
         news             = newsRes.ok      ? await newsRes.json()      : null
-        // Background refresh — fire and forget
-        fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }).catch(() => {})
+        if (_newsBBCodeDirty(news)) {
+            try {
+                await fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' })
+                const freshRes = await fetch(`/relay/api/news/${appid}`)
+                if (freshRes.ok) news = await freshRes.json()
+            } catch { /* ignore — render whatever we have */ }
+        } else {
+            fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }).catch(() => {})
+        }
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -506,6 +513,12 @@ function _initTrailers(container) {
 }
 
 // ── News ──────────────────────────────────────────────────────────────────────
+
+const _BB_RE = /\[(?:b|i|u|s|h[1-6]|url|img|list|quote|code|spoiler|strike)[=\]]/i
+
+function _newsBBCodeDirty(news) {
+    return news?.items?.some(item => _BB_RE.test(item.contents ?? ''))
+}
 
 function _news(news) {
     const items = news?.items
