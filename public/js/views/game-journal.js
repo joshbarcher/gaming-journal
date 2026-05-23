@@ -349,7 +349,8 @@ function _progressCard(pages, appid) {
             </div>
             <div class="gj-progress-list">${listHtml}</div>
             <div class="gj-card-actions">
-                <button class="gj-btn" data-role="new-progress">+ New Tracker</button>
+                <button class="gj-btn" data-role="new-progress">+ Progress</button>
+                <button class="gj-btn" data-role="new-progress-bars">+ Multi-Bar</button>
             </div>
         </div>`
 }
@@ -416,6 +417,13 @@ function _initDashboard(container, appid, game, navigate) {
     })
 
     container.querySelector('[data-role="new-progress"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
+            const page = await api.pages.create({ type: 'progress', title, appid: String(appid) })
+            navigate(page.id)
+        })
+    })
+
+    container.querySelector('[data-role="new-progress-bars"]')?.addEventListener('click', e => {
         _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
             const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
             navigate(page.id)
@@ -653,26 +661,37 @@ async function _renderProgress(appid, container, navigate) {
             <a href="/journal/${appid}" class="gj-sub-back">&#8592; Journal</a>
             <span class="gj-sub-title">Progress Trackers</span>
             <div class="gj-sub-actions">
-                <button class="gj-btn" data-role="new-tracker">+ New Tracker</button>
+                <button class="gj-btn" data-role="new-tracker">+ Progress</button>
+                <button class="gj-btn" data-role="new-tracker-bars">+ Multi-Bar</button>
             </div>
         </div>
         <div class="gj-full-list">
             ${pages.map(p => {
-                const pct = _progressPct(p)
+                const segs = globalSegments(p)
+                const segsHtml = segs.map(s =>
+                    `<div class="gj-prog-seg" style="background:${s.color}" title="${escapeHtml(s.label ?? '')}"></div>`
+                ).join('')
                 return `
                 <a class="gj-full-item" href="/${p.id}">
                     <span class="gj-full-item-icon">${p.type === 'progress-bars' ? IC.bars : IC.check}</span>
                     <div class="gj-full-item-body">
                         <div class="gj-full-item-title">${escapeHtml(p.title)}</div>
-                        <div class="gj-full-item-meta">${p.type === 'progress-bars' ? 'Multi-bar tracker' : 'Step tracker'} · Updated ${_fmt(p.updatedAt)}</div>
+                        <div class="gj-full-item-meta">${p.type === 'progress-bars' ? 'Multi-bar tracker' : 'Progress tracker'} · Updated ${_fmt(p.updatedAt)}</div>
+                        <div class="gj-prog-segs gj-prog-segs--full">${segsHtml}</div>
                     </div>
-                    <span class="gj-full-item-pct">${pct}%</span>
                 </a>`
             }).join('')}
             ${!pages.length ? `<p class="gj-no-data">No trackers yet. Create one to start tracking progress.</p>` : ''}
         </div>`
 
     container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
+            const page = await api.pages.create({ type: 'progress', title, appid: String(appid) })
+            navigate(page.id)
+        })
+    })
+
+    container.querySelector('[data-role="new-tracker-bars"]')?.addEventListener('click', e => {
         _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
             const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
             navigate(page.id)

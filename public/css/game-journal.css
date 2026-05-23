@@ -561,6 +561,11 @@
     align-items: stretch;
 }
 
+.gj-prog-segs--full {
+    height: 10px;
+    margin-top: 6px;
+}
+
 .gj-prog-seg {
     flex: 1;
     border-radius: 2px;
