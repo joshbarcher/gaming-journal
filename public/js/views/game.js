@@ -87,7 +87,8 @@ export async function renderGame(appid, container) {
         _loadAboutDynamic(container, appid)
     }
 
-    // For discovered games, progressively load HLTB / ITAD / PCGW as each resolves
+    // Progressively load any sections not yet cached (discovered games always,
+    // library/wishlist games when HLTB is missing or previously unmatched)
     if (container.querySelector('.game-hltb-pending, .game-itad-pending, .game-pcgw-pending')) {
         _loadDiscoveredData(container, game)
     }
@@ -350,13 +351,12 @@ function _hltb(game) {
         (hltb.gameplayMain ?? hltb.gameplayMainExtra ?? hltb.gameplayCompletionist) != null
 
     if (!hasData) {
-        // Discovered game, data not yet fetched — inject placeholder for async load
-        if (game.source === 'discovered' && game.hltb === null) return '<div class="game-hltb-pending"></div>'
-        return `
-            <section class="game-section" id="game-sec-hltb">
-                <h2 class="game-section-title">How Long To Beat</h2>
-                <p class="game-section-empty">No data available for this game.</p>
-            </section>`
+        // No data yet — show a pending placeholder so the async loader can fetch
+        // and swap it in dynamically.  This covers:
+        //   • Discovered games (never fetched)
+        //   • Library/wishlist games where HLTB returned no match last time
+        //     (the server will retry; page visit also triggers an on-demand attempt)
+        return '<div class="game-hltb-pending"></div>'
     }
 
     const playerHours = (game.playtimeMinutes ?? 0) / 60
@@ -1589,15 +1589,20 @@ function _loadDiscoveredData(container, game) {
         ;(async () => {
             const el = container.querySelector('.game-hltb-pending')
             if (!el) return
+            const noData = () => _swap(el, `
+                <section class="game-section" id="game-sec-hltb">
+                    <h2 class="game-section-title">How Long To Beat</h2>
+                    <p class="game-section-empty">No data available for this game.</p>
+                </section>`)
             try {
                 const res = await fetch(`/relay/api/hltb/${appid}?fetch=true&name=${name}`)
-                if (!res.ok) { el.remove(); return }
+                if (!res.ok) { noData(); return }
                 const entry = await res.json()
-                if (!entry.matched) { el.remove(); return }
-                const hasTimes = (entry.gameplayMain ?? entry.gameplayMainExtra ?? entry.gameplayCompletionist) != null
-                if (!hasTimes) { el.remove(); return }
+                const hasTimes = entry.matched &&
+                    (entry.gameplayMain ?? entry.gameplayMainExtra ?? entry.gameplayCompletionist) != null
+                if (!hasTimes) { noData(); return }
                 _swap(el, _hltb({ ...game, hltb: entry }))
-            } catch { el.remove() }
+            } catch { noData() }
         })()
     } else {
         container.querySelector('.game-hltb-pending')?.remove()
