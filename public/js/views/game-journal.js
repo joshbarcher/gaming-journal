@@ -101,34 +101,45 @@ function _showInlineCreate(btn, placeholder, onCreate) {
     })
 }
 
+// ── Module-level timer so it survives re-renders and gets cleaned up ───────────
+
+let _sessionTimer = null
+
+function _clearSessionTimer() {
+    if (_sessionTimer) { clearInterval(_sessionTimer); _sessionTimer = null }
+}
+
 // ── Entry point ────────────────────────────────────────────────────────────────
 
 export async function renderGameJournal(appid, sub, container, navigate) {
-    if (sub === 'achievements') return _renderAchievements(appid, container)
-    if (sub === 'notes')        return _renderNotes(appid, container)
-    if (sub === 'progress')     return _renderProgress(appid, container, navigate)
-    if (sub === 'pages')        return _renderPages(appid, container, navigate)
+    if (sub === 'achievements') { _clearSessionTimer(); return _renderAchievements(appid, container) }
+    if (sub === 'notes')        { _clearSessionTimer(); return _renderNotes(appid, container) }
+    if (sub === 'progress')     { _clearSessionTimer(); return _renderProgress(appid, container, navigate) }
+    if (sub === 'pages')        { _clearSessionTimer(); return _renderPages(appid, container, navigate) }
     await _renderDashboard(appid, container, navigate)
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────────
 
 async function _renderDashboard(appid, container, navigate) {
+    _clearSessionTimer()  // cancel any live timer from a previous render
     container.innerHTML = `<p class="page-loading">Loading journal…</p>`
 
-    const [gameRes, reviewRes, pagesRes, achRes, accountRes] = await Promise.allSettled([
+    const [gameRes, reviewRes, pagesRes, achRes, accountRes, nowPlayingRes] = await Promise.allSettled([
         fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
         api.localReviews.get(appid).catch(() => null),
         api.pages.listByGame(appid).catch(() => []),
         fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null),
         fetch('/relay/api/account').then(r => r.ok ? r.json() : null),
+        fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null),
     ])
 
-    const game        = gameRes.value     ?? null
-    const review      = reviewRes.value   ?? null
-    const pages       = pagesRes.value    ?? []
-    const achData     = achRes.value      ?? null
-    const accountData = accountRes.value  ?? null
+    const game        = gameRes.value       ?? null
+    const review      = reviewRes.value     ?? null
+    const pages       = pagesRes.value      ?? []
+    const achData     = achRes.value        ?? null
+    const accountData = accountRes.value    ?? null
+    const nowPlaying  = nowPlayingRes.value ?? null
 
     if (!game) {
         container.innerHTML = `<p class="page-error">Failed to load game data.</p>`
@@ -144,6 +155,11 @@ async function _renderDashboard(appid, container, navigate) {
                        ?? accountData?.sessions?.[String(appid)]?.sessions
                        ?? []
 
+    // If this game is currently being played, show a live current-session card
+    const activeSession = nowPlaying?.playing?.appid === Number(appid)
+        ? nowPlaying.playing
+        : null
+
     container.innerHTML = `
         <div class="gj-dash">
             <div class="gj-header">
@@ -153,7 +169,9 @@ async function _renderDashboard(appid, container, navigate) {
             <div class="gj-grid">
                 ${_ratingCard(review)}
                 ${_achCard(achList, appid)}
-                ${_sessionCard(gameSessions, achList)}
+                ${activeSession
+                    ? _currentSessionCard(activeSession, achList)
+                    : _sessionCard(gameSessions, achList)}
                 ${_hltbCard(game)}
                 ${_progressCard(progressPages, appid)}
                 ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
@@ -161,6 +179,9 @@ async function _renderDashboard(appid, container, navigate) {
         </div>`
 
     _initDashboard(container, appid, game, navigate)
+
+    // Start a live elapsed-time ticker if the game is actively being played
+    if (activeSession) _initSessionTimer(container, activeSession.sessionStartedAt)
 }
 
 // ── Card HTML ──────────────────────────────────────────────────────────────────
@@ -385,6 +406,62 @@ function _pagesCard(pages, appid) {
                 <button class="gj-btn" data-role="new-notes-page">+ New Page</button>
             </div>
         </div>`
+}
+
+function _currentSessionCard(session, achList) {
+    const achMap = {}
+    for (const a of achList) achMap[a.apiname] = a
+
+    const achs = session.achievementsDuring ?? []
+
+    const achsHtml = achs.length
+        ? `<div class="gj-session-achs">
+              ${achs.slice(0, 4).map(a => {
+                  const full     = achMap[a.apiname]
+                  const name     = full?.displayName ?? _cleanAchName(a.apiname)
+                  const src      = full?.localIcon ?? full?.icon ?? null
+                  const fallback = full?.icon ?? null
+                  const errHandler = src && fallback && src !== fallback
+                      ? `this.onerror=null;this.src='${fallback}'`
+                      : `this.style.visibility='hidden'`
+                  return `<div class="gj-session-ach" title="${escapeHtml(name)}">
+                      ${src
+                        ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
+                        : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
+                      <span class="gj-session-ach-name">${escapeHtml(name)}</span>
+                  </div>`
+              }).join('')}
+              ${achs.length > 4 ? `<span class="gj-session-ach-more">+${achs.length - 4} more</span>` : ''}
+          </div>`
+        : `<p class="gj-no-data">No achievements yet</p>`
+
+    return `
+        <div class="gj-card gj-card--active-session">
+            <div class="gj-card-header">
+                <span class="gj-card-title">Playing Now</span>
+                <span class="gj-active-dot"></span>
+            </div>
+            <div class="gj-session-stat">
+                <span class="gj-session-big" data-role="session-elapsed">—</span>
+                <span class="gj-session-sublabel">so far</span>
+            </div>
+            ${achs.length ? `<p class="gj-ach-recent-label">Earned (${achs.length})</p>` : ''}
+            ${achsHtml}
+        </div>`
+}
+
+function _initSessionTimer(container, startedAt) {
+    const el = container.querySelector('[data-role="session-elapsed"]')
+    if (!el) return
+
+    const update = () => {
+        const totalMins = Math.floor((Date.now() - new Date(startedAt)) / 60_000)
+        const h = Math.floor(totalMins / 60)
+        const m = totalMins % 60
+        el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`
+    }
+    update()
+    _sessionTimer = setInterval(update, 30_000)
 }
 
 function _sessionCard(sessions, achList) {

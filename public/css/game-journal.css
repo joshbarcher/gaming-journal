@@ -650,6 +650,29 @@
     flex-shrink: 0;
 }
 
+/* ── Active (currently playing) session card ──────────────────────────────────── */
+
+.gj-card--active-session {
+    border-color: rgba(80, 200, 120, 0.35);
+    background: rgba(80, 200, 120, 0.04);
+}
+
+.gj-active-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #50c878;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 0 rgba(80, 200, 120, 0.5);
+    animation: gj-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes gj-dot-pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(80, 200, 120, 0.5); }
+    60%  { box-shadow: 0 0 0 5px rgba(80, 200, 120, 0);   }
+    100% { box-shadow: 0 0 0 0   rgba(80, 200, 120, 0);   }
+}
+
 /* ── Session card ─────────────────────────────────────────────────────────────── */
 
 .gj-session-date-chip {
