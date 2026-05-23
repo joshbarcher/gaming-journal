@@ -171,8 +171,9 @@ let _dashPollTimer  = null  // 60s  — now-playing delta (session achs + ach ca
 let _dataPollTimer  = null  // 5min — achievement cache + game data (HLTB pin)
 let _rawAchList     = []    // base ach list without session-merge, kept fresh by slow poll
 let _lastAchsDuring = []    // last known achievementsDuring from now-playing
-let _hltbMilestones = null  // [{label, h}] stored as side-effect by _hltbCard
-let _hltbMaxScale   = null  // pre-computed scale for consistent pin positioning
+let _hltbMilestones  = null  // [{label, h}] stored as side-effect by _hltbCard
+let _hltbMaxScale    = null  // pre-computed scale for consistent pin positioning
+let _basePlaytimeMin = 0     // game.playtimeMinutes at render time; session elapsed adds on top
 
 function _clearSessionTimer() {
     if (_sessionTimer)  { clearInterval(_sessionTimer);  _sessionTimer  = null }
@@ -260,8 +261,9 @@ async function _renderDashboard(appid, container, navigate) {
     if (activeSession) _initSessionTimer(container, activeSession.sessionStartedAt)
 
     // Persist poll baseline and kick off background delta-updaters
-    _rawAchList     = achList
-    _lastAchsDuring = achievementsDuring
+    _rawAchList      = achList
+    _lastAchsDuring  = achievementsDuring
+    _basePlaytimeMin = game.playtimeMinutes ?? 0
     _startDashPollers(container, appid, !!activeSession)
 }
 
@@ -509,6 +511,10 @@ function _initSessionTimer(container, startedAt) {
         const h = Math.floor(totalMins / 60)
         const m = totalMins % 60
         el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`
+        // Move the HLTB pin live: stored playtime + minutes elapsed this session.
+        // Steam doesn't update playtime_forever until a session closes, so we
+        // calculate the current total client-side for a smooth moving pin.
+        _patchHltbPin(container, _basePlaytimeMin + totalMins)
     }
     update()
     _sessionTimer = setInterval(update, 30_000)
@@ -726,7 +732,15 @@ function _startDashPollers(container, appid, hasActiveSession) {
                 }
             }
 
-            if (newGame?.playtimeMinutes != null) _patchHltbPin(container, newGame.playtimeMinutes)
+            if (newGame?.playtimeMinutes != null) {
+                _basePlaytimeMin = newGame.playtimeMinutes
+                // When a session is active the session timer drives the pin every 30s
+                // with basePlaytime + elapsed, so we don't double-update here.
+                // When idle (no session timer running), patch the pin directly.
+                if (!container.querySelector('[data-role="session-elapsed"]')) {
+                    _patchHltbPin(container, _basePlaytimeMin)
+                }
+            }
         } catch { /* silent — next tick retries */ }
     }, 5 * 60_000)
 }
