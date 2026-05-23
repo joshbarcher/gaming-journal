@@ -658,16 +658,29 @@ div.gj-ach-badge {
 }
 
 .gj-ach-full-name {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--clr-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: default;
+}
+
+/* Description row — truncates with ellipsis, tooltip shows full text */
+.gj-ach-full-desc {
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    opacity: 0.7;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
 }
 
 .gj-ach-full-date {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--clr-text-muted);
     margin-top: 2px;
 }
@@ -679,6 +692,26 @@ div.gj-ach-badge {
     text-transform: uppercase;
     color: var(--clr-text-muted);
     margin: 20px 0 10px;
+}
+
+/* Floating tooltip for truncated achievement text */
+.gj-tooltip {
+    position: fixed;
+    z-index: 9999;
+    display: none;
+    max-width: 280px;
+    padding: 5px 10px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border-hi);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 12px;
+    font-family: var(--font-ui);
+    line-height: 1.5;
+    white-space: normal;
+    word-wrap: break-word;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 .gj-ach-toggle {

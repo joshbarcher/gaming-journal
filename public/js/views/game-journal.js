@@ -432,6 +432,36 @@ async function _doAddNote(appid, input, getPinned, container, navigate) {
     _renderDashboard(appid, container, navigate)
 }
 
+// ── Achievement tooltip ────────────────────────────────────────────────────────
+
+let _achTipEl = null
+
+function _showTip(text, rect) {
+    if (!_achTipEl) {
+        _achTipEl = document.createElement('div')
+        _achTipEl.className = 'gj-tooltip'
+        document.body.appendChild(_achTipEl)
+    }
+    _achTipEl.textContent = text
+    _achTipEl.style.display = 'block'
+    // Measure after paint so we have real dimensions to position against
+    requestAnimationFrame(() => {
+        if (!_achTipEl) return
+        const tw  = _achTipEl.offsetWidth
+        const th  = _achTipEl.offsetHeight
+        const gap = 8
+        let x = rect.left + rect.width / 2 - tw / 2
+        let y = rect.top - th - gap
+        if (y < gap) y = rect.bottom + gap          // flip below if too close to top
+        _achTipEl.style.left = Math.max(gap, Math.min(x, window.innerWidth  - tw - gap)) + 'px'
+        _achTipEl.style.top  = Math.max(gap, Math.min(y, window.innerHeight - th - gap)) + 'px'
+    })
+}
+
+function _hideTip() {
+    if (_achTipEl) _achTipEl.style.display = 'none'
+}
+
 // ── Sub-view: Achievements ─────────────────────────────────────────────────────
 
 async function _renderAchievements(appid, container) {
@@ -483,6 +513,17 @@ async function _renderAchievements(appid, container) {
     }
 
     _draw()
+
+    // Tooltip delegation — survives _draw() re-renders since it's on the container
+    let _lastTipTarget = null
+    container.addEventListener('mouseover', e => {
+        const el = e.target.closest('[data-tooltip]')
+        if (el === _lastTipTarget) return
+        _lastTipTarget = el
+        if (el) _showTip(el.dataset.tooltip, el.getBoundingClientRect())
+        else _hideTip()
+    })
+    container.addEventListener('mouseleave', () => { _lastTipTarget = null; _hideTip() })
 }
 
 function _achItem(a, isUnlocked, isHidden) {
@@ -507,8 +548,8 @@ function _achItem(a, isUnlocked, isHidden) {
         <div class="gj-ach-full-item ${isUnlocked ? 'gj-ach-full-item--unlocked' : ''}">
             ${badgeHtml}
             <div class="gj-ach-info">
-                <div class="gj-ach-full-name">${escapeHtml(name)}</div>
-                ${desc ? `<div class="gj-ach-full-date" style="margin-top:3px;font-size:10px;opacity:0.7;white-space:normal">${escapeHtml(desc)}</div>` : ''}
+                <div class="gj-ach-full-name" data-tooltip="${escapeHtml(name)}">${escapeHtml(name)}</div>
+                ${desc ? `<div class="gj-ach-full-desc" data-tooltip="${escapeHtml(desc)}">${escapeHtml(desc)}</div>` : ''}
                 ${date ? `<div class="gj-ach-full-date">${date}</div>` : ''}
             </div>
         </div>`
