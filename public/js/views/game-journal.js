@@ -1,7 +1,6 @@
 import { api } from '../api.js'
 import { escapeHtml } from '../utils.js'
 import { globalSegments } from './progress-helpers.js'
-import { showContextMenu } from './context-menu.js'
 import { confirmDialog } from '../dialog.js'
 
 // ── SVG icons (Lucide paths) ───────────────────────────────────────────────────
@@ -681,32 +680,29 @@ async function _renderProgress(appid, container, navigate) {
                         <div class="gj-full-item-meta">${p.type === 'progress-bars' ? 'Multi-bar tracker' : 'Progress tracker'} · Updated ${_fmt(p.updatedAt)}</div>
                         <div class="gj-prog-segs gj-prog-segs--full">${segsHtml}</div>
                     </div>
+                    <button class="gj-full-item-del" data-role="tracker-delete" title="Delete tracker">&times;</button>
                 </a>`
             }).join('')}
             ${!pages.length ? `<p class="gj-no-data">No trackers yet. Create one to start tracking progress.</p>` : ''}
         </div>`
 
-    container.querySelector('[data-role="tracker-list"]')?.addEventListener('contextmenu', e => {
-        const item = e.target.closest('.gj-full-item[data-page-id]')
-        if (!item) return
-        const pageId    = item.dataset.pageId
-        const pageTitle = item.dataset.pageTitle
-        showContextMenu(e, [
-            {
-                label: 'Delete',
-                danger: true,
-                action: async () => {
-                    const ok = await confirmDialog(
-                        `Delete "${pageTitle}"?`,
-                        'This will permanently delete the tracker and all its data.',
-                        'Delete'
-                    )
-                    if (!ok) return
-                    await api.pages.remove(pageId)
-                    _renderProgress(appid, container, navigate)
-                },
-            },
-        ])
+    container.querySelector('[data-role="tracker-list"]')?.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-role="tracker-delete"]')
+        if (!btn) return
+        e.preventDefault()
+        e.stopPropagation()
+        const item      = btn.closest('.gj-full-item[data-page-id]')
+        const pageId    = item?.dataset.pageId
+        const pageTitle = item?.dataset.pageTitle
+        if (!pageId) return
+        const ok = await confirmDialog(
+            `Delete "${pageTitle}"?`,
+            'This will permanently delete the tracker and all its data.',
+            'Delete'
+        )
+        if (!ok) return
+        await api.pages.remove(pageId)
+        _renderProgress(appid, container, navigate)
     })
 
     container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', e => {
