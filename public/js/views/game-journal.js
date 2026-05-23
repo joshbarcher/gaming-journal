@@ -75,6 +75,22 @@ function _fmtHours(h) {
     return `${(Math.round(h * 10) / 10)}h`
 }
 
+/**
+ * Merges achievements earned during an active session into the full achievement list
+ * so counts and recent-unlock displays are immediately accurate without waiting for
+ * the cache to refresh.
+ */
+function _mergeSessionAchievements(achList, achievementsDuring) {
+    if (!achievementsDuring?.length) return achList
+    const sessionMap = {}
+    for (const a of achievementsDuring) sessionMap[a.apiname] = a
+    return achList.map(a =>
+        (!a.achieved && sessionMap[a.apiname])
+            ? { ...a, achieved: 1, unlocktime: sessionMap[a.apiname].unlocktime ?? Math.floor(Date.now() / 1000) }
+            : a
+    )
+}
+
 // Inline create form — replaces a button with an input+confirm+cancel row
 function _showInlineCreate(btn, placeholder, onCreate) {
     btn.hidden = true
@@ -160,6 +176,11 @@ async function _renderDashboard(appid, container, navigate) {
         ? nowPlaying.playing
         : null
 
+    // Merge in-session unlocks so achievement counts and recent-unlock lists are
+    // immediately current without waiting for the 30-min cache refresh tick.
+    const achievementsDuring = activeSession?.achievementsDuring ?? []
+    const displayAchList     = _mergeSessionAchievements(achList, achievementsDuring)
+
     container.innerHTML = `
         <div class="gj-dash">
             <div class="gj-header">
@@ -168,10 +189,10 @@ async function _renderDashboard(appid, container, navigate) {
             </div>
             <div class="gj-grid">
                 ${_ratingCard(review)}
-                ${_achCard(achList, appid)}
+                ${_achCard(displayAchList, appid)}
                 ${activeSession
-                    ? _currentSessionCard(activeSession, achList)
-                    : _sessionCard(gameSessions, achList)}
+                    ? _currentSessionCard(activeSession, displayAchList, appid)
+                    : _sessionCard(gameSessions, displayAchList, appid)}
                 ${_hltbCard(game)}
                 ${_progressCard(progressPages, appid)}
                 ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
@@ -408,19 +429,20 @@ function _pagesCard(pages, appid) {
         </div>`
 }
 
-function _currentSessionCard(session, achList) {
+function _currentSessionCard(session, achList, appid) {
     const achMap = {}
     for (const a of achList) achMap[a.apiname] = a
 
-    const achs = session.achievementsDuring ?? []
+    const achs  = session.achievementsDuring ?? []
+    const bgUrl = `/relay/images/steam/games/${appid}/header.jpg`
 
     const achsHtml = achs.length
         ? `<div class="gj-session-achs">
-              ${achs.slice(0, 4).map(a => {
-                  const full     = achMap[a.apiname]
-                  const name     = full?.displayName ?? _cleanAchName(a.apiname)
-                  const src      = full?.localIcon ?? full?.icon ?? null
-                  const fallback = full?.icon ?? null
+              ${achs.slice(0, 8).map(a => {
+                  const full       = achMap[a.apiname]
+                  const name       = full?.displayName ?? _cleanAchName(a.apiname)
+                  const src        = full?.localIcon ?? full?.icon ?? null
+                  const fallback   = full?.icon ?? null
                   const errHandler = src && fallback && src !== fallback
                       ? `this.onerror=null;this.src='${fallback}'`
                       : `this.style.visibility='hidden'`
@@ -428,15 +450,14 @@ function _currentSessionCard(session, achList) {
                       ${src
                         ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
                         : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
-                      <span class="gj-session-ach-name">${escapeHtml(name)}</span>
                   </div>`
               }).join('')}
-              ${achs.length > 4 ? `<span class="gj-session-ach-more">+${achs.length - 4} more</span>` : ''}
+              ${achs.length > 8 ? `<span class="gj-session-ach-more">+${achs.length - 8} more</span>` : ''}
           </div>`
         : `<p class="gj-no-data">No achievements yet</p>`
 
     return `
-        <div class="gj-card gj-card--active-session">
+        <div class="gj-card gj-card--active-session gj-card--game-bg" style="--gj-game-bg: url('${bgUrl}')">
             <div class="gj-card-header">
                 <span class="gj-card-title">Playing Now</span>
                 <span class="gj-active-dot"></span>
@@ -464,7 +485,7 @@ function _initSessionTimer(container, startedAt) {
     _sessionTimer = setInterval(update, 30_000)
 }
 
-function _sessionCard(sessions, achList) {
+function _sessionCard(sessions, achList, appid) {
     const sorted = [...sessions].sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
     const last   = sorted[0] ?? null
 
@@ -480,6 +501,7 @@ function _sessionCard(sessions, achList) {
     const duration = mins >= 60 ? `${(mins / 60).toFixed(1)}h` : `${mins}m`
     const date     = _fmt(last.startedAt)
     const achs     = last.achievements ?? []
+    const bgUrl    = `/relay/images/steam/games/${appid}/header.jpg`
 
     // Cross-reference session achievements with the full achievement list for icons/names
     const achMap = {}
@@ -487,11 +509,11 @@ function _sessionCard(sessions, achList) {
 
     const achsHtml = achs.length
         ? `<div class="gj-session-achs">
-              ${achs.slice(0, 4).map(a => {
-                  const full    = achMap[a.apiname]
-                  const name    = full?.displayName ?? _cleanAchName(a.apiname)
-                  const src     = full?.localIcon ?? full?.icon ?? null
-                  const fallback = full?.icon ?? null
+              ${achs.slice(0, 8).map(a => {
+                  const full       = achMap[a.apiname]
+                  const name       = full?.displayName ?? _cleanAchName(a.apiname)
+                  const src        = full?.localIcon ?? full?.icon ?? null
+                  const fallback   = full?.icon ?? null
                   const errHandler = src && fallback && src !== fallback
                       ? `this.onerror=null;this.src='${fallback}'`
                       : `this.style.visibility='hidden'`
@@ -499,15 +521,14 @@ function _sessionCard(sessions, achList) {
                       ${src
                         ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
                         : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
-                      <span class="gj-session-ach-name">${escapeHtml(name)}</span>
                   </div>`
               }).join('')}
-              ${achs.length > 4 ? `<span class="gj-session-ach-more">+${achs.length - 4} more</span>` : ''}
+              ${achs.length > 8 ? `<span class="gj-session-ach-more">+${achs.length - 8} more</span>` : ''}
           </div>`
         : `<p class="gj-no-data">No achievements this session</p>`
 
     return `
-        <div class="gj-card">
+        <div class="gj-card gj-card--game-bg" style="--gj-game-bg: url('${bgUrl}')">
             <div class="gj-card-header">
                 <span class="gj-card-title">Last Session</span>
                 <span class="gj-session-date-chip">${date}</span>
@@ -678,8 +699,15 @@ function _hideTip() {
 async function _renderAchievements(appid, container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    const achRes  = await fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null).catch(() => null)
-    const achList = achRes?.achievements ?? []
+    const [achRes, npRes] = await Promise.allSettled([
+        fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null).catch(() => null),
+    ])
+    const rawAchList    = achRes.value?.achievements ?? []
+    const nowPlaying    = npRes.value ?? null
+    const activeSession = nowPlaying?.playing?.appid === Number(appid) ? nowPlaying.playing : null
+    // Merge any achievements earned in the current session so this view stays current
+    const achList       = _mergeSessionAchievements(rawAchList, activeSession?.achievementsDuring)
 
     const unlocked     = achList.filter(a => a.achieved).sort((a, b) => b.unlocktime - a.unlocktime)
     const lockedVis    = achList.filter(a => !a.achieved && !a.hidden)
