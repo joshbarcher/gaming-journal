@@ -116,17 +116,19 @@ export async function renderGameJournal(appid, sub, container, navigate) {
 async function _renderDashboard(appid, container, navigate) {
     container.innerHTML = `<p class="page-loading">Loading journal…</p>`
 
-    const [gameRes, reviewRes, pagesRes, achRes] = await Promise.allSettled([
+    const [gameRes, reviewRes, pagesRes, achRes, accountRes] = await Promise.allSettled([
         fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
         api.localReviews.get(appid).catch(() => null),
         api.pages.listByGame(appid).catch(() => []),
         fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null),
+        fetch('/relay/api/account').then(r => r.ok ? r.json() : null),
     ])
 
-    const game    = gameRes.value   ?? null
-    const review  = reviewRes.value ?? null
-    const pages   = pagesRes.value  ?? []
-    const achData = achRes.value    ?? null
+    const game        = gameRes.value     ?? null
+    const review      = reviewRes.value   ?? null
+    const pages       = pagesRes.value    ?? []
+    const achData     = achRes.value      ?? null
+    const accountData = accountRes.value  ?? null
 
     if (!game) {
         container.innerHTML = `<p class="page-error">Failed to load game data.</p>`
@@ -137,19 +139,25 @@ async function _renderDashboard(appid, container, navigate) {
     const progressPages = pages.filter(p => p.type === 'progress' || p.type === 'progress-bars')
     const journalPages  = pages.filter(p => p.type === 'page'     || p.type === 'notes')
     const pinnedNotes   = (review?.notes ?? []).filter(n => n.pinned)
+    // Sessions indexed by appid (may be numeric or string key)
+    const gameSessions  = accountData?.sessions?.[appid]?.sessions
+                       ?? accountData?.sessions?.[String(appid)]?.sessions
+                       ?? []
 
     container.innerHTML = `
-        <div class="gj-header">
-            <a href="/game/${appid}" class="gj-back">&#8592; ${escapeHtml(game.name)}</a>
-            <span class="gj-header-title">Journal</span>
-        </div>
-        <div class="gj-grid">
-            ${_ratingCard(review)}
-            ${_achCard(achList, appid)}
-            ${_hltbCard(game)}
-            ${_notesCard(pinnedNotes, appid)}
-            ${_progressCard(progressPages, appid)}
-            ${_pagesCard(journalPages, appid)}
+        <div class="gj-dash">
+            <div class="gj-header">
+                <a href="/game/${appid}" class="gj-back">&#8592; ${escapeHtml(game.name)}</a>
+                <span class="gj-header-title">Journal</span>
+            </div>
+            <div class="gj-grid">
+                ${_ratingCard(review)}
+                ${_achCard(achList, appid)}
+                ${_sessionCard(gameSessions, achList)}
+                ${_hltbCard(game)}
+                ${_progressCard(progressPages, appid)}
+                ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
+            </div>
         </div>`
 
     _initDashboard(container, appid, game, navigate)
@@ -343,7 +351,7 @@ function _progressCard(pages, appid) {
         : `<p class="gj-no-data">No trackers yet</p>`
 
     return `
-        <div class="gj-card">
+        <div class="gj-card gj-card--fill">
             <div class="gj-card-header">
                 <span class="gj-card-title">Progress Trackers</span>
                 <a href="/journal/${appid}/progress" class="gj-view-all">View All →</a>
@@ -375,6 +383,115 @@ function _pagesCard(pages, appid) {
             <div class="gj-pages-list">${listHtml}</div>
             <div class="gj-card-actions">
                 <button class="gj-btn" data-role="new-notes-page">+ New Page</button>
+            </div>
+        </div>`
+}
+
+function _sessionCard(sessions, achList) {
+    const sorted = [...sessions].sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+    const last   = sorted[0] ?? null
+
+    if (!last) {
+        return `
+        <div class="gj-card">
+            <div class="gj-card-header"><span class="gj-card-title">Last Session</span></div>
+            <p class="gj-no-data">No sessions recorded yet</p>
+        </div>`
+    }
+
+    const mins     = last.durationMin ?? 0
+    const duration = mins >= 60 ? `${(mins / 60).toFixed(1)}h` : `${mins}m`
+    const date     = _fmt(last.startedAt)
+    const achs     = last.achievements ?? []
+
+    // Cross-reference session achievements with the full achievement list for icons/names
+    const achMap = {}
+    for (const a of achList) achMap[a.apiname] = a
+
+    const achsHtml = achs.length
+        ? `<div class="gj-session-achs">
+              ${achs.slice(0, 4).map(a => {
+                  const full    = achMap[a.apiname]
+                  const name    = full?.displayName ?? _cleanAchName(a.apiname)
+                  const src     = full?.localIcon ?? full?.icon ?? null
+                  const fallback = full?.icon ?? null
+                  const errHandler = src && fallback && src !== fallback
+                      ? `this.onerror=null;this.src='${fallback}'`
+                      : `this.style.visibility='hidden'`
+                  return `<div class="gj-session-ach" title="${escapeHtml(name)}">
+                      ${src
+                        ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
+                        : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
+                      <span class="gj-session-ach-name">${escapeHtml(name)}</span>
+                  </div>`
+              }).join('')}
+              ${achs.length > 4 ? `<span class="gj-session-ach-more">+${achs.length - 4} more</span>` : ''}
+          </div>`
+        : `<p class="gj-no-data">No achievements this session</p>`
+
+    return `
+        <div class="gj-card">
+            <div class="gj-card-header">
+                <span class="gj-card-title">Last Session</span>
+                <span class="gj-session-date-chip">${date}</span>
+            </div>
+            <div class="gj-session-stat">
+                <span class="gj-session-big">${duration}</span>
+                <span class="gj-session-sublabel">played</span>
+            </div>
+            ${achs.length ? `<p class="gj-ach-recent-label">Earned (${achs.length})</p>` : ''}
+            ${achsHtml}
+        </div>`
+}
+
+function _notesAndPagesCard(pinnedNotes, journalPages, appid) {
+    const notesHtml = pinnedNotes.length
+        ? pinnedNotes.map(n => `
+            <div class="gj-note-card" data-id="${escapeHtml(n.id)}">
+                ${escapeHtml(n.text)}
+                <div class="gj-note-btns">
+                    <button class="gj-note-btn" data-role="unpin-note" data-id="${escapeHtml(n.id)}" title="Unpin">${IC.pin}</button>
+                    <button class="gj-note-btn gj-note-btn--del" data-role="del-note" data-id="${escapeHtml(n.id)}" title="Delete">&times;</button>
+                </div>
+                <div class="gj-note-date">${_fmt(n.createdAt)}</div>
+            </div>`).join('')
+        : `<p class="gj-no-data">No pinned notes — add one below</p>`
+
+    const pagesHtml = journalPages.length
+        ? journalPages.slice(0, 6).map(p => `
+            <a class="gj-page-item" href="/${p.id}">
+                <span class="gj-page-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
+                <span class="gj-page-name">${escapeHtml(p.title)}</span>
+                <span class="gj-page-date">${_fmt(p.updatedAt)}</span>
+            </a>`).join('')
+        : `<p class="gj-no-data">No pages yet</p>`
+
+    return `
+        <div class="gj-card gj-card--span2 gj-card--fill gj-card--np" data-role="notes-card">
+            <div class="gj-np-cols">
+                <div class="gj-np-col">
+                    <div class="gj-card-header">
+                        <span class="gj-card-title">Pinned Notes</span>
+                        <a href="/journal/${appid}/notes" class="gj-view-all">All Notes →</a>
+                    </div>
+                    <div class="gj-notes-row">${notesHtml}</div>
+                    <div class="gj-add-note" style="margin-top:auto">
+                        <input class="gj-add-note-input" placeholder="Quick note…" data-role="note-input">
+                        <button class="gj-pin-toggle" data-role="pin-toggle" title="Pin note">${IC.pin}</button>
+                        <button class="gj-btn gj-btn--accent" data-role="add-note">Add</button>
+                    </div>
+                </div>
+                <div class="gj-np-sep"></div>
+                <div class="gj-np-col">
+                    <div class="gj-card-header">
+                        <span class="gj-card-title">Journal Pages</span>
+                        <a href="/journal/${appid}/pages" class="gj-view-all">All Pages →</a>
+                    </div>
+                    <div class="gj-pages-list gj-pages-list--scroll">${pagesHtml}</div>
+                    <div class="gj-card-actions" style="margin-top:auto;padding-top:8px">
+                        <button class="gj-btn" data-role="new-notes-page">+ New Page</button>
+                    </div>
+                </div>
             </div>
         </div>`
 }
