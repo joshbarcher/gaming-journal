@@ -4,6 +4,7 @@ import { refreshSidebarItem } from '../sidebar.js'
 import { segmentColor, barProgressPercent, percentToColor, globalSegments, stateLabel } from './progress-helpers.js'
 import { fireParticles } from '../particles.js'
 import { showContextMenu } from './context-menu.js'
+import { navigate } from '../router.js'
 
 const STATE_CYCLE = [null, 'started', 'working', 'done']
 
@@ -515,6 +516,17 @@ async function _toggleStepOptional(barId, stepId) {
 
 function _buildPageTitle(subtitle) {
     const frag = document.createDocumentFragment()
+
+    // Back link — only for game-specific trackers
+    if (_page.appid) {
+        const back = document.createElement('a')
+        back.className = 'gj-sub-back'
+        back.href = `/journal/${_page.appid}`
+        back.textContent = '← Journal'
+        back.addEventListener('click', e => { e.preventDefault(); navigate(`journal/${_page.appid}`) })
+        frag.appendChild(back)
+    }
+
     const h1 = document.createElement('h1')
     h1.className = 'page-title page-title--editable'
     h1.contentEditable = 'true'

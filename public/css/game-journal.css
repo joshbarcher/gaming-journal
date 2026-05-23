@@ -539,16 +539,9 @@
 .gj-progress-item {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     cursor: pointer;
     text-decoration: none;
-}
-
-.gj-progress-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
 }
 
 .gj-progress-name {
@@ -560,23 +553,23 @@
     text-overflow: ellipsis;
 }
 
-.gj-progress-pct {
-    font-size: 11px;
-    color: var(--clr-text-muted);
-    flex-shrink: 0;
+/* Mini segment bar — mirrors the global progress bar on the tracker page */
+.gj-prog-segs {
+    display: flex;
+    gap: 3px;
+    height: 18px;
+    align-items: stretch;
 }
 
-.gj-progress-track {
-    height: 5px;
-    background: rgba(255, 255, 255, 0.07);
-    border-radius: 3px;
-    overflow: hidden;
+.gj-prog-seg {
+    flex: 1;
+    border-radius: 2px;
+    min-width: 6px;
+    transition: filter 0.12s ease;
 }
 
-.gj-progress-fill {
-    height: 100%;
-    border-radius: 3px;
-    background: var(--clr-accent);
+.gj-progress-item:hover .gj-prog-seg {
+    filter: brightness(1.1);
 }
 
 /* ── Pages card ───────────────────────────────────────────────────────────────── */

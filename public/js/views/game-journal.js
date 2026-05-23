@@ -1,5 +1,6 @@
 import { api } from '../api.js'
 import { escapeHtml } from '../utils.js'
+import { globalSegments } from './progress-helpers.js'
 
 // ── SVG icons (Lucide paths) ───────────────────────────────────────────────────
 
@@ -328,14 +329,14 @@ function _notesCard(pinnedNotes, appid) {
 function _progressCard(pages, appid) {
     const listHtml = pages.length
         ? pages.slice(0, 4).map(p => {
-              const pct = _progressPct(p)
+              const segs = globalSegments(p)
+              const segsHtml = segs.length
+                  ? segs.map(s => `<div class="gj-prog-seg" style="background:${s.color}" title="${escapeHtml(s.label ?? '')}"></div>`).join('')
+                  : `<div class="gj-prog-seg" style="background:rgba(255,255,255,0.07);flex:1"></div>`
               return `
               <a class="gj-progress-item" href="/${p.id}">
-                  <div class="gj-progress-item-header">
-                      <span class="gj-progress-name">${escapeHtml(p.title)}</span>
-                      <span class="gj-progress-pct">${pct}%</span>
-                  </div>
-                  <div class="gj-progress-track"><div class="gj-progress-fill" style="width:${pct}%"></div></div>
+                  <span class="gj-progress-name">${escapeHtml(p.title)}</span>
+                  <div class="gj-prog-segs">${segsHtml}</div>
               </a>`
           }).join('')
         : `<p class="gj-no-data">No trackers yet</p>`
