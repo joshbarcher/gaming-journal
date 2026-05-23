@@ -1,6 +1,8 @@
 import { api } from '../api.js'
 import { escapeHtml } from '../utils.js'
 import { globalSegments } from './progress-helpers.js'
+import { showContextMenu } from './context-menu.js'
+import { confirmDialog } from '../dialog.js'
 
 // ── SVG icons (Lucide paths) ───────────────────────────────────────────────────
 
@@ -665,14 +667,14 @@ async function _renderProgress(appid, container, navigate) {
                 <button class="gj-btn" data-role="new-tracker-bars">+ Multi-Bar</button>
             </div>
         </div>
-        <div class="gj-full-list">
+        <div class="gj-full-list" data-role="tracker-list">
             ${pages.map(p => {
                 const segs = globalSegments(p)
                 const segsHtml = segs.map(s =>
                     `<div class="gj-prog-seg" style="background:${s.color}" title="${escapeHtml(s.label ?? '')}"></div>`
                 ).join('')
                 return `
-                <a class="gj-full-item" href="/${p.id}">
+                <a class="gj-full-item" href="/${p.id}" data-page-id="${escapeHtml(p.id)}" data-page-title="${escapeHtml(p.title)}">
                     <span class="gj-full-item-icon">${p.type === 'progress-bars' ? IC.bars : IC.check}</span>
                     <div class="gj-full-item-body">
                         <div class="gj-full-item-title">${escapeHtml(p.title)}</div>
@@ -683,6 +685,29 @@ async function _renderProgress(appid, container, navigate) {
             }).join('')}
             ${!pages.length ? `<p class="gj-no-data">No trackers yet. Create one to start tracking progress.</p>` : ''}
         </div>`
+
+    container.querySelector('[data-role="tracker-list"]')?.addEventListener('contextmenu', e => {
+        const item = e.target.closest('.gj-full-item[data-page-id]')
+        if (!item) return
+        const pageId    = item.dataset.pageId
+        const pageTitle = item.dataset.pageTitle
+        showContextMenu(e, [
+            {
+                label: 'Delete',
+                danger: true,
+                action: async () => {
+                    const ok = await confirmDialog(
+                        `Delete "${pageTitle}"?`,
+                        'This will permanently delete the tracker and all its data.',
+                        'Delete'
+                    )
+                    if (!ok) return
+                    await api.pages.remove(pageId)
+                    _renderProgress(appid, container, navigate)
+                },
+            },
+        ])
+    })
 
     container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', e => {
         _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
