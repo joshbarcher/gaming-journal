@@ -91,6 +91,51 @@ function _mergeSessionAchievements(achList, achievementsDuring) {
     )
 }
 
+/** Inner HTML for the recent-achievement strip used by the ach card (and its live patch). */
+function _recentAchStripHtml(recent) {
+    return recent.map(a => {
+        const src        = a.localIcon ?? a.icon ?? null
+        const fallback   = a.icon ?? null
+        const name       = a.displayName ?? _cleanAchName(a.apiname)
+        const date       = _fmt(new Date(a.unlocktime * 1000))
+        const errHandler = src && fallback && src !== fallback
+            ? `this.onerror=null;this.src='${fallback}'`
+            : `this.style.visibility='hidden'`
+        return `<div class="gj-ach-strip-item" title="${escapeHtml(name)}">
+            ${src
+              ? `<img class="gj-ach-strip-img" src="${src}" alt="" onerror="${errHandler}">`
+              : `<div class="gj-ach-strip-fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
+            <span class="gj-ach-strip-name">${escapeHtml(name)}</span>
+            <span class="gj-ach-strip-date">${date}</span>
+        </div>`
+    }).join('')
+}
+
+/**
+ * Renders the session-achievement icons strip (or a no-data line) for a session card.
+ * Returns the full inner HTML of the [data-role="session-achs-area"] container.
+ */
+function _sessionAchsHtml(achs, achMap, noDataMsg = 'No achievements this session') {
+    if (!achs.length) return `<p class="gj-no-data">${escapeHtml(noDataMsg)}</p>`
+    return `<div class="gj-session-achs">
+        ${achs.slice(0, 8).map(a => {
+            const full       = achMap[a.apiname]
+            const name       = full?.displayName ?? _cleanAchName(a.apiname)
+            const src        = full?.localIcon ?? full?.icon ?? null
+            const fallback   = full?.icon ?? null
+            const errHandler = src && fallback && src !== fallback
+                ? `this.onerror=null;this.src='${fallback}'`
+                : `this.style.visibility='hidden'`
+            return `<div class="gj-session-ach" title="${escapeHtml(name)}">
+                ${src
+                  ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
+                  : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
+            </div>`
+        }).join('')}
+        ${achs.length > 8 ? `<span class="gj-session-ach-more">+${achs.length - 8} more</span>` : ''}
+    </div>`
+}
+
 // Inline create form — replaces a button with an input+confirm+cancel row
 function _showInlineCreate(btn, placeholder, onCreate) {
     btn.hidden = true
@@ -117,12 +162,22 @@ function _showInlineCreate(btn, placeholder, onCreate) {
     })
 }
 
-// ── Module-level timer so it survives re-renders and gets cleaned up ───────────
+// ── Module-level timers — survive re-renders, cleared on navigation ───────────
 
-let _sessionTimer = null
+let _sessionTimer = null  // 30s tick — updates session elapsed display
+
+// Dashboard live-update polling
+let _dashPollTimer  = null  // 60s  — now-playing delta (session achs + ach card)
+let _dataPollTimer  = null  // 5min — achievement cache + game data (HLTB pin)
+let _rawAchList     = []    // base ach list without session-merge, kept fresh by slow poll
+let _lastAchsDuring = []    // last known achievementsDuring from now-playing
+let _hltbMilestones = null  // [{label, h}] stored as side-effect by _hltbCard
+let _hltbMaxScale   = null  // pre-computed scale for consistent pin positioning
 
 function _clearSessionTimer() {
-    if (_sessionTimer) { clearInterval(_sessionTimer); _sessionTimer = null }
+    if (_sessionTimer)  { clearInterval(_sessionTimer);  _sessionTimer  = null }
+    if (_dashPollTimer) { clearInterval(_dashPollTimer); _dashPollTimer = null }
+    if (_dataPollTimer) { clearInterval(_dataPollTimer); _dataPollTimer = null }
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -203,6 +258,11 @@ async function _renderDashboard(appid, container, navigate) {
 
     // Start a live elapsed-time ticker if the game is actively being played
     if (activeSession) _initSessionTimer(container, activeSession.sessionStartedAt)
+
+    // Persist poll baseline and kick off background delta-updaters
+    _rawAchList     = achList
+    _lastAchsDuring = achievementsDuring
+    _startDashPollers(container, appid, !!activeSession)
 }
 
 // ── Card HTML ──────────────────────────────────────────────────────────────────
@@ -254,31 +314,15 @@ function _achCard(achList, appid) {
     const bodyHtml = total > 0
         ? `<div class="gj-ach-summary">
                <div class="gj-ach-summary-line">
-                   <span>${unlocked} / ${total} unlocked</span>
-                   <span>${pct}%</span>
+                   <span data-role="ach-unlocked">${unlocked} / ${total} unlocked</span>
+                   <span data-role="ach-pct">${pct}%</span>
                </div>
-               <div class="gj-ach-track"><div class="gj-ach-fill" style="width:${pct}%"></div></div>
+               <div class="gj-ach-track"><div class="gj-ach-fill" data-role="ach-fill" style="width:${pct}%"></div></div>
            </div>
-           ${recent.length ? `
-           <p class="gj-ach-recent-label">Recent</p>
-           <div class="gj-ach-strip">
-               ${recent.map(a => {
-                   const src      = a.localIcon ?? a.icon ?? null
-                   const fallback = a.icon ?? null
-                   const name     = a.displayName ?? _cleanAchName(a.apiname)
-                   const date     = _fmt(new Date(a.unlocktime * 1000))
-                   const errHandler = src && fallback && src !== fallback
-                       ? `this.onerror=null;this.src='${fallback}'`
-                       : `this.style.visibility='hidden'`
-                   return `
-               <div class="gj-ach-strip-item" title="${escapeHtml(name)}">
-                   ${src
-                     ? `<img class="gj-ach-strip-img" src="${src}" alt="" onerror="${errHandler}">`
-                     : `<div class="gj-ach-strip-fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
-                   <span class="gj-ach-strip-name">${escapeHtml(name)}</span>
-                   <span class="gj-ach-strip-date">${date}</span>
-               </div>`}).join('')}
-           </div>` : ''}`
+           <div data-role="ach-recent-section">${recent.length
+               ? `<p class="gj-ach-recent-label">Recent</p>
+                  <div class="gj-ach-strip">${_recentAchStripHtml(recent)}</div>`
+               : ''}</div>`
         : `<p class="gj-no-data">No achievement data</p>`
 
     return `
@@ -301,6 +345,10 @@ function _hltbCard(game) {
         { label: 'Completionist', h: hltb?.gameplayCompletionist },
     ].filter(m => m.h != null && m.h > 0)
 
+    // Store for live HLTB pin recalculation — null when no HLTB data available
+    _hltbMilestones = milestones.length ? milestones : null
+    _hltbMaxScale   = null   // computed below after we have the full value range
+
     if (!milestones.length) {
         return `
         <div class="gj-card gj-card--wide">
@@ -312,6 +360,7 @@ function _hltbCard(game) {
     // Sqrt scale — prevents wide ranges from clustering left (mirrors game.js)
     const allVals  = [...milestones.map(m => m.h), playerHours > 0 ? playerHours : null].filter(Boolean)
     const maxScale = Math.max(...allVals) * 1.08
+    _hltbMaxScale  = maxScale   // persist so delta updates use the same coordinate space
     const pct      = h => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
 
     const labelsHtml = milestones.map(m =>
@@ -329,7 +378,7 @@ function _hltbCard(game) {
     const pinPos  = playerHours > 0 ? pct(playerHours) : null
     const fillPct = pinPos ?? pct(milestones[0].h)
     const pinHtml = pinPos != null
-        ? `<div class="hltb-pin" style="left:${pinPos.toFixed(2)}%" data-label="${_fmtHours(playerHours)} played"></div>`
+        ? `<div class="hltb-pin" data-role="hltb-pin" style="left:${pinPos.toFixed(2)}%" data-label="${_fmtHours(playerHours)} played"></div>`
         : ''
 
     return `
@@ -339,7 +388,7 @@ function _hltbCard(game) {
                 <div class="hltb-labels-row">${labelsHtml}</div>
                 <div class="hltb-track-wrap">
                     <div class="hltb-track">
-                        <div class="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>
+                        <div class="hltb-fill" data-role="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>
                     </div>
                     ${ticksHtml}
                     ${pinHtml}
@@ -436,28 +485,8 @@ function _currentSessionCard(session, achList, appid) {
     const achs  = session.achievementsDuring ?? []
     const bgUrl = `/relay/images/steam/games/${appid}/header.jpg`
 
-    const achsHtml = achs.length
-        ? `<div class="gj-session-achs">
-              ${achs.slice(0, 8).map(a => {
-                  const full       = achMap[a.apiname]
-                  const name       = full?.displayName ?? _cleanAchName(a.apiname)
-                  const src        = full?.localIcon ?? full?.icon ?? null
-                  const fallback   = full?.icon ?? null
-                  const errHandler = src && fallback && src !== fallback
-                      ? `this.onerror=null;this.src='${fallback}'`
-                      : `this.style.visibility='hidden'`
-                  return `<div class="gj-session-ach" title="${escapeHtml(name)}">
-                      ${src
-                        ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
-                        : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
-                  </div>`
-              }).join('')}
-              ${achs.length > 8 ? `<span class="gj-session-ach-more">+${achs.length - 8} more</span>` : ''}
-          </div>`
-        : `<p class="gj-no-data">No achievements yet</p>`
-
     return `
-        <div class="gj-card gj-card--active-session gj-card--game-bg" style="--gj-game-bg: url('${bgUrl}')">
+        <div class="gj-card gj-card--active-session gj-card--game-bg" data-role="playing-now" style="--gj-game-bg: url('${bgUrl}')">
             <div class="gj-card-header">
                 <span class="gj-card-title">Playing Now</span>
                 <span class="gj-active-dot"></span>
@@ -466,8 +495,8 @@ function _currentSessionCard(session, achList, appid) {
                 <span class="gj-session-big" data-role="session-elapsed">—</span>
                 <span class="gj-session-sublabel">so far</span>
             </div>
-            ${achs.length ? `<p class="gj-ach-recent-label">Earned (${achs.length})</p>` : ''}
-            ${achsHtml}
+            <p class="gj-ach-recent-label" data-role="session-ach-label"${achs.length ? '' : ' hidden'}>${achs.length ? `Earned (${achs.length})` : ''}</p>
+            <div data-role="session-achs-area">${_sessionAchsHtml(achs, achMap, 'No achievements yet')}</div>
         </div>`
 }
 
@@ -507,25 +536,7 @@ function _sessionCard(sessions, achList, appid) {
     const achMap = {}
     for (const a of achList) achMap[a.apiname] = a
 
-    const achsHtml = achs.length
-        ? `<div class="gj-session-achs">
-              ${achs.slice(0, 8).map(a => {
-                  const full       = achMap[a.apiname]
-                  const name       = full?.displayName ?? _cleanAchName(a.apiname)
-                  const src        = full?.localIcon ?? full?.icon ?? null
-                  const fallback   = full?.icon ?? null
-                  const errHandler = src && fallback && src !== fallback
-                      ? `this.onerror=null;this.src='${fallback}'`
-                      : `this.style.visibility='hidden'`
-                  return `<div class="gj-session-ach" title="${escapeHtml(name)}">
-                      ${src
-                        ? `<img class="gj-session-ach-img" src="${src}" alt="" onerror="${errHandler}">`
-                        : `<div class="gj-session-ach-img gj-session-ach-img--fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
-                  </div>`
-              }).join('')}
-              ${achs.length > 8 ? `<span class="gj-session-ach-more">+${achs.length - 8} more</span>` : ''}
-          </div>`
-        : `<p class="gj-no-data">No achievements this session</p>`
+    const achsHtml = _sessionAchsHtml(achs, achMap)
 
     return `
         <div class="gj-card gj-card--game-bg" style="--gj-game-bg: url('${bgUrl}')">
@@ -592,6 +603,132 @@ function _notesAndPagesCard(pinnedNotes, journalPages, appid) {
                 </div>
             </div>
         </div>`
+}
+
+// ── Dashboard live delta-update ────────────────────────────────────────────────
+
+/** Patches the achievement card counts, fill bar, and recent strip in-place. */
+function _patchAchCard(container, achList) {
+    const total    = achList.length
+    const unlocked = achList.filter(a => a.achieved).length
+    const pct      = total > 0 ? Math.round(unlocked / total * 100) : 0
+
+    const unlockedEl = container.querySelector('[data-role="ach-unlocked"]')
+    const pctEl      = container.querySelector('[data-role="ach-pct"]')
+    const fillEl     = container.querySelector('[data-role="ach-fill"]')
+    const recentEl   = container.querySelector('[data-role="ach-recent-section"]')
+
+    if (unlockedEl) unlockedEl.textContent = `${unlocked} / ${total} unlocked`
+    if (pctEl)      pctEl.textContent      = `${pct}%`
+    if (fillEl)     fillEl.style.width     = `${pct}%`
+
+    if (recentEl) {
+        const recent = [...achList]
+            .filter(a => a.achieved)
+            .sort((a, b) => b.unlocktime - a.unlocktime)
+            .slice(0, 4)
+        recentEl.innerHTML = recent.length
+            ? `<p class="gj-ach-recent-label">Recent</p>
+               <div class="gj-ach-strip">${_recentAchStripHtml(recent)}</div>`
+            : ''
+    }
+}
+
+/**
+ * Patches the achievement icons area on the "Playing Now" session card.
+ * No-ops silently if the card isn't in the DOM (e.g. last-session card is shown).
+ */
+function _patchSessionAchs(container, achsDuring, displayAchList) {
+    const labelEl = container.querySelector('[data-role="session-ach-label"]')
+    const achsEl  = container.querySelector('[data-role="session-achs-area"]')
+    if (!labelEl && !achsEl) return
+
+    if (labelEl) {
+        labelEl.textContent = achsDuring.length ? `Earned (${achsDuring.length})` : ''
+        labelEl.hidden      = achsDuring.length === 0
+    }
+
+    if (achsEl) {
+        const achMap = {}
+        for (const a of displayAchList) achMap[a.apiname] = a
+        achsEl.innerHTML = _sessionAchsHtml(achsDuring, achMap, 'No achievements yet')
+    }
+}
+
+/**
+ * Moves the HLTB pin and fill bar to reflect updated playtime.
+ * Uses the coordinate space baked in at render time so tick labels stay aligned.
+ */
+function _patchHltbPin(container, playtimeMinutes) {
+    if (!_hltbMilestones?.length || _hltbMaxScale == null || !(playtimeMinutes > 0)) return
+    const playerHours = playtimeMinutes / 60
+    const pct         = h => (Math.sqrt(h) / Math.sqrt(_hltbMaxScale)) * 100
+    const pinPos      = pct(playerHours)
+
+    const pinEl  = container.querySelector('[data-role="hltb-pin"]')
+    const fillEl = container.querySelector('[data-role="hltb-fill"]')
+
+    if (pinEl) {
+        pinEl.style.left    = `${pinPos.toFixed(2)}%`
+        pinEl.dataset.label = `${_fmtHours(playerHours)} played`
+    }
+    if (fillEl) fillEl.style.width = `${pinPos.toFixed(2)}%`
+}
+
+/**
+ * Starts two background polling loops:
+ *   fast (60s)  — fetches now-playing to catch new session achievements
+ *   slow (5min) — fetches achievements + game data for cache-backed counts + HLTB
+ *
+ * Both do targeted DOM patches only; the full dashboard is never re-rendered.
+ * The fast loop only starts when a session is actively running.
+ */
+function _startDashPollers(container, appid, hasActiveSession) {
+    // Fast loop — only when a game is actively playing
+    if (hasActiveSession) {
+        _dashPollTimer = setInterval(async () => {
+            try {
+                const np         = await fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null)
+                const session    = np?.playing?.appid === Number(appid) ? np.playing : null
+                const achsDuring = session?.achievementsDuring ?? []
+
+                // Only patch when the list actually changed (new achievement earned)
+                const changed = achsDuring.length !== _lastAchsDuring.length ||
+                    (achsDuring.length > 0 &&
+                     achsDuring[achsDuring.length - 1]?.apiname !== _lastAchsDuring[_lastAchsDuring.length - 1]?.apiname)
+
+                if (changed) {
+                    _lastAchsDuring = achsDuring
+                    const display   = _mergeSessionAchievements(_rawAchList, achsDuring)
+                    _patchAchCard(container, display)
+                    _patchSessionAchs(container, achsDuring, display)
+                }
+            } catch { /* silent — next tick retries */ }
+        }, 60_000)
+    }
+
+    // Slow loop — always; refreshes achievement cache counts + HLTB pin
+    _dataPollTimer = setInterval(async () => {
+        try {
+            const [achRes, gameRes] = await Promise.allSettled([
+                fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null),
+                fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
+            ])
+
+            const newRaw  = achRes.value?.achievements
+            const newGame = gameRes.value
+
+            if (newRaw) {
+                const prevUnlocked = _rawAchList.filter(a => a.achieved).length
+                _rawAchList        = newRaw   // always refresh for future merges
+                if (newRaw.filter(a => a.achieved).length !== prevUnlocked) {
+                    _patchAchCard(container, _mergeSessionAchievements(_rawAchList, _lastAchsDuring))
+                }
+            }
+
+            if (newGame?.playtimeMinutes != null) _patchHltbPin(container, newGame.playtimeMinutes)
+        } catch { /* silent — next tick retries */ }
+    }, 5 * 60_000)
 }
 
 // ── Dashboard interactions ─────────────────────────────────────────────────────
