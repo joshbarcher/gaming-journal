@@ -347,8 +347,10 @@ function _hltb(game) {
     if (_releaseStatus(game) === 'coming_soon') return ''
 
     const hltb    = game.hltb
+    // Use || not ?? so that 0 counts as "no times" (HLTB found the game but times
+    // haven't been submitted yet — treat the same as unmatched for display purposes)
     const hasData = hltb?.matched &&
-        (hltb.gameplayMain ?? hltb.gameplayMainExtra ?? hltb.gameplayCompletionist) != null
+        !!(hltb.gameplayMain || hltb.gameplayMainExtra || hltb.gameplayCompletionist)
 
     if (!hasData) {
         // No data yet — show a pending placeholder so the async loader can fetch
