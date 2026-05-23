@@ -612,13 +612,11 @@
 /* Shared base */
 .gj-ach-badge { flex-shrink: 0; }
 
-/* Real icon: fills the card height flush with the left edge, capped at half the card width */
+/* Real icon: fixed width, stretches to card height (which is set by the text content) */
 img.gj-ach-badge {
     display: block;
     align-self: stretch;
-    width: auto;
-    max-width: 50%;
-    aspect-ratio: 1 / 1;
+    width: 80px;
     object-fit: cover;
     border-radius: 5px 0 0 5px;
 }
