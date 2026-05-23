@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { escapeHtml } from '../utils.js'
+import { escapeHtml, uuid } from '../utils.js'
 import { refreshSidebarItem } from '../sidebar.js'
 import { segmentColor, globalSegments } from './progress-helpers.js'
 import { fireParticles } from '../particles.js'
@@ -240,7 +240,7 @@ function _onNotesInput(e) {
 }
 
 async function _addTask() {
-    const task = { id: crypto.randomUUID(), title: '', state: null }
+    const task = { id: uuid(), title: '', state: null }
     _page.tasks = [...(_page.tasks ?? []), task]
 
     const list = _container.querySelector('[data-role="task-list"]')

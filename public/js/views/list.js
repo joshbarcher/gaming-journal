@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { escapeHtml } from '../utils.js'
+import { escapeHtml, uuid } from '../utils.js'
 import { refreshSidebarItem } from '../sidebar.js'
 
 // ── Pure helpers (exported for tests) ─────────────────────────────────────────
@@ -282,7 +282,7 @@ async function _deleteItem(itemId, el) {
 
 async function _addItem() {
     const newItem = {
-        id: crypto.randomUUID(),
+        id: uuid(),
         title: '',
         subtasks: [],
         order: _page.items.length,

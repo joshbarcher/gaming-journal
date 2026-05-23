@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { escapeHtml } from '../utils.js'
+import { escapeHtml, uuid } from '../utils.js'
 import { refreshSidebarItem } from '../sidebar.js'
 
 // ── Module state ──────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ async function _addNote(textarea) {
     const text = textarea.value.trim()
     if (!text) return
 
-    const note = { id: crypto.randomUUID(), text, createdAt: new Date().toISOString() }
+    const note = { id: uuid(), text, createdAt: new Date().toISOString() }
     _page.notes = [note, ...(_page.notes ?? [])]
 
     const grid = _container.querySelector('[data-role="notes-grid"]')

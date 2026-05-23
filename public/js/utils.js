@@ -1,3 +1,15 @@
+// UUID v4 — falls back to Math.random when crypto.randomUUID is unavailable
+// (non-secure contexts: HTTP on an IP address)
+export function uuid() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID()
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+    })
+}
+
 // Converts any date value to a local-timezone 'YYYY-MM-DD' string.
 // Never slice a UTC ISO string directly — that gives the wrong date for
 // sessions that start near midnight in non-UTC timezones.

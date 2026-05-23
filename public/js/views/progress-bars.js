@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { escapeHtml } from '../utils.js'
+import { escapeHtml, uuid } from '../utils.js'
 import { refreshSidebarItem } from '../sidebar.js'
 import { segmentColor, barProgressPercent, percentToColor, globalSegments, stateLabel } from './progress-helpers.js'
 import { fireParticles } from '../particles.js'
@@ -413,7 +413,7 @@ function _onNotesInput(e) {
 }
 
 async function _addBar() {
-    const bar = { id: crypto.randomUUID(), title: '', steps: [] }
+    const bar = { id: uuid(), title: '', steps: [] }
     _page.bars = [...(_page.bars ?? []), bar]
 
     const list = _container.querySelector('[data-role="bars-list"]')
@@ -434,11 +434,11 @@ async function _copyBar(sourceBarId) {
     const source = (_page.bars ?? []).find(b => b.id === sourceBarId)
     if (!source) return
     const newBar = {
-        id: crypto.randomUUID(),
+        id: uuid(),
         title: source.title,
         optional: source.optional,
         steps: (source.steps ?? []).map(s => ({
-            id: crypto.randomUUID(),
+            id: uuid(),
             title: s.title,
             optional: s.optional,
             state: null,
@@ -463,7 +463,7 @@ async function _copyBar(sourceBarId) {
 async function _addStep(barId) {
     const bar = (_page.bars ?? []).find(b => b.id === barId)
     if (!bar) return
-    const step = { id: crypto.randomUUID(), title: '', state: null }
+    const step = { id: uuid(), title: '', state: null }
     bar.steps = [...(bar.steps ?? []), step]
 
     const row = _container.querySelector(`.pb-bar-row[data-bar-id="${barId}"]`)
