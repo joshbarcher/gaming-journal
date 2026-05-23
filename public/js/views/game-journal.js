@@ -49,16 +49,21 @@ function _progressPct(page) {
     return 0
 }
 
-const STAR_LABELS = ['', 'Terrible', 'Bad', 'Mixed', 'Good', 'Great', 'Masterpiece']
+// Must match review-modal.js: 1-5 = regular stars, 6 = Legendary (5 stars + badge)
+const STAR_LABELS = ['Not Rated', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars', 'Legendary']
 const RATING_KEYS = ['story', 'soundMusic', 'gameplay', 'graphics', 'replayability', 'performance', 'agendaFree']
 const RATING_LBLS = { story: 'Story', soundMusic: 'Sound', gameplay: 'Gameplay', graphics: 'Graphics', replayability: 'Replay', performance: 'Perf.', agendaFree: 'Agenda-Free' }
 
-function _starStr(stars) {
-    if (stars == null) return ''
-    const full  = Math.floor(stars / 2)
-    const half  = stars % 2
-    const empty = 3 - full - half
-    return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty)
+function _starsHtml(stars) {
+    if (stars == null || stars === 0) return ''
+    const isLegendary  = stars === 6
+    const displayStars = isLegendary ? 5 : stars
+    let out = ''
+    for (let i = 1; i <= 5; i++) {
+        out += `<span class="gj-star${i <= displayStars ? ' gj-star--on' : ''}">${i <= displayStars ? '★' : '☆'}</span>`
+    }
+    if (isLegendary) out += `<span class="gj-star-legendary">✦ Legendary</span>`
+    return out
 }
 
 function _fmtHours(h) {
@@ -154,9 +159,9 @@ function _ratingCard(review) {
     const stars   = review?.stars ?? null
     const ratings = review?.ratings ?? {}
 
-    const starsHtml = stars != null
+    const starsHtml = stars != null && stars > 0
         ? `<div class="gj-rating-hero">
-               <span class="gj-rating-stars">${_starStr(stars)}</span>
+               <div class="gj-rating-stars-row">${_starsHtml(stars)}</div>
                <span class="gj-rating-label">${STAR_LABELS[stars] ?? ''}</span>
            </div>`
         : `<p class="gj-no-data">No rating yet</p>`
@@ -204,20 +209,22 @@ function _achCard(achList, appid) {
            </div>
            ${recent.length ? `
            <p class="gj-ach-recent-label">Recent</p>
-           <div class="gj-ach-recent-list">
+           <div class="gj-ach-strip">
                ${recent.map(a => {
                    const src      = a.localIcon ?? a.icon ?? null
                    const fallback = a.icon ?? null
+                   const name     = a.displayName ?? _cleanAchName(a.apiname)
+                   const date     = _fmt(new Date(a.unlocktime * 1000))
                    const errHandler = src && fallback && src !== fallback
                        ? `this.onerror=null;this.src='${fallback}'`
-                       : `this.style.display='none'`
+                       : `this.style.visibility='hidden'`
                    return `
-               <div class="gj-ach-item">
+               <div class="gj-ach-strip-item" title="${escapeHtml(name)}">
                    ${src
-                     ? `<img src="${src}" style="width:20px;height:20px;border-radius:3px;flex-shrink:0;object-fit:cover" onerror="${errHandler}">`
-                     : `<div class="gj-ach-dot gj-ach-dot--unlocked"></div>`}
-                   <span class="gj-ach-name">${escapeHtml(a.displayName ?? _cleanAchName(a.apiname))}</span>
-                   <span class="gj-ach-date">${_fmt(new Date(a.unlocktime * 1000))}</span>
+                     ? `<img class="gj-ach-strip-img" src="${src}" alt="" onerror="${errHandler}">`
+                     : `<div class="gj-ach-strip-fallback">${escapeHtml(name[0]?.toUpperCase() ?? '?')}</div>`}
+                   <span class="gj-ach-strip-name">${escapeHtml(name)}</span>
+                   <span class="gj-ach-strip-date">${date}</span>
                </div>`}).join('')}
            </div>` : ''}`
         : `<p class="gj-no-data">No achievement data</p>`

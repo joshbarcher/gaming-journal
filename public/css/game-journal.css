@@ -121,11 +121,34 @@
     gap: 10px;
 }
 
-.gj-rating-stars {
-    font-size: 20px;
-    letter-spacing: 1px;
-    color: var(--clr-accent);
+.gj-rating-stars-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     line-height: 1;
+}
+
+.gj-star {
+    font-size: 20px;
+    color: rgba(201, 168, 76, 0.25);
+    line-height: 1;
+}
+.gj-star--on {
+    color: var(--clr-accent);
+}
+
+.gj-star-legendary {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--clr-accent);
+    background: rgba(201, 168, 76, 0.12);
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    border-radius: 3px;
+    padding: 2px 7px;
+    margin-left: 6px;
+    line-height: 1.4;
 }
 
 .gj-rating-label {
@@ -219,25 +242,66 @@
     letter-spacing: 0.08em;
 }
 
-.gj-ach-recent-list {
+/* ── Achievement icon strip (dashboard card) ──────────────────────────────────── */
+
+.gj-ach-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.gj-ach-strip-item {
     display: flex;
     flex-direction: column;
-    gap: 7px;
-}
-
-.gj-ach-item {
-    display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     min-width: 0;
+    text-align: center;
 }
 
-.gj-ach-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+.gj-ach-strip-img {
+    width: 44px;
+    height: 44px;
+    border-radius: 7px;
+    object-fit: cover;
+    border: 1px solid rgba(201, 168, 76, 0.18);
+    background: var(--clr-bg-hover);
     flex-shrink: 0;
 }
+
+.gj-ach-strip-fallback {
+    width: 44px;
+    height: 44px;
+    border-radius: 7px;
+    background: rgba(201, 168, 76, 0.1);
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--clr-accent);
+    flex-shrink: 0;
+}
+
+.gj-ach-strip-name {
+    font-size: 10px;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    line-height: 1.2;
+}
+
+.gj-ach-strip-date {
+    font-size: 9px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+/* Legacy — keep for any older renders */
+.gj-ach-dot          { display: none; }
 .gj-ach-dot--unlocked { background: var(--clr-accent); }
 .gj-ach-dot--locked   { background: rgba(255,255,255,0.15); }
 
