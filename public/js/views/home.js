@@ -27,16 +27,19 @@ export async function renderHome(container) {
     const alerts       = alertsResult.value ?? {}
     const discover     = discResult.value   ?? []
 
-    // Relay-accurate last-played map: { [appid]: ISO string }
-    // Patch rtime_last_played on each game if the relay has a more recent timestamp.
-    // This fixes the resume card when Steam's rtime_last_played hasn't synced yet.
+    // Relay-accurate last-played map: { [appid]: { lastPlayedAt, effectiveMin } }
+    // Patch rtime_last_played and playtime_forever with relay data where more accurate.
+    // This fixes the resume card when Steam hasn't synced yet (timestamp or playtime).
     const lastPlayedMap = lastPlayedResult.value ?? {}
     const steamLib = rawSteamLib
         .map(g => {
-            const relayIso = lastPlayedMap[g.appid]
-            if (!relayIso) return g
-            const relaySec = Math.floor(new Date(relayIso).getTime() / 1000)
-            return relaySec > (g.rtime_last_played ?? 0) ? { ...g, rtime_last_played: relaySec } : g
+            const relay = lastPlayedMap[g.appid]
+            if (!relay) return g
+            const patched = { ...g }
+            const relaySec = Math.floor(new Date(relay.lastPlayedAt).getTime() / 1000)
+            if (relaySec > (g.rtime_last_played ?? 0)) patched.rtime_last_played = relaySec
+            if (relay.effectiveMin > (g.playtime_forever ?? 0)) patched.playtime_forever = relay.effectiveMin
+            return patched
         })
         .filter(g => filterFn(g.appid))
 
