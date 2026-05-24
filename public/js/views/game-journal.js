@@ -237,6 +237,12 @@ async function _renderDashboard(appid, container, navigate) {
     const achievementsDuring = activeSession?.achievementsDuring ?? []
     const displayAchList     = _mergeSessionAchievements(achList, achievementsDuring)
 
+    // Steam doesn't update playtimeMinutes until a session closes, so we compute the
+    // effective elapsed time client-side so the HLTB pin starts at the right position.
+    const sessionElapsedMins = activeSession
+        ? Math.floor((Date.now() - new Date(activeSession.sessionStartedAt)) / 60_000)
+        : 0
+
     container.innerHTML = `
         <div class="gj-dash">
             <div class="gj-header">
@@ -249,7 +255,7 @@ async function _renderDashboard(appid, container, navigate) {
                 ${activeSession
                     ? _currentSessionCard(activeSession, displayAchList, appid)
                     : _sessionCard(gameSessions, displayAchList, appid)}
-                ${_hltbCard(game)}
+                ${_hltbCard(game, sessionElapsedMins)}
                 ${_progressCard(progressPages, appid)}
                 ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
             </div>
@@ -337,8 +343,8 @@ function _achCard(achList, appid) {
         </div>`
 }
 
-function _hltbCard(game) {
-    const playerHours = (game.playtimeMinutes ?? 0) / 60
+function _hltbCard(game, sessionElapsedMins = 0) {
+    const playerHours = (game.playtimeMinutes ?? 0) / 60 + sessionElapsedMins / 60
     const hltb        = game.hltb?.matched ? game.hltb : null
 
     const milestones = [
@@ -671,8 +677,17 @@ function _patchHltbPin(container, playtimeMinutes) {
     const pct         = h => (Math.sqrt(h) / Math.sqrt(_hltbMaxScale)) * 100
     const pinPos      = pct(playerHours)
 
-    const pinEl  = container.querySelector('[data-role="hltb-pin"]')
     const fillEl = container.querySelector('[data-role="hltb-fill"]')
+    let   pinEl  = container.querySelector('[data-role="hltb-pin"]')
+
+    // Create pin if it was absent at render time (player had 0 playtime when the
+    // dashboard loaded, so no pin element was emitted in the initial HTML).
+    if (!pinEl && fillEl) {
+        pinEl = document.createElement('div')
+        pinEl.className    = 'hltb-pin'
+        pinEl.dataset.role = 'hltb-pin'
+        fillEl.closest('.hltb-track-wrap')?.appendChild(pinEl)
+    }
 
     if (pinEl) {
         pinEl.style.left    = `${pinPos.toFixed(2)}%`

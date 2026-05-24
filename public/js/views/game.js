@@ -8,6 +8,11 @@ export async function renderGame(appid, container) {
     _navRailEl?.remove()
     _navRailEl = null
 
+    // Clear any live HLTB pin timer from a previous page visit
+    if (_gpHltbTimer) { clearInterval(_gpHltbTimer); _gpHltbTimer = null }
+    _gpHltbMilestones = _gpHltbMaxScale = null
+    _gpBasePlaytimeMin = 0
+
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
     let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news
@@ -81,6 +86,7 @@ export async function renderGame(appid, container) {
     _initTrailers(container, appid)
     _initNews(container)
     _initNavRail(container)
+    _initHltbSessionUpdate(container, appid)
 
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
@@ -343,7 +349,7 @@ function _gdpRow(label, value, raw = false) {
 
 // ── HLTB bar ──────────────────────────────────────────────────────────────────
 
-function _hltb(game) {
+function _hltb(game, sessionElapsedMins = 0) {
     if (_releaseStatus(game) === 'coming_soon') return ''
 
     const hltb    = game.hltb
@@ -358,15 +364,24 @@ function _hltb(game) {
         //   • Discovered games (never fetched)
         //   • Library/wishlist games where HLTB returned no match last time
         //     (the server will retry; page visit also triggers an on-demand attempt)
+        _gpHltbMilestones = null
         return '<div class="game-hltb-pending"></div>'
     }
 
-    const playerHours = (game.playtimeMinutes ?? 0) / 60
+    // Steam doesn't update playtimeMinutes until a session closes; sessionElapsedMins
+    // bridges that gap for the initial render when the player is actively playing.
+    const playerHours = (game.playtimeMinutes ?? 0) / 60 + sessionElapsedMins / 60
+
     const milestones  = [
         { label: 'Main',          h: hltb.gameplayMain          },
         { label: 'Main + Extras', h: hltb.gameplayMainExtra     },
         { label: 'Completionist', h: hltb.gameplayCompletionist },
     ].filter(m => m.h != null && m.h > 0)
+
+    // Store for live HLTB pin recalculation — null when no HLTB data available
+    _gpHltbMilestones  = milestones.length ? milestones : null
+    _gpHltbMaxScale    = null  // computed below
+    _gpBasePlaytimeMin = game.playtimeMinutes ?? 0
 
     if (!milestones.length) {
         return `
@@ -380,6 +395,7 @@ function _hltb(game) {
     // clump everything on the left side of the bar.
     const allVals  = [...milestones.map(m => m.h), playerHours > 0 ? playerHours : null].filter(Boolean)
     const maxScale = Math.max(...allVals) * 1.08
+    _gpHltbMaxScale = maxScale  // persist so delta updates use the same coordinate space
     const pct      = h => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
 
     const labelsHtml = milestones.map(m =>
@@ -397,7 +413,7 @@ function _hltb(game) {
     const pinPos  = playerHours > 0 ? pct(playerHours) : null
     const fillPct = pinPos ?? pct(milestones[0].h)
     const pinHtml = pinPos != null
-        ? `<div class="hltb-pin" style="left:${pinPos.toFixed(2)}%" data-label="${_fmtHours(playerHours)} played"></div>`
+        ? `<div class="hltb-pin" data-role="hltb-pin" style="left:${pinPos.toFixed(2)}%" data-label="${_fmtHours(playerHours)} played"></div>`
         : ''
 
     return `
@@ -407,7 +423,7 @@ function _hltb(game) {
                 <div class="hltb-labels-row">${labelsHtml}</div>
                 <div class="hltb-track-wrap">
                     <div class="hltb-track">
-                        <div class="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>
+                        <div class="hltb-fill" data-role="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>
                     </div>
                     ${ticksHtml}
                     ${pinHtml}
@@ -1604,6 +1620,8 @@ function _loadDiscoveredData(container, game) {
                     (entry.gameplayMain ?? entry.gameplayMainExtra ?? entry.gameplayCompletionist) != null
                 if (!hasTimes) { noData(); return }
                 _swap(el, _hltb({ ...game, hltb: entry }))
+                // Re-init the session pin timer now that milestones/scale are populated
+                _initHltbSessionUpdate(container, appid)
             } catch { noData() }
         })()
     } else {
@@ -1738,6 +1756,12 @@ const _NAV_ITEMS = [
 
 let _navRailEl = null
 
+// HLTB session-tracking state — cleared each time renderGame() runs
+let _gpHltbMilestones  = null  // [{label, h}] stored as side-effect by _hltb()
+let _gpHltbMaxScale    = null  // pre-computed coordinate space for consistent pin position
+let _gpBasePlaytimeMin = 0     // game.playtimeMinutes at render time
+let _gpHltbTimer       = null  // 30s tick that moves the pin during an active play session
+
 function _initNavRail(container) {
     const scrollEl = document.getElementById('main-content')
     if (!scrollEl) return
@@ -1827,4 +1851,63 @@ function _fmtHours(h) {
     if (h >= 100)  return `${Math.round(h)}h`
     if (h >= 10)   return `${(Math.round(h * 2) / 2)}h`  // 0.5h precision
     return `${(Math.round(h * 10) / 10)}h`                // 0.1h precision
+}
+
+// ── HLTB live pin update (session-aware) ──────────────────────────────────────
+
+/**
+ * Moves the HLTB pin and fill bar to reflect updated playtime.
+ * Creates the pin element if it didn't exist at render time (player had 0 playtime).
+ * Scoped to #game-sec-hltb so it won't affect unrelated containers.
+ */
+function _updateGameHltbPin(container, playtimeMinutes) {
+    if (!_gpHltbMilestones?.length || _gpHltbMaxScale == null || !(playtimeMinutes > 0)) return
+
+    const playerHours = playtimeMinutes / 60
+    const pct         = h => (Math.sqrt(h) / Math.sqrt(_gpHltbMaxScale)) * 100
+    const pinPos      = pct(playerHours)
+
+    const section = container.querySelector('#game-sec-hltb')
+    if (!section) return
+
+    const fillEl = section.querySelector('[data-role="hltb-fill"]')
+    let   pinEl  = section.querySelector('[data-role="hltb-pin"]')
+
+    // Create the pin if it wasn't rendered (player had 0 playtime when page loaded)
+    if (!pinEl && fillEl) {
+        pinEl = document.createElement('div')
+        pinEl.className    = 'hltb-pin'
+        pinEl.dataset.role = 'hltb-pin'
+        fillEl.closest('.hltb-track-wrap')?.appendChild(pinEl)
+    }
+
+    if (pinEl) {
+        pinEl.style.left    = `${pinPos.toFixed(2)}%`
+        pinEl.dataset.label = `${_fmtHours(playerHours)} played`
+    }
+    if (fillEl) fillEl.style.width = `${pinPos.toFixed(2)}%`
+}
+
+/**
+ * Fetches now-playing once; if this game is active, immediately corrects the HLTB
+ * pin position and starts a 30-second interval to keep it moving live.
+ * Called after the initial render and again after any dynamic HLTB section swap.
+ */
+async function _initHltbSessionUpdate(container, appid) {
+    // Clear any previous timer (e.g. after a dynamic HLTB section swap)
+    if (_gpHltbTimer) { clearInterval(_gpHltbTimer); _gpHltbTimer = null }
+    if (!_gpHltbMilestones?.length) return   // no HLTB data — nothing to update
+
+    try {
+        const np      = await fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null)
+        const session = np?.playing?.appid === Number(appid) ? np.playing : null
+        if (!session) return
+
+        const startedAt = session.sessionStartedAt
+        const elapsed   = () => Math.floor((Date.now() - new Date(startedAt)) / 60_000)
+        const update    = () => _updateGameHltbPin(container, _gpBasePlaytimeMin + elapsed())
+
+        update()  // correct the pin immediately
+        _gpHltbTimer = setInterval(update, 30_000)
+    } catch { /* silent — best-effort */ }
 }
