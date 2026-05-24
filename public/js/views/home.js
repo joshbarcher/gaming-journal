@@ -12,19 +12,33 @@ export async function renderHome(container) {
     // /relay/api/games is the enriched combined endpoint — library + wishlist
     // with store data (releaseDate, media, etc.) and source tagging.
     // /relay/api/steam/games is the thin Steam endpoint that has rtime_last_played.
-    const [allGamesResult, steamResult, alertsResult, discResult, shouldShow] = await Promise.allSettled([
+    const [allGamesResult, steamResult, alertsResult, discResult, shouldShow, lastPlayedResult] = await Promise.allSettled([
         fetch('/relay/api/games').then(r => r.ok ? r.json() : null),
         fetch('/relay/api/steam/games').then(r => r.ok ? r.json() : null),
         fetch('/api/alerts').then(r => r.ok ? r.json() : null),
         fetch('/relay/api/discover/featured').then(r => r.ok ? r.json() : null),
         loadGameFilter(),
+        fetch('/relay/api/steam/playtime/last-played').then(r => r.ok ? r.json() : null),
     ])
 
-    const allGames  = Array.isArray(allGamesResult.value) ? allGamesResult.value : []
-    const filterFn  = shouldShow.value ?? (() => true)
-    const steamLib  = _unwrapLibrary(steamResult.value).filter(g => filterFn(g.appid))
-    const alerts   = alertsResult.value ?? {}
-    const discover = discResult.value   ?? []
+    const allGames     = Array.isArray(allGamesResult.value) ? allGamesResult.value : []
+    const filterFn     = shouldShow.value ?? (() => true)
+    const rawSteamLib  = _unwrapLibrary(steamResult.value)
+    const alerts       = alertsResult.value ?? {}
+    const discover     = discResult.value   ?? []
+
+    // Relay-accurate last-played map: { [appid]: ISO string }
+    // Patch rtime_last_played on each game if the relay has a more recent timestamp.
+    // This fixes the resume card when Steam's rtime_last_played hasn't synced yet.
+    const lastPlayedMap = lastPlayedResult.value ?? {}
+    const steamLib = rawSteamLib
+        .map(g => {
+            const relayIso = lastPlayedMap[g.appid]
+            if (!relayIso) return g
+            const relaySec = Math.floor(new Date(relayIso).getTime() / 1000)
+            return relaySec > (g.rtime_last_played ?? 0) ? { ...g, rtime_last_played: relaySec } : g
+        })
+        .filter(g => filterFn(g.appid))
 
     const libGames = allGames.filter(g => g.source === 'library' || g.source === 'both')
     const wlGames  = allGames.filter(g => g.source === 'wishlist' || g.source === 'both')
