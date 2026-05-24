@@ -167,8 +167,9 @@ function _showInlineCreate(btn, placeholder, onCreate) {
 let _sessionTimer = null  // 30s tick — updates session elapsed display
 
 // Dashboard live-update polling
-let _dashPollTimer  = null  // 60s  — now-playing delta (session achs + ach card)
-let _dataPollTimer  = null  // 5min — achievement cache + game data (HLTB pin)
+let _dashPollTimer    = null  // 60s  — now-playing delta (session achs + ach card)
+let _dataPollTimer    = null  // 5min — achievement cache + game data (HLTB pin)
+let _schemaAwaitTimer = null  // 15s  — waits for achievement schema on brand-new games
 let _rawAchList     = []    // base ach list without session-merge, kept fresh by slow poll
 let _lastAchsDuring = []    // last known achievementsDuring from now-playing
 let _hltbMilestones  = null  // [{label, h}] stored as side-effect by _hltbCard
@@ -176,9 +177,10 @@ let _hltbMaxScale    = null  // pre-computed scale for consistent pin positionin
 let _basePlaytimeMin = 0     // game.playtimeMinutes at render time; session elapsed adds on top
 
 function _clearSessionTimer() {
-    if (_sessionTimer)  { clearInterval(_sessionTimer);  _sessionTimer  = null }
-    if (_dashPollTimer) { clearInterval(_dashPollTimer); _dashPollTimer = null }
-    if (_dataPollTimer) { clearInterval(_dataPollTimer); _dataPollTimer = null }
+    if (_sessionTimer)      { clearInterval(_sessionTimer);      _sessionTimer      = null }
+    if (_dashPollTimer)     { clearInterval(_dashPollTimer);     _dashPollTimer     = null }
+    if (_dataPollTimer)     { clearInterval(_dataPollTimer);     _dataPollTimer     = null }
+    if (_schemaAwaitTimer)  { clearInterval(_schemaAwaitTimer);  _schemaAwaitTimer  = null }
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -334,7 +336,7 @@ function _achCard(achList, appid) {
         : `<p class="gj-no-data">No achievement data</p>`
 
     return `
-        <div class="gj-card">
+        <div class="gj-card" data-role="ach-card">
             <div class="gj-card-header">
                 <span class="gj-card-title">Achievements</span>
                 ${total > 0 ? `<a href="/journal/${appid}/achievements" class="gj-view-all">View All →</a>` : ''}
@@ -619,6 +621,20 @@ function _notesAndPagesCard(pinnedNotes, journalPages, appid) {
 
 // ── Dashboard live delta-update ────────────────────────────────────────────────
 
+/**
+ * Full card replacement — used when the achievement schema first arrives for a
+ * brand-new game.  The "No achievement data" card has no patchable data-role
+ * elements, so targeted patches silently no-op; we must replace the whole card.
+ */
+function _replaceAchCard(container, achList, appid) {
+    const cardEl = container.querySelector('[data-role="ach-card"]')
+    if (!cardEl) return
+    const wrapper = document.createElement('div')
+    wrapper.innerHTML = _achCard(achList, appid)
+    const newCard = wrapper.firstElementChild
+    if (newCard) cardEl.replaceWith(newCard)
+}
+
 /** Patches the achievement card counts, fill bar, and recent strip in-place. */
 function _patchAchCard(container, achList) {
     const total    = achList.length
@@ -697,6 +713,32 @@ function _patchHltbPin(container, playtimeMinutes) {
 }
 
 /**
+ * Short-term poller that fires every 15s waiting for the achievement schema
+ * to arrive for a brand-new game.  Stops itself once data appears (max 2 min).
+ * Called only when the dashboard opens with no achievement data + active session.
+ */
+function _startSchemaAwaitPoller(container, appid) {
+    if (_schemaAwaitTimer) return   // already running
+    const MAX_TRIES = 8             // 8 × 15s = 2 minutes max wait
+    let tries = 0
+    _schemaAwaitTimer = setInterval(async () => {
+        tries++
+        try {
+            const data = await fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null)
+            const achs = data?.achievements
+            if (achs?.length) {
+                clearInterval(_schemaAwaitTimer)
+                _schemaAwaitTimer = null
+                _rawAchList = achs
+                _replaceAchCard(container, _mergeSessionAchievements(_rawAchList, _lastAchsDuring), appid)
+                return
+            }
+        } catch { /* retry next tick */ }
+        if (tries >= MAX_TRIES) { clearInterval(_schemaAwaitTimer); _schemaAwaitTimer = null }
+    }, 15_000)
+}
+
+/**
  * Starts two background polling loops:
  *   fast (60s)  — fetches now-playing to catch new session achievements
  *   slow (5min) — fetches achievements + game data for cache-backed counts + HLTB
@@ -705,6 +747,13 @@ function _patchHltbPin(container, playtimeMinutes) {
  * The fast loop only starts when a session is actively running.
  */
 function _startDashPollers(container, appid, hasActiveSession) {
+    // Short-term schema poller — brand-new games have no cached achievement data yet.
+    // The backend fetches the schema async after the session opens; this polls until
+    // it appears (max 2 min, 15s interval) then swaps the card in place.
+    if (hasActiveSession && _rawAchList.length === 0) {
+        _startSchemaAwaitPoller(container, appid)
+    }
+
     // Fast loop — only when a game is actively playing
     if (hasActiveSession) {
         _dashPollTimer = setInterval(async () => {
@@ -740,9 +789,17 @@ function _startDashPollers(container, appid, hasActiveSession) {
             const newGame = gameRes.value
 
             if (newRaw) {
+                const prevTotal    = _rawAchList.length
                 const prevUnlocked = _rawAchList.filter(a => a.achieved).length
                 _rawAchList        = newRaw   // always refresh for future merges
-                if (newRaw.filter(a => a.achieved).length !== prevUnlocked) {
+                const newUnlocked  = newRaw.filter(a => a.achieved).length
+
+                if (newRaw.length !== prevTotal) {
+                    // Schema appeared (or achievement list grew) — full card swap needed
+                    // because "No achievement data" has no patchable elements.
+                    _replaceAchCard(container, _mergeSessionAchievements(_rawAchList, _lastAchsDuring), appid)
+                    if (_schemaAwaitTimer) { clearInterval(_schemaAwaitTimer); _schemaAwaitTimer = null }
+                } else if (newUnlocked !== prevUnlocked) {
                     _patchAchCard(container, _mergeSessionAchievements(_rawAchList, _lastAchsDuring))
                 }
             }
