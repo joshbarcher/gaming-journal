@@ -430,7 +430,7 @@
 .hltb-labels-row {
     position: relative;
     height: 22px;
-    margin-bottom: 6px;
+    /* margin-bottom: 6px; */
 }
 
 .hltb-lbl {

@@ -54,7 +54,7 @@ function _progressPct(page) {
 // Must match review-modal.js: 1-5 = regular stars, 6 = Legendary (5 stars + badge)
 const STAR_LABELS = ['Not Rated', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars', 'Legendary']
 const RATING_KEYS = ['story', 'soundMusic', 'gameplay', 'graphics', 'replayability', 'performance', 'agendaFree']
-const RATING_LBLS = { story: 'Story', soundMusic: 'Sound', gameplay: 'Gameplay', graphics: 'Graphics', replayability: 'Replay', performance: 'Perf.', agendaFree: 'Agenda-Free' }
+const RATING_LBLS = { story: 'Story', soundMusic: 'Sound & Music', gameplay: 'Gameplay', graphics: 'Graphics', replayability: 'Replayability', performance: 'Performance', agendaFree: 'Agenda-Free' }
 
 function _starsHtml(stars) {
     if (stars == null || stars === 0) return ''
@@ -287,12 +287,12 @@ function _ratingCard(review) {
     const stars   = review?.stars ?? null
     const ratings = review?.ratings ?? {}
 
-    const starsHtml = stars != null && stars > 0
-        ? `<div class="gj-rating-hero">
+    const headerRight = stars != null && stars > 0
+        ? `<div class="gj-rating-header-stars">
                <div class="gj-rating-stars-row">${_starsHtml(stars)}</div>
                <span class="gj-rating-label">${STAR_LABELS[stars] ?? ''}</span>
            </div>`
-        : `<p class="gj-no-data">No rating yet</p>`
+        : `<span class="gj-no-data">No rating</span>`
 
     const ratedKeys = RATING_KEYS.filter(k => ratings[k] != null)
     const barsHtml = ratedKeys.length
@@ -304,16 +304,15 @@ function _ratingCard(review) {
                   <span class="gj-rating-bar-val">${ratings[k]}</span>
               </div>`).join('')}
            </div>`
-        : ''
+        : `<p class="gj-no-data">Click to add a review</p>`
 
     return `
-        <div class="gj-card">
-            <div class="gj-card-header"><span class="gj-card-title">My Rating</span></div>
-            ${starsHtml}
-            ${barsHtml}
-            <div class="gj-card-actions">
-                <button class="gj-btn gj-btn--accent" data-role="open-review">Edit Review</button>
+        <div class="gj-card gj-card--clickable" data-role="open-review">
+            <div class="gj-card-header">
+                <span class="gj-card-title">My Rating</span>
+                ${headerRight}
             </div>
+            ${barsHtml}
         </div>`
 }
 

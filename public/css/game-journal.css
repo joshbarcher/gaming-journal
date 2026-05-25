@@ -167,12 +167,29 @@
     padding-top: 4px;
 }
 
+/* ── Clickable card ───────────────────────────────────────────────────────────── */
+
+.gj-card--clickable {
+    cursor: pointer;
+}
+
+.gj-card--clickable:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
 /* ── Rating card ──────────────────────────────────────────────────────────────── */
 
 .gj-rating-hero {
     display: flex;
     align-items: baseline;
     gap: 10px;
+}
+
+.gj-rating-header-stars {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .gj-rating-stars-row {
