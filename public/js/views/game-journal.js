@@ -399,9 +399,11 @@ function _hltbCard(game, sessionElapsedMins = 0) {
 
     return `
         <div class="gj-card gj-card--wide gj-card--hltb">
-            <div class="gj-card-header"><span class="gj-card-title">How Long to Beat</span></div>
             <div class="hltb-bar-wrap">
-                <div class="hltb-labels-row">${labelsHtml}</div>
+                <div class="hltb-labels-row">
+                    <span class="gj-hltb-overlay-title">How Long to Beat</span>
+                    ${labelsHtml}
+                </div>
                 <div class="hltb-track-wrap">
                     <div class="hltb-track">
                         <div class="hltb-fill" data-role="hltb-fill" style="width:${fillPct.toFixed(2)}%"></div>

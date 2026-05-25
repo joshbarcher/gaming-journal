@@ -108,7 +108,22 @@
 
 .gj-card--wide  { grid-column: 1 / -1; }
 .gj-card--span2 { grid-column: span 2; }
-.gj-card--hltb  { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
+.gj-card--hltb  { padding: 8px 20px; gap: 0; }
+
+.gj-hltb-overlay-title {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
 
 /* Row-3 cards fill their grid cell and scroll content internally */
 .gj-card--fill {
