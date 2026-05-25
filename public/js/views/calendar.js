@@ -276,6 +276,7 @@ export function _buildDayMap(sessions, flags = {}, settings = {}) {
         if (f.filtered  && !settings.showFiltered)    continue
         const appid = Number(appidStr)
         for (const session of game.sessions ?? []) {
+            if (!session.endedAt) continue   // open session — _pollLive() handles it live
             for (const part of _splitAtMidnight(session)) {
                 const day = _localDateStr(part.startedAt)
                 if (!raw.has(day)) raw.set(day, new Map())
