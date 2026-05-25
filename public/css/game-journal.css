@@ -211,52 +211,51 @@
 }
 
 .gj-rating-bars {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 10px;
-    row-gap: 4px;
-}
-
-.gj-rating-row {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.gj-rating-row-label {
-    font-size: 10px;
-    color: var(--clr-text-muted);
-    width: 56px;
-    flex-shrink: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
+/* ── Labeled rating bar (label + fill + value all in one element) ─────────────── */
+
+.gj-rating-bar-labeled {
+    position: relative;
+    height: 22px;
+    border-radius: 3px;
     overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.gj-rating-track {
-    flex: 1;
-    height: 4px;
     background: rgba(255, 255, 255, 0.07);
-    border-radius: 2px;
-    overflow: hidden;
+    flex-shrink: 0;
 }
 
-.gj-rating-fill {
+.gj-rating-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
     height: 100%;
-    border-radius: 2px;
-    background: var(--clr-accent);
+    background: linear-gradient(to right, var(--clr-accent), rgba(201, 168, 76, 0.55));
+    border-radius: 3px;
     transition: width 0.3s ease;
 }
 
-.gj-rating-val {
-    font-size: 10px;
-    color: var(--clr-text-muted);
-    width: 14px;
-    text-align: right;
-    flex-shrink: 0;
+.gj-rating-bar-lbl,
+.gj-rating-bar-val {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+    z-index: 1;
 }
+
+.gj-rating-bar-lbl { left: 8px; }
+.gj-rating-bar-val { right: 8px; letter-spacing: 0; }
 
 .gj-no-data {
     font-size: 12px;

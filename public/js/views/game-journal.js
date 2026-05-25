@@ -298,10 +298,10 @@ function _ratingCard(review) {
     const barsHtml = ratedKeys.length
         ? `<div class="gj-rating-bars">
               ${ratedKeys.map(k => `
-              <div class="gj-rating-row">
-                  <span class="gj-rating-row-label">${RATING_LBLS[k]}</span>
-                  <div class="gj-rating-track"><div class="gj-rating-fill" style="width:${ratings[k] * 10}%"></div></div>
-                  <span class="gj-rating-val">${ratings[k]}</span>
+              <div class="gj-rating-bar-labeled">
+                  <div class="gj-rating-bar-fill" style="width:${ratings[k] * 10}%"></div>
+                  <span class="gj-rating-bar-lbl">${RATING_LBLS[k]}</span>
+                  <span class="gj-rating-bar-val">${ratings[k]}</span>
               </div>`).join('')}
            </div>`
         : ''
