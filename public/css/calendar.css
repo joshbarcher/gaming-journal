@@ -110,10 +110,11 @@
     font-weight: 700;
 }
 
-/* ── Entries row (side-by-side game cards) ───────────────────────────────── */
+/* ── Entries column (stacked game strips) ────────────────────────────────── */
 
 .cal-entries {
     display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
     gap: 2px;
@@ -129,6 +130,7 @@
     text-decoration: none;
     border-radius: 3px;
     min-width: 0;
+    min-height: 0;
 }
 
 .cal-entry--release {
@@ -146,13 +148,12 @@
 
 .cal-entry-overlay {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(transparent, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.92));
-    padding: 14px 3px 3px;
+    inset: 0;
+    background: linear-gradient(to right, transparent 20%, rgba(0,0,0,0.72) 60%, rgba(0,0,0,0.92));
+    padding: 0 4px;
     display: flex;
-    justify-content: center;
+    align-items: center;
+    justify-content: flex-end;
 }
 
 /* ── Tag (duration or release label) ────────────────────────────────────── */
@@ -199,7 +200,7 @@
 .cal-overflow {
     position: absolute;
     top: 3px;
-    right: 3px;
+    left: 3px;
     background: rgba(0,0,0,0.7);
     color: rgba(255,255,255,0.85);
     font-size: 0.5rem;

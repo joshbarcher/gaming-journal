@@ -384,7 +384,7 @@ function _buildCell(day, isToday, entries, releases) {
         ...releases.map(r => ({ ...r, isRelease: true })),
         ...sorted.map(e => ({ ...e, isRelease: false })),
     ]
-    const display  = all.slice(0, 2)
+    const display  = all.slice(0, 3)
     const overflow = all.length - display.length
 
     const entriesHtml = display.map((e, i) => {

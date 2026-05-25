@@ -257,6 +257,11 @@
     font-size: 0.88rem;
 }
 
+.acct-session-row--live {
+    border-color: rgba(126, 219, 138, 0.3);
+    background: rgba(126, 219, 138, 0.04);
+}
+
 .acct-session-name {
     color: var(--clr-text);
 }
@@ -264,4 +269,30 @@
 .acct-session-dur {
     color: var(--clr-text-muted);
     font-size: 0.8rem;
+}
+
+.acct-session-live-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    color: #7edb8a;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.acct-live-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #7edb8a;
+    flex-shrink: 0;
+    animation: acct-live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes acct-live-pulse {
+    0%, 100% { opacity: 1;   transform: scale(1);   }
+    50%       { opacity: 0.4; transform: scale(0.7); }
 }

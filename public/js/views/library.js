@@ -242,11 +242,18 @@ function _buildGrid() {
     return slice.map(_buildCard).join('')
 }
 
+function _fmtPlaytime(minutes) {
+    if (!minutes) return null
+    const h = Math.floor(minutes / 60)
+    if (h === 0) return `${minutes}m`
+    return `${h.toLocaleString()} hrs`
+}
+
 function _buildCard(game) {
-    const hours   = game.playtime_forever ? Math.round(game.playtime_forever / 60) : 0
-    const imgSrc  = `/relay/images/steam/games/${game.appid}/header.jpg`
-    const hoursEl = hours > 0
-        ? `<span class="lib-card-hours">${hours.toLocaleString()} hrs</span>`
+    const timeStr  = _fmtPlaytime(game.playtime_forever ?? 0)
+    const imgSrc   = `/relay/images/steam/games/${game.appid}/header.jpg`
+    const hoursEl  = timeStr
+        ? `<span class="lib-card-hours">${timeStr}</span>`
         : `<span class="lib-card-hours lib-card-hours--zero">Not played</span>`
 
     return `

@@ -1,7 +1,10 @@
 import { escapeHtml, localDateStr } from '../utils.js'
 import { loadGameFilter } from './game-filter.js'
 
+let _liveTimer = null
+
 export async function renderAccount(container) {
+    if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
     container.innerHTML = `<p class="page-loading">Loading account…</p>`
 
     let data, shouldShow
@@ -29,6 +32,24 @@ export async function renderAccount(container) {
         ${_mostPlayed(mostPlayed)}
         ${_sessionHistory(sessions, shouldShow)}
     `
+    _setupLiveTimer(container)
+}
+
+function _setupLiveTimer(container) {
+    const liveRows = container.querySelectorAll('.acct-session-row--live')
+    if (!liveRows.length) return
+
+    function tick() {
+        liveRows.forEach(row => {
+            const durEl = row.querySelector('.acct-session-dur')
+            if (!durEl) return
+            const mins = Math.max(1, Math.floor(
+                (Date.now() - new Date(row.dataset.startedAt).getTime()) / 60_000
+            ))
+            durEl.textContent = _fmtHrs(mins)
+        })
+    }
+    _liveTimer = setInterval(tick, 30_000)
 }
 
 // ── Profile hero ──────────────────────────────────────────────────────────────
@@ -170,11 +191,24 @@ function _sessionHistory(sessions, shouldShow) {
     const rows = [...byDay.entries()].map(([day, ss]) => `
         <div class="acct-session-day">
             <span class="acct-session-date">${_fmtDayLabel(day)}</span>
-            ${ss.map(s => `
+            ${ss.map(s => {
+                if (s.endedAt === null) {
+                    const liveMin = Math.max(1, Math.floor(
+                        (Date.now() - new Date(s.startedAt).getTime()) / 60_000
+                    ))
+                    return `
+            <div class="acct-session-row acct-session-row--live" data-started-at="${s.startedAt}">
+                <span class="acct-session-name">${escapeHtml(s.name)}</span>
+                <span class="acct-session-live-badge"><span class="acct-live-dot"></span>Now Playing</span>
+                <span class="acct-session-dur">${_fmtHrs(liveMin)}</span>
+            </div>`
+                }
+                return `
             <div class="acct-session-row">
                 <span class="acct-session-name">${escapeHtml(s.name)}</span>
                 <span class="acct-session-dur">${_fmtHrs(s.durationMin)}</span>
-            </div>`).join('')}
+            </div>`
+            }).join('')}
         </div>`).join('')
 
     return `
