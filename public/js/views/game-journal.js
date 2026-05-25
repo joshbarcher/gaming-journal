@@ -245,19 +245,25 @@ async function _renderDashboard(appid, container, navigate) {
         ? Math.floor((Date.now() - new Date(activeSession.sessionStartedAt)) / 60_000)
         : 0
 
+    // Closed sessions sorted newest-first — drives the history rail
+    const closedSessions = gameSessions
+        .filter(s => s.endedAt)
+        .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+
     container.innerHTML = `
         <div class="gj-dash">
             <div class="gj-header">
                 <a href="/game/${appid}" class="gj-back">&#8592; ${escapeHtml(game.name)}</a>
                 <span class="gj-header-title">Journal</span>
             </div>
-            <div class="gj-grid">
+            <div class="gj-grid${closedSessions.length ? ' gj-grid--with-history' : ''}">
                 ${_ratingCard(review)}
                 ${_achCard(displayAchList, appid)}
                 ${activeSession
                     ? _currentSessionCard(activeSession, displayAchList, appid)
                     : _sessionCard(gameSessions, displayAchList, appid)}
                 ${_hltbCard(game, sessionElapsedMins)}
+                ${closedSessions.length ? _sessionHistoryRail(closedSessions) : ''}
                 ${_progressCard(progressPages, appid)}
                 ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
             </div>
@@ -361,7 +367,7 @@ function _hltbCard(game, sessionElapsedMins = 0) {
 
     if (!milestones.length) {
         return `
-        <div class="gj-card gj-card--wide">
+        <div class="gj-card gj-card--wide gj-card--hltb">
             <div class="gj-card-header"><span class="gj-card-title">How Long to Beat</span></div>
             <p class="gj-no-data">${playerHours > 0 ? `Played ${_fmtHours(playerHours)} — no HLTB data` : 'No playtime or HLTB data'}</p>
         </div>`
@@ -392,7 +398,7 @@ function _hltbCard(game, sessionElapsedMins = 0) {
         : ''
 
     return `
-        <div class="gj-card gj-card--wide">
+        <div class="gj-card gj-card--wide gj-card--hltb">
             <div class="gj-card-header"><span class="gj-card-title">How Long to Beat</span></div>
             <div class="hltb-bar-wrap">
                 <div class="hltb-labels-row">${labelsHtml}</div>
@@ -567,51 +573,53 @@ function _sessionCard(sessions, achList, appid) {
         </div>`
 }
 
-function _notesAndPagesCard(pinnedNotes, journalPages, appid) {
-    const notesHtml = pinnedNotes.length
-        ? pinnedNotes.map(n => `
-            <div class="gj-note-card" data-id="${escapeHtml(n.id)}">
-                ${escapeHtml(n.text)}
-                <div class="gj-note-btns">
-                    <button class="gj-note-btn" data-role="unpin-note" data-id="${escapeHtml(n.id)}" title="Unpin">${IC.pin}</button>
-                    <button class="gj-note-btn gj-note-btn--del" data-role="del-note" data-id="${escapeHtml(n.id)}" title="Delete">&times;</button>
-                </div>
-                <div class="gj-note-date">${_fmt(n.createdAt)}</div>
-            </div>`).join('')
-        : `<p class="gj-no-data">No pinned notes — add one below</p>`
-
-    const pagesHtml = journalPages.length
-        ? journalPages.slice(0, 6).map(p => `
-            <a class="gj-page-item" href="/${p.id}">
-                <span class="gj-page-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
-                <span class="gj-page-name">${escapeHtml(p.title)}</span>
-                <span class="gj-page-date">${_fmt(p.updatedAt)}</span>
-            </a>`).join('')
-        : `<p class="gj-no-data">No pages yet</p>`
+function _sessionHistoryRail(closedSessions) {
+    const chips = closedSessions.slice(0, 30).map(s => {
+        const mins = s.durationMin ?? 0
+        const h    = Math.floor(mins / 60)
+        const m    = mins % 60
+        const dur  = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`
+        const achs = s.achievements?.length ?? 0
+        return `
+        <div class="gj-session-chip">
+            <span class="gj-session-chip-when">${_fmt(s.startedAt)}</span>
+            <span class="gj-session-chip-dur">${dur || '—'}</span>
+            <span class="gj-session-chip-achs">${achs ? `${achs} ach` : '—'}</span>
+        </div>`
+    }).join('')
 
     return `
-        <div class="gj-card gj-card--span2 gj-card--fill gj-card--np" data-role="notes-card">
-            <div class="gj-np-cols">
-                <div class="gj-np-col">
+        <div class="gj-card gj-card--wide gj-card--sessions-rail">
+            <div class="gj-card-header">
+                <span class="gj-card-title">Past Sessions</span>
+                <span class="gj-sessions-count">${closedSessions.length} total</span>
+            </div>
+            <div class="gj-sessions-scroll">${chips}</div>
+        </div>`
+}
+
+function _notesAndPagesCard(pinnedNotes, journalPages, appid) {
+    return `
+        <div class="gj-card gj-card--span2 gj-card--compact-np" data-role="notes-card">
+            <div class="gj-cnp-body">
+                <div class="gj-cnp-section">
                     <div class="gj-card-header">
                         <span class="gj-card-title">Pinned Notes</span>
-                        <a href="/journal/${appid}/notes" class="gj-view-all">All Notes →</a>
+                        <a href="/journal/${appid}/notes" class="gj-view-all">All (${pinnedNotes.length}) →</a>
                     </div>
-                    <div class="gj-notes-row">${notesHtml}</div>
                     <div class="gj-add-note" style="margin-top:auto">
                         <input class="gj-add-note-input" placeholder="Quick note…" data-role="note-input">
                         <button class="gj-pin-toggle" data-role="pin-toggle" title="Pin note">${IC.pin}</button>
                         <button class="gj-btn gj-btn--accent" data-role="add-note">Add</button>
                     </div>
                 </div>
-                <div class="gj-np-sep"></div>
-                <div class="gj-np-col">
+                <div class="gj-cnp-sep"></div>
+                <div class="gj-cnp-section">
                     <div class="gj-card-header">
                         <span class="gj-card-title">Journal Pages</span>
-                        <a href="/journal/${appid}/pages" class="gj-view-all">All Pages →</a>
+                        <a href="/journal/${appid}/pages" class="gj-view-all">All (${journalPages.length}) →</a>
                     </div>
-                    <div class="gj-pages-list gj-pages-list--scroll">${pagesHtml}</div>
-                    <div class="gj-card-actions" style="margin-top:auto;padding-top:8px">
+                    <div class="gj-card-actions" style="margin-top:auto">
                         <button class="gj-btn" data-role="new-notes-page">+ New Page</button>
                     </div>
                 </div>

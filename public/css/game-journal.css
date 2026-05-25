@@ -91,6 +91,10 @@
     gap: 14px;
 }
 
+.gj-grid--with-history {
+    grid-template-rows: auto auto auto 1fr;
+}
+
 .gj-card {
     background: var(--clr-bg-raised);
     border: 1px solid var(--clr-border);
@@ -104,6 +108,7 @@
 
 .gj-card--wide  { grid-column: 1 / -1; }
 .gj-card--span2 { grid-column: span 2; }
+.gj-card--hltb  { padding-top: 10px; padding-bottom: 10px; gap: 8px; }
 
 /* Row-3 cards fill their grid cell and scroll content internally */
 .gj-card--fill {
@@ -191,9 +196,10 @@
 }
 
 .gj-rating-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 10px;
+    row-gap: 4px;
 }
 
 .gj-rating-row {
@@ -205,10 +211,13 @@
 .gj-rating-row-label {
     font-size: 10px;
     color: var(--clr-text-muted);
-    width: 72px;
+    width: 56px;
     flex-shrink: 0;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .gj-rating-track {
@@ -704,6 +713,97 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+}
+
+/* ── Session history rail ─────────────────────────────────────────────────────── */
+
+.gj-card--sessions-rail {
+    padding: 12px 16px;
+    gap: 8px;
+}
+
+.gj-sessions-count {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+}
+
+.gj-sessions-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.gj-session-chip {
+    flex-shrink: 0;
+    background: var(--clr-bg-hover);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 84px;
+    cursor: default;
+    transition: border-color var(--transition), background var(--transition);
+}
+
+.gj-session-chip:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-raised);
+}
+
+.gj-session-chip-when {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1;
+}
+
+.gj-session-chip-dur {
+    font-size: 17px;
+    font-weight: 700;
+    font-family: var(--font-title);
+    color: var(--clr-text);
+    line-height: 1.1;
+}
+
+.gj-session-chip-achs {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+/* ── Compact Notes + Pages card ───────────────────────────────────────────────── */
+
+.gj-card--compact-np {
+    padding: 0;
+    gap: 0;
+}
+
+.gj-cnp-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.gj-cnp-section {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+.gj-cnp-sep {
+    width: 1px;
+    background: var(--clr-border);
+    flex-shrink: 0;
+    align-self: stretch;
 }
 
 /* ── Sub-view header ──────────────────────────────────────────────────────────── */
