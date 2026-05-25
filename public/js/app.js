@@ -4,12 +4,16 @@ import { renderProgress } from './views/progress.js'
 import { renderProgressBars } from './views/progress-bars.js'
 import { renderNotes } from './views/notes.js'
 import { renderPage } from './views/page.js'
+import { renderCounter } from './views/counter.js'
+import { renderMultiCounter } from './views/multi-counter.js'
 
 registerRenderer('list', renderList)
 registerRenderer('progress', renderProgress)
 registerRenderer('progress-bars', renderProgressBars)
 registerRenderer('notes', renderNotes)
 registerRenderer('page', renderPage)
+registerRenderer('counter', renderCounter)
+registerRenderer('multi-counter', renderMultiCounter)
 
 // ── Mobile sidebar toggle ──────────────────────────────────────────────────────
 const toggleBtn = document.getElementById('sidebar-toggle')

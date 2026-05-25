@@ -1,6 +1,6 @@
 import { api } from '../api.js'
 import { escapeHtml } from '../utils.js'
-import { globalSegments } from './progress-helpers.js'
+import { globalSegments, percentToColor, percentToStateLabel } from './progress-helpers.js'
 import { confirmDialog } from '../dialog.js'
 
 // ── SVG icons (Lucide paths) ───────────────────────────────────────────────────
@@ -14,6 +14,7 @@ const IC = {
     check:  _ic(`<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>`),
     file:   _ic(`<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/>`),
     notes:  _ic(`<path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><polyline points="15 3 15 9 21 9"/><line x1="9" x2="15" y1="13" y2="13"/><line x1="9" x2="12" y1="17" y2="17"/>`),
+    hash:   _ic(`<line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>`),
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -47,6 +48,16 @@ function _progressPct(page) {
             total += chips.length
         }
         return total > 0 ? Math.round(done / total * 100) : 0
+    }
+    if (page.type === 'counter') {
+        const target = page.target ?? 0
+        return target > 0 ? Math.min(100, Math.round((page.current ?? 0) / target * 100)) : 0
+    }
+    if (page.type === 'multi-counter') {
+        const counters = page.counters ?? []
+        const totalT   = counters.reduce((s, c) => s + (c.target  ?? 0), 0)
+        const totalC   = counters.reduce((s, c) => s + (c.current ?? 0), 0)
+        return totalT > 0 ? Math.min(100, Math.round(totalC / totalT * 100)) : 0
     }
     return 0
 }
@@ -221,7 +232,7 @@ async function _renderDashboard(appid, container, navigate) {
     }
 
     const achList       = achData?.achievements ?? []
-    const progressPages = pages.filter(p => p.type === 'progress' || p.type === 'progress-bars')
+    const progressPages = pages.filter(p => ['progress', 'progress-bars', 'counter', 'multi-counter'].includes(p.type))
     const journalPages  = pages.filter(p => p.type === 'page'     || p.type === 'notes')
     const pinnedNotes   = (review?.notes ?? []).filter(n => n.pinned)
     // Sessions indexed by appid (may be numeric or string key)
@@ -444,31 +455,37 @@ function _notesCard(pinnedNotes, appid) {
 }
 
 function _progressCard(pages, appid) {
-    const listHtml = pages.length
-        ? pages.slice(0, 4).map(p => {
-              const segs = globalSegments(p)
-              const segsHtml = segs.length
-                  ? segs.map(s => `<div class="gj-prog-seg" style="background:${s.color}" title="${escapeHtml(s.label ?? '')}"></div>`).join('')
-                  : `<div class="gj-prog-seg" style="background:rgba(255,255,255,0.07);flex:1"></div>`
-              return `
-              <a class="gj-progress-item" href="/${p.id}">
-                  <span class="gj-progress-name">${escapeHtml(p.title)}</span>
-                  <div class="gj-prog-segs">${segsHtml}</div>
-              </a>`
-          }).join('')
-        : `<p class="gj-no-data">No trackers yet</p>`
+    if (!pages.length) {
+        return `
+        <div class="gj-card">
+            <div class="gj-card-header">
+                <span class="gj-card-title">Progress Trackers</span>
+                <a href="/journal/${appid}/progress" class="gj-view-all">Manage →</a>
+            </div>
+            <p class="gj-no-data">No trackers yet</p>
+        </div>`
+    }
+
+    const n    = pages.length
+    const cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5
+
+    const cells = pages.map(p => {
+        const pct   = _progressPct(p)
+        const color = percentToColor(pct)
+        const state = percentToStateLabel(pct)
+        const tip   = state
+            ? `${p.title} · ${state} (${pct}%)`
+            : `${p.title} · ${pct}%`
+        return `<a class="gj-heat-cell" href="/${p.id}" data-tooltip="${escapeHtml(tip)}" style="background:${color}"></a>`
+    }).join('')
 
     return `
         <div class="gj-card gj-card--fill">
             <div class="gj-card-header">
                 <span class="gj-card-title">Progress Trackers</span>
-                <a href="/journal/${appid}/progress" class="gj-view-all">View All →</a>
+                <a href="/journal/${appid}/progress" class="gj-view-all">Manage →</a>
             </div>
-            <div class="gj-progress-list">${listHtml}</div>
-            <div class="gj-card-actions">
-                <button class="gj-btn" data-role="new-progress">+ Progress</button>
-                <button class="gj-btn" data-role="new-progress-bars">+ Multi-Bar</button>
-            </div>
+            <div class="gj-heat-grid" style="--cols:${cols}">${cells}</div>
         </div>`
 }
 
@@ -864,19 +881,19 @@ function _initDashboard(container, appid, game, navigate) {
         _renderDashboard(appid, container, navigate)
     })
 
-    container.querySelector('[data-role="new-progress"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
-            const page = await api.pages.create({ type: 'progress', title, appid: String(appid) })
-            navigate(page.id)
+    // Heatmap tooltip delegation
+    const heatGrid = container.querySelector('.gj-heat-grid')
+    if (heatGrid) {
+        let _lastHeatTip = null
+        heatGrid.addEventListener('mouseover', e => {
+            const cell = e.target.closest('.gj-heat-cell[data-tooltip]')
+            if (cell === _lastHeatTip) return
+            _lastHeatTip = cell
+            if (cell) _showTip(cell.dataset.tooltip, cell.getBoundingClientRect())
+            else _hideTip()
         })
-    })
-
-    container.querySelector('[data-role="new-progress-bars"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
-            const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
-            navigate(page.id)
-        })
-    })
+        heatGrid.addEventListener('mouseleave', () => { _lastHeatTip = null; _hideTip() })
+    }
 
     container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', e => {
         _showInlineCreate(e.currentTarget, 'Page title…', async title => {
@@ -1105,11 +1122,20 @@ async function _renderNotes(appid, container) {
 
 // ── Sub-view: Progress ─────────────────────────────────────────────────────────
 
+const _TRACKER_TYPES = ['progress', 'progress-bars', 'counter', 'multi-counter']
+
+const _TRACKER_META = {
+    'progress':       { label: 'Progress tracker',  icon: () => IC.check },
+    'progress-bars':  { label: 'Multi-bar tracker',  icon: () => IC.bars  },
+    'counter':        { label: 'Counter',             icon: () => IC.hash  },
+    'multi-counter':  { label: 'Multi-counter',       icon: () => IC.hash  },
+}
+
 async function _renderProgress(appid, container, navigate) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
     const pagesRes = await api.pages.listByGame(appid).catch(() => [])
-    const pages    = (pagesRes ?? []).filter(p => p.type === 'progress' || p.type === 'progress-bars')
+    const pages    = (pagesRes ?? []).filter(p => _TRACKER_TYPES.includes(p.type))
 
     container.innerHTML = `
         <div class="gj-sub-header">
@@ -1118,20 +1144,23 @@ async function _renderProgress(appid, container, navigate) {
             <div class="gj-sub-actions">
                 <button class="gj-btn" data-role="new-tracker">+ Progress</button>
                 <button class="gj-btn" data-role="new-tracker-bars">+ Multi-Bar</button>
+                <button class="gj-btn" data-role="new-counter">+ Counter</button>
+                <button class="gj-btn" data-role="new-multi-counter">+ Multi-Counter</button>
             </div>
         </div>
         <div class="gj-full-list" data-role="tracker-list">
             ${pages.map(p => {
-                const segs = globalSegments(p)
-                const segsHtml = segs.map(s =>
-                    `<div class="gj-prog-seg" style="background:${s.color}" title="${escapeHtml(s.label ?? '')}"></div>`
-                ).join('')
+                const meta     = _TRACKER_META[p.type] ?? _TRACKER_META['progress']
+                const segs     = globalSegments(p)
+                const segsHtml = segs.length
+                    ? segs.map(s => `<div class="gj-prog-seg" style="background:${s.color}" title="${escapeHtml(s.label ?? '')}"></div>`).join('')
+                    : `<div class="gj-prog-seg" style="background:rgba(255,255,255,0.07);flex:1"></div>`
                 return `
                 <a class="gj-full-item" href="/${p.id}" data-page-id="${escapeHtml(p.id)}" data-page-title="${escapeHtml(p.title)}">
-                    <span class="gj-full-item-icon">${p.type === 'progress-bars' ? IC.bars : IC.check}</span>
+                    <span class="gj-full-item-icon">${meta.icon()}</span>
                     <div class="gj-full-item-body">
                         <div class="gj-full-item-title">${escapeHtml(p.title)}</div>
-                        <div class="gj-full-item-meta">${p.type === 'progress-bars' ? 'Multi-bar tracker' : 'Progress tracker'} · Updated ${_fmt(p.updatedAt)}</div>
+                        <div class="gj-full-item-meta">${meta.label} · Updated ${_fmt(p.updatedAt)}</div>
                         <div class="gj-prog-segs gj-prog-segs--full">${segsHtml}</div>
                     </div>
                     <button class="gj-full-item-del" data-role="tracker-delete" title="Delete tracker">&times;</button>
@@ -1169,6 +1198,20 @@ async function _renderProgress(appid, container, navigate) {
     container.querySelector('[data-role="new-tracker-bars"]')?.addEventListener('click', e => {
         _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
             const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
+            navigate(page.id)
+        })
+    })
+
+    container.querySelector('[data-role="new-counter"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Counter name…', async title => {
+            const page = await api.pages.create({ type: 'counter', title, appid: String(appid), current: 0, target: 10 })
+            navigate(page.id)
+        })
+    })
+
+    container.querySelector('[data-role="new-multi-counter"]')?.addEventListener('click', e => {
+        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
+            const page = await api.pages.create({ type: 'multi-counter', title, appid: String(appid), counters: [] })
             navigate(page.id)
         })
     })
