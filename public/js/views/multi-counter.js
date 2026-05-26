@@ -105,20 +105,20 @@ function _buildRow(c) {
         <div class="mcounter-row-body">
             <span class="mcounter-name" contenteditable="true" data-role="name"
                   spellcheck="false">${escapeHtml(c.name ?? '')}</span>
-            <div class="mcounter-controls">
-                <button class="counter-btn counter-btn--sm" data-role="dec" aria-label="Decrease">−</button>
-                <span class="mcounter-val">
-                    <span data-role="current">${c.current ?? 0}</span>
-                    <span class="counter-sep">/</span>
-                    <span class="mcounter-target" contenteditable="true" data-role="target"
-                          title="Click to edit target" spellcheck="false">${c.target ?? '?'}</span>
-                </span>
-                <button class="counter-btn counter-btn--sm" data-role="inc" aria-label="Increase">+</button>
-            </div>
+            <span class="mcounter-val">
+                <span data-role="current">${c.current ?? 0}</span>
+                <span class="counter-sep">/</span>
+                <span class="mcounter-target" contenteditable="true" data-role="target"
+                      title="Click to edit target" spellcheck="false">${c.target ?? '?'}</span>
+            </span>
         </div>
-        <div class="mcounter-bar-wrap">
-            <div class="mcounter-bar-fill" data-role="bar"
-                 style="width:${pct}%; background:${color}"></div>
+        <div class="mcounter-bar-row">
+            <button class="counter-btn counter-btn--sm counter-btn--dec" data-role="dec" aria-label="Decrease">−</button>
+            <div class="mcounter-bar-wrap">
+                <div class="mcounter-bar-fill" data-role="bar"
+                     style="width:${pct}%; background:${color}"></div>
+            </div>
+            <button class="counter-btn counter-btn--sm counter-btn--inc" data-role="inc" aria-label="Increase">+</button>
         </div>`
 
     el.querySelector('[data-role="dec"]').addEventListener('click', () => _adjustRow(c.id, -1))

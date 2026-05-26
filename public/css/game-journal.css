@@ -1181,106 +1181,109 @@ div.gj-ach-badge {
 .counter-wrap {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    padding: 32px 24px;
-    max-width: 480px;
-    margin: 0 auto;
+    gap: 24px;
+    padding: 40px 0 32px;
+    width: 100%;
 }
 
-.counter-display {
+/* Big number display */
+.counter-nums {
     display: flex;
-    align-items: center;
-    gap: 20px;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+}
+
+.counter-current {
+    font-size: 96px;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.counter-nums-sep {
+    font-size: 44px;
+    font-weight: 300;
+    color: var(--clr-text-muted);
+}
+
+.counter-target {
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--clr-text-muted);
+    min-width: 2ch;
+    outline: none;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: text;
+    transition: background 0.12s;
+}
+.counter-target:hover  { background: rgba(255,255,255,0.06); }
+.counter-target:focus  { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* Bar row: [−] [track] [+] */
+.counter-bar-row {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    gap: 0;
 }
 
 .counter-btn {
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: none;
     color: #fff;
     cursor: pointer;
-    font-size: 28px;
+    font-size: 26px;
     line-height: 1;
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background 0.12s ease;
     user-select: none;
 }
-.counter-btn:hover { background: rgba(255,255,255,0.13); }
-.counter-btn:active { background: rgba(255,255,255,0.2); }
+.counter-btn--dec { border-radius: 6px 0 0 6px; }
+.counter-btn--inc { border-radius: 0 6px 6px 0; }
+.counter-btn:hover  { background: rgba(255,255,255,0.14); }
+.counter-btn:active { background: rgba(255,255,255,0.22); }
 
 /* size variants used by multi-counter rows */
 .counter-btn--sm {
-    width: 26px;
-    height: 26px;
-    font-size: 16px;
-    border-radius: 50%;
-}
-
-.counter-value-wrap {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-}
-
-.counter-current {
-    font-size: 56px;
-    font-weight: 800;
-    line-height: 1;
-    color: #fff;
-}
-
-.counter-sep {
-    font-size: 24px;
-    color: var(--clr-text-muted);
-}
-
-.counter-target {
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--clr-text-muted);
-    min-width: 2ch;
-    outline: none;
-    border-radius: 3px;
-    padding: 0 3px;
-    cursor: text;
-}
-.counter-target:focus {
-    background: rgba(255,255,255,0.08);
-    color: #fff;
+    width: 36px;
+    height: 28px;
+    font-size: 18px;
+    flex-shrink: 0;
 }
 
 .counter-track-wrap {
-    width: 100%;
-    height: 8px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 4px;
+    flex: 1;
+    height: 56px;
+    background: rgba(255,255,255,0.08);
     overflow: hidden;
 }
 
 .counter-track-fill {
     height: 100%;
-    border-radius: 4px;
     transition: width 0.25s ease, background 0.25s ease;
 }
 
 .counter-pct-label {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--clr-text-muted);
     margin: 0;
+    text-align: center;
 }
 
 /* ── Multi-counter page ────────────────────────────────────────────────────────── */
 
 .mcounter-global {
     position: relative;
-    height: 10px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 5px;
+    height: 28px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
     overflow: hidden;
     margin-bottom: 20px;
 }
@@ -1288,7 +1291,6 @@ div.gj-ach-badge {
 .mcounter-global-fill {
     position: absolute;
     left: 0; top: 0; height: 100%;
-    border-radius: 5px;
     transition: width 0.25s ease, background 0.25s ease;
 }
 
@@ -1297,7 +1299,7 @@ div.gj-ach-badge {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 800;
     color: #fff;
     text-shadow: 0 1px 3px rgba(0,0,0,0.6);
@@ -1311,7 +1313,7 @@ div.gj-ach-badge {
     flex-direction: column;
     gap: 10px;
     width: 100%;
-    max-width: 600px;
+    max-width: 720px;
     margin: 0 auto;
 }
 
@@ -1319,7 +1321,7 @@ div.gj-ach-badge {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 6px;
-    padding: 10px 14px 8px;
+    padding: 12px 16px 10px;
     cursor: default;
 }
 .mcounter-row:hover {
@@ -1331,18 +1333,18 @@ div.gj-ach-badge {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
 }
 
 .mcounter-name {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: #fff;
     flex: 1;
     min-width: 0;
     outline: none;
     border-radius: 3px;
-    padding: 1px 3px;
+    padding: 2px 4px;
     cursor: text;
     white-space: nowrap;
     overflow: hidden;
@@ -1350,12 +1352,14 @@ div.gj-ach-badge {
 }
 .mcounter-name:focus {
     background: rgba(255,255,255,0.08);
+    white-space: normal;
+    overflow: visible;
 }
 
 .mcounter-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-shrink: 0;
 }
 
@@ -1363,21 +1367,21 @@ div.gj-ach-badge {
     display: flex;
     align-items: baseline;
     gap: 3px;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     color: #fff;
-    min-width: 60px;
+    min-width: 72px;
     justify-content: center;
 }
 
 .mcounter-target {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--clr-text-muted);
     font-weight: 500;
     min-width: 2ch;
     outline: none;
     border-radius: 3px;
-    padding: 0 2px;
+    padding: 0 3px;
     cursor: text;
 }
 .mcounter-target:focus {
@@ -1385,15 +1389,21 @@ div.gj-ach-badge {
     color: #fff;
 }
 
+/* Bar: buttons fused to each side, blocky */
+.mcounter-bar-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+}
+
 .mcounter-bar-wrap {
-    height: 4px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 2px;
+    flex: 1;
+    height: 28px;
+    background: rgba(255,255,255,0.08);
     overflow: hidden;
 }
 
 .mcounter-bar-fill {
     height: 100%;
-    border-radius: 2px;
     transition: width 0.2s ease, background 0.2s ease;
 }

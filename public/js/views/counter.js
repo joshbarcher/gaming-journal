@@ -56,19 +56,19 @@ function _draw() {
     const wrap = document.createElement('div')
     wrap.className = 'counter-wrap'
     wrap.innerHTML = `
-        <div class="counter-display">
+        <div class="counter-nums">
+            <span class="counter-current" data-role="current">${_page.current ?? 0}</span>
+            <span class="counter-nums-sep">/</span>
+            <span class="counter-target" contenteditable="true" data-role="target"
+                  title="Click to edit target" spellcheck="false">${_page.target ?? '?'}</span>
+        </div>
+        <div class="counter-bar-row">
             <button class="counter-btn counter-btn--dec" data-role="dec" aria-label="Decrease">−</button>
-            <div class="counter-value-wrap">
-                <span class="counter-current" data-role="current">${_page.current ?? 0}</span>
-                <span class="counter-sep">/</span>
-                <span class="counter-target" contenteditable="true" data-role="target"
-                      title="Click to edit target" spellcheck="false">${_page.target ?? '?'}</span>
+            <div class="counter-track-wrap">
+                <div class="counter-track-fill" data-role="pct-bar"
+                     style="width:${_pct()}%; background:${percentToColor(_pct())}"></div>
             </div>
             <button class="counter-btn counter-btn--inc" data-role="inc" aria-label="Increase">+</button>
-        </div>
-        <div class="counter-track-wrap">
-            <div class="counter-track-fill" data-role="pct-bar"
-                 style="width:${_pct()}%; background:${percentToColor(_pct())}"></div>
         </div>
         <p class="counter-pct-label" data-role="pct-label">${_pct()}% complete</p>`
     _container.appendChild(wrap)
