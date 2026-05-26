@@ -1179,55 +1179,15 @@ div.gj-ach-badge {
 /* ── Counter page ──────────────────────────────────────────────────────────────── */
 
 .counter-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
     padding: 40px 0 32px;
     width: 100%;
 }
 
-/* Big number display */
-.counter-nums {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 10px;
-}
-
-.counter-current {
-    font-size: 96px;
-    font-weight: 800;
-    line-height: 1;
-    color: #fff;
-    font-variant-numeric: tabular-nums;
-}
-
-.counter-nums-sep {
-    font-size: 44px;
-    font-weight: 300;
-    color: var(--clr-text-muted);
-}
-
-.counter-target {
-    font-size: 44px;
-    font-weight: 600;
-    color: var(--clr-text-muted);
-    min-width: 2ch;
-    outline: none;
-    border-radius: 4px;
-    padding: 2px 6px;
-    cursor: text;
-    transition: background 0.12s;
-}
-.counter-target:hover  { background: rgba(255,255,255,0.06); }
-.counter-target:focus  { background: rgba(255,255,255,0.1); color: #fff; }
-
-/* Bar row: [−] [track] [+] */
-.counter-bar-row {
+/* Outer row: [−btn] [track] [+btn] */
+.counter-bar-outer {
     display: flex;
     align-items: stretch;
     width: 100%;
-    gap: 0;
 }
 
 .counter-btn {
@@ -1235,9 +1195,9 @@ div.gj-ach-badge {
     border: none;
     color: #fff;
     cursor: pointer;
-    font-size: 26px;
+    font-size: 32px;
     line-height: 1;
-    width: 56px;
+    width: 64px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -1250,7 +1210,7 @@ div.gj-ach-badge {
 .counter-btn:hover  { background: rgba(255,255,255,0.14); }
 .counter-btn:active { background: rgba(255,255,255,0.22); }
 
-/* size variants used by multi-counter rows */
+/* size variant used by multi-counter rows */
 .counter-btn--sm {
     width: 36px;
     height: 28px;
@@ -1258,23 +1218,80 @@ div.gj-ach-badge {
     flex-shrink: 0;
 }
 
+/* The main bar — clickable / draggable */
 .counter-track-wrap {
+    position: relative;
     flex: 1;
-    height: 56px;
+    height: 100px;
     background: rgba(255,255,255,0.08);
     overflow: hidden;
+    cursor: crosshair;
+    user-select: none;
 }
 
 .counter-track-fill {
-    height: 100%;
-    transition: width 0.25s ease, background 0.25s ease;
+    position: absolute;
+    inset: 0 auto 0 0;   /* left-anchored, width driven by inline style */
+    width: 0;
+    /* no width transition — drag must feel instant */
+    transition: background 0.2s ease;
 }
 
-.counter-pct-label {
-    font-size: 13px;
-    color: var(--clr-text-muted);
-    margin: 0;
-    text-align: center;
+/* "8 / 23" overlaid left side */
+.counter-overlay-val {
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    font-size: 48px;
+    font-weight: 800;
+    font-family: inherit;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.55);
+    pointer-events: none;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.counter-overlay-sep {
+    font-weight: 300;
+    font-size: 36px;
+    color: rgba(255,255,255,0.45);
+    padding: 0 4px;
+}
+
+/* the "23" — re-enables pointer events for editing */
+.counter-overlay-target {
+    font-weight: 500;
+    font-size: 36px;
+    color: rgba(255,255,255,0.55);
+    pointer-events: all;
+    cursor: text;
+    outline: none;
+    border-radius: 4px;
+    padding: 0 5px;
+    min-width: 2ch;
+    transition: background 0.12s, color 0.12s;
+}
+.counter-overlay-target:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+.counter-overlay-target:focus { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* "35%" overlaid right side */
+.counter-overlay-pct {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 22px;
+    font-weight: 700;
+    font-family: inherit;
+    color: rgba(255,255,255,0.55);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+    pointer-events: none;
+    letter-spacing: 0.03em;
 }
 
 /* ── Multi-counter page ────────────────────────────────────────────────────────── */

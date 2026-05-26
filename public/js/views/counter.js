@@ -1,5 +1,4 @@
 import { api } from '../api.js'
-import { escapeHtml } from '../utils.js'
 import { refreshSidebarItem } from '../sidebar.js'
 import { navigate } from '../router.js'
 import { percentToColor } from './progress-helpers.js'
@@ -25,8 +24,8 @@ function _draw() {
 
     if (_page.appid) {
         const back = document.createElement('a')
-        back.className  = 'gj-sub-back'
-        back.href       = `/journal/${_page.appid}`
+        back.className   = 'gj-sub-back'
+        back.href        = `/journal/${_page.appid}`
         back.textContent = '← Journal'
         back.addEventListener('click', e => { e.preventDefault(); navigate(`journal/${_page.appid}`) })
         header.appendChild(back)
@@ -47,30 +46,29 @@ function _draw() {
     header.appendChild(h1)
 
     const sub = document.createElement('p')
-    sub.className  = 'page-subtitle'
+    sub.className   = 'page-subtitle'
     sub.textContent = 'Counter'
     header.appendChild(sub)
     _container.appendChild(header)
 
-    // Counter UI
+    // Bar
     const wrap = document.createElement('div')
     wrap.className = 'counter-wrap'
     wrap.innerHTML = `
-        <div class="counter-nums">
-            <span class="counter-current" data-role="current">${_page.current ?? 0}</span>
-            <span class="counter-nums-sep">/</span>
-            <span class="counter-target" contenteditable="true" data-role="target"
-                  title="Click to edit target" spellcheck="false">${_page.target ?? '?'}</span>
-        </div>
-        <div class="counter-bar-row">
+        <div class="counter-bar-outer">
             <button class="counter-btn counter-btn--dec" data-role="dec" aria-label="Decrease">−</button>
-            <div class="counter-track-wrap">
+            <div class="counter-track-wrap" data-role="track">
                 <div class="counter-track-fill" data-role="pct-bar"
                      style="width:${_pct()}%; background:${percentToColor(_pct())}"></div>
+                <span class="counter-overlay-val">
+                    <span data-role="current">${_page.current ?? 0}</span><span class="counter-overlay-sep"> / </span><span
+                          class="counter-overlay-target" contenteditable="true" data-role="target"
+                          title="Click to edit target" spellcheck="false">${_page.target ?? '?'}</span>
+                </span>
+                <span class="counter-overlay-pct" data-role="pct-label">${_pct()}%</span>
             </div>
             <button class="counter-btn counter-btn--inc" data-role="inc" aria-label="Increase">+</button>
-        </div>
-        <p class="counter-pct-label" data-role="pct-label">${_pct()}% complete</p>`
+        </div>`
     _container.appendChild(wrap)
 
     wrap.querySelector('[data-role="dec"]').addEventListener('click', () => _adjust(-1))
@@ -89,7 +87,10 @@ function _draw() {
     })
     targetEl.addEventListener('keydown', e => {
         if (e.key === 'Enter') { e.preventDefault(); targetEl.blur() }
+        e.stopPropagation()
     })
+
+    _initBarInteraction(wrap.querySelector('[data-role="track"]'))
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -104,9 +105,56 @@ function _updateDisplay() {
     const currEl = _container.querySelector('[data-role="current"]')
     const barEl  = _container.querySelector('[data-role="pct-bar"]')
     const lblEl  = _container.querySelector('[data-role="pct-label"]')
-    if (currEl) currEl.textContent  = _page.current ?? 0
+    if (currEl) currEl.textContent = _page.current ?? 0
     if (barEl)  { barEl.style.width = `${pct}%`; barEl.style.background = percentToColor(pct) }
-    if (lblEl)  lblEl.textContent   = `${pct}% complete`
+    if (lblEl)  lblEl.textContent   = `${pct}%`
+}
+
+function _valueFromX(trackEl, clientX) {
+    const rect = trackEl.getBoundingClientRect()
+    const pct  = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    return Math.round(pct * (_page.target ?? 0))
+}
+
+// ── Bar click / drag ───────────────────────────────────────────────────────────
+
+function _initBarInteraction(trackEl) {
+    function setLive(val) {
+        _page.current = Math.max(0, Math.min(val, _page.target ?? val))
+        _updateDisplay()
+    }
+
+    // Mouse
+    trackEl.addEventListener('mousedown', e => {
+        if (e.target.closest('[data-role="target"]')) return   // let edit through
+        e.preventDefault()
+        setLive(_valueFromX(trackEl, e.clientX))
+
+        const onMove = e => setLive(_valueFromX(trackEl, e.clientX))
+        const onUp   = () => {
+            window.removeEventListener('mousemove', onMove)
+            window.removeEventListener('mouseup',   onUp)
+            _saveNow()
+        }
+        window.addEventListener('mousemove', onMove)
+        window.addEventListener('mouseup',   onUp)
+    })
+
+    // Touch
+    trackEl.addEventListener('touchstart', e => {
+        if (e.target.closest('[data-role="target"]')) return
+        e.preventDefault()
+        setLive(_valueFromX(trackEl, e.touches[0].clientX))
+
+        const onMove = e => { e.preventDefault(); setLive(_valueFromX(trackEl, e.touches[0].clientX)) }
+        const onEnd  = () => {
+            trackEl.removeEventListener('touchmove', onMove)
+            trackEl.removeEventListener('touchend',  onEnd)
+            _saveNow()
+        }
+        trackEl.addEventListener('touchmove', onMove, { passive: false })
+        trackEl.addEventListener('touchend',  onEnd)
+    }, { passive: false })
 }
 
 async function _adjust(delta) {
@@ -114,6 +162,11 @@ async function _adjust(delta) {
     _updateDisplay()
     clearTimeout(_saveTimer)
     _saveTimer = setTimeout(_save, 400)
+}
+
+async function _saveNow() {
+    clearTimeout(_saveTimer)
+    await _save()
 }
 
 async function _save() {
