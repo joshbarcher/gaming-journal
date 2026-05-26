@@ -1218,11 +1218,22 @@ div.gj-ach-badge {
     flex-shrink: 0;
 }
 
+/* Title echo above the bar */
+.counter-big-title {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: inherit;
+    color: rgba(255,255,255,0.75);
+    margin-bottom: 16px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
 /* The main bar — clickable / draggable */
 .counter-track-wrap {
     position: relative;
     flex: 1;
-    height: 100px;
+    height: 70px;
     background: rgba(255,255,255,0.08);
     overflow: hidden;
     cursor: crosshair;
@@ -1231,22 +1242,22 @@ div.gj-ach-badge {
 
 .counter-track-fill {
     position: absolute;
-    inset: 0 auto 0 0;   /* left-anchored, width driven by inline style */
+    inset: 0 auto 0 0;
     width: 0;
     /* no width transition — drag must feel instant */
     transition: background 0.2s ease;
 }
 
-/* "8 / 23" overlaid left side */
+/* "8 / 23" overlaid left side — all pieces the same size */
 .counter-overlay-val {
     position: absolute;
     left: 20px;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0;
-    font-size: 48px;
+    font-size: 36px;
     font-weight: 800;
     font-family: inherit;
     color: #fff;
@@ -1260,7 +1271,7 @@ div.gj-ach-badge {
     font-weight: 300;
     font-size: 36px;
     color: rgba(255,255,255,0.45);
-    padding: 0 4px;
+    padding: 0 6px;
 }
 
 /* the "23" — re-enables pointer events for editing */

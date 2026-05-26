@@ -40,6 +40,8 @@ function _draw() {
         const t = h1.textContent.trim()
         if (!t || t === _page.title) { h1.textContent = _page.title; return }
         _page.title = t
+        const bigTitle = _container.querySelector('[data-role="big-title"]')
+        if (bigTitle) bigTitle.textContent = t
         const updated = await api.pages.update(_page.id, { title: t })
         if (updated) refreshSidebarItem(updated)
     })
@@ -55,6 +57,7 @@ function _draw() {
     const wrap = document.createElement('div')
     wrap.className = 'counter-wrap'
     wrap.innerHTML = `
+        <div class="counter-big-title" data-role="big-title">${_page.title}</div>
         <div class="counter-bar-outer">
             <button class="counter-btn counter-btn--dec" data-role="dec" aria-label="Decrease">−</button>
             <div class="counter-track-wrap" data-role="track">
