@@ -147,32 +147,6 @@ function _sessionAchsHtml(achs, achMap, noDataMsg = 'No achievements this sessio
     </div>`
 }
 
-// Inline create form — replaces a button with an input+confirm+cancel row
-function _showInlineCreate(btn, placeholder, onCreate) {
-    btn.hidden = true
-    const wrap = btn.parentElement
-    const form = document.createElement('div')
-    form.className = 'gj-inline-create'
-    form.innerHTML = `
-        <input class="gj-add-note-input" placeholder="${escapeHtml(placeholder)}" autocomplete="off">
-        <button class="gj-btn gj-btn--accent" data-role="ic-confirm">Create</button>
-        <button class="gj-btn" data-role="ic-cancel">&times;</button>`
-    wrap.insertBefore(form, btn)
-
-    const input = form.querySelector('input')
-    input.focus()
-
-    const close   = () => { form.remove(); btn.hidden = false }
-    const confirm = () => { const v = input.value.trim(); if (v) onCreate(v); close() }
-
-    form.querySelector('[data-role="ic-confirm"]').addEventListener('click', confirm)
-    form.querySelector('[data-role="ic-cancel"]').addEventListener('click', close)
-    input.addEventListener('keydown', e => {
-        if (e.key === 'Enter')  { e.preventDefault(); confirm() }
-        if (e.key === 'Escape') close()
-    })
-}
-
 // ── Module-level timers — survive re-renders, cleared on navigation ───────────
 
 let _sessionTimer = null  // 30s tick — updates session elapsed display
@@ -895,11 +869,9 @@ function _initDashboard(container, appid, game, navigate) {
         heatGrid.addEventListener('mouseleave', () => { _lastHeatTip = null; _hideTip() })
     }
 
-    container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Page title…', async title => {
-            const page = await api.pages.create({ type: 'notes', title, appid: String(appid) })
-            navigate(page.id)
-        })
+    container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', async () => {
+        const page = await api.pages.create({ type: 'notes', title: 'New Page', appid: String(appid) })
+        if (page) navigate(page.id)
     })
 }
 
@@ -1188,32 +1160,24 @@ async function _renderProgress(appid, container, navigate) {
         _renderProgress(appid, container, navigate)
     })
 
-    container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
-            const page = await api.pages.create({ type: 'progress', title, appid: String(appid) })
-            navigate(page.id)
-        })
+    container.querySelector('[data-role="new-tracker"]')?.addEventListener('click', async () => {
+        const page = await api.pages.create({ type: 'progress', title: 'New Tracker', appid: String(appid) })
+        if (page) navigate(page.id)
     })
 
-    container.querySelector('[data-role="new-tracker-bars"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
-            const page = await api.pages.create({ type: 'progress-bars', title, appid: String(appid) })
-            navigate(page.id)
-        })
+    container.querySelector('[data-role="new-tracker-bars"]')?.addEventListener('click', async () => {
+        const page = await api.pages.create({ type: 'progress-bars', title: 'New Multi-Bar', appid: String(appid) })
+        if (page) navigate(page.id)
     })
 
-    container.querySelector('[data-role="new-counter"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Counter name…', async title => {
-            const page = await api.pages.create({ type: 'counter', title, appid: String(appid), current: 0, target: 10 })
-            navigate(page.id)
-        })
+    container.querySelector('[data-role="new-counter"]')?.addEventListener('click', async () => {
+        const page = await api.pages.create({ type: 'counter', title: 'New Counter', appid: String(appid), current: 0, target: 10 })
+        if (page) navigate(page.id)
     })
 
-    container.querySelector('[data-role="new-multi-counter"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Tracker name…', async title => {
-            const page = await api.pages.create({ type: 'multi-counter', title, appid: String(appid), counters: [] })
-            navigate(page.id)
-        })
+    container.querySelector('[data-role="new-multi-counter"]')?.addEventListener('click', async () => {
+        const page = await api.pages.create({ type: 'multi-counter', title: 'New Multi-Counter', appid: String(appid), counters: [] })
+        if (page) navigate(page.id)
     })
 }
 
@@ -1245,10 +1209,8 @@ async function _renderPages(appid, container, navigate) {
             ${!pages.length ? `<p class="gj-no-data">No pages yet. Create one to start writing.</p>` : ''}
         </div>`
 
-    container.querySelector('[data-role="new-page"]')?.addEventListener('click', e => {
-        _showInlineCreate(e.currentTarget, 'Page title…', async title => {
-            const page = await api.pages.create({ type: 'notes', title, appid: String(appid) })
-            navigate(page.id)
-        })
+    container.querySelector('[data-role="new-page"]')?.addEventListener('click', async () => {
+        const page = await api.pages.create({ type: 'notes', title: 'New Page', appid: String(appid) })
+        if (page) navigate(page.id)
     })
 }
