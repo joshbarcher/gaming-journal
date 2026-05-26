@@ -3,7 +3,7 @@ import path from 'node:path'
 import logger from '../../logger.js'
 import { ManagedFile } from '../shared/managed-file.js'
 
-const VALID_TYPES = ['list', 'progress', 'progress-bars', 'notes', 'page']
+const VALID_TYPES = ['list', 'progress', 'progress-bars', 'notes', 'page', 'counter', 'multi-counter']
 
 function now() {
     return new Date().toISOString()
@@ -16,6 +16,8 @@ function typeDefaults(type) {
         case 'progress-bars': return { bars: [], notes: '' }
         case 'notes':         return { notes: [] }
         case 'page':          return { content: '' }
+        case 'counter':       return { current: 0, target: 10 }
+        case 'multi-counter': return { counters: [] }
         default:              return {}
     }
 }

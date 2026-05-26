@@ -344,7 +344,7 @@ async function renderPageById(id) {
 
 function renderPlaceholder(page) {
     const label = {
-        list: 'List', progress: 'Progress Bar', 'progress-bars': 'Multi-Bar Progress', notes: 'Notes', page: 'Page',
+        list: 'List', progress: 'Progress Bar', 'progress-bars': 'Multi-Bar Progress', notes: 'Notes', page: 'Page', counter: 'Counter', 'multi-counter': 'Multi-Counter',
     }[page.type] ?? page.type
     mainEl().innerHTML = `
         <div class="page-header">

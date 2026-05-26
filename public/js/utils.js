@@ -67,7 +67,7 @@ export function isSuperComplete(page) {
     return false
 }
 
-export const TYPE_ORDER = ['list', 'progress', 'progress-bars', 'notes', 'page']
+export const TYPE_ORDER = ['list', 'progress', 'progress-bars', 'notes', 'page', 'counter', 'multi-counter']
 
 export const TYPE_LABELS = {
     list:             'Lists',
