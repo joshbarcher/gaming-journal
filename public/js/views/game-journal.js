@@ -263,7 +263,7 @@ async function _renderDashboard(appid, container, navigate) {
     _rawAchList      = achList
     _lastAchsDuring  = achievementsDuring
     _basePlaytimeMin = game.playtimeMinutes ?? 0
-    _startDashPollers(container, appid, !!activeSession)
+    _startDashPollers(container, appid, !!activeSession, navigate)
 }
 
 // ── Card HTML ──────────────────────────────────────────────────────────────────
@@ -740,16 +740,11 @@ function _startSchemaAwaitPoller(container, appid) {
 
 /**
  * Starts two background polling loops:
- *   fast (60s)  — fetches now-playing to catch new session achievements
+ *   fast (60s)  — fetches now-playing; patches in-session achs OR re-renders on session end
  *   slow (5min) — fetches achievements + game data for cache-backed counts + HLTB
- *
- * Both do targeted DOM patches only; the full dashboard is never re-rendered.
- * The fast loop only starts when a session is actively running.
  */
-function _startDashPollers(container, appid, hasActiveSession) {
+function _startDashPollers(container, appid, hasActiveSession, navigate) {
     // Short-term schema poller — brand-new games have no cached achievement data yet.
-    // The backend fetches the schema async after the session opens; this polls until
-    // it appears (max 2 min, 15s interval) then swaps the card in place.
     if (hasActiveSession && _rawAchList.length === 0) {
         _startSchemaAwaitPoller(container, appid)
     }
@@ -758,11 +753,19 @@ function _startDashPollers(container, appid, hasActiveSession) {
     if (hasActiveSession) {
         _dashPollTimer = setInterval(async () => {
             try {
-                const np         = await fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null)
-                const session    = np?.playing?.appid === Number(appid) ? np.playing : null
-                const achsDuring = session?.achievementsDuring ?? []
+                const np      = await fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null)
+                const session = np?.playing?.appid === Number(appid) ? np.playing : null
 
-                // Only patch when the list actually changed (new achievement earned)
+                // Session ended — do a full re-render so the card flips to "Last Session"
+                if (!session) {
+                    _clearSessionTimer()
+                    _renderDashboard(appid, container, navigate)
+                    return
+                }
+
+                const achsDuring = session.achievementsDuring ?? []
+
+                // Only patch when the achievement list actually changed
                 const changed = achsDuring.length !== _lastAchsDuring.length ||
                     (achsDuring.length > 0 &&
                      achsDuring[achsDuring.length - 1]?.apiname !== _lastAchsDuring[_lastAchsDuring.length - 1]?.apiname)
