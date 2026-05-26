@@ -18,7 +18,7 @@ export function renderCounter(page, container) {
 function _draw() {
     _container.innerHTML = ''
 
-    // Header
+    // Minimal header — just the back link + type label, no h1
     const header = document.createElement('div')
     header.className = 'page-header'
 
@@ -31,33 +31,21 @@ function _draw() {
         header.appendChild(back)
     }
 
-    const h1 = document.createElement('h1')
-    h1.className       = 'page-title page-title--editable'
-    h1.contentEditable = 'true'
-    h1.textContent     = _page.title
-    h1.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); h1.blur() } })
-    h1.addEventListener('blur', async () => {
-        const t = h1.textContent.trim()
-        if (!t || t === _page.title) { h1.textContent = _page.title; return }
-        _page.title = t
-        const bigTitle = _container.querySelector('[data-role="big-title"]')
-        if (bigTitle) bigTitle.textContent = t
-        const updated = await api.pages.update(_page.id, { title: t })
-        if (updated) refreshSidebarItem(updated)
-    })
-    header.appendChild(h1)
-
     const sub = document.createElement('p')
     sub.className   = 'page-subtitle'
     sub.textContent = 'Counter'
     header.appendChild(sub)
     _container.appendChild(header)
 
-    // Bar
+    // Main content
     const wrap = document.createElement('div')
     wrap.className = 'counter-wrap'
     wrap.innerHTML = `
-        <div class="counter-big-title" data-role="big-title">${_page.title}</div>
+        <div class="counter-big-title" contenteditable="true" data-role="big-title"
+             spellcheck="false">${_page.title}</div>
+        <p class="counter-desc" contenteditable="true" data-role="desc"
+           data-placeholder="Add a description…"
+           spellcheck="false">${_page.description ?? ''}</p>
         <div class="counter-bar-outer">
             <button class="counter-btn counter-btn--dec" data-role="dec" aria-label="Decrease">−</button>
             <div class="counter-track-wrap" data-role="track">
@@ -74,9 +62,36 @@ function _draw() {
         </div>`
     _container.appendChild(wrap)
 
+    // Title editing
+    const bigTitle = wrap.querySelector('[data-role="big-title"]')
+    bigTitle.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); bigTitle.blur() } })
+    bigTitle.addEventListener('blur', async () => {
+        const t = bigTitle.textContent.trim()
+        if (!t) { bigTitle.textContent = _page.title; return }
+        if (t === _page.title) return
+        _page.title = t
+        const updated = await api.pages.update(_page.id, { title: t })
+        if (updated) refreshSidebarItem(updated)
+    })
+
+    // Description editing
+    const descEl = wrap.querySelector('[data-role="desc"]')
+    let _descTimer = null
+    descEl.addEventListener('blur', async () => {
+        const d = descEl.textContent.trim()
+        if (d === (_page.description ?? '')) return
+        _page.description = d
+        await api.pages.update(_page.id, { description: d })
+    })
+    descEl.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); descEl.blur() }
+    })
+
+    // +/- buttons
     wrap.querySelector('[data-role="dec"]').addEventListener('click', () => _adjust(-1))
     wrap.querySelector('[data-role="inc"]').addEventListener('click', () => _adjust(1))
 
+    // Target editing
     const targetEl = wrap.querySelector('[data-role="target"]')
     targetEl.addEventListener('blur', async () => {
         const val = parseInt(targetEl.textContent.trim(), 10)
@@ -127,9 +142,8 @@ function _initBarInteraction(trackEl) {
         _updateDisplay()
     }
 
-    // Mouse
     trackEl.addEventListener('mousedown', e => {
-        if (e.target.closest('[data-role="target"]')) return   // let edit through
+        if (e.target.closest('[data-role="target"]')) return
         e.preventDefault()
         setLive(_valueFromX(trackEl, e.clientX))
 
@@ -143,7 +157,6 @@ function _initBarInteraction(trackEl) {
         window.addEventListener('mouseup',   onUp)
     })
 
-    // Touch
     trackEl.addEventListener('touchstart', e => {
         if (e.target.closest('[data-role="target"]')) return
         e.preventDefault()

@@ -1218,15 +1218,44 @@ div.gj-ach-badge {
     flex-shrink: 0;
 }
 
-/* Title echo above the bar */
+/* Primary editable title */
 .counter-big-title {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 42px;
+    font-weight: 800;
     font-family: inherit;
-    color: rgba(255,255,255,0.75);
-    margin-bottom: 16px;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
+    color: #fff;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    outline: none;
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: 0 -4px 6px;
+    cursor: text;
+    transition: background 0.12s;
+}
+.counter-big-title:hover { background: rgba(255,255,255,0.04); }
+.counter-big-title:focus { background: rgba(255,255,255,0.07); }
+
+/* Optional description below title */
+.counter-desc {
+    font-size: 14px;
+    color: var(--clr-text-muted);
+    line-height: 1.5;
+    margin: 0 0 28px;
+    outline: none;
+    border-radius: 3px;
+    padding: 2px 4px;
+    margin-left: -4px;
+    cursor: text;
+    min-height: 1.5em;
+    transition: background 0.12s;
+}
+.counter-desc:hover { background: rgba(255,255,255,0.04); }
+.counter-desc:focus { background: rgba(255,255,255,0.07); }
+.counter-desc:empty:not(:focus)::before {
+    content: attr(data-placeholder);
+    color: rgba(255,255,255,0.2);
+    pointer-events: none;
 }
 
 /* The main bar — clickable / draggable */
@@ -1248,20 +1277,20 @@ div.gj-ach-badge {
     transition: background 0.2s ease;
 }
 
-/* "8 / 23" overlaid left side — all pieces the same size */
+/* "8 / 23" overlaid left side */
 .counter-overlay-val {
     position: absolute;
-    left: 20px;
+    left: 16px;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
     align-items: center;
     gap: 0;
-    font-size: 36px;
-    font-weight: 800;
+    font-size: 22px;
+    font-weight: 700;
     font-family: inherit;
-    color: #fff;
-    text-shadow: 0 1px 6px rgba(0,0,0,0.55);
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     pointer-events: none;
     line-height: 1;
     white-space: nowrap;
@@ -1269,40 +1298,40 @@ div.gj-ach-badge {
 
 .counter-overlay-sep {
     font-weight: 300;
-    font-size: 36px;
-    color: rgba(255,255,255,0.45);
-    padding: 0 6px;
+    font-size: 22px;
+    color: rgba(255,255,255,0.35);
+    padding: 0 5px;
 }
 
 /* the "23" — re-enables pointer events for editing */
 .counter-overlay-target {
     font-weight: 500;
-    font-size: 36px;
-    color: rgba(255,255,255,0.55);
+    font-size: 22px;
+    color: rgba(255,255,255,0.45);
     pointer-events: all;
     cursor: text;
     outline: none;
-    border-radius: 4px;
-    padding: 0 5px;
+    border-radius: 3px;
+    padding: 0 4px;
     min-width: 2ch;
     transition: background 0.12s, color 0.12s;
 }
-.counter-overlay-target:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+.counter-overlay-target:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
 .counter-overlay-target:focus { background: rgba(255,255,255,0.15); color: #fff; }
 
 /* "35%" overlaid right side */
 .counter-overlay-pct {
     position: absolute;
-    right: 20px;
+    right: 16px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     font-family: inherit;
-    color: rgba(255,255,255,0.55);
-    text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+    color: rgba(255,255,255,0.45);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     pointer-events: none;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
 /* ── Multi-counter page ────────────────────────────────────────────────────────── */
