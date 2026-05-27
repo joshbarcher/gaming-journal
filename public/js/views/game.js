@@ -464,9 +464,6 @@ function _storeIconHtml(storeName) {
 }
 
 function _itad(itad, game) {
-    // Never show a Prices section for unreleased games
-    if (_releaseStatus(game) === 'coming_soon') return ''
-
     // Discovered game: data not yet fetched — placeholder for async progressive load
     if (game?.source === 'discovered' && itad === null) return '<div class="game-itad-pending"></div>'
 
@@ -1647,7 +1644,7 @@ function _loadDiscoveredData(container, game) {
         container.querySelector('.game-hltb-pending')?.remove()
     }
 
-    // ITAD — released discovered games (coming-soon returns '' from _itad, so no placeholder)
+    // ITAD — all discovered games including coming-soon (pre-purchase deals are real)
     ;(async () => {
         const el = container.querySelector('.game-itad-pending')
         if (!el) return
