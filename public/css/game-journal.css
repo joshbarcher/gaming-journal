@@ -60,6 +60,15 @@
     border-color: var(--clr-accent);
     background: rgba(201, 168, 76, 0.16);
 }
+.gj-btn--danger {
+    color: #e05050;
+    border-color: rgba(224, 80, 80, 0.25);
+}
+.gj-btn--danger:hover {
+    background: rgba(224, 80, 80, 0.1);
+    border-color: rgba(224, 80, 80, 0.5);
+    color: #e05050;
+}
 
 /* ── Dashboard wrapper (no-scroll, fills viewport below padding) ──────────────── */
 

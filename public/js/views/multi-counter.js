@@ -1,4 +1,5 @@
 import { api } from '../api.js'
+import { confirmDialog } from '../dialog.js'
 import { escapeHtml, uuid } from '../utils.js'
 import { refreshSidebarItem } from '../sidebar.js'
 import { navigate } from '../router.js'
@@ -23,14 +24,35 @@ function _draw() {
     const header = document.createElement('div')
     header.className = 'page-header'
 
+    // Top row: back link (left) + delete (right)
+    const topRow = document.createElement('div')
+    topRow.style.cssText = 'display:flex;align-items:center;margin-bottom:8px'
+
     if (_page.appid) {
         const back = document.createElement('a')
         back.className   = 'gj-sub-back'
         back.href        = `/journal/${_page.appid}`
         back.textContent = '← Journal'
         back.addEventListener('click', e => { e.preventDefault(); navigate(`journal/${_page.appid}`) })
-        header.appendChild(back)
+        topRow.appendChild(back)
     }
+
+    const delBtn = document.createElement('button')
+    delBtn.className   = 'gj-btn gj-btn--danger'
+    delBtn.textContent = 'Delete'
+    delBtn.style.marginLeft = 'auto'
+    delBtn.addEventListener('click', async () => {
+        const ok = await confirmDialog(
+            `Delete "${_page.title}"?`,
+            'This will permanently delete the multi-counter and all its data.',
+            'Delete'
+        )
+        if (!ok) return
+        await api.pages.remove(_page.id)
+        if (_page.appid) navigate(`journal/${_page.appid}`)
+    })
+    topRow.appendChild(delBtn)
+    header.appendChild(topRow)
 
     const h1 = document.createElement('h1')
     h1.className       = 'page-title page-title--editable'
