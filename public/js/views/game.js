@@ -90,6 +90,7 @@ export async function renderGame(appid, container) {
     _initHltbSessionUpdate(container, appid)
     _initHltbRefresh(container, game)
     _initPcgwRefresh(container, game)
+    _initItadRefresh(container, game)
 
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
@@ -286,32 +287,8 @@ function _dataPanel(game, communityReviews) {
         if (game.hltb.gameplayCompletionist != null) rows.push(_gdpRow('Completionist', _fmtHours(game.hltb.gameplayCompletionist)))
     }
 
-    // ITAD pricing
-    const itad = game.itad
-    if (itad) {
-        rows.push(`<div class="gdp-divider"></div>`)
-        if (itad.bestPrice) {
-            const bp     = itad.bestPrice
-            const cutStr = bp.cut > 0 ? ` <span class="gdp-cut">-${bp.cut}%</span>` : ''
-            rows.push(_gdpRow('Best Price', `$${bp.price.toFixed(2)} · ${escapeHtml(bp.store)}${cutStr}`, true))
-        } else if (game.store?.isFree) {
-            rows.push(_gdpRow('Price', 'Free to Play'))
-        } else if (game.store?.price?.final_formatted) {
-            rows.push(_gdpRow('Price', escapeHtml(game.store.price.final_formatted) + ' · Steam'))
-        }
-        if (itad.historicalLow) {
-            const hl = itad.historicalLow
-            const yr = hl.date ? ` (${hl.date.slice(0, 4)})` : ''
-            rows.push(_gdpRow('All-Time Low', `$${hl.price.toFixed(2)} · ${escapeHtml(hl.store)}${yr}`))
-        }
-    } else {
-        rows.push(`<div class="gdp-divider"></div>`)
-        if (game.store?.isFree) {
-            rows.push(_gdpRow('Price', 'Free to Play'))
-        } else if (game.store?.price?.final_formatted) {
-            rows.push(_gdpRow('Price', escapeHtml(game.store.price.final_formatted) + ' · Steam'))
-        }
-    }
+    // ITAD pricing — wrapped so _initItadRefresh can patch it in-place after a refresh
+    rows.push(_gdpPricesHtml(game.itad, game))
 
     // Release / developer / publisher / platforms
     rows.push(`<div class="gdp-divider"></div>`)
@@ -340,6 +317,28 @@ function _dataPanel(game, communityReviews) {
         ${rows.join('')}
         <a href="/journal/${game.appid}" class="game-journal-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg> Open Journal</a>
     </div>`
+}
+
+// Renders the ITAD price block for the data panel. Wrapped in display:contents so
+// it can be replaced in-place by _initItadRefresh without breaking the flex layout.
+function _gdpPricesHtml(itad, game) {
+    const inner = []
+    inner.push(`<div class="gdp-divider"></div>`)
+    if (itad?.bestPrice) {
+        const bp     = itad.bestPrice
+        const cutStr = bp.cut > 0 ? ` <span class="gdp-cut">-${bp.cut}%</span>` : ''
+        inner.push(_gdpRow('Best Price', `$${bp.price.toFixed(2)} · ${escapeHtml(bp.store)}${cutStr}`, true))
+    } else if (game.store?.isFree) {
+        inner.push(_gdpRow('Price', 'Free to Play'))
+    } else if (game.store?.price?.final_formatted) {
+        inner.push(_gdpRow('Price', escapeHtml(game.store.price.final_formatted) + ' · Steam'))
+    }
+    if (itad?.historicalLow) {
+        const hl = itad.historicalLow
+        const yr = hl.date ? ` (${hl.date.slice(0, 4)})` : ''
+        inner.push(_gdpRow('All-Time Low', `$${hl.price.toFixed(2)} · ${escapeHtml(hl.store)}${yr}`))
+    }
+    return `<div data-role="gdp-prices" style="display:contents">${inner.join('')}</div>`
 }
 
 function _gdpRow(label, value, raw = false) {
@@ -465,10 +464,21 @@ function _storeIconHtml(storeName) {
 }
 
 function _itad(itad, game) {
+    // Never show a Prices section for unreleased games
+    if (_releaseStatus(game) === 'coming_soon') return ''
+
+    // Discovered game: data not yet fetched — placeholder for async progressive load
+    if (game?.source === 'discovered' && itad === null) return '<div class="game-itad-pending"></div>'
+
+    const refreshBtn = `<button class="game-refresh-btn" data-role="itad-refresh" title="Refresh price data">↻</button>`
+
+    // No deal data — show an empty state so the section (and nav rail link) stays present
     if (!itad?.deals?.length) {
-        // Discovered game, data not yet fetched — placeholder for async load
-        if (game?.source === 'discovered' && itad === null) return '<div class="game-itad-pending"></div>'
-        return ''
+        return `
+        <section class="game-section" id="game-sec-prices">
+            <h2 class="game-section-title">Prices${refreshBtn}</h2>
+            <p class="game-section-empty">No price data available for this game.</p>
+        </section>`
     }
 
     const deals = itad.deals.filter(d => !_HIDDEN_STORES.has(d.store.toLowerCase()))
@@ -501,7 +511,7 @@ function _itad(itad, game) {
 
     return `
         <section class="game-section" id="game-sec-prices">
-            <h2 class="game-section-title">Prices</h2>
+            <h2 class="game-section-title">Prices${refreshBtn}</h2>
             ${historicHtml}
             <div class="itad-cards">${cardsHtml}</div>
         </section>`
@@ -1637,17 +1647,17 @@ function _loadDiscoveredData(container, game) {
         container.querySelector('.game-hltb-pending')?.remove()
     }
 
-    // ITAD — all discovered games, including coming-soon (pre-purchase data is real)
+    // ITAD — released discovered games (coming-soon returns '' from _itad, so no placeholder)
     ;(async () => {
         const el = container.querySelector('.game-itad-pending')
         if (!el) return
         try {
-            const res = await fetch(`/relay/api/itad/${appid}?fetch=true&name=${name}`)
-            if (!res.ok) { el.remove(); return }
-            const entry = await res.json()
-            if (!entry.deals?.length && !entry.historicalLow) { el.remove(); return }
+            const res   = await fetch(`/relay/api/itad/${appid}?fetch=true&name=${name}`)
+            // {} (not null) so _itad renders empty state rather than the pending placeholder
+            const entry = res.ok ? await res.json() : {}
             _swap(el, _itad(entry, game))
-        } catch { el.remove() }
+        } catch { _swap(el, _itad({}, game)) }
+        _initItadRefresh(container, game)
     })()
 
     // PCGW — released / early access only (unreleased games rarely have wiki pages)
@@ -1955,6 +1965,42 @@ function _initPcgwRefresh(container, game) {
             } else {
                 section.remove()
                 _navRailEl?._rebuild?.()
+            }
+        } catch { /* silent */ }
+    })
+}
+
+/**
+ * Wires the ↻ button inside #game-sec-prices. On click: force-syncs ITAD,
+ * re-renders the section in-place and patches the data-panel price rows.
+ * Re-wires itself on the replacement so the button keeps working.
+ */
+function _initItadRefresh(container, game) {
+    const btn = container.querySelector('[data-role="itad-refresh"]')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+        btn.classList.add('game-refresh-btn--spinning')
+        btn.disabled = true
+        try {
+            await fetch(`/relay/api/itad/sync/${game.appid}?force=true`, { method: 'POST' })
+            // Use {} (not null) on 404 — null would re-render the pending placeholder for discovered games
+            const itadData = await fetch(`/relay/api/itad/${game.appid}`).then(r => r.ok ? r.json() : {})
+            const section  = container.querySelector('#game-sec-prices')
+            if (!section) return
+            const tmp = document.createElement('div')
+            tmp.innerHTML = _itad(itadData, game)
+            const newSection = tmp.firstElementChild
+            if (newSection) {
+                section.replaceWith(newSection)
+                _navRailEl?._rebuild?.()
+                _initItadRefresh(container, game)
+                // Patch the data-panel price block in the hero with fresh data
+                const gdpPrices = container.querySelector('[data-role="gdp-prices"]')
+                if (gdpPrices) {
+                    const tmp2 = document.createElement('div')
+                    tmp2.innerHTML = _gdpPricesHtml(itadData, game)
+                    gdpPrices.replaceWith(tmp2.firstElementChild)
+                }
             }
         } catch { /* silent */ }
     })
