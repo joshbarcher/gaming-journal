@@ -1,6 +1,6 @@
 import { api } from '../api.js'
 import { escapeHtml } from '../utils.js'
-import { globalSegments, percentToColor, percentToStateLabel } from './progress-helpers.js'
+import { globalSegments, pagePct, percentToColor, percentToStateLabel } from './progress-helpers.js'
 import { confirmDialog } from '../dialog.js'
 
 // ── SVG icons (Lucide paths) ───────────────────────────────────────────────────
@@ -32,35 +32,7 @@ function _cleanAchName(apiname) {
         .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function _progressPct(page) {
-    if (page.type === 'progress') {
-        const tasks = page.tasks ?? []
-        if (!tasks.length) return 0
-        return Math.round(tasks.filter(t => t.state === 'done').length / tasks.length * 100)
-    }
-    if (page.type === 'progress-bars') {
-        const bars = page.bars ?? []
-        if (!bars.length) return 0
-        let done = 0, total = 0
-        for (const bar of bars) {
-            const chips = bar.chips ?? []
-            done  += chips.filter(c => c.state === 'done').length
-            total += chips.length
-        }
-        return total > 0 ? Math.round(done / total * 100) : 0
-    }
-    if (page.type === 'counter') {
-        const target = page.target ?? 0
-        return target > 0 ? Math.min(100, Math.round((page.current ?? 0) / target * 100)) : 0
-    }
-    if (page.type === 'multi-counter') {
-        const counters = page.counters ?? []
-        const totalT   = counters.reduce((s, c) => s + (c.target  ?? 0), 0)
-        const totalC   = counters.reduce((s, c) => s + (c.current ?? 0), 0)
-        return totalT > 0 ? Math.min(100, Math.round(totalC / totalT * 100)) : 0
-    }
-    return 0
-}
+// _progressPct replaced by pagePct from progress-helpers.js — single source of truth
 
 // Must match review-modal.js: 1-5 = regular stars, 6 = Legendary (5 stars + badge)
 const STAR_LABELS = ['Not Rated', '1 Star', '2 Stars', '3 Stars', '4 Stars', '5 Stars', 'Legendary']
@@ -452,7 +424,7 @@ function _progressCard(pages, appid) {
     const cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5
 
     const cells = pages.map(p => {
-        const pct   = _progressPct(p)
+        const pct   = pagePct(p)
         const color = percentToColor(pct)
         const state = percentToStateLabel(pct)
         const tip   = state
