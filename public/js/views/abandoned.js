@@ -27,7 +27,7 @@ async function _loadGames() {
     const results = await Promise.all(droppedIds.map(async appid => {
         const owned   = ownedMap.get(appid)
         let name      = owned?.name ?? null
-        let playtime  = owned?.playtime_forever ?? 0   // Steam minutes
+        let playtime  = owned?.playtime_forever ?? 0   // relay effectiveMin (overlaid server-side)
         let hltb      = null
 
         try {

@@ -12,6 +12,7 @@ export async function renderGame(appid, container) {
     if (_gpHltbTimer) { clearInterval(_gpHltbTimer); _gpHltbTimer = null }
     _gpHltbMilestones = _gpHltbMaxScale = null
     _gpBasePlaytimeMin = 0
+    _gpRenderTime      = 0
 
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
@@ -368,8 +369,9 @@ function _hltb(game, sessionElapsedMins = 0) {
         return '<div class="game-hltb-pending"></div>'
     }
 
-    // Steam doesn't update playtimeMinutes until a session closes; sessionElapsedMins
-    // bridges that gap for the initial render when the player is actively playing.
+    // game.playtimeMinutes is relay effectiveMin — already includes any live session elapsed.
+    // sessionElapsedMins is 0 at initial render (default arg); the live timer in
+    // _initHltbSessionUpdate advances the pin using delta from _gpRenderTime.
     const playerHours = (game.playtimeMinutes ?? 0) / 60 + sessionElapsedMins / 60
 
     const milestones  = [
@@ -378,10 +380,13 @@ function _hltb(game, sessionElapsedMins = 0) {
         { label: 'Completionist', h: hltb.gameplayCompletionist },
     ].filter(m => m.h != null && m.h > 0)
 
-    // Store for live HLTB pin recalculation — null when no HLTB data available
+    // Store for live HLTB pin recalculation — null when no HLTB data available.
+    // relay effectiveMin (playtimeMinutes) already includes any live session elapsed up
+    // to this render; the timer adds delta from _gpRenderTime forward, not session start.
     _gpHltbMilestones  = milestones.length ? milestones : null
     _gpHltbMaxScale    = null  // computed below
     _gpBasePlaytimeMin = game.playtimeMinutes ?? 0
+    _gpRenderTime      = Date.now()
 
     if (!milestones.length) {
         return `
@@ -1759,7 +1764,8 @@ let _navRailEl = null
 // HLTB session-tracking state — cleared each time renderGame() runs
 let _gpHltbMilestones  = null  // [{label, h}] stored as side-effect by _hltb()
 let _gpHltbMaxScale    = null  // pre-computed coordinate space for consistent pin position
-let _gpBasePlaytimeMin = 0     // game.playtimeMinutes at render time
+let _gpBasePlaytimeMin = 0     // relay effectiveMin at render time (includes session elapsed to render)
+let _gpRenderTime      = 0     // Date.now() when _gpBasePlaytimeMin was captured
 let _gpHltbTimer       = null  // 30s tick that moves the pin during an active play session
 
 function _initNavRail(container) {
@@ -1903,9 +1909,11 @@ async function _initHltbSessionUpdate(container, appid) {
         const session = np?.playing?.appid === Number(appid) ? np.playing : null
         if (!session) return
 
-        const startedAt = session.sessionStartedAt
-        const elapsed   = () => Math.floor((Date.now() - new Date(startedAt)) / 60_000)
-        const update    = () => _updateGameHltbPin(container, _gpBasePlaytimeMin + elapsed())
+        // _gpBasePlaytimeMin is relay effectiveMin captured at render time — it already
+        // includes session elapsed up to then.  Use delta from render time so we don't
+        // double-count the session minutes already baked into the base.
+        const elapsed = () => Math.floor((Date.now() - _gpRenderTime) / 60_000)
+        const update  = () => _updateGameHltbPin(container, _gpBasePlaytimeMin + elapsed())
 
         update()  // correct the pin immediately
         _gpHltbTimer = setInterval(update, 30_000)

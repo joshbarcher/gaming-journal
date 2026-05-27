@@ -159,7 +159,7 @@ let _rawAchList     = []    // base ach list without session-merge, kept fresh b
 let _lastAchsDuring = []    // last known achievementsDuring from now-playing
 let _hltbMilestones  = null  // [{label, h}] stored as side-effect by _hltbCard
 let _hltbMaxScale    = null  // pre-computed scale for consistent pin positioning
-let _basePlaytimeMin = 0     // game.playtimeMinutes at render time; session elapsed adds on top
+let _basePlaytimeMin = 0     // relay effectiveMin at render time; timer adds delta-from-render, not session-start
 
 function _clearSessionTimer() {
     if (_sessionTimer)      { clearInterval(_sessionTimer);      _sessionTimer      = null }
@@ -224,16 +224,16 @@ async function _renderDashboard(appid, container, navigate) {
     const achievementsDuring = activeSession?.achievementsDuring ?? []
     const displayAchList     = _mergeSessionAchievements(achList, achievementsDuring)
 
-    // Steam doesn't update playtimeMinutes until a session closes, so we compute the
-    // effective elapsed time client-side so the HLTB pin starts at the right position.
-    const sessionElapsedMins = activeSession
-        ? Math.floor((Date.now() - new Date(activeSession.sessionStartedAt)) / 60_000)
-        : 0
-
     // Closed sessions sorted newest-first — drives the history rail
     const closedSessions = gameSessions
         .filter(s => s.endedAt)
         .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+
+    // game.playtimeMinutes is relay effectiveMin — the single source of truth.
+    // It already includes live session elapsed up to this fetch, so we use it
+    // directly as the HLTB pin base without adding any extra session time.
+    const basePlaytimeMins = game.playtimeMinutes ?? 0
+    const renderTime       = Date.now()  // marks when the base was captured
 
     container.innerHTML = `
         <div class="gj-dash">
@@ -247,7 +247,7 @@ async function _renderDashboard(appid, container, navigate) {
                 ${activeSession
                     ? _currentSessionCard(activeSession, displayAchList, appid)
                     : _sessionCard(gameSessions, displayAchList, appid)}
-                ${_hltbCard(game, sessionElapsedMins)}
+                ${_hltbCard(game, 0, basePlaytimeMins)}
                 ${closedSessions.length ? _sessionHistoryRail(closedSessions) : ''}
                 ${_progressCard(progressPages, appid)}
                 ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
@@ -256,13 +256,15 @@ async function _renderDashboard(appid, container, navigate) {
 
     _initDashboard(container, appid, game, navigate)
 
-    // Start a live elapsed-time ticker if the game is actively being played
-    if (activeSession) _initSessionTimer(container, activeSession.sessionStartedAt)
+    // Start a live elapsed-time ticker if the game is actively being played.
+    // renderTime is passed so the HLTB pin uses delta from render (not session start),
+    // since effectiveMin already includes session elapsed up to render time.
+    if (activeSession) _initSessionTimer(container, activeSession.sessionStartedAt, renderTime)
 
     // Persist poll baseline and kick off background delta-updaters
     _rawAchList      = achList
     _lastAchsDuring  = achievementsDuring
-    _basePlaytimeMin = game.playtimeMinutes ?? 0
+    _basePlaytimeMin = basePlaytimeMins
     _startDashPollers(container, appid, !!activeSession, navigate)
 }
 
@@ -335,8 +337,8 @@ function _achCard(achList, appid) {
         </div>`
 }
 
-function _hltbCard(game, sessionElapsedMins = 0) {
-    const playerHours = (game.playtimeMinutes ?? 0) / 60 + sessionElapsedMins / 60
+function _hltbCard(game, sessionElapsedMins = 0, basePlaytimeMins = null) {
+    const playerHours = (basePlaytimeMins ?? game.playtimeMinutes ?? 0) / 60 + sessionElapsedMins / 60
     const hltb        = game.hltb?.matched ? game.hltb : null
 
     const milestones = [
@@ -508,19 +510,21 @@ function _currentSessionCard(session, achList, appid) {
         </div>`
 }
 
-function _initSessionTimer(container, startedAt) {
+function _initSessionTimer(container, startedAt, renderTime = Date.now()) {
     const el = container.querySelector('[data-role="session-elapsed"]')
     if (!el) return
 
     const update = () => {
+        // Display: elapsed since session start (correct for "playing for X time" label)
         const totalMins = Math.floor((Date.now() - new Date(startedAt)) / 60_000)
         const h = Math.floor(totalMins / 60)
         const m = totalMins % 60
         el.textContent = h > 0 ? `${h}h ${m}m` : `${m}m`
-        // Move the HLTB pin live: stored playtime + minutes elapsed this session.
-        // Steam doesn't update playtime_forever until a session closes, so we
-        // calculate the current total client-side for a smooth moving pin.
-        _patchHltbPin(container, _basePlaytimeMin + totalMins)
+        // HLTB pin: _basePlaytimeMin is effectiveMin captured at render, which already
+        // includes session elapsed up to then. Add only delta since render — not since
+        // session start — to avoid double-counting.
+        const deltaMins = Math.floor((Date.now() - renderTime) / 60_000)
+        _patchHltbPin(container, _basePlaytimeMin + deltaMins)
     }
     update()
     _sessionTimer = setInterval(update, 30_000)
@@ -808,11 +812,15 @@ function _startDashPollers(container, appid, hasActiveSession, navigate) {
             }
 
             if (newGame?.playtimeMinutes != null) {
-                _basePlaytimeMin = newGame.playtimeMinutes
-                // When a session is active the session timer drives the pin every 30s
-                // with basePlaytime + elapsed, so we don't double-update here.
-                // When idle (no session timer running), patch the pin directly.
-                if (!container.querySelector('[data-role="session-elapsed"]')) {
+                const hasSessionTimer = !!container.querySelector('[data-role="session-elapsed"]')
+                if (hasSessionTimer) {
+                    // Session timer owns the HLTB pin — it adds delta from renderTime on top
+                    // of _basePlaytimeMin.  Don't update _basePlaytimeMin here: effectiveMin
+                    // at poll time already includes live elapsed, and the timer would then add
+                    // it again (double-count).  The full re-render on session end resets all state.
+                } else {
+                    // No active session — safe to advance base directly from effectiveMin.
+                    _basePlaytimeMin = Math.max(_basePlaytimeMin, newGame.playtimeMinutes)
                     _patchHltbPin(container, _basePlaytimeMin)
                 }
             }

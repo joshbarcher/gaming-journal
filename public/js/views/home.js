@@ -28,8 +28,8 @@ export async function renderHome(container) {
     const discover     = discResult.value   ?? []
 
     // Relay-accurate last-played map: { [appid]: { lastPlayedAt, effectiveMin } }
-    // Patch rtime_last_played and playtime_forever with relay data where more accurate.
-    // This fixes the resume card when Steam hasn't synced yet (timestamp or playtime).
+    // Always use relay effectiveMin as playtime_forever — relay is the source of truth.
+    // Also update rtime_last_played when relay has a more recent timestamp.
     const lastPlayedMap = lastPlayedResult.value ?? {}
     const steamLib = rawSteamLib
         .map(g => {
@@ -38,7 +38,7 @@ export async function renderHome(container) {
             const patched = { ...g }
             const relaySec = Math.floor(new Date(relay.lastPlayedAt).getTime() / 1000)
             if (relaySec > (g.rtime_last_played ?? 0)) patched.rtime_last_played = relaySec
-            if (relay.effectiveMin > (g.playtime_forever ?? 0)) patched.playtime_forever = relay.effectiveMin
+            patched.playtime_forever = relay.effectiveMin
             return patched
         })
         .filter(g => filterFn(g.appid))
@@ -136,7 +136,7 @@ function _cardSale(game) {
 
 function _cardResume(game, steamGame) {
     const bg    = _heroBg(game)
-    // playtime_forever (minutes) comes from the raw steam obj; playtimeMinutes from enriched
+    // playtime_forever is relay effectiveMin (overlaid server-side); playtimeMinutes same from enriched endpoint
     const mins  = steamGame?.playtime_forever ?? game.playtimeMinutes ?? 0
     const hours = (mins / 60).toFixed(1)
     const last  = steamGame?.rtime_last_played ?? 0
