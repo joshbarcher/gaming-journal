@@ -354,7 +354,10 @@ function _hltbCard(game, sessionElapsedMins = 0, basePlaytimeMins = null) {
     if (!milestones.length) {
         return `
         <div class="gj-card gj-card--wide gj-card--hltb">
-            <div class="gj-card-header"><span class="gj-card-title">How Long to Beat</span></div>
+            <div class="gj-card-header">
+                <span class="gj-card-title">How Long to Beat</span>
+                <button class="game-refresh-btn" data-role="hltb-refresh" title="Refresh HLTB data">↻</button>
+            </div>
             <p class="gj-no-data">${playerHours > 0 ? `Played ${_fmtHours(playerHours)} — no HLTB data` : 'No playtime or HLTB data'}</p>
         </div>`
     }
@@ -385,9 +388,12 @@ function _hltbCard(game, sessionElapsedMins = 0, basePlaytimeMins = null) {
 
     return `
         <div class="gj-card gj-card--wide gj-card--hltb">
+            <div class="gj-card-header">
+                <span class="gj-card-title">How Long to Beat</span>
+                <button class="game-refresh-btn" data-role="hltb-refresh" title="Refresh HLTB data">↻</button>
+            </div>
             <div class="hltb-bar-wrap">
                 <div class="hltb-labels-row">
-                    <span class="gj-hltb-overlay-title">How Long to Beat</span>
                     ${labelsHtml}
                 </div>
                 <div class="hltb-track-wrap">
@@ -883,6 +889,20 @@ function _initDashboard(container, appid, game, navigate) {
     container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', async () => {
         const page = await api.pages.create({ type: 'notes', title: 'New Page', appid: String(appid) })
         if (page) navigate(page.id)
+    })
+
+    // HLTB refresh — force re-sync from HLTB, then full dashboard re-render so
+    // milestones, pin scale, and session timer all start from a clean state.
+    container.querySelector('[data-role="hltb-refresh"]')?.addEventListener('click', async () => {
+        const btn = container.querySelector('[data-role="hltb-refresh"]')
+        if (!btn) return
+        btn.classList.add('game-refresh-btn--spinning')
+        btn.disabled = true
+        try {
+            await fetch(`/relay/api/hltb/sync/${appid}?force=true`, { method: 'POST' })
+        } catch { /* ignore network error — re-render anyway to show fresh cached data */ }
+        _clearSessionTimer()
+        await _renderDashboard(appid, container, navigate)
     })
 }
 

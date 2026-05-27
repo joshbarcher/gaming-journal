@@ -88,6 +88,8 @@ export async function renderGame(appid, container) {
     _initNews(container)
     _initNavRail(container)
     _initHltbSessionUpdate(container, appid)
+    _initHltbRefresh(container, game)
+    _initPcgwRefresh(container, game)
 
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
@@ -391,7 +393,7 @@ function _hltb(game, sessionElapsedMins = 0) {
     if (!milestones.length) {
         return `
             <section class="game-section" id="game-sec-hltb">
-                <h2 class="game-section-title">How Long To Beat</h2>
+                <h2 class="game-section-title">How Long To Beat<button class="game-refresh-btn" data-role="hltb-refresh" title="Refresh HLTB data">↻</button></h2>
                 <p class="game-section-empty">No data available for this game.</p>
             </section>`
     }
@@ -423,7 +425,7 @@ function _hltb(game, sessionElapsedMins = 0) {
 
     return `
         <section class="game-section" id="game-sec-hltb">
-            <h2 class="game-section-title">How Long To Beat</h2>
+            <h2 class="game-section-title">How Long To Beat<button class="game-refresh-btn" data-role="hltb-refresh" title="Refresh HLTB data">↻</button></h2>
             <div class="hltb-bar-wrap">
                 <div class="hltb-labels-row">${labelsHtml}</div>
                 <div class="hltb-track-wrap">
@@ -907,6 +909,7 @@ function _pcgw(pcgwData, game) {
                 PCGamingWiki${pcgwData.pageUrl
                     ? ` <a class="pcgw-wiki-link" href="${escapeHtml(pcgwData.pageUrl)}" target="_blank" rel="noopener">${_PI.extLink}</a>`
                     : ''}
+                <button class="game-refresh-btn" data-role="pcgw-refresh" title="Refresh PCGamingWiki data">↻</button>
             </h2>
 
             ${videoHtml ? `
@@ -1627,6 +1630,7 @@ function _loadDiscoveredData(container, game) {
                 _swap(el, _hltb({ ...game, hltb: entry }))
                 // Re-init the session pin timer now that milestones/scale are populated
                 _initHltbSessionUpdate(container, appid)
+                _initHltbRefresh(container, { ...game, hltb: entry })
             } catch { noData() }
         })()
     } else {
@@ -1657,6 +1661,7 @@ function _loadDiscoveredData(container, game) {
                 const entry = await res.json()
                 if (!entry.found) { el.remove(); return }
                 _swap(el, _pcgw(entry, game))
+                _initPcgwRefresh(container, game)
             } catch { el.remove() }
         })()
     } else {
@@ -1892,6 +1897,67 @@ function _updateGameHltbPin(container, playtimeMinutes) {
         pinEl.dataset.label = `${_fmtHours(playerHours)} played`
     }
     if (fillEl) fillEl.style.width = `${pinPos.toFixed(2)}%`
+}
+
+/**
+ * Wires the ↻ button inside #game-sec-hltb.  On click: force-syncs HLTB,
+ * re-fetches the enriched game object, swaps the section in-place.
+ * Re-wires itself on the replacement so the button keeps working.
+ */
+function _initHltbRefresh(container, game) {
+    const btn = container.querySelector('[data-role="hltb-refresh"]')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+        btn.classList.add('game-refresh-btn--spinning')
+        btn.disabled = true
+        try {
+            await fetch(`/relay/api/hltb/sync/${game.appid}?force=true`, { method: 'POST' })
+            const newGame = await fetch(`/relay/api/games/${game.appid}`).then(r => r.ok ? r.json() : null)
+            if (!newGame) return
+            const section = container.querySelector('#game-sec-hltb')
+            if (!section) return
+            // _hltb() updates _gpBasePlaytimeMin + _gpRenderTime as a side-effect
+            const tmp = document.createElement('div')
+            tmp.innerHTML = _hltb(newGame)
+            const newSection = tmp.firstElementChild
+            if (newSection) {
+                section.replaceWith(newSection)
+                _navRailEl?._rebuild?.()
+                _initHltbRefresh(container, newGame)
+                _initHltbSessionUpdate(container, newGame.appid)
+            }
+        } catch { /* silent — network error or no data */ }
+    })
+}
+
+/**
+ * Wires the ↻ button inside #game-sec-pcgw.  On click: force-syncs PCGW,
+ * re-fetches the entry, swaps the section in-place.
+ */
+function _initPcgwRefresh(container, game) {
+    const btn = container.querySelector('[data-role="pcgw-refresh"]')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+        btn.classList.add('game-refresh-btn--spinning')
+        btn.disabled = true
+        try {
+            await fetch(`/relay/api/pcgw/sync/${game.appid}?force=true`, { method: 'POST' })
+            const pcgwData = await fetch(`/relay/api/pcgw/${game.appid}`).then(r => r.ok ? r.json() : null)
+            const section  = container.querySelector('#game-sec-pcgw')
+            if (!section) return
+            const tmp = document.createElement('div')
+            tmp.innerHTML = _pcgw(pcgwData, game)
+            const newSection = tmp.firstElementChild
+            if (newSection) {
+                section.replaceWith(newSection)
+                _navRailEl?._rebuild?.()
+                _initPcgwRefresh(container, game)
+            } else {
+                section.remove()
+                _navRailEl?._rebuild?.()
+            }
+        } catch { /* silent */ }
+    })
 }
 
 /**
