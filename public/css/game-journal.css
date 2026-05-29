@@ -1301,7 +1301,7 @@ div.gj-ach-badge {
     height: 70px;
     background: rgba(255,255,255,0.08);
     overflow: hidden;
-    cursor: crosshair;
+    cursor: pointer;
     user-select: none;
 }
 
@@ -1492,6 +1492,7 @@ div.gj-ach-badge {
     height: 28px;
     background: rgba(255,255,255,0.08);
     overflow: hidden;
+    cursor: pointer;
 }
 
 .mcounter-bar-fill {
