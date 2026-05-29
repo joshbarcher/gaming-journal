@@ -822,7 +822,7 @@ function _initDashboard(container, appid, game, navigate) {
     }
 
     container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', async () => {
-        const page = await api.pages.create({ type: 'notes', title: 'New Page', appid: String(appid) })
+        const page = await api.pages.create({ type: 'page', title: 'New Page', appid: String(appid) })
         if (page) navigate(page.id)
     })
 
@@ -1166,7 +1166,7 @@ async function _renderPages(appid, container, navigate) {
         </div>`
 
     container.querySelector('[data-role="new-page"]')?.addEventListener('click', async () => {
-        const page = await api.pages.create({ type: 'notes', title: 'New Page', appid: String(appid) })
+        const page = await api.pages.create({ type: 'page', title: 'New Page', appid: String(appid) })
         if (page) navigate(page.id)
     })
 }
