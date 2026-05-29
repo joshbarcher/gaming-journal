@@ -575,7 +575,7 @@ function _notesAndPagesCard(allNotes, journalPages, appid) {
                     <div class="gj-pages-list">
                         ${[...journalPages]
                             .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-                            .slice(0, 4)
+                            .slice(0, 3)
                             .map(p => `
                             <a class="gj-page-item" href="/${p.id}">
                                 <span class="gj-page-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
@@ -583,9 +583,6 @@ function _notesAndPagesCard(allNotes, journalPages, appid) {
                                 <span class="gj-page-date">${_fmt(p.updatedAt)}</span>
                             </a>`).join('')}
                     </div>` : `<p class="gj-no-data">No pages yet</p>`}
-                    <div class="gj-card-actions" style="margin-top:auto">
-                        <button class="gj-btn" data-role="new-notes-page">+ New Page</button>
-                    </div>
                 </div>
             </div>
         </div>`
@@ -820,11 +817,6 @@ function _initDashboard(container, appid, game, navigate) {
         })
         heatGrid.addEventListener('mouseleave', () => { _lastHeatTip = null; _hideTip() })
     }
-
-    container.querySelector('[data-role="new-notes-page"]')?.addEventListener('click', async () => {
-        const page = await api.pages.create({ type: 'page', title: 'New Page', appid: String(appid) })
-        if (page) navigate(page.id)
-    })
 
     // HLTB refresh — force re-sync from HLTB, then full dashboard re-render so
     // milestones, pin scale, and session timer all start from a clean state.

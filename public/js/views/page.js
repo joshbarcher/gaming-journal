@@ -42,6 +42,14 @@ export function renderPage(page, container) {
 function _draw() {
     _container.innerHTML = ''
 
+    if (_page.appid) {
+        const back = document.createElement('a')
+        back.className = 'gj-sub-back'
+        back.href = `/journal/${_page.appid}/pages`
+        back.textContent = '← Journal Pages'
+        _container.appendChild(back)
+    }
+
     const header = document.createElement('div')
     header.className = 'page-header'
     const h1 = document.createElement('h1')
