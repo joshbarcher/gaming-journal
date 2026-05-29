@@ -136,8 +136,8 @@
 
 /* Row-3 cards fill their grid cell and scroll content internally */
 .gj-card--fill {
+    overflow: hidden;
     min-height: 0;
-    align-self: start;
 }
 .gj-card--fill .gj-progress-list {
     flex: 1;
@@ -1190,7 +1190,10 @@ div.gj-ach-badge {
 
 .gj-heat-grid {
     display: grid;
+    grid-template-rows: repeat(2, 1fr);
     gap: 6px;
+    flex: 1;
+    min-height: 0;
 }
 
 .gj-heat-cell {

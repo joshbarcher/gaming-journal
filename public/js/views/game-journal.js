@@ -395,7 +395,7 @@ function _progressCard(pages, appid) {
 
     const n    = pages.length
     const cols = n <= 8 ? 4 : n <= 12 ? 6 : 8
-    const gridStyle = `grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(2,1fr)`
+    const gridStyle = `grid-template-columns:repeat(${cols},auto)`
 
     const cells = pages.map(p => {
         const pct   = pagePct(p)
