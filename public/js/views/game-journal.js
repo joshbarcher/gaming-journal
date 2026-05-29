@@ -394,7 +394,7 @@ function _progressCard(pages, appid) {
     }
 
     const n    = pages.length
-    const cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5
+    const cols = Math.min(n, 4)
 
     const cells = pages.map(p => {
         const pct   = pagePct(p)
