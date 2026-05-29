@@ -146,6 +146,8 @@ function _buildRow(c) {
     el.querySelector('[data-role="dec"]').addEventListener('click', () => _adjustRow(c.id, -1))
     el.querySelector('[data-role="inc"]').addEventListener('click', () => _adjustRow(c.id, 1))
 
+    _initBarDrag(el.querySelector('.mcounter-bar-wrap'), c)
+
     const nameEl = el.querySelector('[data-role="name"]')
     nameEl.addEventListener('blur', async () => {
         const v = nameEl.textContent.trim()
@@ -219,6 +221,50 @@ async function _addCounter() {
     el.querySelector('[data-role="name"]').focus()
     _redrawGlobal()
     await _save()
+}
+
+function _valueFromX(wrapEl, clientX, target) {
+    const rect = wrapEl.getBoundingClientRect()
+    const pct  = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    return Math.round(pct * (target ?? 0))
+}
+
+function _initBarDrag(wrapEl, c) {
+    function setLive(val) {
+        c.current = Math.max(0, Math.min(val, c.target ?? val))
+        _refreshRow(c)
+        _redrawGlobal()
+    }
+
+    wrapEl.addEventListener('mousedown', e => {
+        e.preventDefault()
+        setLive(_valueFromX(wrapEl, e.clientX, c.target))
+
+        const onMove = e => setLive(_valueFromX(wrapEl, e.clientX, c.target))
+        const onUp   = () => {
+            window.removeEventListener('mousemove', onMove)
+            window.removeEventListener('mouseup',   onUp)
+            clearTimeout(_saveTimer)
+            _saveTimer = setTimeout(_save, 400)
+        }
+        window.addEventListener('mousemove', onMove)
+        window.addEventListener('mouseup',   onUp)
+    })
+
+    wrapEl.addEventListener('touchstart', e => {
+        e.preventDefault()
+        setLive(_valueFromX(wrapEl, e.touches[0].clientX, c.target))
+
+        const onMove = e => { e.preventDefault(); setLive(_valueFromX(wrapEl, e.touches[0].clientX, c.target)) }
+        const onEnd  = () => {
+            wrapEl.removeEventListener('touchmove', onMove)
+            wrapEl.removeEventListener('touchend',  onEnd)
+            clearTimeout(_saveTimer)
+            _saveTimer = setTimeout(_save, 400)
+        }
+        wrapEl.addEventListener('touchmove', onMove, { passive: false })
+        wrapEl.addEventListener('touchend',  onEnd)
+    }, { passive: false })
 }
 
 async function _save() {
