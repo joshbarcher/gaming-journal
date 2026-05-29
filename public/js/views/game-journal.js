@@ -180,7 +180,7 @@ async function _renderDashboard(appid, container, navigate) {
     const achList       = achData?.achievements ?? []
     const progressPages = pages.filter(p => ['progress', 'progress-bars', 'counter', 'multi-counter'].includes(p.type))
     const journalPages  = pages.filter(p => p.type === 'page'     || p.type === 'notes')
-    const pinnedNotes   = (review?.notes ?? []).filter(n => n.pinned)
+    const allNotes      = review?.notes ?? []
     // Sessions indexed by appid (may be numeric or string key)
     const gameSessions  = accountData?.sessions?.[appid]?.sessions
                        ?? accountData?.sessions?.[String(appid)]?.sessions
@@ -222,7 +222,7 @@ async function _renderDashboard(appid, container, navigate) {
                 ${_hltbCard(game, 0, basePlaytimeMins)}
                 ${closedSessions.length ? _sessionHistoryRail(closedSessions) : ''}
                 ${_progressCard(progressPages, appid)}
-                ${_notesAndPagesCard(pinnedNotes, journalPages, appid)}
+                ${_notesAndPagesCard(allNotes, journalPages, appid)}
             </div>
         </div>`
 
@@ -380,33 +380,6 @@ function _hltbCard(game, sessionElapsedMins = 0, basePlaytimeMins = null) {
         </div>`
 }
 
-function _notesCard(pinnedNotes, appid) {
-    const notesHtml = pinnedNotes.length
-        ? pinnedNotes.map(n => `
-            <div class="gj-note-card" data-id="${escapeHtml(n.id)}">
-                ${escapeHtml(n.text)}
-                <div class="gj-note-btns">
-                    <button class="gj-note-btn" data-role="unpin-note" data-id="${escapeHtml(n.id)}" title="Unpin">${IC.pin}</button>
-                    <button class="gj-note-btn gj-note-btn--del" data-role="del-note" data-id="${escapeHtml(n.id)}" title="Delete">&times;</button>
-                </div>
-                <div class="gj-note-date">${_fmt(n.createdAt)}</div>
-            </div>`).join('')
-        : `<p class="gj-no-data" style="align-self:center">No pinned notes — add one below</p>`
-
-    return `
-        <div class="gj-card gj-card--wide" data-role="notes-card">
-            <div class="gj-card-header">
-                <span class="gj-card-title">Pinned Notes</span>
-                <a href="/journal/${appid}/notes" class="gj-view-all">All Notes →</a>
-            </div>
-            <div class="gj-notes-row">${notesHtml}</div>
-            <div class="gj-add-note">
-                <input class="gj-add-note-input" placeholder="Quick note…" data-role="note-input">
-                <button class="gj-pin-toggle" data-role="pin-toggle" title="Pin note">${IC.pin}</button>
-                <button class="gj-btn gj-btn--accent" data-role="add-note">Add</button>
-            </div>
-        </div>`
-}
 
 function _progressCard(pages, appid) {
     if (!pages.length) {
@@ -572,20 +545,28 @@ function _sessionHistoryRail(closedSessions) {
         </div>`
 }
 
-function _notesAndPagesCard(pinnedNotes, journalPages, appid) {
+function _notesAndPagesCard(allNotes, journalPages, appid) {
+    const recent = [...allNotes]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 4)
+
+    const notesHtml = recent.length
+        ? recent.map(n => `
+            <div class="gj-note-card gj-note-card--recent">
+                <p class="gj-note-card-text">${escapeHtml(n.text)}</p>
+                <div class="gj-note-date">${_fmt(n.createdAt)}</div>
+            </div>`).join('')
+        : `<p class="gj-no-data">No notes yet</p>`
+
     return `
-        <div class="gj-card gj-card--span2 gj-card--compact-np" data-role="notes-card">
+        <div class="gj-card gj-card--span2 gj-card--compact-np">
             <div class="gj-cnp-body">
                 <div class="gj-cnp-section">
                     <div class="gj-card-header">
-                        <span class="gj-card-title">Pinned Notes</span>
-                        <a href="/journal/${appid}/notes" class="gj-view-all">All (${pinnedNotes.length}) →</a>
+                        <span class="gj-card-title">Recent Notes</span>
+                        <a href="/journal/${appid}/notes" class="gj-view-all">All (${allNotes.length}) →</a>
                     </div>
-                    <div class="gj-add-note" style="margin-top:auto">
-                        <input class="gj-add-note-input" placeholder="Quick note…" data-role="note-input">
-                        <button class="gj-pin-toggle" data-role="pin-toggle" title="Pin note">${IC.pin}</button>
-                        <button class="gj-btn gj-btn--accent" data-role="add-note">Add</button>
-                    </div>
+                    <div class="gj-recent-notes">${notesHtml}</div>
                 </div>
                 <div class="gj-cnp-sep"></div>
                 <div class="gj-cnp-section">
@@ -809,33 +790,6 @@ function _startDashPollers(container, appid, hasActiveSession, navigate) {
 // ── Dashboard interactions ─────────────────────────────────────────────────────
 
 function _initDashboard(container, appid, game, navigate) {
-    let _pinned = false
-    const pinToggle = container.querySelector('[data-role="pin-toggle"]')
-    pinToggle?.addEventListener('click', () => {
-        _pinned = !_pinned
-        pinToggle.classList.toggle('active', _pinned)
-    })
-
-    const noteInput = container.querySelector('[data-role="note-input"]')
-    const doAdd = () => _doAddNote(appid, noteInput, () => _pinned, container, navigate)
-    container.querySelector('[data-role="add-note"]')?.addEventListener('click', doAdd)
-    noteInput?.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doAdd() }
-    })
-
-    container.querySelector('[data-role="notes-card"]')?.addEventListener('click', async e => {
-        const btn = e.target.closest('button[data-id]')
-        if (!btn) return
-        const id = btn.dataset.id
-        if (btn.dataset.role === 'unpin-note') {
-            await api.localReviews.updateNote(appid, id, { pinned: false })
-            _renderDashboard(appid, container, navigate)
-        } else if (btn.dataset.role === 'del-note') {
-            await api.localReviews.deleteNote(appid, id)
-            _renderDashboard(appid, container, navigate)
-        }
-    })
-
     container.querySelector('[data-role="open-review"]')?.addEventListener('click', async () => {
         const { openReviewModal } = await import('../review-modal.js')
         const res = await fetch(`/api/local-reviews/${appid}`)
@@ -876,16 +830,6 @@ function _initDashboard(container, appid, game, navigate) {
         _clearSessionTimer()
         await _renderDashboard(appid, container, navigate)
     })
-}
-
-async function _doAddNote(appid, input, getPinned, container, navigate) {
-    const text = input?.value.trim()
-    if (!text) return
-    const note = await api.localReviews.addNote(appid, text)
-    if (getPinned() && note?.id) {
-        await api.localReviews.updateNote(appid, note.id, { pinned: true })
-    }
-    _renderDashboard(appid, container, navigate)
 }
 
 // ── Achievement tooltip ────────────────────────────────────────────────────────
