@@ -323,6 +323,7 @@
     color: var(--clr-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    margin-bottom: 6px;
 }
 
 /* ── Achievement icon strip (dashboard card) ──────────────────────────────────── */
