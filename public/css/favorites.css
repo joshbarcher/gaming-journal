@@ -82,19 +82,21 @@
     margin: 0;
 }
 
-/* ── Hero card (top favorite, double-width grid item) ─────────────────────── */
+/* ── Hero card (portrait, spans 2 cols × 3 rows) ──────────────────────────── */
 
 .fav-hero {
-    display: block;
-    position: relative;
+    display: flex;
+    flex-direction: column;
     grid-column: span 2;
-    min-height: 120px;
+    grid-row: span 3;
     border-radius: var(--radius);
     overflow: hidden;
     text-decoration: none;
+    color: inherit;
     border: 1px solid var(--fav-accent-bd);
+    background: #0d0d14;
     animation: fav-hero-pulse 2.5s ease-in-out infinite;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .fav-hero:hover {
@@ -103,24 +105,27 @@
 }
 
 @keyframes fav-hero-pulse {
-    0%, 100% {
-        box-shadow: 0 0 16px 2px rgba(196, 92, 122, 0.15);
-    }
-    50% {
-        box-shadow: 0 0 40px 8px rgba(196, 92, 122, 0.32), inset 0 0 40px rgba(196, 92, 122, 0.04);
-    }
+    0%, 100% { box-shadow: 0 0 16px 2px rgba(196, 92, 122, 0.15); }
+    50%       { box-shadow: 0 0 40px 8px rgba(196, 92, 122, 0.32), inset 0 0 40px rgba(196, 92, 122, 0.04); }
+}
+
+/* ── Art section (top portion, fills available space) */
+.fav-hero-art {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .fav-hero-bg-wrap {
     position: absolute;
     inset: 0;
-    filter: saturate(1.1) brightness(0.8);
-    transition: filter 0.3s ease, transform 0.4s ease;
+    filter: saturate(1.1) brightness(0.82);
+    transition: filter 0.3s ease;
 }
 
 .fav-hero:hover .fav-hero-bg-wrap {
-    filter: saturate(1.2) brightness(0.9);
-    transform: scale(1.02);
+    filter: saturate(1.2) brightness(0.92);
 }
 
 .fav-hero-bg {
@@ -128,7 +133,6 @@
     inset: 0;
     background-size: cover;
     background-position: center;
-    /* transition managed entirely by JS — pan direction is randomised per image */
 }
 
 .fav-hero-bg--a { opacity: 1; }
@@ -137,22 +141,18 @@
 .fav-hero-scrim {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-        105deg,
-        rgba(10, 10, 14, 0.88) 0%,
-        rgba(10, 10, 14, 0.5)  45%,
-        rgba(10, 10, 14, 0.1)  100%
+    background: linear-gradient(to bottom,
+        rgba(10, 10, 14, 0.0)  40%,
+        rgba(10, 10, 14, 0.92) 100%
     );
 }
 
-/* Rose shimmer sweep on hover */
 .fav-hero-shine {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-        105deg,
+    background: linear-gradient(105deg,
         transparent 30%,
-        rgba(196, 92, 122, 0.1) 50%,
+        rgba(196, 92, 122, 0.08) 50%,
         transparent 70%
     );
     opacity: 0;
@@ -160,41 +160,122 @@
     pointer-events: none;
 }
 
-.fav-hero:hover .fav-hero-shine {
-    opacity: 1;
-}
+.fav-hero:hover .fav-hero-shine { opacity: 1; }
 
+/* Name + hearts overlaid at bottom of art */
 .fav-hero-body {
     position: absolute;
-    inset: 0;
+    bottom: 0; left: 0; right: 0;
     z-index: 2;
+    padding: 20px 16px 14px;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    padding: 24px 28px;
-    gap: 8px;
+    gap: 7px;
 }
 
 .fav-hero-name {
     font-family: var(--font-title);
-    font-size: 1.6rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: #fff;
     margin: 0;
+    line-height: 1.2;
     letter-spacing: 0.01em;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-.fav-hero-hours {
-    font-size: 0.82rem;
+.fav-hero-meta {
+    font-size: 0.72rem;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.65);
-    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
+
+/* ── Stat chips row */
+.fav-hero-chips {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fav-hero-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 6px;
+    gap: 3px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fav-hero-chip:last-child { border-right: none; }
+
+.fav-hero-chip-val {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #e0e0e8;
+    line-height: 1;
+}
+
+.fav-hero-chip-val--accent { color: var(--fav-accent); }
+
+.fav-hero-chip-label {
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #555;
+}
+
+/* ── Flag tags row */
+.fav-hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fav-hero-tag {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(196, 92, 122, 0.1);
+    color: var(--fav-accent);
+    border: 1px solid rgba(196, 92, 122, 0.22);
+}
+
+.fav-hero-tag--muted {
+    background: rgba(255, 255, 255, 0.03);
+    color: #555;
+    border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Review quote */
+.fav-hero-quote {
+    padding: 10px 14px 14px;
+    font-size: 0.74rem;
+    font-style: italic;
+    color: #888;
+    line-height: 1.55;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.fav-hero-quote::before { content: '"'; color: var(--fav-accent); }
+.fav-hero-quote::after  { content: '"'; color: var(--fav-accent); }
+
+/* legacy — no longer used but kept so JS slideshow refs don't break */
+.fav-hero-hours { display: none; }
 
 /* ── Love meter (hearts) ─────────────────────────────────────────────────── */
 
@@ -234,7 +315,8 @@
 
 .fav-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-auto-rows: auto;
     gap: 14px;
     padding: 0 40px 48px;
 }
@@ -337,7 +419,6 @@
 
 @media (max-width: 960px) {
     .fav-header    { padding: 24px 20px 20px; }
-    .fav-hero      { min-height: 90px; }
-    .fav-hero-name { font-size: 1.25rem; }
-    .fav-grid      { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .fav-hero-name { font-size: 1.05rem; }
+    .fav-grid      { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 }

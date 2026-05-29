@@ -63,31 +63,73 @@ function _hearts() {
 
 // ── Hero card (top favorite) ──────────────────────────────────────────────────
 
-function _hero(game, maxPlaytime) {
+function _starStr(n) {
+    if (!n) return null
+    return '★'.repeat(n) + '☆'.repeat(5 - n)
+}
+
+function _hero(game, review, flags, hltb, community) {
     const img   = `/relay/images/steam/games/${game.appid}/header.jpg`
     const hours = _fmtHours(game.playtime)
 
+    const hltbVal = hltb?.matched && hltb.gameplayMain != null
+        ? `~${Math.round(hltb.gameplayMain)}h`
+        : '—'
+    const steamRatio = community?.summary?.ratio != null
+        ? `${Math.round(community.summary.ratio)}%`
+        : '—'
+
+    // Stat chips
+    const chips = [
+        { val: hours ?? '—',                   label: 'Played', accent: true },
+        { val: _starStr(review?.stars) ?? '—', label: 'Rating' },
+        { val: steamRatio,                     label: 'Steam'  },
+        { val: hltbVal,                        label: 'HLTB'   },
+    ]
+    const chipsHtml = chips.map(c => `
+        <div class="fav-hero-chip">
+            <span class="fav-hero-chip-val${c.accent ? ' fav-hero-chip-val--accent' : ''}">${escapeHtml(c.val)}</span>
+            <span class="fav-hero-chip-label">${c.label}</span>
+        </div>`).join('')
+
+    // Flag tags
+    const flagMap = { completed: 'Completed', revisit: 'Revisit', inProgress: 'In Progress', dropped: 'Dropped' }
+    const activeTags = Object.entries(flagMap)
+        .filter(([k]) => flags?.[k])
+        .map(([, label]) => `<span class="fav-hero-tag">${label}</span>`)
+        .join('')
+
+    // Review quote
+    const quoteHtml = review?.review
+        ? `<p class="fav-hero-quote">${escapeHtml(review.review)}</p>`
+        : ''
+
     return `
         <a class="fav-hero" href="/game/${game.appid}" data-appid="${game.appid}">
-            <div class="fav-hero-bg-wrap">
-                <div class="fav-hero-bg fav-hero-bg--a" style="background-image:url('${img}')"></div>
-                <div class="fav-hero-bg fav-hero-bg--b"></div>
+            <div class="fav-hero-art">
+                <div class="fav-hero-bg-wrap">
+                    <div class="fav-hero-bg fav-hero-bg--a" style="background-image:url('${img}')"></div>
+                    <div class="fav-hero-bg fav-hero-bg--b"></div>
+                </div>
+                <div class="fav-hero-scrim"></div>
+                <div class="fav-hero-shine"></div>
+                <div class="fav-hero-body">
+                    ${_hearts()}
+                    <h2 class="fav-hero-name">${escapeHtml(game.name)}</h2>
+                </div>
             </div>
-            <div class="fav-hero-scrim"></div>
-            <div class="fav-hero-body">
-                ${_hearts()}
-                <h2 class="fav-hero-name">${escapeHtml(game.name)}</h2>
-                ${hours ? `<span class="fav-hero-hours">${escapeHtml(hours)}</span>` : ''}
-            </div>
-            <div class="fav-hero-shine"></div>
+            <div class="fav-hero-chips">${chipsHtml}</div>
+            ${activeTags ? `<div class="fav-hero-tags">${activeTags}</div>` : ''}
+            ${quoteHtml}
         </a>`
 }
 
 // ── Screenshot slideshow ──────────────────────────────────────────────────────
 
 async function _startHeroSlideshow(container, appid) {
-    const bgA = container.querySelector('.fav-hero-bg--a')
-    const bgB = container.querySelector('.fav-hero-bg--b')
+    const art = container.querySelector('.fav-hero-art')
+    const bgA = art?.querySelector('.fav-hero-bg--a')
+    const bgB = art?.querySelector('.fav-hero-bg--b')
     if (!bgA || !bgB) return
 
     const headerUrl  = `/relay/images/steam/games/${appid}/header.jpg`
@@ -216,6 +258,18 @@ export async function renderFavorites(container) {
     const hero    = games[heroIdx]
     const rest    = games.filter((_, i) => i !== heroIdx)
 
+    // Fetch hero's review, flags, HLTB, and community reviews for the rich card
+    const [reviewRes, flagsRes, hltbRes, communityRes] = await Promise.all([
+        fetch(`/api/local-reviews/${hero.appid}`),
+        fetch(`/api/flags/${hero.appid}`),
+        fetch(`/relay/api/hltb/${hero.appid}`),
+        fetch(`/relay/api/steam/community-reviews/${hero.appid}`),
+    ])
+    const heroReview    = reviewRes.ok    ? await reviewRes.json()    : null
+    const heroFlags     = flagsRes.ok     ? await flagsRes.json()     : null
+    const heroHltb      = hltbRes.ok      ? await hltbRes.json()      : null
+    const heroCommunity = communityRes.ok ? await communityRes.json() : null
+
     container.innerHTML = `
         <div class="fav-header">
             <div class="fav-header-body">
@@ -226,7 +280,7 @@ export async function renderFavorites(container) {
         </div>
 
         <div class="fav-grid">
-            ${_hero(hero, maxPlaytime)}
+            ${_hero(hero, heroReview, heroFlags, heroHltb, heroCommunity)}
             ${rest.map(g => _card(g, maxPlaytime)).join('')}
         </div>`
 
