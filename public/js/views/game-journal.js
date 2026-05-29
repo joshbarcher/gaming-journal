@@ -393,10 +393,6 @@ function _progressCard(pages, appid) {
         </div>`
     }
 
-    const n    = pages.length
-    const cols = n <= 8 ? 4 : n <= 12 ? 6 : 8
-    const gridStyle = `grid-template-columns:repeat(${cols},auto)`
-
     const cells = pages.map(p => {
         const pct   = pagePct(p)
         const color = percentToColor(pct)
@@ -413,7 +409,7 @@ function _progressCard(pages, appid) {
                 <span class="gj-card-title">Progress Trackers</span>
                 <a href="/journal/${appid}/progress" class="gj-view-all">Manage →</a>
             </div>
-            <div class="gj-heat-grid" style="${gridStyle}">${cells}</div>
+            <div class="gj-heat-grid">${cells}</div>
         </div>`
 }
 
