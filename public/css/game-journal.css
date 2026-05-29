@@ -136,8 +136,8 @@
 
 /* Row-3 cards fill their grid cell and scroll content internally */
 .gj-card--fill {
-    overflow: hidden;
     min-height: 0;
+    align-self: start;
 }
 .gj-card--fill .gj-progress-list {
     flex: 1;
