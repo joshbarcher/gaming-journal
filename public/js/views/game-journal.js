@@ -528,7 +528,7 @@ function _sessionHistoryRail(closedSessions) {
         <div class="gj-session-chip">
             <span class="gj-session-chip-when">${_fmt(s.startedAt)}</span>
             <span class="gj-session-chip-dur">${dur || '—'}</span>
-            <span class="gj-session-chip-achs">${achs ? `${achs} ach` : '—'}</span>
+            <span class="gj-session-chip-achs">${achs ? `${achs} achieve` : '—'}</span>
         </div>`
     }).join('')
 
