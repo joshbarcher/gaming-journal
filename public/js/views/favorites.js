@@ -152,7 +152,7 @@ async function _startHeroSlideshow(container, appid) {
     if (screenshots.length === 0) return
 
     const frames   = [headerUrl, ...screenshots]
-    const INTERVAL = 6000
+    const INTERVAL = 14000
     const PAN_DUR  = 10000
 
     const randDir = () => Math.random() < 0.5 ? 'top' : 'bottom'
