@@ -198,7 +198,7 @@ async function _renderDashboard(appid, container, navigate) {
 
     // Closed sessions sorted newest-first — drives the history rail
     const closedSessions = gameSessions
-        .filter(s => s.endedAt)
+        .filter(s => s.endedAt && (s.durationMin ?? 0) >= 10)
         .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
 
     // game.playtimeMinutes is relay effectiveMin — the single source of truth.
