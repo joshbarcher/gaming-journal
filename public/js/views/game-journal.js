@@ -548,7 +548,7 @@ function _sessionHistoryRail(closedSessions) {
 function _notesAndPagesCard(allNotes, journalPages, appid) {
     const recent = [...allNotes]
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 4)
+        .slice(0, 2)
 
     const notesHtml = recent.length
         ? recent.map(n => `
