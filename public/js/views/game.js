@@ -1470,24 +1470,7 @@ const _SLIDER_LABELS = {
     performance: 'Performance', agendaFree: 'Agenda-Free',
 }
 
-function _fmtNoteDate(iso) {
-    try {
-        return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-    } catch {
-        return ''
-    }
-}
 
-function _notesGridHtml(review, appid) {
-    const notes = review?.notes ?? []
-    if (!notes.length) return ''
-    return notes.map(n => `
-        <div class="rev-note-card">
-            <div class="rev-note-text">${escapeHtml(n.text)}</div>
-            <div class="rev-note-date">${_fmtNoteDate(n.createdAt)}</div>
-            <button class="rev-note-del" data-note-id="${escapeHtml(n.id)}" aria-label="Delete note">×</button>
-        </div>`).join('')
-}
 
 function _localReviewSection(review, appid) {
     const cardHtml = review ? renderLocalReviewCard(review, appid) : `
@@ -1495,23 +1478,10 @@ function _localReviewSection(review, appid) {
             ✦ Write a Review for this game
         </button>`
 
-    const notesGridHtml = _notesGridHtml(review, appid)
-
-    const writeBtn = review ? '' : ''
-
     return `
         <section class="game-section rev-local-section" id="game-sec-local-review">
             <h2 class="game-section-title">Local Review</h2>
             ${cardHtml}
-            <div class="rev-notes-section">
-                <div class="rev-notes-grid" id="rev-notes-grid-${appid}">
-                    ${notesGridHtml}
-                </div>
-                <div class="rev-add-note">
-                    <input class="rev-add-note-input" placeholder="Quick note…" maxlength="200">
-                    <button class="rev-add-note-btn">Add</button>
-                </div>
-            </div>
             ${review ? '' : '<button class="rev-write-btn" data-appid="' + appid + '">✦ Write a Review</button>'}
         </section>`
 }
@@ -1553,49 +1523,6 @@ function _initLocalReviewSection(container, appid, gameName) {
         })
     }
 
-    // Add note
-    const addNoteInput = section.querySelector('.rev-add-note-input')
-    const addNoteBtn = section.querySelector('.rev-add-note-btn')
-    if (addNoteInput && addNoteBtn) {
-        async function _doAddNote() {
-            const text = addNoteInput.value.trim()
-            if (!text) return
-            addNoteBtn.disabled = true
-            try {
-                const res = await fetch(`/api/local-reviews/${appid}/notes`, {
-                    method:  'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify({ text }),
-                })
-                if (res.ok) {
-                    addNoteInput.value = ''
-                    await _refresh()
-                }
-            } catch { /* silent */ } finally {
-                addNoteBtn.disabled = false
-            }
-        }
-
-        addNoteBtn.addEventListener('click', _doAddNote)
-        addNoteInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); _doAddNote() }
-        })
-    }
-
-    // Delete note buttons
-    section.querySelectorAll('.rev-note-del').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const noteId = btn.dataset.noteId
-            if (!noteId) return
-            btn.disabled = true
-            try {
-                const res = await fetch(`/api/local-reviews/${appid}/notes/${noteId}`, { method: 'DELETE' })
-                if (res.ok) await _refresh()
-            } catch { /* silent */ } finally {
-                btn.disabled = false
-            }
-        })
-    })
 }
 
 // ── Discovered game — progressive enrichment ──────────────────────────────────
