@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils.js'
 import { loadGameFilter } from './game-filter.js'
+import { setWithTTL, getWithTTL } from '../storage.js'
 
 const PAGE_SIZE      = 48
 const STORAGE_SORT   = 'gj_wl_sort'
@@ -34,8 +35,8 @@ export async function renderWishlist(container) {
     // Read persisted state BEFORE touching innerHTML — setting innerHTML collapses
     // the page height, which fires a scroll event on the still-attached listener
     // from the previous visit, which would overwrite STORAGE_SCROLL with 0.
-    const restoredPage   = parseInt(localStorage.getItem(STORAGE_PAGE)   ?? '1', 10) || 1
-    const restoredScroll = parseInt(localStorage.getItem(STORAGE_SCROLL) ?? '0', 10)
+    const restoredPage   = parseInt(getWithTTL(STORAGE_PAGE)   ?? '1', 10) || 1
+    const restoredScroll = parseInt(getWithTTL(STORAGE_SCROLL) ?? '0', 10)
 
 
     container.innerHTML = `<p class="page-loading">Loading wishlist…</p>`
@@ -59,7 +60,7 @@ export async function renderWishlist(container) {
     _query  = ''
     _sort   = localStorage.getItem(STORAGE_SORT)   ?? 'priority'
     _dir    = localStorage.getItem(STORAGE_DIR)    ?? 'asc'
-    _letter = localStorage.getItem(STORAGE_LETTER) || null
+    _letter = getWithTTL(STORAGE_LETTER) || null
     _applyFilter()
     // Restore page after _applyFilter (which resets _page to 1)
     _page = restoredPage
@@ -129,7 +130,7 @@ function _applyFilter() {
     })
 
     _page = 1
-    localStorage.setItem(STORAGE_PAGE, '1')
+    setWithTTL(STORAGE_PAGE, '1')
     localStorage.removeItem(STORAGE_SCROLL)
 }
 
@@ -209,7 +210,7 @@ function _draw() {
         if (!_container.querySelector('#wl-grid')) return
         clearTimeout(_scrollDebounce)
         _scrollDebounce = setTimeout(() => {
-localStorage.setItem(STORAGE_SCROLL, String(Math.round(_container.scrollTop)))
+setWithTTL(STORAGE_SCROLL, String(Math.round(_container.scrollTop)))
         }, 150)
     }, { passive: true, signal: _scrollAbort.signal })
 }
@@ -250,9 +251,9 @@ function _bindAlpha(id) {
         if (!btn || btn.disabled) return
         const ch = btn.dataset.letter
         _letter = ch === 'A-Z' ? null : ch
-        localStorage.setItem(STORAGE_LETTER, _letter ?? '')
+        setWithTTL(STORAGE_LETTER, _letter ?? '')
         _page = 1
-        localStorage.setItem(STORAGE_PAGE, '1')
+        setWithTTL(STORAGE_PAGE, '1')
         _applyFilter()
         _redraw()
     })
@@ -329,7 +330,7 @@ function _updateDirBtn() {
 
 function _page_prev() {
     _page--
-    localStorage.setItem(STORAGE_PAGE, String(_page))
+    setWithTTL(STORAGE_PAGE, String(_page))
     localStorage.removeItem(STORAGE_SCROLL)
     _redraw()
     _container.scrollTo(0, 0)
@@ -337,7 +338,7 @@ function _page_prev() {
 
 function _page_next() {
     _page++
-    localStorage.setItem(STORAGE_PAGE, String(_page))
+    setWithTTL(STORAGE_PAGE, String(_page))
     localStorage.removeItem(STORAGE_SCROLL)
     _redraw()
     _container.scrollTo(0, 0)

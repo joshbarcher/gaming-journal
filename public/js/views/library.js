@@ -1,5 +1,6 @@
 import { escapeHtml } from '../utils.js'
 import { loadGameFilter } from './game-filter.js'
+import { setWithTTL, getWithTTL } from '../storage.js'
 
 const PAGE_SIZE      = 48
 const STORAGE_SORT   = 'gj_lib_sort'
@@ -33,7 +34,7 @@ export async function renderLibrary(container) {
     // Read persisted scroll BEFORE touching innerHTML — setting innerHTML collapses
     // page height, firing a scroll event on the still-attached listener from the
     // previous visit, which would overwrite STORAGE_SCROLL with 0.
-    const savedScroll = Number(localStorage.getItem(STORAGE_SCROLL) ?? 0)
+    const savedScroll = Number(getWithTTL(STORAGE_SCROLL) ?? 0)
 
 
     container.innerHTML = `<p class="page-loading">Loading library…</p>`
@@ -63,11 +64,11 @@ export async function renderLibrary(container) {
         return
     }
 
-    _query  = localStorage.getItem(STORAGE_QUERY)  ?? ''
+    _query  = getWithTTL(STORAGE_QUERY)  ?? ''
     _sort   = localStorage.getItem(STORAGE_SORT)   ?? 'name'
     _dir    = localStorage.getItem(STORAGE_DIR)    ?? 'asc'
-    _page   = Number(localStorage.getItem(STORAGE_PAGE) ?? 1)
-    _letter = localStorage.getItem(STORAGE_LETTER) || null
+    _page   = Number(getWithTTL(STORAGE_PAGE) ?? 1)
+    _letter = getWithTTL(STORAGE_LETTER) || null
     _applyFilter()
     const totalPages = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE))
     if (_page > totalPages) _page = totalPages
@@ -143,8 +144,8 @@ function _draw() {
         _debounce = setTimeout(() => {
             _query = e.target.value
             _page  = 1
-            localStorage.setItem(STORAGE_QUERY, _query)
-            localStorage.setItem(STORAGE_PAGE,  _page)
+            setWithTTL(STORAGE_QUERY, _query)
+            setWithTTL(STORAGE_PAGE,  _page)
             _applyFilter()
             _redraw()
         }, 200)
@@ -156,7 +157,7 @@ function _draw() {
         _page = 1
         localStorage.setItem(STORAGE_SORT,  _sort)
         localStorage.setItem(STORAGE_DIR,   _dir)
-        localStorage.setItem(STORAGE_PAGE,  _page)
+        setWithTTL(STORAGE_PAGE,  _page)
         _applyFilter()
         _redraw()
         _updateDirBtn()
@@ -166,7 +167,7 @@ function _draw() {
         _dir  = _dir === 'asc' ? 'desc' : 'asc'
         _page = 1
         localStorage.setItem(STORAGE_DIR,  _dir)
-        localStorage.setItem(STORAGE_PAGE, _page)
+        setWithTTL(STORAGE_PAGE, _page)
         _applyFilter()
         _redraw()
         _updateDirBtn()
@@ -184,7 +185,7 @@ function _draw() {
         if (!_container.querySelector('#lib-grid')) return
         clearTimeout(_scrollDebounce)
         _scrollDebounce = setTimeout(() => {
-localStorage.setItem(STORAGE_SCROLL, _container.scrollTop)
+setWithTTL(STORAGE_SCROLL, _container.scrollTop)
         }, 150)
     }, { signal: _scrollAbort.signal })
 
@@ -227,9 +228,9 @@ function _bindAlpha(id) {
         if (!btn || btn.disabled) return
         const ch = btn.dataset.letter
         _letter = ch === 'A-Z' ? null : ch
-        localStorage.setItem(STORAGE_LETTER, _letter ?? '')
+        setWithTTL(STORAGE_LETTER, _letter ?? '')
         _page = 1
-        localStorage.setItem(STORAGE_PAGE, '1')
+        setWithTTL(STORAGE_PAGE, '1')
         _applyFilter()
         _redraw()
     })
@@ -288,16 +289,16 @@ function _updateDirBtn() {
 
 function _page_prev() {
     _page--
-    localStorage.setItem(STORAGE_PAGE, _page)
-    localStorage.setItem(STORAGE_SCROLL, 0)
+    setWithTTL(STORAGE_PAGE, _page)
+    setWithTTL(STORAGE_SCROLL, 0)
     _redraw()
     _container.scrollTo(0, 0)
 }
 
 function _page_next() {
     _page++
-    localStorage.setItem(STORAGE_PAGE, _page)
-    localStorage.setItem(STORAGE_SCROLL, 0)
+    setWithTTL(STORAGE_PAGE, _page)
+    setWithTTL(STORAGE_SCROLL, 0)
     _redraw()
     _container.scrollTo(0, 0)
 }

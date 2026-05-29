@@ -56,23 +56,27 @@ async function _loadGames() {
 
 // ── Order persistence ─────────────────────────────────────────────────────────
 
-function _loadOrder() {
+async function _loadOrder() {
     try {
-        const raw = localStorage.getItem('onhold-order')
-        return raw ? JSON.parse(raw) : []
+        const res = await fetch('/api/order/on-hold')
+        if (!res.ok) return []
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
     } catch {
         return []
     }
 }
 
 function _saveOrder(appids) {
-    try {
-        localStorage.setItem('onhold-order', JSON.stringify(appids))
-    } catch { /* ignore */ }
+    fetch('/api/order/on-hold', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(appids),
+    }).catch(() => { /* best-effort */ })
 }
 
-function _applyOrder(games) {
-    const order   = _loadOrder()
+async function _applyOrder(games) {
+    const order   = await _loadOrder()
     const gameMap = new Map(games.map(g => [g.appid, g]))
     const ordered = []
     const seen    = new Set()
@@ -326,7 +330,7 @@ export async function renderOnHold(container) {
         return
     }
 
-    const ordered   = _applyOrder(games)
+    const ordered   = await _applyOrder(games)
     const totalMins = _totalPlaytime(ordered)
     const totalStr  = totalMins > 0
         ? `${_fmtHours(totalMins)} invested across ${ordered.length} paused game${ordered.length !== 1 ? 's' : ''}`

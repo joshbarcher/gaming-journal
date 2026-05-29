@@ -30,9 +30,12 @@ let _searchPage   = 1        // current page within search results
 
 // ── State persistence ─────────────────────────────────────────────────────────
 
+const TTL_24H = 24 * 60 * 60 * 1000
+
 function _saveState() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            savedAt:     Date.now(),
             mode:        _mode,
             tab:         _featuredTab,
             tabPages:    _tabPages,
@@ -49,6 +52,10 @@ function _restoreState() {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return
         const s = JSON.parse(raw)
+        if (s.savedAt && Date.now() - s.savedAt > TTL_24H) {
+            localStorage.removeItem(STORAGE_KEY)
+            return
+        }
         if (s.mode)                      _mode        = s.mode
         if (s.tab)                       _featuredTab = s.tab
         if (s.tabPages)                  _tabPages    = s.tabPages

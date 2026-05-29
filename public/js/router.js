@@ -1,5 +1,6 @@
 import { api } from './api.js'
 import { escapeHtml } from './utils.js'
+import { setWithTTL, getWithTTL } from './storage.js'
 import { loadSidebar, setActiveItem, getPages, addPageToSidebar } from './sidebar.js'
 import { renderToc } from './views/toc.js'
 import { renderHome } from './views/home.js'
@@ -40,19 +41,15 @@ function _scrollKey(path) { return `scroll:${path || '/'}` }
 function _saveScroll(path) {
     const el = mainEl()
     const top = el?.scrollTop ?? 0
-    console.log('[scroll] save', path, '→', top)
-    if (el) localStorage.setItem(_scrollKey(path), top)
+    if (el) setWithTTL(_scrollKey(path), top)
 }
 
 function _restoreScroll(path) {
-    const saved = localStorage.getItem(_scrollKey(path))
-    console.log('[scroll] restore requested', path, '→ saved:', saved)
+    const saved = getWithTTL(_scrollKey(path))
     if (saved === null) return
     requestAnimationFrame(() => {
         const el = mainEl()
-        console.log('[scroll] rAF firing, el.scrollHeight:', el?.scrollHeight, 'setting scrollTop to', Number(saved))
         if (el) el.scrollTop = Number(saved)
-        console.log('[scroll] scrollTop after set:', el?.scrollTop)
     })
 }
 

@@ -6,6 +6,7 @@ import alertsRouter from './alerts.js'
 import franchisesRouter from './franchises.js'
 import localReviewsRouter from './localReviews.js'
 import localWishlistRouter from './localWishlist.js'
+import orderRouter from './order.js'
 
 const router = Router()
 
@@ -20,5 +21,6 @@ router.use('/alerts',        alertsRouter)
 router.use('/franchises',    franchisesRouter)
 router.use('/local-reviews',  localReviewsRouter)
 router.use('/local-wishlist', localWishlistRouter)
+router.use('/order',         orderRouter)
 
 export default router

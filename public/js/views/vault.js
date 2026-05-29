@@ -83,23 +83,27 @@ function _totalHours(games) {
 
 // ── Order persistence ─────────────────────────────────────────────────────────
 
-function _loadOrder() {
+async function _loadOrder() {
     try {
-        const raw = localStorage.getItem('vault-order')
-        return raw ? JSON.parse(raw) : []
+        const res = await fetch('/api/order/vault')
+        if (!res.ok) return []
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
     } catch {
         return []
     }
 }
 
 function _saveOrder(appids) {
-    try {
-        localStorage.setItem('vault-order', JSON.stringify(appids))
-    } catch { /* ignore */ }
+    fetch('/api/order/vault', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(appids),
+    }).catch(() => { /* best-effort */ })
 }
 
-function _applyOrder(games) {
-    const order = _loadOrder()
+async function _applyOrder(games) {
+    const order = await _loadOrder()
     const gameMap = new Map(games.map(g => [g.appid, g]))
     const ordered = []
     const seen = new Set()
@@ -317,7 +321,7 @@ export async function renderVault(container) {
         return
     }
 
-    const ordered = _applyOrder(games)
+    const ordered = await _applyOrder(games)
 
     const totalH   = _totalHours(ordered)
     const totalStr = totalH > 0
