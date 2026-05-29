@@ -23,13 +23,13 @@ async function _loadGames() {
 
     const ownedMap = new Map(games.map(g => [g.appid, g]))
 
-    const onHoldIds = Object.entries(flags)
-        .filter(([, f]) => f.onHold)
+    const inProgressIds = Object.entries(flags)
+        .filter(([, f]) => f.inProgress)
         .map(([id]) => Number(id))
 
-    if (!onHoldIds.length) return []
+    if (!inProgressIds.length) return []
 
-    const results = await Promise.all(onHoldIds.map(async appid => {
+    const results = await Promise.all(inProgressIds.map(async appid => {
         const owned   = ownedMap.get(appid)
         let name      = owned?.name ?? null
         let hltb      = null
@@ -58,7 +58,7 @@ async function _loadGames() {
 
 async function _loadOrder() {
     try {
-        const res = await fetch('/api/order/on-hold')
+        const res = await fetch('/api/order/in-progress')
         if (!res.ok) return []
         const data = await res.json()
         return Array.isArray(data) ? data : []
@@ -68,7 +68,7 @@ async function _loadOrder() {
 }
 
 function _saveOrder(appids) {
-    fetch('/api/order/on-hold', {
+    fetch('/api/order/in-progress', {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(appids),
@@ -133,7 +133,7 @@ function _progressBar(game) {
     if (extra && extra < ceiling) ticks.push({ pct: (extra / ceiling) * 100, label: 'Extras' })
 
     const ticksHtml = ticks.map(t =>
-        `<span class="onhold-bar-tick" style="left:${t.pct.toFixed(1)}%" title="${t.label}"></span>`
+        `<span class="inprogress-bar-tick" style="left:${t.pct.toFixed(1)}%" title="${t.label}"></span>`
     ).join('')
 
     // Smart label: which tier are you currently working toward?
@@ -150,9 +150,9 @@ function _progressBar(game) {
     }
 
     const bar = `
-        <div class="onhold-bar-wrap">
-            <div class="onhold-bar-track">
-                <div class="onhold-bar-fill" style="width:${fillPct.toFixed(1)}%"></div>
+        <div class="inprogress-bar-wrap">
+            <div class="inprogress-bar-track">
+                <div class="inprogress-bar-fill" style="width:${fillPct.toFixed(1)}%"></div>
                 ${ticksHtml}
             </div>
         </div>`
@@ -168,26 +168,26 @@ function _card(game, position = null) {
     const { bar, label } = _progressBar(game)
 
     const timeBadge = playedH
-        ? `<span class="onhold-card-time" title="Time played so far">${escapeHtml(playedH)}</span>`
+        ? `<span class="inprogress-card-time" title="Time played so far">${escapeHtml(playedH)}</span>`
         : ''
 
     const numBadge = position !== null
-        ? `<span class="onhold-card-num">${position}</span>`
+        ? `<span class="inprogress-card-num">${position}</span>`
         : ''
 
-    const upNextClass = position !== null ? ' onhold-card--up-next' : ''
+    const upNextClass = position !== null ? ' inprogress-card--up-next' : ''
 
     return `
-        <a class="onhold-card${upNextClass}" href="/game/${game.appid}" data-appid="${game.appid}" draggable="true">
-            <div class="onhold-card-img-wrap">
-                <img class="onhold-card-img" src="${img}" alt="" loading="lazy" onerror="this.style.opacity='0'">
-                <div class="onhold-card-overlay"></div>
+        <a class="inprogress-card${upNextClass}" href="/game/${game.appid}" data-appid="${game.appid}" draggable="true">
+            <div class="inprogress-card-img-wrap">
+                <img class="inprogress-card-img" src="${img}" alt="" loading="lazy" onerror="this.style.opacity='0'">
+                <div class="inprogress-card-overlay"></div>
                 ${numBadge}
                 ${timeBadge}
             </div>
-            <div class="onhold-card-body">
-                <span class="onhold-card-name">${escapeHtml(game.name)}</span>
-                ${label ? `<span class="onhold-card-progress-label">${escapeHtml(label)}</span>` : ''}
+            <div class="inprogress-card-body">
+                <span class="inprogress-card-name">${escapeHtml(game.name)}</span>
+                ${label ? `<span class="inprogress-card-progress-label">${escapeHtml(label)}</span>` : ''}
             </div>
             ${bar}
         </a>`
@@ -196,21 +196,21 @@ function _card(game, position = null) {
 // ── Drag and drop ─────────────────────────────────────────────────────────────
 
 function _clearDropIndicators(container) {
-    container.querySelectorAll('.onhold-card--drop-before, .onhold-card--drop-after').forEach(el => {
-        el.classList.remove('onhold-card--drop-before', 'onhold-card--drop-after')
+    container.querySelectorAll('.inprogress-card--drop-before, .inprogress-card--drop-after').forEach(el => {
+        el.classList.remove('inprogress-card--drop-before', 'inprogress-card--drop-after')
     })
 }
 
 function _initDrag(container) {
-    container.querySelectorAll('.onhold-card[data-appid]').forEach(el => {
+    container.querySelectorAll('.inprogress-card[data-appid]').forEach(el => {
         el.addEventListener('dragstart', () => {
             _draggedAppid = Number(el.dataset.appid)
-            requestAnimationFrame(() => el.classList.add('onhold-card--dragging'))
+            requestAnimationFrame(() => el.classList.add('inprogress-card--dragging'))
         })
 
         el.addEventListener('dragend', () => {
             _draggedAppid = null
-            el.classList.remove('onhold-card--dragging')
+            el.classList.remove('inprogress-card--dragging')
             _clearDropIndicators(container)
         })
 
@@ -221,15 +221,15 @@ function _initDrag(container) {
             const rect = el.getBoundingClientRect()
             const mid  = rect.left + rect.width / 2
             if (e.clientX < mid) {
-                el.classList.add('onhold-card--drop-before')
+                el.classList.add('inprogress-card--drop-before')
             } else {
-                el.classList.add('onhold-card--drop-after')
+                el.classList.add('inprogress-card--drop-after')
             }
         })
 
         el.addEventListener('dragleave', e => {
             if (!el.contains(e.relatedTarget)) {
-                el.classList.remove('onhold-card--drop-before', 'onhold-card--drop-after')
+                el.classList.remove('inprogress-card--drop-before', 'inprogress-card--drop-after')
             }
         })
 
@@ -240,7 +240,7 @@ function _initDrag(container) {
             const targetAppid = Number(el.dataset.appid)
             if (_draggedAppid === targetAppid) return
 
-            const isBefore   = el.classList.contains('onhold-card--drop-before')
+            const isBefore   = el.classList.contains('inprogress-card--drop-before')
             _clearDropIndicators(container)
 
             const draggedIdx = _currentGames.findIndex(g => g.appid === _draggedAppid)
@@ -265,7 +265,7 @@ function _initDrag(container) {
 function _renderDynamic(container, games) {
     _currentGames = games
 
-    const dynamic = container.querySelector('.onhold-dynamic')
+    const dynamic = container.querySelector('.inprogress-dynamic')
     if (!dynamic) return
 
     const queueGames = games.slice(0, 3)
@@ -274,25 +274,25 @@ function _renderDynamic(container, games) {
     const queueCards = queueGames.map((g, i) => _card(g, i + 1)).join('')
 
     const sepHtml = restGames.length > 0 ? `
-        <div class="onhold-rest-sep">
-            <span class="onhold-rest-sep-label">Queue &middot; ${restGames.length} more</span>
+        <div class="inprogress-rest-sep">
+            <span class="inprogress-rest-sep-label">Queue &middot; ${restGames.length} more</span>
         </div>` : ''
 
     const restHtml = restGames.length > 0 ? `
-        <div class="onhold-grid">
+        <div class="inprogress-grid">
             ${restGames.map(g => _card(g)).join('')}
         </div>` : ''
 
     dynamic.innerHTML = `
-        <div class="onhold-queue">
-            <div class="onhold-queue-header">
+        <div class="inprogress-queue">
+            <div class="inprogress-queue-header">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
-                <span class="onhold-queue-label">Up Next</span>
-                <span class="onhold-queue-hint">Drag to reorder</span>
+                <span class="inprogress-queue-label">Up Next</span>
+                <span class="inprogress-queue-hint">Drag to reorder</span>
             </div>
-            <div class="onhold-queue-row">
+            <div class="inprogress-queue-row">
                 ${queueCards}
             </div>
         </div>
@@ -304,7 +304,7 @@ function _renderDynamic(container, games) {
 
 // ── Main render ───────────────────────────────────────────────────────────────
 
-export async function renderOnHold(container) {
+export async function renderInProgress(container) {
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
     let games
@@ -317,10 +317,10 @@ export async function renderOnHold(container) {
 
     if (!games.length) {
         container.innerHTML = `
-            <div class="onhold-header">
-                <div class="onhold-header-body">
-                    <p class="onhold-eyebrow">Collection</p>
-                    <h1 class="onhold-title">In Progress</h1>
+            <div class="inprogress-header">
+                <div class="inprogress-header-body">
+                    <p class="inprogress-eyebrow">Collection</p>
+                    <h1 class="inprogress-title">In Progress</h1>
                 </div>
             </div>
             <p class="page-empty" style="padding:40px">
@@ -337,14 +337,14 @@ export async function renderOnHold(container) {
         : `${ordered.length} game${ordered.length !== 1 ? 's' : ''} paused`
 
     container.innerHTML = `
-        <div class="onhold-header">
-            <div class="onhold-header-body">
-                <p class="onhold-eyebrow">Collection</p>
-                <h1 class="onhold-title">In Progress</h1>
-                <p class="onhold-subtitle">${totalStr}</p>
+        <div class="inprogress-header">
+            <div class="inprogress-header-body">
+                <p class="inprogress-eyebrow">Collection</p>
+                <h1 class="inprogress-title">In Progress</h1>
+                <p class="inprogress-subtitle">${totalStr}</p>
             </div>
         </div>
-        <div class="onhold-dynamic"></div>`
+        <div class="inprogress-dynamic"></div>`
 
     _renderDynamic(container, ordered)
 }

@@ -75,10 +75,10 @@
 .sidebar-top-games-btn,
 .sidebar-settings-btn,
 .sidebar-favorites-btn,
-.sidebar-vault-btn,
+.sidebar-backlog-btn,
 .sidebar-abandoned-btn,
 .sidebar-hof-btn,
-.sidebar-onhold-btn,
+.sidebar-inprogress-btn,
 .sidebar-myreviews-btn,
 .sidebar-discover-btn {
     display: flex;
@@ -106,10 +106,10 @@
 .sidebar-top-games-btn:hover,
 .sidebar-settings-btn:hover,
 .sidebar-favorites-btn:hover,
-.sidebar-vault-btn:hover,
+.sidebar-backlog-btn:hover,
 .sidebar-abandoned-btn:hover,
 .sidebar-hof-btn:hover,
-.sidebar-onhold-btn:hover,
+.sidebar-inprogress-btn:hover,
 .sidebar-myreviews-btn:hover,
 .sidebar-discover-btn:hover {
     border-color: var(--clr-border-hi);
@@ -125,10 +125,10 @@
 .sidebar-top-games-btn.active,
 .sidebar-settings-btn.active,
 .sidebar-favorites-btn.active,
-.sidebar-vault-btn.active,
+.sidebar-backlog-btn.active,
 .sidebar-abandoned-btn.active,
 .sidebar-hof-btn.active,
-.sidebar-onhold-btn.active,
+.sidebar-inprogress-btn.active,
 .sidebar-myreviews-btn.active,
 .sidebar-discover-btn.active {
     border-color: rgba(201, 168, 76, 0.25);
@@ -146,10 +146,10 @@
 .sidebar-top-games-btn:focus-visible,
 .sidebar-settings-btn:focus-visible,
 .sidebar-favorites-btn:focus-visible,
-.sidebar-vault-btn:focus-visible,
+.sidebar-backlog-btn:focus-visible,
 .sidebar-abandoned-btn:focus-visible,
 .sidebar-hof-btn:focus-visible,
-.sidebar-onhold-btn:focus-visible,
+.sidebar-inprogress-btn:focus-visible,
 .sidebar-myreviews-btn:focus-visible,
 .sidebar-discover-btn:focus-visible {
     outline: 1.5px solid var(--clr-accent);

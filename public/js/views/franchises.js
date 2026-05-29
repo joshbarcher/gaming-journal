@@ -20,7 +20,7 @@ function _deriveStatus(flags, playtime) {
     if (!flags) return 'unplayed'
     if (flags.completed) return 'completed'
     if (flags.dropped)   return 'dropped'
-    if (flags.onHold)    return 'on-hold'
+    if (flags.inProgress)    return 'in-progress'
     if (playtime > 0)    return 'playing'
     return 'unplayed'
 }

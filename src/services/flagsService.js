@@ -4,7 +4,7 @@ import { ManagedFile } from '../shared/managed-file.js'
 const FLAGS = [
     'software', 'childLock', 'filtered', 'alert',
     'favorite', 'revisit',
-    'completed', 'dropped', 'onHold', 'backlog',
+    'completed', 'dropped', 'inProgress', 'backlog',
 ]
 
 function makeFile() {

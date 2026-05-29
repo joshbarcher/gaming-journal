@@ -85,7 +85,7 @@ function _totalHours(games) {
 
 async function _loadOrder() {
     try {
-        const res = await fetch('/api/order/vault')
+        const res = await fetch('/api/order/backlog')
         if (!res.ok) return []
         const data = await res.json()
         return Array.isArray(data) ? data : []
@@ -95,7 +95,7 @@ async function _loadOrder() {
 }
 
 function _saveOrder(appids) {
-    fetch('/api/order/vault', {
+    fetch('/api/order/backlog', {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(appids),
@@ -132,29 +132,29 @@ function _card(game, position = null) {
     const ptH  = game.playtime > 0 ? _fmtHours(game.playtime) : null
 
     const timeBadge = est
-        ? `<span class="vault-card-time vault-card-time--hltb" title="HowLongToBeat estimate">${escapeHtml(est.label)}</span>`
-        : `<span class="vault-card-time vault-card-time--unknown">?h</span>`
+        ? `<span class="backlog-card-time backlog-card-time--hltb" title="HowLongToBeat estimate">${escapeHtml(est.label)}</span>`
+        : `<span class="backlog-card-time backlog-card-time--unknown">?h</span>`
 
     const playedBadge = ptH
-        ? `<span class="vault-card-played" title="Time played in Steam">${escapeHtml(ptH)} played</span>`
+        ? `<span class="backlog-card-played" title="Time played in Steam">${escapeHtml(ptH)} played</span>`
         : ''
 
     const numBadge = position !== null
-        ? `<span class="vault-card-num">${position}</span>`
+        ? `<span class="backlog-card-num">${position}</span>`
         : ''
 
-    const upNextClass = position !== null ? ' vault-card--up-next' : ''
+    const upNextClass = position !== null ? ' backlog-card--up-next' : ''
 
     return `
-        <a class="vault-card${upNextClass}" href="/game/${game.appid}" data-appid="${game.appid}" draggable="true">
-            <div class="vault-card-img-wrap">
-                <img class="vault-card-img" src="${img}" alt="" loading="lazy" onerror="this.style.opacity='0'">
-                <div class="vault-card-overlay"></div>
+        <a class="backlog-card${upNextClass}" href="/game/${game.appid}" data-appid="${game.appid}" draggable="true">
+            <div class="backlog-card-img-wrap">
+                <img class="backlog-card-img" src="${img}" alt="" loading="lazy" onerror="this.style.opacity='0'">
+                <div class="backlog-card-overlay"></div>
                 ${numBadge}
                 ${timeBadge}
             </div>
-            <div class="vault-card-body">
-                <span class="vault-card-name">${escapeHtml(game.name)}</span>
+            <div class="backlog-card-body">
+                <span class="backlog-card-name">${escapeHtml(game.name)}</span>
                 ${playedBadge}
             </div>
         </a>`
@@ -163,21 +163,21 @@ function _card(game, position = null) {
 // ── Drag and drop ─────────────────────────────────────────────────────────────
 
 function _clearDropIndicators(container) {
-    container.querySelectorAll('.vault-card--drop-before, .vault-card--drop-after').forEach(el => {
-        el.classList.remove('vault-card--drop-before', 'vault-card--drop-after')
+    container.querySelectorAll('.backlog-card--drop-before, .backlog-card--drop-after').forEach(el => {
+        el.classList.remove('backlog-card--drop-before', 'backlog-card--drop-after')
     })
 }
 
 function _initDrag(container) {
-    container.querySelectorAll('.vault-card[data-appid]').forEach(el => {
+    container.querySelectorAll('.backlog-card[data-appid]').forEach(el => {
         el.addEventListener('dragstart', e => {
             _draggedAppid = Number(el.dataset.appid)
-            requestAnimationFrame(() => el.classList.add('vault-card--dragging'))
+            requestAnimationFrame(() => el.classList.add('backlog-card--dragging'))
         })
 
         el.addEventListener('dragend', e => {
             _draggedAppid = null
-            el.classList.remove('vault-card--dragging')
+            el.classList.remove('backlog-card--dragging')
             _clearDropIndicators(container)
         })
 
@@ -188,15 +188,15 @@ function _initDrag(container) {
             const rect = el.getBoundingClientRect()
             const mid  = rect.left + rect.width / 2
             if (e.clientX < mid) {
-                el.classList.add('vault-card--drop-before')
+                el.classList.add('backlog-card--drop-before')
             } else {
-                el.classList.add('vault-card--drop-after')
+                el.classList.add('backlog-card--drop-after')
             }
         })
 
         el.addEventListener('dragleave', e => {
             if (!el.contains(e.relatedTarget)) {
-                el.classList.remove('vault-card--drop-before', 'vault-card--drop-after')
+                el.classList.remove('backlog-card--drop-before', 'backlog-card--drop-after')
             }
         })
 
@@ -207,7 +207,7 @@ function _initDrag(container) {
             const targetAppid = Number(el.dataset.appid)
             if (_draggedAppid === targetAppid) return
 
-            const isBefore = el.classList.contains('vault-card--drop-before')
+            const isBefore = el.classList.contains('backlog-card--drop-before')
             _clearDropIndicators(container)
 
             const draggedIdx = _currentGames.findIndex(g => g.appid === _draggedAppid)
@@ -231,7 +231,7 @@ function _initDrag(container) {
 // ── Random pick ───────────────────────────────────────────────────────────────
 
 function _initRandomPick(container) {
-    const btn = container.querySelector('#vault-random-btn')
+    const btn = container.querySelector('#backlog-random-btn')
     if (!btn) return
 
     const fresh = btn.cloneNode(true)
@@ -240,12 +240,12 @@ function _initRandomPick(container) {
     fresh.addEventListener('click', () => {
         if (!_currentGames.length) return
         const pick = _currentGames[Math.floor(Math.random() * _currentGames.length)]
-        const card = container.querySelector(`.vault-card[data-appid="${pick.appid}"]`)
+        const card = container.querySelector(`.backlog-card[data-appid="${pick.appid}"]`)
         if (!card) return
 
         // Flash highlight
-        container.querySelectorAll('.vault-card--picked').forEach(el => el.classList.remove('vault-card--picked'))
-        card.classList.add('vault-card--picked')
+        container.querySelectorAll('.backlog-card--picked').forEach(el => el.classList.remove('backlog-card--picked'))
+        card.classList.add('backlog-card--picked')
         card.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
 }
@@ -255,7 +255,7 @@ function _initRandomPick(container) {
 function _renderDynamic(container, games) {
     _currentGames = games
 
-    const dynamic = container.querySelector('.vault-dynamic')
+    const dynamic = container.querySelector('.backlog-dynamic')
     if (!dynamic) return
 
     const queueGames = games.slice(0, 3)
@@ -264,25 +264,25 @@ function _renderDynamic(container, games) {
     const queueCards = queueGames.map((g, i) => _card(g, i + 1)).join('')
 
     const sepHtml = restGames.length > 0 ? `
-        <div class="vault-rest-sep">
-            <span class="vault-rest-sep-label">Queue &middot; ${restGames.length} more</span>
+        <div class="backlog-rest-sep">
+            <span class="backlog-rest-sep-label">Queue &middot; ${restGames.length} more</span>
         </div>` : ''
 
     const restHtml = restGames.length > 0 ? `
-        <div class="vault-grid">
+        <div class="backlog-grid">
             ${restGames.map(g => _card(g)).join('')}
         </div>` : ''
 
     dynamic.innerHTML = `
-        <div class="vault-queue">
-            <div class="vault-queue-header">
+        <div class="backlog-queue">
+            <div class="backlog-queue-header">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
-                <span class="vault-queue-label">Up Next</span>
-                <span class="vault-queue-hint">Drag to reorder</span>
+                <span class="backlog-queue-label">Up Next</span>
+                <span class="backlog-queue-hint">Drag to reorder</span>
             </div>
-            <div class="vault-queue-row">
+            <div class="backlog-queue-row">
                 ${queueCards}
             </div>
         </div>
@@ -295,23 +295,23 @@ function _renderDynamic(container, games) {
 
 // ── Main render ───────────────────────────────────────────────────────────────
 
-export async function renderVault(container) {
-    container.innerHTML = `<p class="page-loading">Loading vault…</p>`
+export async function renderBacklog(container) {
+    container.innerHTML = `<p class="page-loading">Loading backlog…</p>`
 
     let games
     try {
         games = await _loadGames()
     } catch (err) {
-        container.innerHTML = `<p class="page-error">Failed to load vault: ${escapeHtml(err.message)}</p>`
+        container.innerHTML = `<p class="page-error">Failed to load backlog: ${escapeHtml(err.message)}</p>`
         return
     }
 
     if (!games.length) {
         container.innerHTML = `
-            <div class="vault-header">
-                <div class="vault-header-body">
-                    <p class="vault-eyebrow">Collection</p>
-                    <h1 class="vault-title">Backlog</h1>
+            <div class="backlog-header">
+                <div class="backlog-header-body">
+                    <p class="backlog-eyebrow">Collection</p>
+                    <h1 class="backlog-title">Backlog</h1>
                 </div>
             </div>
             <p class="page-empty" style="padding:40px">
@@ -329,13 +329,13 @@ export async function renderVault(container) {
         : `${ordered.length} game${ordered.length !== 1 ? 's' : ''} waiting`
 
     container.innerHTML = `
-        <div class="vault-header">
-            <div class="vault-header-body">
-                <p class="vault-eyebrow">Collection</p>
-                <h1 class="vault-title">Backlog</h1>
-                <p class="vault-subtitle">${totalStr}</p>
+        <div class="backlog-header">
+            <div class="backlog-header-body">
+                <p class="backlog-eyebrow">Collection</p>
+                <h1 class="backlog-title">Backlog</h1>
+                <p class="backlog-subtitle">${totalStr}</p>
             </div>
-            <button id="vault-random-btn" class="vault-random-btn" title="Pick a random game from your backlog">
+            <button id="backlog-random-btn" class="backlog-random-btn" title="Pick a random game from your backlog">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
                     <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
@@ -343,7 +343,7 @@ export async function renderVault(container) {
                 Random Pick
             </button>
         </div>
-        <div class="vault-dynamic"></div>`
+        <div class="backlog-dynamic"></div>`
 
     _renderDynamic(container, ordered)
 }

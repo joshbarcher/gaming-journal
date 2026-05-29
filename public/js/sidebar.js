@@ -7,13 +7,13 @@ const _SVG = (paths) =>
     `<svg class="sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
 
 const _ICONS = {
-    vault:     _SVG(`<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><rect x="9" y="12" width="6" height="9"/>`),
+    backlog:   _SVG(`<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><rect x="9" y="12" width="6" height="9"/>`),
     abandoned:  _SVG(`<path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M13 3h6"/><path d="M3 9v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-5"/><path d="m9 3 2 2-2 2"/>`),
     myReviews: _SVG(`<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>`),
     hallOfFame: _SVG(`<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>`),
     favorites:   _SVG(`<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`),
     franchises:  _SVG(`<rect x="2" y="7" width="6" height="13" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="16" y="2" width="6" height="18" rx="1"/>`),
-    onHold:      _SVG(`<circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>`),
+    inProgress:  _SVG(`<circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>`),
     home:     _SVG(`<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`),
     toc:      _SVG(`<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`),
     library:  _SVG(`<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>`),
@@ -68,7 +68,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-onhold-btn, .sidebar-myreviews-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-backlog-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-inprogress-btn, .sidebar-myreviews-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -191,10 +191,10 @@ async function _fetchCollectionCounts() {
         ])
         if (!flagsRes.ok) return
         const flags = await flagsRes.json()
-        const counts = { favorites: 0, onHold: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0 }
+        const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0 }
         for (const f of Object.values(flags)) {
             if (f.favorite)  counts.favorites++
-            if (f.onHold)    counts.onHold++
+            if (f.inProgress)    counts.inProgress++
             if (f.backlog)   counts.backlog++
             if (f.dropped)   counts.dropped++
             if (f.completed) counts.completed++
@@ -213,8 +213,8 @@ function _updateCollectionBadges(counts) {
         ['.sidebar-library-btn',   counts.library],
         ['.sidebar-wishlist-btn',  counts.wishlist],
         ['.sidebar-favorites-btn', counts.favorites],
-        ['.sidebar-onhold-btn',    counts.onHold],
-        ['.sidebar-vault-btn',     counts.backlog],
+        ['.sidebar-inprogress-btn',    counts.inProgress],
+        ['.sidebar-backlog-btn',     counts.backlog],
         ['.sidebar-abandoned-btn', counts.dropped],
         ['.sidebar-hof-btn',       counts.completed],
     ]
@@ -250,9 +250,9 @@ function renderSidebar(activeId) {
     collectionSep.className = 'sidebar-bottom-sep'
     nav.appendChild(collectionSep)
     nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
-    nav.appendChild(buildOnHoldButton(activeId === 'on-hold'))
+    nav.appendChild(buildInProgressButton(activeId === 'in-progress'))
     nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
-    nav.appendChild(buildVaultButton(activeId === 'vault'))
+    nav.appendChild(buildBacklogButton(activeId === 'backlog'))
     nav.appendChild(buildAbandonedButton(activeId === 'abandoned'))
     nav.appendChild(buildHallOfFameButton(activeId === 'hall-of-fame'))
 
@@ -447,15 +447,15 @@ function buildMyReviewsButton(isActive) {
     return el
 }
 
-function buildOnHoldButton(isActive) {
+function buildInProgressButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-onhold-btn' + (isActive ? ' active' : '')
-    el.dataset.id = 'on-hold'
+    el.className = 'sidebar-inprogress-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'in-progress'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.onHold} In Progress <span class="sidebar-collection-badge" style="display:none"></span>`
-    el.addEventListener('click', () => _onNavigate('on-hold'))
+    el.innerHTML = `${_ICONS.inProgress} In Progress <span class="sidebar-collection-badge" style="display:none"></span>`
+    el.addEventListener('click', () => _onNavigate('in-progress'))
     el.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('on-hold') }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('in-progress') }
         _arrowNav(e)
     })
     return el
@@ -475,15 +475,15 @@ function buildFranchisesButton(isActive) {
     return el
 }
 
-function buildVaultButton(isActive) {
+function buildBacklogButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-vault-btn' + (isActive ? ' active' : '')
-    el.dataset.id = 'vault'
+    el.className = 'sidebar-backlog-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'backlog'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.vault} Backlog <span class="sidebar-collection-badge" style="display:none"></span>`
-    el.addEventListener('click', () => _onNavigate('vault'))
+    el.innerHTML = `${_ICONS.backlog} Backlog <span class="sidebar-collection-badge" style="display:none"></span>`
+    el.addEventListener('click', () => _onNavigate('backlog'))
     el.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('vault') }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('backlog') }
         _arrowNav(e)
     })
     return el
@@ -663,7 +663,7 @@ function _arrowNav(e) {
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
     e.preventDefault()
     const nav = document.getElementById('sidebar-nav')
-    const focusable = [...nav.querySelectorAll('.sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-myreviews-btn, .sidebar-vault-btn, .sidebar-abandoned-btn, .sidebar-hof-btn')]
+    const focusable = [...nav.querySelectorAll('.sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-myreviews-btn, .sidebar-backlog-btn, .sidebar-abandoned-btn, .sidebar-hof-btn')]
     const idx = focusable.indexOf(document.activeElement)
     if (idx === -1) return
     if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()

@@ -453,7 +453,7 @@
 .frc-tl-cell--unplayed .frc-tl-img,
 .frc-tl-cell--wishlist .frc-tl-img  { filter: saturate(0.15) brightness(0.5);  }
 .frc-tl-cell--playing  .frc-tl-img,
-.frc-tl-cell--on-hold  .frc-tl-img  { filter: saturate(0.6)  brightness(0.75); }
+.frc-tl-cell--in-progress  .frc-tl-img  { filter: saturate(0.6)  brightness(0.75); }
 .frc-tl-cell--dropped  .frc-tl-img  { filter: saturate(0.3)  brightness(0.65); }
 .frc-tl-cell--completed .frc-tl-img { filter: none; }
 
@@ -488,7 +488,7 @@
 
 .frc-tl-fill--completed { background: #4caf72; }
 .frc-tl-fill--dropped   { background: #e05252; }
-.frc-tl-fill--on-hold   { background: #e0a052; }
+.frc-tl-fill--in-progress   { background: #e0a052; }
 .frc-tl-fill--playing   { background: var(--frc-accent); }
 .frc-tl-fill--empty     { width: 0 !important; }
 
@@ -753,7 +753,7 @@
     border: 1px solid rgba(224, 82, 82, 0.3);
 }
 
-.frc-status-badge--on-hold {
+.frc-status-badge--in-progress {
     background: rgba(224, 160, 82, 0.12);
     color: #e0a052;
     border: 1px solid rgba(224, 160, 82, 0.3);

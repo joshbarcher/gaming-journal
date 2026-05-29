@@ -1414,7 +1414,7 @@ const _FLAG_GROUPS = [
     [
         { key: 'completed', label: 'Completed',                                     icon: _FLAG_SVG(`<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>`) },
         { key: 'dropped',   label: 'Dropped — abandoned, won\'t return',            icon: _FLAG_SVG(`<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`) },
-        { key: 'onHold',    label: 'On Hold — paused mid-playthrough',              icon: _FLAG_SVG(`<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>`) },
+        { key: 'inProgress',    label: 'In Progress — paused mid-playthrough',              icon: _FLAG_SVG(`<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>`) },
         { key: 'backlog',   label: 'Backlog — owned, unstarted, intend to play',    icon: _FLAG_SVG(`<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>`) },
     ],
 ]

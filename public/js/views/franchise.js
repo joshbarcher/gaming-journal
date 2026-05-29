@@ -19,7 +19,7 @@ function _fmtHours(mins) {
 function _deriveStatus(flags, playtime, isWishlist) {
     if (flags?.completed) return 'completed'
     if (flags?.dropped)   return 'dropped'
-    if (flags?.onHold)    return 'on-hold'
+    if (flags?.inProgress)    return 'in-progress'
     if (playtime > 0)     return 'playing'
     if (isWishlist)       return 'wishlist'
     return 'unplayed'
@@ -28,7 +28,7 @@ function _deriveStatus(flags, playtime, isWishlist) {
 const _STATUS_LABELS = {
     completed: 'Completed',
     dropped:   'Dropped',
-    'on-hold': 'In Progress',
+    'in-progress': 'In Progress',
     playing:   'Playing',
     wishlist:  'Wishlisted',
     unplayed:  null,
@@ -58,7 +58,7 @@ async function _loadData(franchiseId) {
 // ── Stats derivation ──────────────────────────────────────────────────────────
 
 function _computeStats(entries, flagsRes, ownedMap, wishlistMap) {
-    let completed = 0, dropped = 0, onHold = 0, playing = 0, wishlist = 0, totalMins = 0
+    let completed = 0, dropped = 0, inProgress = 0, playing = 0, wishlist = 0, totalMins = 0
     for (const e of entries) {
         const flags    = flagsRes[e.appid]
         const owned    = ownedMap.get(e.appid)
@@ -68,11 +68,11 @@ function _computeStats(entries, flagsRes, ownedMap, wishlistMap) {
         const status = _deriveStatus(flags, playtime, !!wl && !owned)
         if (status === 'completed') completed++
         else if (status === 'dropped')  dropped++
-        else if (status === 'on-hold')  onHold++
+        else if (status === 'in-progress')  inProgress++
         else if (status === 'playing')  playing++
         else if (status === 'wishlist') wishlist++
     }
-    return { completed, dropped, onHold, playing, wishlist, totalMins, total: entries.length }
+    return { completed, dropped, inProgress, playing, wishlist, totalMins, total: entries.length }
 }
 
 // ── Timeline progress ─────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ function _computeStats(entries, flagsRes, ownedMap, wishlistMap) {
 const _TIMELINE_FILL = {
     completed: { pct: 100, cls: 'completed' },
     dropped:   { pct: 100, cls: 'dropped'   },
-    'on-hold': { pct:  55, cls: 'on-hold'   },
+    'in-progress': { pct:  55, cls: 'in-progress' },
     playing:   { pct:  30, cls: 'playing'   },
     wishlist:  { pct:   0, cls: 'empty'     },
     unplayed:  { pct:   0, cls: 'empty'     },

@@ -1,15 +1,15 @@
-/* ── The Vault — Backlog page ─────────────────────────────────────────────── */
+/* ── Backlog page ─────────────────────────────────────────────── */
 
 /* Indigo/slate accent for this page */
 :root {
-    --vault-accent:    #7c6fcd;
-    --vault-accent-lo: rgba(124, 111, 205, 0.15);
-    --vault-accent-bd: rgba(124, 111, 205, 0.35);
+    --backlog-accent:    #7c6fcd;
+    --backlog-accent-lo: rgba(124, 111, 205, 0.15);
+    --backlog-accent-bd: rgba(124, 111, 205, 0.35);
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
 
-.vault-header {
+.backlog-header {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
@@ -27,19 +27,19 @@
 }
 
 /* Subtle grid texture to give a "dusty archive" feel */
-.vault-header::before {
+.backlog-header::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(var(--vault-accent-bd) 1px, transparent 1px),
-        linear-gradient(90deg, var(--vault-accent-bd) 1px, transparent 1px);
+        linear-gradient(var(--backlog-accent-bd) 1px, transparent 1px),
+        linear-gradient(90deg, var(--backlog-accent-bd) 1px, transparent 1px);
     background-size: 32px 32px;
     opacity: 0.08;
     pointer-events: none;
 }
 
-.vault-header::after {
+.backlog-header::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -52,21 +52,21 @@
     pointer-events: none;
 }
 
-.vault-header-body {
+.backlog-header-body {
     position: relative;
     z-index: 1;
 }
 
-.vault-eyebrow {
+.backlog-eyebrow {
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--vault-accent);
+    color: var(--backlog-accent);
     margin: 0 0 6px;
 }
 
-.vault-title {
+.backlog-title {
     font-family: var(--font-title);
     font-size: 2.4rem;
     font-weight: 700;
@@ -75,7 +75,7 @@
     letter-spacing: 0.02em;
 }
 
-.vault-subtitle {
+.backlog-subtitle {
     font-size: 0.85rem;
     color: var(--clr-text-muted);
     margin: 0;
@@ -83,17 +83,17 @@
 
 /* ── Random pick button ──────────────────────────────────────────────────── */
 
-.vault-random-btn {
+.backlog-random-btn {
     position: relative;
     z-index: 1;
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 10px 18px;
-    border: 1px solid var(--vault-accent-bd);
+    border: 1px solid var(--backlog-accent-bd);
     border-radius: var(--radius);
-    background: var(--vault-accent-lo);
-    color: var(--vault-accent);
+    background: var(--backlog-accent-lo);
+    color: var(--backlog-accent);
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -103,13 +103,13 @@
     white-space: nowrap;
 }
 
-.vault-random-btn svg {
+.backlog-random-btn svg {
     width: 15px;
     height: 15px;
     flex-shrink: 0;
 }
 
-.vault-random-btn:hover {
+.backlog-random-btn:hover {
     background: rgba(124, 111, 205, 0.25);
     border-color: rgba(124, 111, 205, 0.6);
     color: #a89fe0;
@@ -117,7 +117,7 @@
 
 /* ── Game grid ───────────────────────────────────────────────────────────── */
 
-.vault-grid {
+.backlog-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 16px;
@@ -126,7 +126,7 @@
 
 /* ── Game card ───────────────────────────────────────────────────────────── */
 
-.vault-card {
+.backlog-card {
     display: flex;
     flex-direction: column;
     border: 1px solid var(--clr-border);
@@ -138,35 +138,35 @@
     position: relative;
 }
 
-.vault-card:hover {
-    border-color: var(--vault-accent-bd);
+.backlog-card:hover {
+    border-color: var(--backlog-accent-bd);
     transform: translateY(-3px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-.vault-card--picked {
-    border-color: var(--vault-accent) !important;
-    box-shadow: 0 0 0 2px var(--vault-accent), 0 8px 32px rgba(124, 111, 205, 0.4) !important;
+.backlog-card--picked {
+    border-color: var(--backlog-accent) !important;
+    box-shadow: 0 0 0 2px var(--backlog-accent), 0 8px 32px rgba(124, 111, 205, 0.4) !important;
     transform: translateY(-3px) !important;
-    animation: vault-pick-pulse 0.5s ease;
+    animation: backlog-pick-pulse 0.5s ease;
 }
 
-@keyframes vault-pick-pulse {
-    0%   { box-shadow: 0 0 0 0   var(--vault-accent), 0 8px 32px rgba(124,111,205,0.4); }
+@keyframes backlog-pick-pulse {
+    0%   { box-shadow: 0 0 0 0   var(--backlog-accent), 0 8px 32px rgba(124,111,205,0.4); }
     50%  { box-shadow: 0 0 0 8px rgba(124,111,205,0),  0 8px 48px rgba(124,111,205,0.6); }
-    100% { box-shadow: 0 0 0 2px var(--vault-accent), 0 8px 32px rgba(124,111,205,0.4); }
+    100% { box-shadow: 0 0 0 2px var(--backlog-accent), 0 8px 32px rgba(124,111,205,0.4); }
 }
 
 /* ── Card image ──────────────────────────────────────────────────────────── */
 
-.vault-card-img-wrap {
+.backlog-card-img-wrap {
     position: relative;
     aspect-ratio: 460 / 215;
     background: var(--clr-bg-raised);
     overflow: hidden;
 }
 
-.vault-card-img {
+.backlog-card-img {
     display: block;
     width: 100%;
     height: 100%;
@@ -176,11 +176,11 @@
     transition: filter 0.2s ease;
 }
 
-.vault-card:hover .vault-card-img {
+.backlog-card:hover .backlog-card-img {
     filter: saturate(1) brightness(1);
 }
 
-.vault-card-overlay {
+.backlog-card-overlay {
     position: absolute;
     inset: 0;
     background: linear-gradient(
@@ -192,7 +192,7 @@
 
 /* ── HLTB time badge (top-right of image) ────────────────────────────────── */
 
-.vault-card-time {
+.backlog-card-time {
     position: absolute;
     top: 8px;
     right: 8px;
@@ -204,14 +204,14 @@
     line-height: 1;
 }
 
-.vault-card-time--hltb {
+.backlog-card-time--hltb {
     background: rgba(10, 10, 14, 0.75);
-    color: var(--vault-accent);
-    border: 1px solid var(--vault-accent-bd);
+    color: var(--backlog-accent);
+    border: 1px solid var(--backlog-accent-bd);
     backdrop-filter: blur(4px);
 }
 
-.vault-card-time--unknown {
+.backlog-card-time--unknown {
     background: rgba(10, 10, 14, 0.55);
     color: var(--clr-text-muted);
     border: 1px solid var(--clr-border);
@@ -219,7 +219,7 @@
 
 /* ── Card body ───────────────────────────────────────────────────────────── */
 
-.vault-card-body {
+.backlog-card-body {
     padding: 10px 12px 12px;
     display: flex;
     flex-direction: column;
@@ -227,7 +227,7 @@
     flex: 1;
 }
 
-.vault-card-name {
+.backlog-card-name {
     font-size: 0.82rem;
     font-weight: 600;
     line-height: 1.3;
@@ -238,7 +238,7 @@
     overflow: hidden;
 }
 
-.vault-card-played {
+.backlog-card-played {
     font-size: 0.7rem;
     color: var(--clr-text-muted);
     opacity: 0.7;
@@ -246,27 +246,27 @@
 
 /* ── Up Next queue ───────────────────────────────────────────────────────── */
 
-.vault-queue {
+.backlog-queue {
     padding: 0 40px 32px;
 }
 
-.vault-queue-header {
+.backlog-queue-header {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
     margin-bottom: 14px;
-    color: var(--vault-accent);
+    color: var(--backlog-accent);
 }
 
-.vault-queue-label {
+.backlog-queue-label {
     font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
-.vault-queue-hint {
+.backlog-queue-hint {
     margin-left: auto;
     font-size: 0.7rem;
     color: var(--clr-text-muted);
@@ -276,7 +276,7 @@
     letter-spacing: normal;
 }
 
-.vault-queue-row {
+.backlog-queue-row {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
@@ -286,22 +286,22 @@
 
 /* ── Up Next card variant ────────────────────────────────────────────────── */
 
-.vault-card--up-next {
-    border-color: var(--vault-accent-bd);
+.backlog-card--up-next {
+    border-color: var(--backlog-accent-bd);
 }
 
-.vault-card--up-next .vault-card-img {
+.backlog-card--up-next .backlog-card-img {
     filter: saturate(0.9) brightness(0.95);
 }
 
-.vault-card--up-next:hover {
-    border-color: var(--vault-accent);
+.backlog-card--up-next:hover {
+    border-color: var(--backlog-accent);
     box-shadow: 0 8px 24px rgba(124, 111, 205, 0.3);
 }
 
 /* ── Position number badge ───────────────────────────────────────────────── */
 
-.vault-card-num {
+.backlog-card-num {
     position: absolute;
     top: 8px;
     left: 8px;
@@ -311,7 +311,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: var(--vault-accent);
+    background: var(--backlog-accent);
     color: #fff;
     font-size: 0.65rem;
     font-weight: 900;
@@ -321,22 +321,22 @@
 
 /* ── Rest separator ──────────────────────────────────────────────────────── */
 
-.vault-rest-sep {
+.backlog-rest-sep {
     padding: 0 40px 20px;
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.vault-rest-sep::before,
-.vault-rest-sep::after {
+.backlog-rest-sep::before,
+.backlog-rest-sep::after {
     content: '';
     flex: 1;
     height: 1px;
     background: var(--clr-border);
 }
 
-.vault-rest-sep-label {
+.backlog-rest-sep-label {
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -348,31 +348,31 @@
 
 /* ── Drag and drop ───────────────────────────────────────────────────────── */
 
-.vault-card[draggable="true"] {
+.backlog-card[draggable="true"] {
     cursor: grab;
 }
 
-.vault-card--dragging {
+.backlog-card--dragging {
     opacity: 0.35;
     cursor: grabbing;
 }
 
-.vault-card--drop-before {
-    box-shadow: -3px 0 0 0 var(--vault-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+.backlog-card--drop-before {
+    box-shadow: -3px 0 0 0 var(--backlog-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
     transform: translateY(-2px);
 }
 
-.vault-card--drop-after {
-    box-shadow: 3px 0 0 0 var(--vault-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+.backlog-card--drop-after {
+    box-shadow: 3px 0 0 0 var(--backlog-accent), 0 8px 24px rgba(0, 0, 0, 0.4) !important;
     transform: translateY(-2px);
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 960px) {
-    .vault-header     { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
-    .vault-grid       { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-    .vault-queue      { padding: 0 20px 24px; }
-    .vault-queue-row  { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-    .vault-rest-sep   { padding: 0 20px 16px; }
+    .backlog-header     { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
+    .backlog-grid       { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .backlog-queue      { padding: 0 20px 24px; }
+    .backlog-queue-row  { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .backlog-rest-sep   { padding: 0 20px 16px; }
 }

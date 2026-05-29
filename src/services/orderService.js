@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { ManagedFile } from '../shared/managed-file.js'
 
-const ALLOWED = new Set(['on-hold', 'vault'])
+const ALLOWED = new Set(['in-progress', 'backlog'])
 
 function makeFile(name) {
     const dataDir = process.env.DATA_DIR

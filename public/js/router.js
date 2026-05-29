@@ -11,13 +11,13 @@ import { renderAccount } from './views/account.js'
 import { renderCalendar, renderReleases } from './views/calendar.js'
 import { renderSettings } from './views/settings.js'
 import { renderAlerts } from './views/alerts.js'
-import { renderVault } from './views/vault.js'
+import { renderBacklog } from './views/backlog.js'
 import { renderAbandoned } from './views/abandoned.js'
 import { renderHallOfFame } from './views/hall-of-fame.js'
 import { renderFavorites } from './views/favorites.js'
 import { renderFranchises } from './views/franchises.js'
 import { renderFranchise } from './views/franchise.js'
-import { renderOnHold } from './views/on-hold.js'
+import { renderInProgress } from './views/in-progress.js'
 import { renderMyReviews } from './views/my-reviews.js'
 import { renderDiscover } from './views/discover.js'
 import { newPageDialog, showError } from './dialog.js'
@@ -72,9 +72,9 @@ export function parseRoute(path) {
     if (path === 'top-games')     return { view: 'top-games' }
     if (path === 'alerts')        return { view: 'alerts' }
     if (path === 'favorites')     return { view: 'favorites' }
-    if (path === 'vault')         return { view: 'vault' }
+    if (path === 'backlog')         return { view: 'backlog' }
     if (path === 'abandoned')     return { view: 'abandoned' }
-    if (path === 'on-hold')              return { view: 'on-hold' }
+    if (path === 'in-progress')              return { view: 'in-progress' }
     if (path === 'hall-of-fame')         return { view: 'hall-of-fame' }
     if (path === 'settings')             return { view: 'settings' }
     if (path === 'franchises')           return { view: 'franchises' }
@@ -105,10 +105,10 @@ const FROM_LABELS = {
     calendar:         'Calendar',
     releases:         'Releases',
     account:          'Account',
-    vault:            'Vault',
+    backlog:          'Backlog',
     'hall-of-fame':   'Hall of Fame',
     abandoned:        'Abandoned',
-    'on-hold':        'On Hold',
+    'in-progress':     'In Progress',
     'my-reviews':     'My Reviews',
 }
 
@@ -225,9 +225,9 @@ export async function navigate(path, { replace = false } = {}) {
         return
     }
 
-    if (route.view === 'vault') {
-        setActiveItem('vault')
-        await renderVault(mainEl())
+    if (route.view === 'backlog') {
+        setActiveItem('backlog')
+        await renderBacklog(mainEl())
         _restoreScroll(path)
         return
     }
@@ -239,9 +239,9 @@ export async function navigate(path, { replace = false } = {}) {
         return
     }
 
-    if (route.view === 'on-hold') {
-        setActiveItem('on-hold')
-        await renderOnHold(mainEl())
+    if (route.view === 'in-progress') {
+        setActiveItem('in-progress')
+        await renderInProgress(mainEl())
         _restoreScroll(path)
         return
     }
