@@ -1406,8 +1406,6 @@ div.gj-ach-badge {
     flex-direction: column;
     gap: 10px;
     width: 100%;
-    max-width: 720px;
-    margin: 0 auto;
 }
 
 .mcounter-row {
