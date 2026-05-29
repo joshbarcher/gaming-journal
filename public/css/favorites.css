@@ -183,6 +183,10 @@
     margin: 0;
     letter-spacing: 0.01em;
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .fav-hero-hours {
