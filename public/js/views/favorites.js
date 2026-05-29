@@ -147,13 +147,14 @@ async function _startHeroSlideshow(container, appid) {
         }))
     )).filter(Boolean)
 
-    if (screenshots.length === 0) return
-
-    if (screenshots.length === 0) return
-
-    const frames   = [headerUrl, ...screenshots]
+    // Shuffle screenshots, then append header at the end as a fallback frame
+    const shuffled = screenshots.sort(() => Math.random() - 0.5)
+    const frames   = [...shuffled, headerUrl]
     const INTERVAL = 14000
     const PAN_DUR  = 10000
+
+    // Start with a random screenshot instead of the header
+    bgA.style.backgroundImage = `url('${frames[0]}')`
 
     const randDir = () => Math.random() < 0.5 ? 'top' : 'bottom'
 
@@ -165,7 +166,7 @@ async function _startHeroSlideshow(container, appid) {
         }))
     }
 
-    // Kick off a slow drift on the header image immediately
+    // Kick off a slow drift on the first screenshot immediately
     _pan(bgA, randDir())
 
     let idx      = 1
