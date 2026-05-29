@@ -571,6 +571,18 @@ function _notesAndPagesCard(allNotes, journalPages, appid) {
                         <span class="gj-card-title">Journal Pages</span>
                         <a href="/journal/${appid}/pages" class="gj-view-all">All (${journalPages.length}) →</a>
                     </div>
+                    ${journalPages.length ? `
+                    <div class="gj-pages-list">
+                        ${[...journalPages]
+                            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                            .slice(0, 4)
+                            .map(p => `
+                            <a class="gj-page-item" href="/${p.id}">
+                                <span class="gj-page-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
+                                <span class="gj-page-name">${escapeHtml(p.title)}</span>
+                                <span class="gj-page-date">${_fmt(p.updatedAt)}</span>
+                            </a>`).join('')}
+                    </div>` : `<p class="gj-no-data">No pages yet</p>`}
                     <div class="gj-card-actions" style="margin-top:auto">
                         <button class="gj-btn" data-role="new-notes-page">+ New Page</button>
                     </div>
