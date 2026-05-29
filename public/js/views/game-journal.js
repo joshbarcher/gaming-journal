@@ -1153,17 +1153,37 @@ async function _renderPages(appid, container, navigate) {
                 <button class="gj-btn" data-role="new-page">+ New Page</button>
             </div>
         </div>
-        <div class="gj-full-list">
+        <div class="gj-full-list" data-role="pages-list">
             ${pages.map(p => `
-            <a class="gj-full-item" href="/${p.id}">
+            <a class="gj-full-item" href="/${p.id}" data-page-id="${escapeHtml(p.id)}" data-page-title="${escapeHtml(p.title)}">
                 <span class="gj-full-item-icon">${p.type === 'notes' ? IC.notes : IC.file}</span>
                 <div class="gj-full-item-body">
                     <div class="gj-full-item-title">${escapeHtml(p.title)}</div>
                     <div class="gj-full-item-meta">${p.type === 'notes' ? 'Notes page' : 'Rich page'} · Updated ${_fmt(p.updatedAt)}</div>
                 </div>
+                <button class="gj-full-item-del" data-role="page-delete" title="Delete page">&times;</button>
             </a>`).join('')}
             ${!pages.length ? `<p class="gj-no-data">No pages yet. Create one to start writing.</p>` : ''}
         </div>`
+
+    container.querySelector('[data-role="pages-list"]')?.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-role="page-delete"]')
+        if (!btn) return
+        e.preventDefault()
+        e.stopPropagation()
+        const item      = btn.closest('.gj-full-item[data-page-id]')
+        const pageId    = item?.dataset.pageId
+        const pageTitle = item?.dataset.pageTitle
+        if (!pageId) return
+        const ok = await confirmDialog(
+            `Delete "${pageTitle}"?`,
+            'This will permanently delete the page and all its content.',
+            'Delete'
+        )
+        if (!ok) return
+        await api.pages.remove(pageId)
+        _renderPages(appid, container, navigate)
+    })
 
     container.querySelector('[data-role="new-page"]')?.addEventListener('click', async () => {
         const page = await api.pages.create({ type: 'page', title: 'New Page', appid: String(appid) })
