@@ -280,7 +280,7 @@
     display: flex;
     align-items: stretch;
     gap: 0;
-    padding: 0 40px;
+    padding: 0 40px 0 56px;
     border-bottom: 1px solid var(--clr-border);
     overflow-x: auto;
     scrollbar-width: none;
@@ -1737,8 +1737,9 @@
 }
 
 /* ── Section tab visibility ──────────────────────────────────────────────────── */
-.game-body .game-section          { display: none; }
-.game-body .game-section--active  { display: block; }
+/* Only direct children of .game-body are tabs — inner sections (inside stats/reviews wrappers) are unaffected */
+.game-body > .game-section          { display: none; }
+.game-body > .game-section--active  { display: block; }
 
 /* ── Flag rail (fixed left, replaces old nav rail) ───────────────────────────── */
 

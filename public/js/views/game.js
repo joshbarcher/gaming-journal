@@ -66,13 +66,17 @@ export async function renderGame(appid, container) {
         <div class="game-body">
             ${_trailers(appid, trailers)}
             ${_about(game)}
-            ${_hltb(game)}
-            ${_playerCounts(playerCounts, game)}
+            <section class="game-section" id="game-sec-stats">
+                ${_hltb(game)}
+                ${_playerCounts(playerCounts, game)}
+            </section>
             ${_screenshots(game)}
             ${_news(news)}
-            ${_localReviewSection(localReview, appid)}
-            ${_myReview(myReview)}
-            ${_communityReviews(communityReviews, game)}
+            <section class="game-section" id="game-sec-reviews">
+                ${_localReviewSection(localReview, appid)}
+                ${_myReview(myReview)}
+                ${_communityReviews(communityReviews, game)}
+            </section>
             ${_itad(itadData, game)}
             ${_pcgw(pcgwData, game)}
         </div>`
@@ -1639,17 +1643,14 @@ const _NAV_ICONS = {
 }
 
 const _NAV_ITEMS = [
-    { id: 'game-sec-about',             label: 'Home',              icon: _NAV_ICONS.home      },
-    { id: 'game-sec-trailers',          label: 'Trailers',          icon: _NAV_ICONS.video     },
-    { id: 'game-sec-hltb',              label: 'How Long To Beat',  icon: _NAV_ICONS.clock     },
-    { id: 'game-sec-player-count',      label: 'Player Count',      icon: _NAV_ICONS.barChart  },
-    { id: 'game-sec-screenshots',       label: 'Screenshots',       icon: _NAV_ICONS.image     },
-    { id: 'game-sec-news',              label: 'News',              icon: _NAV_ICONS.newspaper },
-    { id: 'game-sec-local-review',      label: 'Local Review',      icon: _NAV_ICONS.star      },
-    { id: 'game-sec-steam-review',      label: 'Steam Review',      icon: _NAV_ICONS.thumbsUp  },
-    { id: 'game-sec-community-reviews', label: 'Community Reviews', icon: _NAV_ICONS.msgCircle },
-    { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
-    { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
+    { id: 'game-sec-about',       label: 'Home',          icon: _NAV_ICONS.home      },
+    { id: 'game-sec-trailers',    label: 'Trailers',      icon: _NAV_ICONS.video     },
+    { id: 'game-sec-stats',       label: 'Stats',         icon: _NAV_ICONS.barChart  },
+    { id: 'game-sec-screenshots', label: 'Screenshots',   icon: _NAV_ICONS.image     },
+    { id: 'game-sec-news',        label: 'News',          icon: _NAV_ICONS.newspaper },
+    { id: 'game-sec-reviews',     label: 'Reviews',       icon: _NAV_ICONS.star      },
+    { id: 'game-sec-prices',      label: 'Prices',        icon: _NAV_ICONS.tag       },
+    { id: 'game-sec-pcgw',        label: 'PCGamingWiki',  icon: _NAV_ICONS.monitor   },
 ]
 
 let _tabBarEl  = null
@@ -1673,8 +1674,9 @@ function _initTabBar(container) {
 
     function _activateTab(id) {
         _activeTabId = id
-        // Hide all sections, show only the active one
-        container.querySelectorAll('.game-body .game-section').forEach(s =>
+        // Hide all top-level sections, show only the active one
+        // Using > so inner sections inside stats/reviews wrappers are not affected
+        container.querySelectorAll('.game-body > .game-section').forEach(s =>
             s.classList.toggle('game-section--active', s.id === id)
         )
         // Update button states
@@ -1682,7 +1684,7 @@ function _initTabBar(container) {
             btn.classList.toggle('gtb-btn--active', btn.dataset.target === id)
         )
         // Chart.js canvas is 0×0 when first painted hidden — resize on reveal
-        if (id === 'game-sec-player-count' && _pcChart) {
+        if (id === 'game-sec-stats' && _pcChart) {
             requestAnimationFrame(() => _pcChart.resize())
         }
     }
