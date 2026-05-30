@@ -251,10 +251,10 @@ function renderSidebar(activeId) {
     nav.appendChild(collectionSep)
     nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
     nav.appendChild(buildInProgressButton(activeId === 'in-progress'))
-    nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
     nav.appendChild(buildBacklogButton(activeId === 'backlog'))
     nav.appendChild(buildAbandonedButton(activeId === 'abandoned'))
     nav.appendChild(buildHallOfFameButton(activeId === 'hall-of-fame'))
+    nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
 
     // Bottom items — my reviews, account & settings
     const bottomSep = document.createElement('div')
