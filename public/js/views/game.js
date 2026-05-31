@@ -4,10 +4,9 @@ import { openReviewModal, renderLocalReviewCard } from '../review-modal.js'
 import { gameBackLabel, gameBackPath } from '../router.js'
 
 export async function renderGame(appid, container) {
-    // Clean up any rails left over from a previous game page
-    _flagRailEl?.remove()
-    _flagRailEl = null
-    _tabBarEl = null
+    // Clean up any nav rail left over from a previous game page
+    _navRailEl?.remove()
+    _navRailEl = null
 
     // Clear any live HLTB pin timer from a previous page visit
     if (_gpHltbTimer) { clearInterval(_gpHltbTimer); _gpHltbTimer = null }
@@ -62,33 +61,32 @@ export async function renderGame(appid, container) {
         ${_hero(game, communityReviews)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         ${_releaseBanner(game)}
-        <div class="game-tab-bar"></div>
+        <div class="game-flags-bar" data-appid="${appid}">
+            ${_flagsBar(flags, game, localWishlisted)}
+        </div>
         <div class="game-body">
             ${_trailers(appid, trailers)}
             ${_about(game)}
-            <section class="game-section" id="game-sec-stats">
-                ${_hltb(game)}
-                ${_playerCounts(playerCounts, game)}
-            </section>
+            ${_hltb(game)}
+            ${_playerCounts(playerCounts, game)}
             ${_screenshots(game)}
             ${_news(news)}
-            <section class="game-section" id="game-sec-reviews">
-                ${_localReviewSection(localReview, appid)}
-                ${_myReview(myReview)}
-                ${_communityReviews(communityReviews, game)}
-            </section>
+            ${_localReviewSection(localReview, appid)}
+            ${_myReview(myReview)}
+            ${_communityReviews(communityReviews, game)}
             ${_itad(itadData, game)}
             ${_pcgw(pcgwData, game)}
         </div>`
 
     _startHeroSlideshow(container, game)
     _initPlayerChart(playerCounts, container)
+    _initFlagsBar(container)
+    _initWishlistBtn(container, game)
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
     _initSteamReview(container)
     _initTrailers(container, appid)
     _initNews(container)
-    _initTabBar(container)
-    _initFlagRail(container, flags, game, localWishlisted)
+    _initNavRail(container)
     _initHltbSessionUpdate(container, appid)
     _initHltbRefresh(container, game)
     _initPcgwRefresh(container, game)
@@ -734,7 +732,7 @@ async function _loadAboutDynamic(container, appid) {
                 <div class="game-about-body">${refreshed.store.detailedDescription}</div>
             </section>`
         placeholder.replaceWith(tmp.firstElementChild)
-        _tabBarEl?._rebuild?.()
+        _navRailEl?._rebuild?.()
     } catch {
         placeholder.remove()
     }
@@ -1421,6 +1419,49 @@ const _FLAG_GROUPS = [
     ],
 ]
 
+function _flagsBar(flags, game, localWishlisted = false) {
+    const groups = _FLAG_GROUPS.map((group, gi) => {
+        const btns = group.map(f => {
+            const active = flags?.[f.key] ? ' game-flag--active' : ''
+            return `<button class="game-flag game-flag--${f.key}${active}" data-flag="${f.key}" title="${f.label}">${f.icon}</button>`
+        }).join('')
+        const divider = gi < _FLAG_GROUPS.length - 1 ? `<div class="game-flags-divider"></div>` : ''
+        return `<div class="game-flags-group">${btns}</div>${divider}`
+    }).join('')
+    const wlGroup = _wishlistGroup(game, localWishlisted)
+    const wlHtml  = wlGroup ? `<div class="game-flags-divider"></div>${wlGroup}` : ''
+    return `<div class="game-flags-inner">${groups}${wlHtml}</div>`
+}
+
+function _initFlagsBar(container) {
+    const bar   = container.querySelector('.game-flags-bar')
+    if (!bar) return
+    const appid = bar.dataset.appid
+
+    bar.addEventListener('click', async e => {
+        const btn = e.target.closest('.game-flag')
+        if (!btn) return
+        const flag    = btn.dataset.flag
+        const active  = btn.classList.contains('game-flag--active')
+        const newVal  = !active
+
+        // Optimistic update
+        btn.classList.toggle('game-flag--active', newVal)
+
+        try {
+            await fetch(`/api/flags/${appid}`, {
+                method:  'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ flag, value: newVal }),
+            })
+            if (flag === 'alert') refreshAlertsBadge()
+        } catch {
+            // Revert on failure
+            btn.classList.toggle('game-flag--active', active)
+        }
+    })
+}
+
 // ── Local Review Section ──────────────────────────────────────────────────────
 
 const _SLIDER_LABELS = {
@@ -1499,7 +1540,7 @@ function _loadDiscoveredData(container, game) {
         const tmp = document.createElement('div')
         tmp.innerHTML = html
         const newEl = tmp.firstElementChild
-        if (newEl) { el.replaceWith(newEl); _tabBarEl?._rebuild?.() }
+        if (newEl) { el.replaceWith(newEl); _navRailEl?._rebuild?.() }
         else el.remove()
     }
 
@@ -1643,18 +1684,21 @@ const _NAV_ICONS = {
 }
 
 const _NAV_ITEMS = [
-    { id: 'game-sec-about',       label: 'Home',          icon: _NAV_ICONS.home      },
-    { id: 'game-sec-trailers',    label: 'Trailers',      icon: _NAV_ICONS.video     },
-    { id: 'game-sec-stats',       label: 'Stats',         icon: _NAV_ICONS.barChart  },
-    { id: 'game-sec-screenshots', label: 'Screenshots',   icon: _NAV_ICONS.image     },
-    { id: 'game-sec-news',        label: 'News',          icon: _NAV_ICONS.newspaper },
-    { id: 'game-sec-reviews',     label: 'Reviews',       icon: _NAV_ICONS.star      },
-    { id: 'game-sec-prices',      label: 'Prices',        icon: _NAV_ICONS.tag       },
-    { id: 'game-sec-pcgw',        label: 'PCGamingWiki',  icon: _NAV_ICONS.monitor   },
+    { id: 'game-sec-hero',              label: 'Top',               icon: _NAV_ICONS.home      },
+    { id: 'game-sec-trailers',          label: 'Trailers',          icon: _NAV_ICONS.video     },
+    { id: 'game-sec-about',             label: 'About',             icon: _NAV_ICONS.bookOpen  },
+    { id: 'game-sec-hltb',              label: 'How Long To Beat',  icon: _NAV_ICONS.clock     },
+    { id: 'game-sec-player-count',      label: 'Player Count',      icon: _NAV_ICONS.barChart  },
+    { id: 'game-sec-screenshots',       label: 'Screenshots',       icon: _NAV_ICONS.image     },
+    { id: 'game-sec-news',              label: 'News',              icon: _NAV_ICONS.newspaper },
+    { id: 'game-sec-local-review',      label: 'Local Review',      icon: _NAV_ICONS.star      },
+    { id: 'game-sec-steam-review',      label: 'Steam Review',      icon: _NAV_ICONS.thumbsUp  },
+    { id: 'game-sec-community-reviews', label: 'Community Reviews', icon: _NAV_ICONS.msgCircle },
+    { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
+    { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
 ]
 
-let _tabBarEl  = null
-let _flagRailEl = null
+let _navRailEl = null
 
 // HLTB session-tracking state — cleared each time renderGame() runs
 let _gpHltbMilestones  = null  // [{label, h}] stored as side-effect by _hltb()
@@ -1663,130 +1707,82 @@ let _gpBasePlaytimeMin = 0     // relay effectiveMin at render time (includes se
 let _gpRenderTime      = 0     // Date.now() when _gpBasePlaytimeMin was captured
 let _gpHltbTimer       = null  // 30s tick that moves the pin during an active play session
 
-// ── Tab bar (horizontal, below hero) ─────────────────────────────────────────
+function _initNavRail(container) {
+    const scrollEl = document.getElementById('main-content')
+    if (!scrollEl) return
 
-function _initTabBar(container) {
-    const bar = container.querySelector('.game-tab-bar')
-    if (!bar) return
-    _tabBarEl = bar
+    const rail = document.createElement('nav')
+    rail.className = 'game-nav-rail'
+    rail.setAttribute('aria-label', 'Page sections')
+    document.body.appendChild(rail)
+    _navRailEl = rail
 
-    let _activeTabId = null
+    // Align the rail's first icon with the first flag button.
+    // .game-flags-inner has padding: 10px 0; the rail has padding: 4px 0 — so +6 corrects
+    // for that difference. Once the flags bar scrolls off-screen we floor at 20px.
+    function _updatePosition() {
+        if (!rail.isConnected) return
+        const flagsInner = container.querySelector('.game-flags-inner')
+        const hero       = document.getElementById('game-sec-hero')
+        if (!flagsInner && !hero) return
+        const top = flagsInner
+            ? flagsInner.getBoundingClientRect().top + 6
+            : hero.getBoundingClientRect().bottom
+        rail.style.top = Math.max(top, 20) + 'px'
+    }
 
-    function _activateTab(id) {
-        _activeTabId = id
-        // Hide all top-level sections, show only the active one
-        // Using > so inner sections inside stats/reviews wrappers are not affected
-        container.querySelectorAll('.game-body > .game-section').forEach(s =>
-            s.classList.toggle('game-section--active', s.id === id)
-        )
-        // Update button states
-        bar.querySelectorAll('.gtb-btn').forEach(btn =>
-            btn.classList.toggle('gtb-btn--active', btn.dataset.target === id)
-        )
-        // Chart.js canvas is 0×0 when first painted hidden — resize on reveal
-        if (id === 'game-sec-stats' && _pcChart) {
-            requestAnimationFrame(() => _pcChart.resize())
+    function _updateActive() {
+        if (!rail.isConnected) return
+        const btns = [...rail.querySelectorAll('.gnr-btn')]
+        if (!btns.length) return
+        // Default to the first visible item (hero / top)
+        let activeId = btns[0]?.dataset.target ?? null
+        for (const btn of btns) {
+            const el = document.getElementById(btn.dataset.target)
+            if (!el) continue
+            // Section becomes active once its top edge crosses 40% down the viewport
+            if (el.getBoundingClientRect().top <= window.innerHeight * 0.4) {
+                activeId = btn.dataset.target
+            }
         }
+        btns.forEach(btn =>
+            btn.classList.toggle('gnr-btn--active', btn.dataset.target === activeId)
+        )
+    }
+
+    function _onScroll() {
+        _updatePosition()
+        _updateActive()
     }
 
     function _rebuild() {
         const visible = _NAV_ITEMS.filter(item => document.getElementById(item.id))
-        bar.innerHTML = visible.map(item => `
-            <button class="gtb-btn${_activeTabId === item.id ? ' gtb-btn--active' : ''}"
-                    data-target="${item.id}" title="${item.label}">
+        rail.innerHTML = visible.map(item => `
+            <button class="gnr-btn" data-target="${item.id}" data-label="${item.label}" title="${item.label}">
                 ${item.icon}
-                <span class="gtb-label">${escapeHtml(item.label)}</span>
             </button>`).join('')
-        bar.querySelectorAll('.gtb-btn').forEach(btn =>
-            btn.addEventListener('click', () => _activateTab(btn.dataset.target))
-        )
-        // If no active tab (first build) or active section was removed, activate the first tab
-        if (!_activeTabId || !document.getElementById(_activeTabId)) {
-            if (visible[0]) _activateTab(visible[0].id)
-        } else {
-            // Re-apply visibility (rebuild clears active class from freshly rebuilt buttons)
-            _activateTab(_activeTabId)
-        }
-    }
-
-    // Expose so async section loads can call it
-    bar._rebuild = _rebuild
-    _rebuild()
-}
-
-// ── Flag rail (fixed left, replaces old nav rail) ─────────────────────────────
-
-function _initFlagRail(container, flags, game, localWishlisted) {
-    _flagRailEl?.remove()
-    _flagRailEl = null
-
-    const scrollEl = document.getElementById('main-content')
-    if (!scrollEl) return
-
-    const appid = game.appid
-
-    const rail = document.createElement('nav')
-    rail.className = 'game-flag-rail'
-    rail.setAttribute('aria-label', 'Game flags')
-    document.body.appendChild(rail)
-    _flagRailEl = rail
-
-    // Build flag buttons (same icons/states as old flags bar, now vertical)
-    const groupsHtml = _FLAG_GROUPS.map((group, gi) => {
-        const btns = group.map(f => {
-            const active = flags?.[f.key] ? ' game-flag--active' : ''
-            return `<button class="game-flag game-flag--${f.key}${active}" data-flag="${f.key}" title="${f.label}">${f.icon}</button>`
-        }).join('')
-        const divider = gi < _FLAG_GROUPS.length - 1 ? `<div class="gfr-divider"></div>` : ''
-        return btns + divider
-    }).join('')
-
-    const wlGroup = _wishlistGroup(game, localWishlisted)
-    const wlHtml  = wlGroup ? `<div class="gfr-divider"></div>${wlGroup}` : ''
-    rail.innerHTML = groupsHtml + wlHtml
-
-    // Flag toggle handler
-    rail.addEventListener('click', async e => {
-        const btn = e.target.closest('.game-flag[data-flag]')
-        if (!btn) return
-        const flag   = btn.dataset.flag
-        const active = btn.classList.contains('game-flag--active')
-        const newVal = !active
-        btn.classList.toggle('game-flag--active', newVal)
-        try {
-            await fetch(`/api/flags/${appid}`, {
-                method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ flag, value: newVal }),
+        rail.querySelectorAll('.gnr-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = document.getElementById(btn.dataset.target)
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
             })
-            if (flag === 'alert') refreshAlertsBadge()
-        } catch {
-            btn.classList.toggle('game-flag--active', active)
-        }
-    })
-
-    // Wishlist button (no data-flag, separate init)
-    _initWishlistBtn(rail, game)
-
-    // Align rail top with the tab bar, flooring at 20px once it scrolls off
-    function _updatePosition() {
-        if (!rail.isConnected) return
-        const tabBar = container.querySelector('.game-tab-bar')
-        const hero   = document.getElementById('game-sec-hero')
-        if (!tabBar && !hero) return
-        const ref = tabBar ?? hero
-        rail.style.top = Math.max(ref.getBoundingClientRect().top + 6, 20) + 'px'
+        })
+        _updatePosition()
+        _updateActive()
     }
 
-    _updatePosition()
-    scrollEl.addEventListener('scroll', _updatePosition, { passive: true })
+    // Expose rebuild so async section loads can call it
+    rail._rebuild = _rebuild
+    _rebuild()
+
+    scrollEl.addEventListener('scroll', _onScroll, { passive: true })
 
     // Clean up when the SPA navigates away from the game page
     const mo = new MutationObserver(() => {
         if (!document.getElementById('game-sec-hero')) {
             rail.remove()
-            _flagRailEl = null
-            scrollEl.removeEventListener('scroll', _updatePosition)
+            _navRailEl = null
+            scrollEl.removeEventListener('scroll', _onScroll)
             mo.disconnect()
         }
     })
@@ -1860,7 +1856,7 @@ function _initHltbRefresh(container, game) {
             const newSection = tmp.firstElementChild
             if (newSection) {
                 section.replaceWith(newSection)
-                _tabBarEl?._rebuild?.()
+                _navRailEl?._rebuild?.()
                 _initHltbRefresh(container, newGame)
                 _initHltbSessionUpdate(container, newGame.appid)
             }
@@ -1888,11 +1884,11 @@ function _initPcgwRefresh(container, game) {
             const newSection = tmp.firstElementChild
             if (newSection) {
                 section.replaceWith(newSection)
-                _tabBarEl?._rebuild?.()
+                _navRailEl?._rebuild?.()
                 _initPcgwRefresh(container, game)
             } else {
                 section.remove()
-                _tabBarEl?._rebuild?.()
+                _navRailEl?._rebuild?.()
             }
         } catch { /* silent */ }
     })
@@ -1920,7 +1916,7 @@ function _initItadRefresh(container, game) {
             const newSection = tmp.firstElementChild
             if (newSection) {
                 section.replaceWith(newSection)
-                _tabBarEl?._rebuild?.()
+                _navRailEl?._rebuild?.()
                 _initItadRefresh(container, game)
                 // Patch the data-panel price block in the hero with fresh data
                 const gdpPrices = container.querySelector('[data-role="gdp-prices"]')
