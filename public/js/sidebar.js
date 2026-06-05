@@ -7,6 +7,7 @@ const _SVG = (paths) =>
     `<svg class="sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
 
 const _ICONS = {
+    history:   _SVG(`<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`),
     backlog:   _SVG(`<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><rect x="9" y="12" width="6" height="9"/>`),
     abandoned:  _SVG(`<path d="M9 3H5a2 2 0 0 0-2 2v4"/><path d="M13 3h6"/><path d="M3 9v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-5"/><path d="m9 3 2 2-2 2"/>`),
     myReviews: _SVG(`<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>`),
@@ -68,7 +69,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-backlog-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-inprogress-btn, .sidebar-myreviews-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-backlog-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-inprogress-btn, .sidebar-myreviews-btn, .sidebar-history-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -249,9 +250,10 @@ function renderSidebar(activeId) {
     const collectionSep = document.createElement('div')
     collectionSep.className = 'sidebar-bottom-sep'
     nav.appendChild(collectionSep)
-    nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
+    nav.appendChild(buildHistoryButton(activeId === 'history'))
     nav.appendChild(buildInProgressButton(activeId === 'in-progress'))
     nav.appendChild(buildBacklogButton(activeId === 'backlog'))
+    nav.appendChild(buildFavoritesButton(activeId === 'favorites'))
     nav.appendChild(buildAbandonedButton(activeId === 'abandoned'))
     nav.appendChild(buildHallOfFameButton(activeId === 'hall-of-fame'))
     nav.appendChild(buildFranchisesButton(activeId === 'franchises'))
@@ -372,6 +374,20 @@ function buildReleasesButton(isActive) {
     el.addEventListener('click', () => _onNavigate('releases'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('releases') }
+        _arrowNav(e)
+    })
+    return el
+}
+
+function buildHistoryButton(isActive) {
+    const el = document.createElement('div')
+    el.className = 'sidebar-history-btn' + (isActive ? ' active' : '')
+    el.dataset.id = 'history'
+    el.tabIndex = 0
+    el.innerHTML = `${_ICONS.history} History`
+    el.addEventListener('click', () => _onNavigate('history'))
+    el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('history') }
         _arrowNav(e)
     })
     return el

@@ -18,6 +18,7 @@ import { renderFavorites } from './views/favorites.js'
 import { renderFranchises } from './views/franchises.js'
 import { renderFranchise } from './views/franchise.js'
 import { renderInProgress } from './views/in-progress.js'
+import { renderHistory } from './views/history.js'
 import { renderMyReviews } from './views/my-reviews.js'
 import { renderDiscover } from './views/discover.js'
 import { newPageDialog, showError } from './dialog.js'
@@ -74,6 +75,7 @@ export function parseRoute(path) {
     if (path === 'favorites')     return { view: 'favorites' }
     if (path === 'backlog')         return { view: 'backlog' }
     if (path === 'abandoned')     return { view: 'abandoned' }
+    if (path === 'history')                  return { view: 'history' }
     if (path === 'in-progress')              return { view: 'in-progress' }
     if (path === 'hall-of-fame')         return { view: 'hall-of-fame' }
     if (path === 'settings')             return { view: 'settings' }
@@ -108,6 +110,7 @@ const FROM_LABELS = {
     backlog:          'Backlog',
     'hall-of-fame':   'Hall of Fame',
     abandoned:        'Abandoned',
+    'history':         'History',
     'in-progress':     'In Progress',
     'my-reviews':     'My Reviews',
 }
@@ -235,6 +238,13 @@ export async function navigate(path, { replace = false } = {}) {
     if (route.view === 'abandoned') {
         setActiveItem('abandoned')
         await renderAbandoned(mainEl())
+        _restoreScroll(path)
+        return
+    }
+
+    if (route.view === 'history') {
+        setActiveItem('history')
+        await renderHistory(mainEl())
         _restoreScroll(path)
         return
     }

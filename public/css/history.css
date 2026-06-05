@@ -1,0 +1,266 @@
+/* ── History page ─────────────────────────────────────────────────────────── */
+
+:root {
+    --history-accent:    #7eb8d4;
+    --history-accent-lo: rgba(126, 184, 212, 0.12);
+    --history-accent-bd: rgba(126, 184, 212, 0.28);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.history-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(
+        ellipse 55% 140% at 15% 60%,
+        rgba(126, 184, 212, 0.10) 0%,
+        transparent 70%
+    );
+}
+
+.history-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--history-accent-bd) 1px, transparent 1px),
+        linear-gradient(90deg, var(--history-accent-bd) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.07;
+    pointer-events: none;
+}
+
+.history-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        var(--clr-bg) 0%,
+        transparent 60%,
+        var(--clr-bg) 100%
+    );
+    pointer-events: none;
+}
+
+.history-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.history-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--history-accent);
+    margin: 0 0 6px;
+}
+
+.history-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.history-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Recently played row ─────────────────────────────────────────────────── */
+
+.history-recent {
+    padding: 0 40px 32px;
+}
+
+.history-recent-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--history-accent);
+}
+
+.history-recent-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.history-recent-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+/* ── Separator ───────────────────────────────────────────────────────────── */
+
+.history-rest-sep {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 40px 20px;
+    color: var(--clr-text-muted);
+}
+
+.history-rest-sep::before,
+.history-rest-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--clr-border);
+}
+
+.history-rest-sep-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ── Grid (earlier games) ────────────────────────────────────────────────── */
+
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 0 40px 40px;
+}
+
+/* ── Card shared base ────────────────────────────────────────────────────── */
+
+.history-card {
+    display: flex;
+    flex-direction: column;
+    border-radius: 8px;
+    overflow: hidden;
+    text-decoration: none;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+
+.history-card:hover {
+    border-color: var(--history-accent-bd);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Featured (top 3) ────────────────────────────────────────────────────── */
+
+.history-card--featured .history-card-img-wrap {
+    aspect-ratio: 16 / 7;
+}
+
+/* ── Image wrap ──────────────────────────────────────────────────────────── */
+
+.history-card-img-wrap {
+    position: relative;
+    aspect-ratio: 460 / 215;
+    overflow: hidden;
+    background: var(--clr-bg-raised);
+}
+
+.history-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.history-card:hover .history-card-img { transform: scale(1.03); }
+
+.history-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%);
+}
+
+/* ── Number badge ────────────────────────────────────────────────────────── */
+
+.history-card-num {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--clr-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    backdrop-filter: blur(4px);
+}
+
+.history-card--featured .history-card-num {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    top: 10px;
+    left: 10px;
+}
+
+/* ── Time badge ──────────────────────────────────────────────────────────── */
+
+.history-card-time {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+    padding: 2px 6px;
+    line-height: 1.4;
+}
+
+/* ── Card body ───────────────────────────────────────────────────────────── */
+
+.history-card-body {
+    padding: 9px 11px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.history-card-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.history-card--featured .history-card-name {
+    font-size: 13px;
+}
+
+.history-card-played {
+    font-size: 10.5px;
+    color: var(--clr-text-muted);
+}
