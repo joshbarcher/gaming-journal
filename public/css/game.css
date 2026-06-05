@@ -1897,10 +1897,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 20px 16px;
+    padding: 16px;
     gap: 10px;
     text-align: center;
-    border-radius: var(--radius);
+    border-radius: 10px;
 }
 
 /* Badge column — same metallic look as the hero badge */
@@ -1908,26 +1908,33 @@
     flex: 0 0 110px;
     background: var(--proton-bg);
     border: 1px solid var(--proton-border, rgba(255,255,255,0.14));
+    border-radius: 10px;
     position: relative;
     overflow: hidden;
 }
 
-/* Stat columns — floating with dashed border */
+/* Stat columns — horizontal layout, no background, rounded dashed border */
 .protondb-col--stat {
-    background: var(--clr-bg-raised);
-    border: 1px dashed var(--clr-border);
+    flex-direction: row;
+    justify-content: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
 }
 
-/* Bar column — solid border, left-aligned */
+/* Bar column — no background, rounded */
 .protondb-col--bar {
     flex: 2.2;
     align-items: flex-start;
     justify-content: center;
     text-align: left;
-    padding: 20px 22px;
+    padding: 16px 22px;
     gap: 0;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
+    background: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
 }
 
 /* Badge column shares the shine animation with the hero badge */
@@ -1973,16 +1980,25 @@
 
 /* Stat column internals */
 .protondb-col-icon {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
     color: var(--clr-text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.65;
+    opacity: 0.55;
 }
 
 .protondb-col-icon svg { width: 100%; height: 100%; }
+
+.protondb-col-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+    justify-content: center;
+}
 
 .protondb-col-value {
     font-size: 16px;

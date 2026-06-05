@@ -812,20 +812,26 @@ function _protondb(protonData, game) {
 
                 <div class="protondb-col protondb-col--stat">
                     <span class="protondb-col-icon">${_SVG_SHIELD_CHECK}</span>
-                    <span class="protondb-col-value">${_protonCap(protonData.confidence ?? '—')}</span>
-                    <span class="protondb-col-label">Confidence</span>
+                    <span class="protondb-col-text">
+                        <span class="protondb-col-value">${_protonCap(protonData.confidence ?? '—')}</span>
+                        <span class="protondb-col-label">Confidence</span>
+                    </span>
                 </div>
 
                 <div class="protondb-col protondb-col--stat">
                     <span class="protondb-col-icon">${_SVG_PERCENT}</span>
-                    <span class="protondb-col-value">${scoreStr}</span>
-                    <span class="protondb-col-label">Score</span>
+                    <span class="protondb-col-text">
+                        <span class="protondb-col-value">${scoreStr}</span>
+                        <span class="protondb-col-label">Score</span>
+                    </span>
                 </div>
 
                 <div class="protondb-col protondb-col--stat">
                     <span class="protondb-col-icon">${_SVG_USERS}</span>
-                    <span class="protondb-col-value">${total.toLocaleString()}</span>
-                    <span class="protondb-col-label">Reports</span>
+                    <span class="protondb-col-text">
+                        <span class="protondb-col-value">${total.toLocaleString()}</span>
+                        <span class="protondb-col-label">Reports</span>
+                    </span>
                 </div>
 
                 <div class="protondb-col protondb-col--bar">
