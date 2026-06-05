@@ -1,11 +1,13 @@
 import { escapeHtml } from '../utils.js'
+import { loadGameFilter } from './game-filter.js'
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 async function _loadGames() {
-    const [lastPlayedRes, gamesRes] = await Promise.all([
+    const [lastPlayedRes, gamesRes, shouldShow] = await Promise.all([
         fetch('/relay/api/steam/playtime/last-played'),
         fetch('/relay/api/steam/games'),
+        loadGameFilter(),
     ])
     if (!lastPlayedRes.ok) throw new Error(`Last-played HTTP ${lastPlayedRes.status}`)
     if (!gamesRes.ok)      throw new Error(`Games HTTP ${gamesRes.status}`)
@@ -29,7 +31,7 @@ async function _loadGames() {
                 lastPlayedAt: data.lastPlayedAt ?? null,
             }
         })
-        .filter(g => g.lastPlayedAt)
+        .filter(g => g.lastPlayedAt && shouldShow(g.appid))
         .sort((a, b) => new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt))
 }
 
