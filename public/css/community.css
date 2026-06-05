@@ -1,0 +1,479 @@
+/* ── Community page ─────────────────────────────────────────────────────────── */
+
+:root {
+    --community-accent:    #5b9bd5;
+    --community-accent-lo: rgba(91, 155, 213, 0.12);
+    --community-accent-bd: rgba(91, 155, 213, 0.32);
+}
+
+/* ── Page wrapper ─────────────────────────────────────────────────────────── */
+
+.community-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.community-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(
+        ellipse 55% 140% at 15% 60%,
+        rgba(91, 155, 213, 0.11) 0%,
+        transparent 70%
+    );
+}
+
+.community-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(var(--community-accent-bd) 1px, transparent 1px),
+        linear-gradient(90deg, var(--community-accent-bd) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.08;
+    pointer-events: none;
+}
+
+.community-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        var(--clr-bg) 0%,
+        transparent 60%,
+        var(--clr-bg) 100%
+    );
+    pointer-events: none;
+}
+
+.community-header-body {
+    position: relative;
+    z-index: 1;
+}
+
+.community-back {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    margin-bottom: 12px;
+    transition: color var(--transition);
+    cursor: pointer;
+}
+
+.community-back:hover {
+    color: var(--clr-accent);
+}
+
+.community-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--community-accent);
+    margin: 0 0 6px;
+}
+
+.community-title {
+    font-family: var(--font-title);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0 0 8px;
+    letter-spacing: 0.02em;
+}
+
+.community-subtitle {
+    font-size: 0.85rem;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+
+.community-body {
+    padding: 0 40px 40px;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+
+.community-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.community-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text-muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.community-tab:hover {
+    border-color: var(--community-accent);
+    color: var(--clr-text);
+}
+
+.community-tab--active {
+    border-color: var(--community-accent);
+    background: var(--community-accent-lo);
+    color: var(--clr-text);
+}
+
+.community-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+/* ── Panels ──────────────────────────────────────────────────────────────── */
+
+.community-panel {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.community-panel--active {
+    display: flex;
+}
+
+/* ── Post cards ──────────────────────────────────────────────────────────── */
+
+.community-post-card {
+    display: flex;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+}
+
+.community-post-img-wrap {
+    flex-shrink: 0;
+    width: 100px;
+}
+
+.community-post-img {
+    width: 100px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 4px;
+    display: block;
+    background: var(--clr-bg);
+}
+
+.community-post-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Thread view — full-width image */
+.community-thread-post-image {
+    margin: 12px 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    max-height: 600px;
+    background: var(--clr-bg);
+}
+
+.community-thread-post-image img {
+    width: 100%;
+    max-height: 600px;
+    object-fit: contain;
+    display: block;
+}
+
+.community-post-card:hover {
+    border-color: var(--community-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.community-post-header {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.community-post-title {
+    font-size: 0.93rem;
+    font-weight: 600;
+    color: var(--clr-text);
+    line-height: 1.4;
+    flex: 1;
+    min-width: 0;
+}
+
+.community-post-title--large {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.community-post-flair {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--community-accent-lo);
+    border: 1px solid var(--community-accent-bd);
+    color: var(--community-accent);
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.community-post-body {
+    font-size: 0.82rem;
+    color: var(--clr-text-muted);
+    margin: 0 0 10px;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.community-post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+    margin-top: 10px;
+}
+
+.community-post-score {
+    color: var(--community-accent);
+    font-weight: 600;
+}
+
+.community-post-sub {
+    color: var(--community-accent);
+}
+
+.community-post-reddit-link {
+    margin-left: auto;
+    color: var(--community-accent);
+    text-decoration: none;
+    font-size: 0.75rem;
+}
+
+.community-post-reddit-link:hover {
+    text-decoration: underline;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.community-empty {
+    color: var(--clr-text-muted);
+    font-size: 0.88rem;
+    text-align: center;
+    padding: 32px 0;
+}
+
+/* ── Thread view ─────────────────────────────────────────────────────────── */
+
+.community-thread-nav {
+    padding: 20px 40px 0;
+}
+
+.community-thread-post {
+    padding: 20px 40px 0;
+}
+
+.community-thread-post-card {
+    padding: 24px 28px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    margin-bottom: 0;
+}
+
+.community-thread-post-body {
+    font-size: 0.9rem;
+    color: var(--clr-text);
+    line-height: 1.7;
+    margin: 12px 0 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.community-thread-comments {
+    padding: 32px 40px 40px;
+}
+
+.community-comments-heading {
+    font-family: var(--font-title);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--clr-text);
+    margin: 0 0 20px;
+    letter-spacing: 0.02em;
+}
+
+/* ── Comment tree ────────────────────────────────────────────────────────── */
+
+.thread-comment {
+    position: relative;
+    padding: 10px 12px 10px 16px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    border-left: 2px solid transparent;
+}
+
+.thread-comment[data-depth="0"] {
+    border-left-color: transparent;
+    padding-left: 0;
+}
+
+.thread-comment[data-depth="1"] { border-left-color: #5b9bd5; padding-left: 16px; }
+.thread-comment[data-depth="2"] { border-left-color: #e8944a; padding-left: 16px; }
+.thread-comment[data-depth="3"] { border-left-color: #5cb85c; padding-left: 16px; }
+.thread-comment[data-depth="4"] { border-left-color: rgba(255,255,255,0.18); padding-left: 16px; }
+
+.thread-comment-replies {
+    margin-top: 4px;
+    margin-left: 16px;
+}
+
+.thread-comment--collapsed .thread-comment-replies {
+    display: none;
+}
+
+.thread-comment--collapsed .thread-comment-body {
+    opacity: 0.4;
+}
+
+.thread-comment-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+}
+
+.thread-comment-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--clr-border);
+    border-radius: 3px;
+    color: var(--clr-text-muted);
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--transition), border-color var(--transition);
+    padding: 0;
+}
+
+.thread-comment-toggle:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: var(--community-accent);
+}
+
+.thread-comment-author {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--clr-text);
+}
+
+.thread-comment-score {
+    font-size: 0.75rem;
+    color: var(--community-accent);
+    font-weight: 600;
+}
+
+.thread-comment-time {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted);
+}
+
+.thread-comment-body {
+    font-size: 0.85rem;
+    color: var(--clr-text);
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    transition: opacity var(--transition);
+}
+
+.thread-comment-deleted {
+    color: var(--clr-text-muted);
+    font-style: italic;
+}
+
+.thread-comment--continue {
+    border-left-color: rgba(255,255,255,0.08) !important;
+}
+
+.thread-comment-continue {
+    font-size: 0.8rem;
+    color: var(--community-accent);
+    text-decoration: none;
+}
+
+.thread-comment-continue:hover {
+    text-decoration: underline;
+}
+
+/* ── Panel buttons (game page) ───────────────────────────────────────────── */
+
+.game-panel-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.game-community-btn {
+    background: var(--community-accent-lo);
+    border-color: var(--community-accent-bd);
+    color: var(--community-accent);
+}
+
+.game-community-btn:hover {
+    background: rgba(91, 155, 213, 0.22);
+}

@@ -16,7 +16,7 @@ export async function renderGame(appid, container) {
 
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news, protonData
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news, protonData, redditData
     try {
         const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes, newsRes, protonRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
@@ -46,6 +46,9 @@ export async function renderGame(appid, container) {
         news             = newsRes.ok      ? await newsRes.json()      : null
         protonData       = protonRes.ok    ? await protonRes.json()    : null
         if (protonData?.notFound || !protonData?.tier) protonData = null
+        // Reddit: fetch with game name now that we have it; ok to be null (loads async)
+        const redditRes = await fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(game.name ?? '')}`)
+        redditData = redditRes.ok ? await redditRes.json() : null
         if (_newsBBCodeDirty(news)) {
             try {
                 await fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' })
@@ -80,6 +83,7 @@ export async function renderGame(appid, container) {
             ${_itad(itadData, game)}
             ${_protondb(protonData, game)}
             ${_pcgw(pcgwData, game)}
+            ${_reddit(redditData, game)}
         </div>`
 
     _startHeroSlideshow(container, game)
@@ -96,6 +100,8 @@ export async function renderGame(appid, container) {
     _initPcgwRefresh(container, game)
     _initItadRefresh(container, game)
     _initProtondbRefresh(container, game)
+    _initReddit(container, game)
+    _initCommunityBtn(container, game)
 
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
@@ -321,7 +327,10 @@ function _dataPanel(game, communityReviews, protonData) {
     return `<div class="game-data-panel">
         ${_protonBadge(protonData, game.appid)}
         ${rows.join('')}
-        <a href="/journal/${game.appid}" class="game-journal-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg> Open Journal</a>
+        <div class="game-panel-btns">
+            <a href="/journal/${game.appid}" class="game-journal-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg> Open Journal</a>
+            <a href="/community/${game.appid}" class="game-journal-btn game-community-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Community</a>
+        </div>
     </div>`
 }
 
@@ -1795,6 +1804,7 @@ const _NAV_ICONS = {
     tag:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
     monitor:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
     award:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`,
+    reddit:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M14.5 8.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5S12.17 7 13 7s1.5.67 1.5 1.5z"/><path d="M8.5 11c.83 0 1.5.67 1.5 1.5S9.33 14 8.5 14 7 13.33 7 12.5 7.67 11 8.5 11z"/><path d="M15.5 11c.83 0 1.5.67 1.5 1.5S16.33 14 15.5 14 14 13.33 14 12.5s.67-1.5 1.5-1.5z"/><path d="M9 16s.75 1 3 1 3-1 3-1"/></svg>`,
 }
 
 const _NAV_ITEMS = [
@@ -1811,6 +1821,7 @@ const _NAV_ITEMS = [
     { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
     { id: 'game-sec-protondb',          label: 'Linux Compat.',     icon: _NAV_ICONS.award     },
     { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
+    { id: 'game-sec-reddit',            label: 'Community',         icon: _NAV_ICONS.reddit    },
 ]
 
 let _navRailEl = null
@@ -2042,6 +2053,145 @@ function _initItadRefresh(container, game) {
                 }
             }
         } catch { /* silent */ }
+    })
+}
+
+// ── Reddit ────────────────────────────────────────────────────────────────────
+
+function _fmtRedditScore(n) {
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+    return String(n)
+}
+
+function _fmtRedditTime(utc) {
+    if (!utc) return ''
+    const diff = Math.floor((Date.now() / 1000) - utc)
+    if (diff < 3600)  return `${Math.floor(diff / 60)}m`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+    if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d`
+    return new Date(utc * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+}
+
+function _redditPost(post, appid) {
+    const score    = _fmtRedditScore(post.score)
+    const time     = _fmtRedditTime(post.createdUtc)
+    const flair    = post.flair ? `<span class="reddit-post-flair">${escapeHtml(post.flair)}</span>` : ''
+    const body     = post.selftext
+        ? `<p class="reddit-post-body">${escapeHtml(post.selftext)}${post.selftext.length >= 600 ? '…' : ''}</p>`
+        : ''
+    const thumb    = post.thumbnail && !post.isImage
+        ? `<img class="reddit-post-thumb" src="${post.thumbnail}" alt="" loading="lazy" onerror="this.remove()">`
+        : ''
+    const href = appid
+        ? `/community/${appid}/thread/${post.id}?sub=${encodeURIComponent(post.subreddit ?? '')}`
+        : escapeHtml(post.permalink)
+
+    return `
+        <a class="reddit-post" href="${href}" ${appid ? 'data-nav' : 'target="_blank" rel="noopener noreferrer"'}>
+            ${thumb ? `<div class="reddit-post-img">${thumb}</div>` : ''}
+            <div class="reddit-post-content">
+                <div class="reddit-post-header">
+                    ${flair}
+                    <span class="reddit-post-title">${escapeHtml(post.title)}</span>
+                </div>
+                ${body}
+                <div class="reddit-post-meta">
+                    <span class="reddit-post-score">▲ ${score}</span>
+                    <span class="reddit-post-comments">💬 ${post.numComments.toLocaleString()}</span>
+                    <span class="reddit-post-author">u/${escapeHtml(post.author)}</span>
+                    <span class="reddit-post-sub">r/${escapeHtml(post.subreddit)}</span>
+                    <span class="reddit-post-time">${time}</span>
+                </div>
+            </div>
+        </a>`
+}
+
+function _reddit(data, game) {
+    if (!data?.sources?.length) return ''
+
+    const refreshBtn = `<button class="game-refresh-btn" data-role="reddit-refresh" title="Refresh Reddit posts">↻</button>`
+
+    // Build tabs — only show sources that have posts
+    const tabs = data.sources
+        .filter(s => s.posts?.length > 0)
+        .map((s, i) => `
+            <button class="reddit-tab${i === 0 ? ' reddit-tab--active' : ''}" data-source="${escapeHtml(s.subreddit)}">
+                r/${escapeHtml(s.subreddit)}
+                <span class="reddit-tab-count">${s.posts.length}</span>
+            </button>`).join('')
+
+    if (!tabs) return ''
+
+    // Panels for each source
+    const panels = data.sources
+        .filter(s => s.posts?.length > 0)
+        .map((s, i) => `
+            <div class="reddit-panel${i === 0 ? ' reddit-panel--active' : ''}" data-source="${escapeHtml(s.subreddit)}">
+                ${s.posts.slice(0, 5).map(p => _redditPost(p, game?.appid)).join('')}
+            </div>`).join('')
+
+    return `
+        <section class="game-section" id="game-sec-reddit">
+            <h2 class="game-section-title">Community ${refreshBtn}</h2>
+            <div class="reddit-tabs">${tabs}</div>
+            <div class="reddit-panels">${panels}</div>
+        </section>`
+}
+
+function _initReddit(container, game) {
+    // Tab switching
+    container.querySelectorAll('.reddit-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const src = btn.dataset.source
+            container.querySelectorAll('.reddit-tab').forEach(b => b.classList.toggle('reddit-tab--active', b.dataset.source === src))
+            container.querySelectorAll('.reddit-panel').forEach(p => p.classList.toggle('reddit-panel--active', p.dataset.source === src))
+        })
+    })
+
+    // In-app nav links (community thread links)
+    container.querySelectorAll('#game-sec-reddit [data-nav]').forEach(el => {
+        el.addEventListener('click', e => {
+            e.preventDefault()
+            const href = el.getAttribute('href')
+            if (!href) return
+            sessionStorage.setItem('gj_game_from', 'community')
+            sessionStorage.setItem('gj_community_appid', String(game?.appid ?? ''))
+            import('../router.js').then(m => m.navigate(href.slice(1)))
+        })
+    })
+
+    // Refresh
+    const btn = container.querySelector('[data-role="reddit-refresh"]')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+        btn.classList.add('game-refresh-btn--spinning')
+        btn.disabled = true
+        try {
+            await fetch(`/relay/api/reddit/${game.appid}/sync?name=${encodeURIComponent(game.name ?? '')}&force=true`, { method: 'POST' })
+            const fresh = await fetch(`/relay/api/reddit/${game.appid}?name=${encodeURIComponent(game.name ?? '')}`)
+            const data  = fresh.ok ? await fresh.json() : null
+            const section = container.querySelector('#game-sec-reddit')
+            if (!section) return
+            const tmp = document.createElement('div')
+            tmp.innerHTML = _reddit(data, game)
+            const newSection = tmp.firstElementChild
+            if (newSection) {
+                section.replaceWith(newSection)
+                _navRailEl?._rebuild?.()
+                _initReddit(container, game)
+            }
+        } catch { /* silent */ }
+        finally { btn.classList.remove('game-refresh-btn--spinning'); btn.disabled = false }
+    })
+}
+
+function _initCommunityBtn(container, game) {
+    const btn = container.querySelector('.game-community-btn')
+    if (!btn) return
+    btn.addEventListener('click', e => {
+        e.preventDefault()
+        sessionStorage.setItem('gj_game_from', 'game')
+        import('../router.js').then(m => m.navigate(`community/${game.appid}`))
     })
 }
 

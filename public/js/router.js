@@ -88,6 +88,15 @@ export function parseRoute(path) {
         const parts = path.split('/')
         return { view: 'journal', appid: parts[1], sub: parts[2] ?? null }
     }
+    if (path.startsWith('community/')) {
+        const parts = path.split('/')
+        // community/{appid}/thread/{postId}
+        if (parts[2] === 'thread' && parts[3]) {
+            const sub = new URLSearchParams(window.location.search).get('sub') ?? ''
+            return { view: 'community-thread', appid: parts[1], postId: parts[3], sub }
+        }
+        return { view: 'community', appid: parts[1] }
+    }
     return { view: 'page', pageId: path }
 }
 
@@ -113,6 +122,7 @@ const FROM_LABELS = {
     'history':         'History',
     'in-progress':     'In Progress',
     'my-reviews':     'My Reviews',
+    'community':      'Community',
 }
 
 export function gameBackLabel() {
@@ -122,6 +132,10 @@ export function gameBackLabel() {
 
 export function gameBackPath() {
     const from = sessionStorage.getItem('gj_game_from')
+    if (from === 'community') {
+        const communityAppid = sessionStorage.getItem('gj_community_appid') ?? ''
+        return communityAppid ? `/community/${communityAppid}` : '/library'
+    }
     return from && FROM_LABELS[from] ? `/${from}` : '/library'
 }
 
@@ -136,6 +150,10 @@ export async function navigate(path, { replace = false } = {}) {
         const prevRoute = parseRoute(getRoutePath())
         if (prevRoute.view !== 'game') {
             sessionStorage.setItem('gj_game_from', prevRoute.view)
+            if (prevRoute.view === 'community' || prevRoute.view === 'community-thread') {
+                sessionStorage.setItem('gj_game_from', 'community')
+                sessionStorage.setItem('gj_community_appid', prevRoute.appid ?? '')
+            }
         }
     }
 
@@ -302,6 +320,22 @@ export async function navigate(path, { replace = false } = {}) {
         setActiveItem('library')
         const { renderGame } = await import('./views/game.js')
         await renderGame(route.appid, mainEl())
+        _restoreScroll(path)
+        return
+    }
+
+    if (route.view === 'community') {
+        setActiveItem(null)
+        const { renderCommunity } = await import('./views/community.js')
+        await renderCommunity(route.appid, mainEl())
+        _restoreScroll(path)
+        return
+    }
+
+    if (route.view === 'community-thread') {
+        setActiveItem(null)
+        const { renderCommunityThread } = await import('./views/community.js')
+        await renderCommunityThread(route.appid, route.postId, mainEl())
         _restoreScroll(path)
         return
     }
