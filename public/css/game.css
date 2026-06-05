@@ -1895,56 +1895,96 @@
 
 /* ── ProtonDB dedicated section ──────────────────────────────────────────────── */
 
-.protondb-tiers {
+.protondb-row {
     display: flex;
-    gap: 8px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    overflow: hidden;
 }
 
-.protondb-tc {
+/* Tier color scoped to the whole row so badge + bar fill both inherit it */
+.protondb-row--native   { --proton-clr: #7dda84; }
+.protondb-row--platinum { --proton-clr: #b8ccec; }
+.protondb-row--gold     { --proton-clr: #d4a843; }
+.protondb-row--silver   { --proton-clr: #9baab8; }
+.protondb-row--bronze   { --proton-clr: #b47e4a; }
+.protondb-row--borked   { --proton-clr: #e05050; }
+.protondb-row--pending  { --proton-clr: rgba(255,255,255,0.30); }
+
+.protondb-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 7px;
-    padding: 18px 12px 14px;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    border-top: 2px solid var(--proton-clr, var(--clr-border));
-    border-radius: var(--radius);
+    justify-content: center;
+    padding: 18px 14px;
+    gap: 6px;
+    text-align: center;
+    border-right: 1px solid var(--clr-border);
 }
 
-.protondb-tc--native   { --proton-clr: #7dda84; }
-.protondb-tc--platinum { --proton-clr: #b8ccec; }
-.protondb-tc--gold     { --proton-clr: #d4a843; }
-.protondb-tc--silver   { --proton-clr: #9baab8; }
-.protondb-tc--bronze   { --proton-clr: #b47e4a; }
-.protondb-tc--borked   { --proton-clr: #e05050; }
-.protondb-tc--pending  { --proton-clr: rgba(255,255,255,0.30); }
+.protondb-col:last-child { border-right: none; }
 
-.protondb-tc--current {
-    background: color-mix(in srgb, var(--clr-bg-raised) 92%, var(--proton-clr) 8%);
+/* Badge column — tier-tinted background, fixed width */
+.protondb-col--badge {
+    flex: 0 0 110px;
+    background: color-mix(in srgb, var(--clr-bg-raised) 88%, var(--proton-clr) 12%);
+    border-right-color: color-mix(in srgb, var(--clr-border) 60%, var(--proton-clr) 40%);
 }
 
-.protondb-tc-icon {
-    width: 28px;
-    height: 28px;
+/* Bar column — wider, left-aligned */
+.protondb-col--bar {
+    flex: 2.2;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: left;
+    padding: 18px 20px;
+    gap: 0;
+}
+
+/* Badge icon + name */
+.protondb-badge-icon {
+    width: 26px;
+    height: 26px;
     color: var(--proton-clr);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.protondb-tc-icon svg { width: 100%; height: 100%; stroke-width: 1.5; }
+.protondb-badge-icon svg { width: 100%; height: 100%; stroke-width: 1.5; }
 
-.protondb-tc-name {
-    font-size: 14px;
+.protondb-badge-name {
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--proton-clr);
     line-height: 1;
 }
 
-.protondb-tc-label {
+/* Stat columns */
+.protondb-col-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--clr-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+
+.protondb-col-icon svg { width: 100%; height: 100%; }
+
+.protondb-col-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--clr-text);
+    line-height: 1;
+}
+
+.protondb-col-label {
     font-size: 9px;
     font-weight: 600;
     letter-spacing: 0.09em;
@@ -1953,35 +1993,76 @@
     line-height: 1;
 }
 
-.protondb-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-    flex-wrap: wrap;
-}
-
-.protondb-meta-item {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-}
-
-.protondb-meta-label {
-    font-size: 11px;
+/* Bar column internals */
+.protondb-bar-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
     color: var(--clr-text-muted);
+    margin-bottom: 18px;
+    display: block;
 }
 
-.protondb-meta-val {
-    font-size: 11.5px;
-    font-weight: 500;
+.protondb-bar-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.protondb-bar-track {
+    position: relative;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: visible;
+    margin-bottom: 20px; /* room for count label below marker */
+}
+
+.protondb-bar-fill {
+    position: absolute;
+    left: 0; top: 0;
+    height: 100%;
+    background: var(--proton-clr);
+    border-radius: 2px;
+    opacity: 0.7;
+}
+
+.protondb-bar-marker {
+    position: absolute;
+    top: -8px;
+    width: 2px;
+    height: 19px;
+    background: var(--clr-text);
+    border-radius: 1px;
+    transform: translateX(-50%);
+}
+
+.protondb-bar-count {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 700;
     color: var(--clr-text);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
 }
 
-.protondb-meta-dot {
-    color: var(--clr-text-muted);
-    opacity: 0.4;
-    font-size: 11px;
+.protondb-ticks-row {
+    position: relative;
+    height: 14px;
+}
+
+.protondb-tick {
+    position: absolute;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.25);
+    white-space: nowrap;
+    line-height: 1;
 }
 
 /* Hide on screens too narrow for the left gutter to exist */

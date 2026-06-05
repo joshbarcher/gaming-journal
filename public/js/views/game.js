@@ -78,8 +78,8 @@ export async function renderGame(appid, container) {
             ${_myReview(myReview)}
             ${_communityReviews(communityReviews, game)}
             ${_itad(itadData, game)}
-            ${_pcgw(pcgwData, game)}
             ${_protondb(protonData, game)}
+            ${_pcgw(pcgwData, game)}
         </div>`
 
     _startHeroSlideshow(container, game)
@@ -765,29 +765,36 @@ function _protonBadge(protonData, appid) {
         </a>`
 }
 
-// Full dedicated section rendered below PCGamingWiki
+const _SVG_SHIELD_CHECK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>`
+const _SVG_PERCENT      = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`
+const _SVG_USERS        = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+
+// Log scale 1–5000 → 0–100%
+function _protonLogPct(n) {
+    return (Math.log(Math.max(1, Math.min(n, 5000))) / Math.log(5000) * 100).toFixed(1)
+}
+
+// Full dedicated section rendered above PCGamingWiki
 function _protondb(protonData, game) {
     if (!protonData?.tier) return ''
 
-    const scoreStr   = protonData.score != null ? Math.round(protonData.score * 100) + '%' : null
+    const tier       = protonData.tier
+    const total      = protonData.total ?? 0
+    const scoreStr   = protonData.score != null ? Math.round(protonData.score * 100) + '%' : '—'
     const refreshBtn = `<button class="game-refresh-btn" data-role="protondb-refresh" title="Refresh ProtonDB data">↻</button>`
 
-    const tierCards = [
-        { label: 'Current',       tier: protonData.tier,             current: true },
-        { label: 'Best Reported', tier: protonData.bestReportedTier, current: false },
-        { label: 'Trending',      tier: protonData.trendingTier,     current: false },
-    ].filter(p => p.tier).map(p => `
-        <div class="protondb-tc protondb-tc--${p.tier}${p.current ? ' protondb-tc--current' : ''}">
-            <span class="protondb-tc-icon">${_SVG_AWARD}</span>
-            <span class="protondb-tc-name">${_protonCap(p.tier)}</span>
-            <span class="protondb-tc-label">${escapeHtml(p.label)}</span>
-        </div>`).join('')
+    const markerPct = _protonLogPct(total)
 
-    const metaHtml = [
-        protonData.confidence ? `<span class="protondb-meta-item"><span class="protondb-meta-label">Confidence</span><span class="protondb-meta-val">${_protonCap(protonData.confidence)}</span></span>` : '',
-        scoreStr              ? `<span class="protondb-meta-item"><span class="protondb-meta-label">Score</span><span class="protondb-meta-val">${scoreStr}</span></span>` : '',
-        protonData.total != null ? `<span class="protondb-meta-item"><span class="protondb-meta-label">Reports</span><span class="protondb-meta-val">${protonData.total.toLocaleString()}</span></span>` : '',
-    ].filter(Boolean).join('<span class="protondb-meta-dot">·</span>')
+    const LOG_TICKS = [
+        { label: '1',   pct: _protonLogPct(1) },
+        { label: '10',  pct: _protonLogPct(10) },
+        { label: '100', pct: _protonLogPct(100) },
+        { label: '1K',  pct: _protonLogPct(1000) },
+        { label: '5K+', pct: '100.0' },
+    ]
+    const ticksHtml = LOG_TICKS.map(t =>
+        `<span class="protondb-tick" style="left:${t.pct}%">${t.label}</span>`
+    ).join('')
 
     return `
         <section class="game-section" id="game-sec-protondb">
@@ -796,8 +803,45 @@ function _protondb(protonData, game) {
                 <a class="pcgw-wiki-link" href="https://www.protondb.com/app/${game.appid}" target="_blank" rel="noopener">${_PI.extLink}</a>
                 ${refreshBtn}
             </h2>
-            <div class="protondb-tiers">${tierCards}</div>
-            ${metaHtml ? `<div class="protondb-meta">${metaHtml}</div>` : ''}
+            <div class="protondb-row protondb-row--${tier}">
+
+                <div class="protondb-col protondb-col--badge">
+                    <span class="protondb-col-icon protondb-badge-icon">${_SVG_AWARD}</span>
+                    <span class="protondb-badge-name">${_protonCap(tier)}</span>
+                </div>
+
+                <div class="protondb-col protondb-col--stat">
+                    <span class="protondb-col-icon">${_SVG_SHIELD_CHECK}</span>
+                    <span class="protondb-col-value">${_protonCap(protonData.confidence ?? '—')}</span>
+                    <span class="protondb-col-label">Confidence</span>
+                </div>
+
+                <div class="protondb-col protondb-col--stat">
+                    <span class="protondb-col-icon">${_SVG_PERCENT}</span>
+                    <span class="protondb-col-value">${scoreStr}</span>
+                    <span class="protondb-col-label">Score</span>
+                </div>
+
+                <div class="protondb-col protondb-col--stat">
+                    <span class="protondb-col-icon">${_SVG_USERS}</span>
+                    <span class="protondb-col-value">${total.toLocaleString()}</span>
+                    <span class="protondb-col-label">Reports</span>
+                </div>
+
+                <div class="protondb-col protondb-col--bar">
+                    <span class="protondb-bar-label">Community Reports</span>
+                    <div class="protondb-bar-area">
+                        <div class="protondb-bar-track">
+                            <div class="protondb-bar-fill" style="width:${markerPct}%"></div>
+                            <div class="protondb-bar-marker" style="left:${markerPct}%">
+                                <span class="protondb-bar-count">${total.toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="protondb-ticks-row">${ticksHtml}</div>
+                    </div>
+                </div>
+
+            </div>
         </section>`
 }
 
@@ -1759,8 +1803,8 @@ const _NAV_ITEMS = [
     { id: 'game-sec-steam-review',      label: 'Steam Review',      icon: _NAV_ICONS.thumbsUp  },
     { id: 'game-sec-community-reviews', label: 'Community Reviews', icon: _NAV_ICONS.msgCircle },
     { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
-    { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
     { id: 'game-sec-protondb',          label: 'Linux Compat.',     icon: _NAV_ICONS.award     },
+    { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
 ]
 
 let _navRailEl = null
