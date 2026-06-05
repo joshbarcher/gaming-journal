@@ -69,7 +69,7 @@ export function refreshSidebarItem(updatedPage) {
 
 export function setActiveItem(id) {
     _activeId = id
-    document.querySelectorAll('.sidebar-item, .sidebar-toc-btn, .sidebar-home-btn, .sidebar-library-btn, .sidebar-wishlist-btn, .sidebar-discover-btn, .sidebar-alerts-btn, .sidebar-account-btn, .sidebar-calendar-btn, .sidebar-releases-btn, .sidebar-top-games-btn, .sidebar-settings-btn, .sidebar-favorites-btn, .sidebar-backlog-btn, .sidebar-abandoned-btn, .sidebar-hof-btn, .sidebar-franchises-btn, .sidebar-inprogress-btn, .sidebar-myreviews-btn, .sidebar-history-btn').forEach(el => {
+    document.querySelectorAll('.sidebar-item, .sidebar-nav-btn').forEach(el => {
         const elId = el.dataset.id
         el.classList.toggle('active', elId === id)
     })
@@ -269,7 +269,7 @@ function renderSidebar(activeId) {
 
 function buildHomeButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-home-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-home-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'home'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.home} Home`
@@ -283,7 +283,7 @@ function buildHomeButton(isActive) {
 
 function buildLibraryButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-library-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-library-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'library'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.library} Steam Library <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -297,7 +297,7 @@ function buildLibraryButton(isActive) {
 
 function buildWishlistButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-wishlist-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-wishlist-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'wishlist'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.wishlist} Wishlist <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -311,7 +311,7 @@ function buildWishlistButton(isActive) {
 
 function buildDiscoverButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-discover-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-discover-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'discover'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.discover} Discover`
@@ -325,7 +325,7 @@ function buildDiscoverButton(isActive) {
 
 function buildAccountButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-account-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-account-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'account'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.account} Account`
@@ -339,7 +339,7 @@ function buildAccountButton(isActive) {
 
 function buildAlertsButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-alerts-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-alerts-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'alerts'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.alerts} Sale Alerts <span class="sidebar-alerts-badge" style="display:none">0</span>`
@@ -353,7 +353,7 @@ function buildAlertsButton(isActive) {
 
 function buildCalendarButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-calendar-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-calendar-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'calendar'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.calendar} Play Calendar`
@@ -367,7 +367,7 @@ function buildCalendarButton(isActive) {
 
 function buildReleasesButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-releases-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-releases-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'releases'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.releases} Release Calendar`
@@ -381,7 +381,7 @@ function buildReleasesButton(isActive) {
 
 function buildHistoryButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-history-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-history-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'history'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.history} History`
@@ -395,7 +395,7 @@ function buildHistoryButton(isActive) {
 
 function buildTopGamesButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-top-games-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-top-games-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'top-games'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.topGames} Top Games`
@@ -409,7 +409,7 @@ function buildTopGamesButton(isActive) {
 
 function buildHallOfFameButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-hof-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-hof-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'hall-of-fame'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.hallOfFame} Completed <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -423,7 +423,7 @@ function buildHallOfFameButton(isActive) {
 
 function buildAbandonedButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-abandoned-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-abandoned-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'abandoned'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.abandoned} Abandoned <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -437,7 +437,7 @@ function buildAbandonedButton(isActive) {
 
 function buildFavoritesButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-favorites-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-favorites-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'favorites'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.favorites} Favorites <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -451,7 +451,7 @@ function buildFavoritesButton(isActive) {
 
 function buildMyReviewsButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-myreviews-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-myreviews-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'my-reviews'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.myReviews} My Reviews`
@@ -465,7 +465,7 @@ function buildMyReviewsButton(isActive) {
 
 function buildInProgressButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-inprogress-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-inprogress-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'in-progress'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.inProgress} In Progress <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -479,7 +479,7 @@ function buildInProgressButton(isActive) {
 
 function buildFranchisesButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-franchises-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-franchises-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'franchises'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.franchises} Franchises`
@@ -493,7 +493,7 @@ function buildFranchisesButton(isActive) {
 
 function buildBacklogButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-backlog-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-backlog-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'backlog'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.backlog} Backlog <span class="sidebar-collection-badge" style="display:none"></span>`
@@ -507,7 +507,7 @@ function buildBacklogButton(isActive) {
 
 function buildSettingsButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-settings-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-settings-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'settings'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.settings} Settings`
@@ -521,7 +521,7 @@ function buildSettingsButton(isActive) {
 
 function buildTocButton(isActive) {
     const el = document.createElement('div')
-    el.className = 'sidebar-toc-btn' + (isActive ? ' active' : '')
+    el.className = 'sidebar-nav-btn sidebar-toc-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'toc'
     el.tabIndex = 0
     el.innerHTML = `${_ICONS.toc} Table of Contents`
