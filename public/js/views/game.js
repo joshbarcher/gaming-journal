@@ -16,9 +16,9 @@ export async function renderGame(appid, container) {
 
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news
+    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news, protonData
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes, newsRes] = await Promise.all([
+        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes, newsRes, protonRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/itad/${appid}`),
             fetch(`/relay/api/pcgw/${appid}`),
@@ -30,6 +30,7 @@ export async function renderGame(appid, container) {
             fetch(`/relay/api/videos/${appid}`),
             fetch(`/api/local-wishlist/${appid}`),
             fetch(`/relay/api/news/${appid}`),
+            fetch(`/relay/api/protondb/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
         game             = await gameRes.json()
@@ -43,6 +44,8 @@ export async function renderGame(appid, container) {
         trailers         = trailersRes.ok  ? await trailersRes.json()  : []
         localWishlisted  = localWlRes.ok   ? (await localWlRes.json()).wishlisted : false
         news             = newsRes.ok      ? await newsRes.json()      : null
+        protonData       = protonRes.ok    ? await protonRes.json()    : null
+        if (protonData?.notFound || !protonData?.tier) protonData = null
         if (_newsBBCodeDirty(news)) {
             try {
                 await fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' })
@@ -58,7 +61,7 @@ export async function renderGame(appid, container) {
     }
 
     container.innerHTML = `
-        ${_hero(game, communityReviews)}
+        ${_hero(game, communityReviews, protonData)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         ${_releaseBanner(game)}
         <div class="game-flags-bar" data-appid="${appid}">
@@ -76,6 +79,7 @@ export async function renderGame(appid, container) {
             ${_communityReviews(communityReviews, game)}
             ${_itad(itadData, game)}
             ${_pcgw(pcgwData, game)}
+            ${_protondb(protonData, game)}
         </div>`
 
     _startHeroSlideshow(container, game)
@@ -91,6 +95,7 @@ export async function renderGame(appid, container) {
     _initHltbRefresh(container, game)
     _initPcgwRefresh(container, game)
     _initItadRefresh(container, game)
+    _initProtondbRefresh(container, game)
 
     // Fetch missing "About" description in the background and swap it in when ready
     if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
@@ -121,7 +126,7 @@ export async function renderGame(appid, container) {
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
-function _hero(game, communityReviews) {
+function _hero(game, communityReviews, protonData) {
     const screenshots = game.media?.screenshots ?? []
     const initBg  = screenshots[0] ?? game.media?.background ?? game.media?.header ?? ''
     const logoUrl = game.media?.logo ?? ''
@@ -159,6 +164,7 @@ function _hero(game, communityReviews) {
                 </div>
                 <div class="game-hero-right">
                     ${_dataPanel(game, communityReviews)}
+                    ${_protonBadge(protonData, game.appid)}
                 </div>
             </div>
         </section>`
@@ -736,6 +742,75 @@ async function _loadAboutDynamic(container, appid) {
     } catch {
         placeholder.remove()
     }
+}
+
+// ── ProtonDB ──────────────────────────────────────────────────────────────────
+
+const _SVG_AWARD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`
+const _SVG_PROTON_EXT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`
+
+function _protonCap(s) {
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : null
+}
+
+// Small metallic ribbon badge rendered at the bottom of the hero data panel
+function _protonBadge(protonData, appid) {
+    if (!protonData?.tier) return ''
+    const tier     = protonData.tier
+    const reports  = protonData.total != null ? protonData.total.toLocaleString() : null
+    const metaStr  = reports ? `ProtonDB · ${reports} reports` : 'ProtonDB'
+    return `
+        <a class="proton-badge proton-badge--${tier}" href="https://www.protondb.com/app/${appid}" target="_blank" rel="noopener noreferrer" title="View on ProtonDB">
+            <span class="proton-badge-icon">${_SVG_AWARD}</span>
+            <span class="proton-badge-body">
+                <span class="proton-badge-tier">${_protonCap(tier)}</span>
+                <span class="proton-badge-meta">${metaStr}</span>
+            </span>
+            <span class="proton-badge-ext">${_SVG_PROTON_EXT}</span>
+        </a>`
+}
+
+// Full dedicated section rendered below PCGamingWiki
+function _protondb(protonData, game) {
+    if (!protonData?.tier) return ''
+
+    const tier       = protonData.tier
+    const scoreStr   = protonData.score != null ? Math.round(protonData.score * 100) + '%' : null
+    const refreshBtn = `<button class="game-refresh-btn" data-role="protondb-refresh" title="Refresh ProtonDB data">↻</button>`
+
+    const statsHtml = `
+        <div class="protondb-stats">
+            ${protonData.confidence ? `<div class="protondb-stat"><span class="protondb-stat-label">Confidence</span><span class="protondb-stat-value">${_protonCap(protonData.confidence)}</span></div>` : ''}
+            ${scoreStr             ? `<div class="protondb-stat"><span class="protondb-stat-label">Score</span><span class="protondb-stat-value">${scoreStr}</span></div>` : ''}
+            ${protonData.total != null ? `<div class="protondb-stat"><span class="protondb-stat-label">Reports</span><span class="protondb-stat-value">${protonData.total.toLocaleString()}</span></div>` : ''}
+        </div>`
+
+    const pills = [
+        { label: 'Current',       tier: protonData.tier },
+        { label: 'Best Reported', tier: protonData.bestReportedTier },
+        { label: 'Trending',      tier: protonData.trendingTier },
+    ].filter(p => p.tier).map(p => `
+        <div class="protondb-tier-pill protondb-tier-pill--${p.tier}">
+            <span class="protondb-pill-label">${escapeHtml(p.label)}</span>
+            <span class="protondb-pill-tier">${_protonCap(p.tier)}</span>
+        </div>`).join('')
+
+    return `
+        <section class="game-section" id="game-sec-protondb">
+            <h2 class="game-section-title">
+                Linux Compatibility
+                <a class="pcgw-wiki-link" href="https://www.protondb.com/app/${game.appid}" target="_blank" rel="noopener">${_PI.extLink}</a>
+                ${refreshBtn}
+            </h2>
+            <div class="protondb-card protondb-card--${tier}">
+                <div class="protondb-tier-hero">
+                    <span class="protondb-tier-icon">${_SVG_AWARD}</span>
+                    <span class="protondb-tier-name">${_protonCap(tier)}</span>
+                </div>
+                ${statsHtml}
+                ${pills ? `<div class="protondb-pills-row">${pills}</div>` : ''}
+            </div>
+        </section>`
 }
 
 // ── PCGamingWiki ──────────────────────────────────────────────────────────────
@@ -1681,6 +1756,7 @@ const _NAV_ICONS = {
     msgCircle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
     tag:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
     monitor:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+    award:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`,
 }
 
 const _NAV_ITEMS = [
@@ -1696,6 +1772,7 @@ const _NAV_ITEMS = [
     { id: 'game-sec-community-reviews', label: 'Community Reviews', icon: _NAV_ICONS.msgCircle },
     { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
     { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
+    { id: 'game-sec-protondb',          label: 'Linux Compat.',     icon: _NAV_ICONS.award     },
 ]
 
 let _navRailEl = null
@@ -1927,6 +2004,42 @@ function _initItadRefresh(container, game) {
                 }
             }
         } catch { /* silent */ }
+    })
+}
+
+function _initProtondbRefresh(container, game) {
+    const btn = container.querySelector('[data-role="protondb-refresh"]')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+        btn.classList.add('game-refresh-btn--spinning')
+        btn.disabled = true
+        try {
+            await fetch(`/relay/api/protondb/sync/${game.appid}?force=true`, { method: 'POST' })
+            const fresh = await fetch(`/relay/api/protondb/${game.appid}`).then(r => r.ok ? r.json() : null)
+            const protonData = (fresh?.notFound || !fresh?.tier) ? null : fresh
+            const section = container.querySelector('#game-sec-protondb')
+            if (!section) return
+            const tmp = document.createElement('div')
+            tmp.innerHTML = _protondb(protonData, game)
+            const newSection = tmp.firstElementChild
+            if (newSection) {
+                section.replaceWith(newSection)
+                _navRailEl?._rebuild?.()
+                _initProtondbRefresh(container, game)
+            }
+            // Patch the hero badge in-place
+            const badge = container.querySelector('.proton-badge')
+            if (badge) {
+                const tmp2 = document.createElement('div')
+                tmp2.innerHTML = _protonBadge(protonData, game.appid)
+                if (tmp2.firstElementChild) badge.replaceWith(tmp2.firstElementChild)
+                else badge.remove()
+            }
+        } catch { /* silent */ }
+        finally {
+            btn.classList.remove('game-refresh-btn--spinning')
+            btn.disabled = false
+        }
     })
 }
 
