@@ -51,23 +51,23 @@
     position: absolute;
     right: 0;
     top: 0;
-    width: 65%;
+    width: 70%;
     height: 100%;
     background-size: cover;
     background-position: center;
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 100%);
-    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 100%);
-    opacity: 0.35;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, transparent 20%, rgba(0,0,0,0.85) 60%, rgba(0,0,0,1) 100%);
+    mask-image: linear-gradient(to right, transparent 0%, transparent 20%, rgba(0,0,0,0.85) 60%, rgba(0,0,0,1) 100%);
+    opacity: 0.72;
     pointer-events: none;
     transition: opacity 0.2s ease;
 }
 
 .sidebar-history-btn:hover .sidebar-history-backdrop {
-    opacity: 0.55;
+    opacity: 0.90;
 }
 
 .sidebar-history-btn.active .sidebar-history-backdrop {
-    opacity: 0.25;
+    opacity: 0.55;
 }
 
 /* ── Page items ─────────────────────────────────────────────────────────────── */
