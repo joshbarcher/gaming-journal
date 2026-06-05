@@ -1982,8 +1982,8 @@
 
 /* Stat column internals */
 .protondb-col-icon {
-    width: 34px;
-    height: 34px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
     color: var(--clr-text-muted);
     display: flex;
@@ -2003,14 +2003,14 @@
 }
 
 .protondb-col-value {
-    font-size: 20px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--clr-text);
     line-height: 1;
 }
 
 .protondb-col-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     letter-spacing: 0.09em;
     text-transform: uppercase;
