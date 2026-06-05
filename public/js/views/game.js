@@ -805,7 +805,7 @@ function _protondb(protonData, game) {
             </h2>
             <div class="protondb-row protondb-row--${tier}">
 
-                <div class="protondb-col protondb-col--badge">
+                <div class="protondb-col protondb-col--badge proton-badge--${tier}">
                     <span class="protondb-col-icon protondb-badge-icon">${_SVG_AWARD}</span>
                     <span class="protondb-badge-name">${_protonCap(tier)}</span>
                 </div>

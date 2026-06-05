@@ -1822,20 +1822,7 @@
 
 .proton-badge:hover { filter: brightness(1.15); }
 
-/* Animated metallic shine sweep */
-.proton-badge::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -70%;
-    width: 40%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, var(--proton-shine, rgba(255, 255, 255, 0.10)), transparent);
-    transform: skewX(-15deg);
-    pointer-events: none;
-    animation: proton-shine 5s ease-in-out infinite;
-    animation-delay: var(--proton-delay, 0s);
-}
+/* Shine sweep defined once in the ProtonDB section, shared with hero badge via combined selector */
 
 @keyframes proton-shine {
     0%, 65%   { left: -70%; opacity: 1; }
@@ -1897,60 +1884,77 @@
 
 .protondb-row {
     display: flex;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius);
-    overflow: hidden;
+    gap: 8px;
+    align-items: stretch;
 }
 
-/* Tier color scoped to the whole row so badge + bar fill both inherit it */
-.protondb-row--native   { --proton-clr: #7dda84; }
-.protondb-row--platinum { --proton-clr: #b8ccec; }
-.protondb-row--gold     { --proton-clr: #d4a843; }
-.protondb-row--silver   { --proton-clr: #9baab8; }
-.protondb-row--bronze   { --proton-clr: #b47e4a; }
-.protondb-row--borked   { --proton-clr: #e05050; }
-.protondb-row--pending  { --proton-clr: rgba(255,255,255,0.30); }
-
+/* The badge col inherits --proton-bg / --proton-border / --proton-shine / --proton-delay
+   from the proton-badge--{tier} class applied in JS, so the hero badge metallic vars
+   are reused directly here. */
 .protondb-col {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 18px 14px;
-    gap: 6px;
+    padding: 20px 16px;
+    gap: 10px;
     text-align: center;
-    border-right: 1px solid var(--clr-border);
+    border-radius: var(--radius);
 }
 
-.protondb-col:last-child { border-right: none; }
-
-/* Badge column — tier-tinted background, fixed width */
+/* Badge column — same metallic look as the hero badge */
 .protondb-col--badge {
     flex: 0 0 110px;
-    background: color-mix(in srgb, var(--clr-bg-raised) 88%, var(--proton-clr) 12%);
-    border-right-color: color-mix(in srgb, var(--clr-border) 60%, var(--proton-clr) 40%);
+    background: var(--proton-bg);
+    border: 1px solid var(--proton-border, rgba(255,255,255,0.14));
+    position: relative;
+    overflow: hidden;
 }
 
-/* Bar column — wider, left-aligned */
+/* Stat columns — floating with dashed border */
+.protondb-col--stat {
+    background: var(--clr-bg-raised);
+    border: 1px dashed var(--clr-border);
+}
+
+/* Bar column — solid border, left-aligned */
 .protondb-col--bar {
     flex: 2.2;
     align-items: flex-start;
     justify-content: center;
     text-align: left;
-    padding: 18px 20px;
+    padding: 20px 22px;
     gap: 0;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
 }
 
-/* Badge icon + name */
+/* Badge column shares the shine animation with the hero badge */
+.proton-badge::before,
+.protondb-col--badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -70%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, var(--proton-shine, rgba(255,255,255,0.07)), transparent);
+    transform: skewX(-15deg);
+    pointer-events: none;
+    animation: proton-shine 5s ease-in-out infinite;
+    animation-delay: var(--proton-delay, 0s);
+}
+
 .protondb-badge-icon {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     color: var(--proton-clr);
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1;
 }
 
 .protondb-badge-icon svg { width: 100%; height: 100%; stroke-width: 1.5; }
@@ -1962,23 +1966,26 @@
     text-transform: uppercase;
     color: var(--proton-clr);
     line-height: 1;
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 1px 5px rgba(0,0,0,0.6);
 }
 
-/* Stat columns */
+/* Stat column internals */
 .protondb-col-icon {
-    width: 18px;
-    height: 18px;
+    width: 30px;
+    height: 30px;
     color: var(--clr-text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.7;
+    opacity: 0.65;
 }
 
 .protondb-col-icon svg { width: 100%; height: 100%; }
 
 .protondb-col-value {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--clr-text);
     line-height: 1;
@@ -2017,7 +2024,7 @@
     background: rgba(255, 255, 255, 0.08);
     border-radius: 2px;
     overflow: visible;
-    margin-bottom: 20px; /* room for count label below marker */
+    margin-bottom: 20px;
 }
 
 .protondb-bar-fill {
