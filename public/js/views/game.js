@@ -769,26 +769,25 @@ function _protonBadge(protonData, appid) {
 function _protondb(protonData, game) {
     if (!protonData?.tier) return ''
 
-    const tier       = protonData.tier
     const scoreStr   = protonData.score != null ? Math.round(protonData.score * 100) + '%' : null
     const refreshBtn = `<button class="game-refresh-btn" data-role="protondb-refresh" title="Refresh ProtonDB data">↻</button>`
 
-    const statsHtml = `
-        <div class="protondb-stats">
-            ${protonData.confidence ? `<div class="protondb-stat"><span class="protondb-stat-label">Confidence</span><span class="protondb-stat-value">${_protonCap(protonData.confidence)}</span></div>` : ''}
-            ${scoreStr             ? `<div class="protondb-stat"><span class="protondb-stat-label">Score</span><span class="protondb-stat-value">${scoreStr}</span></div>` : ''}
-            ${protonData.total != null ? `<div class="protondb-stat"><span class="protondb-stat-label">Reports</span><span class="protondb-stat-value">${protonData.total.toLocaleString()}</span></div>` : ''}
-        </div>`
-
-    const pills = [
-        { label: 'Current',       tier: protonData.tier },
-        { label: 'Best Reported', tier: protonData.bestReportedTier },
-        { label: 'Trending',      tier: protonData.trendingTier },
+    const tierCards = [
+        { label: 'Current',       tier: protonData.tier,             current: true },
+        { label: 'Best Reported', tier: protonData.bestReportedTier, current: false },
+        { label: 'Trending',      tier: protonData.trendingTier,     current: false },
     ].filter(p => p.tier).map(p => `
-        <div class="protondb-tier-pill protondb-tier-pill--${p.tier}">
-            <span class="protondb-pill-label">${escapeHtml(p.label)}</span>
-            <span class="protondb-pill-tier">${_protonCap(p.tier)}</span>
+        <div class="protondb-tc protondb-tc--${p.tier}${p.current ? ' protondb-tc--current' : ''}">
+            <span class="protondb-tc-icon">${_SVG_AWARD}</span>
+            <span class="protondb-tc-name">${_protonCap(p.tier)}</span>
+            <span class="protondb-tc-label">${escapeHtml(p.label)}</span>
         </div>`).join('')
+
+    const metaHtml = [
+        protonData.confidence ? `<span class="protondb-meta-item"><span class="protondb-meta-label">Confidence</span><span class="protondb-meta-val">${_protonCap(protonData.confidence)}</span></span>` : '',
+        scoreStr              ? `<span class="protondb-meta-item"><span class="protondb-meta-label">Score</span><span class="protondb-meta-val">${scoreStr}</span></span>` : '',
+        protonData.total != null ? `<span class="protondb-meta-item"><span class="protondb-meta-label">Reports</span><span class="protondb-meta-val">${protonData.total.toLocaleString()}</span></span>` : '',
+    ].filter(Boolean).join('<span class="protondb-meta-dot">·</span>')
 
     return `
         <section class="game-section" id="game-sec-protondb">
@@ -797,14 +796,8 @@ function _protondb(protonData, game) {
                 <a class="pcgw-wiki-link" href="https://www.protondb.com/app/${game.appid}" target="_blank" rel="noopener">${_PI.extLink}</a>
                 ${refreshBtn}
             </h2>
-            <div class="protondb-card protondb-card--${tier}">
-                <div class="protondb-tier-hero">
-                    <span class="protondb-tier-icon">${_SVG_AWARD}</span>
-                    <span class="protondb-tier-name">${_protonCap(tier)}</span>
-                </div>
-                ${statsHtml}
-                ${pills ? `<div class="protondb-pills-row">${pills}</div>` : ''}
-            </div>
+            <div class="protondb-tiers">${tierCards}</div>
+            ${metaHtml ? `<div class="protondb-meta">${metaHtml}</div>` : ''}
         </section>`
 }
 
