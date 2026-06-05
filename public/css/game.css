@@ -1913,20 +1913,22 @@
     overflow: hidden;
 }
 
-/* Stat columns — horizontal layout, no background, rounded dashed border */
+/* Stat columns — shrink to content width */
 .protondb-col--stat {
+    flex: 0 0 auto;
     flex-direction: row;
     justify-content: center;
     gap: 14px;
-    padding: 14px 18px;
+    padding: 16px 24px;
     background: transparent;
     border: 1px dashed rgba(255, 255, 255, 0.14);
     border-radius: 10px;
 }
 
-/* Bar column — no background, rounded */
+/* Bar column — absorbs remaining space */
 .protondb-col--bar {
-    flex: 2.2;
+    flex: 1;
+    min-width: 220px;
     align-items: flex-start;
     justify-content: center;
     text-align: left;
@@ -1954,8 +1956,8 @@
 }
 
 .protondb-badge-icon {
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     color: var(--proton-clr);
     display: flex;
     align-items: center;
@@ -1967,7 +1969,7 @@
 .protondb-badge-icon svg { width: 100%; height: 100%; stroke-width: 1.5; }
 
 .protondb-badge-name {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1980,8 +1982,8 @@
 
 /* Stat column internals */
 .protondb-col-icon {
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     flex-shrink: 0;
     color: var(--clr-text-muted);
     display: flex;
@@ -2001,14 +2003,14 @@
 }
 
 .protondb-col-value {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 600;
     color: var(--clr-text);
     line-height: 1;
 }
 
 .protondb-col-label {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.09em;
     text-transform: uppercase;
