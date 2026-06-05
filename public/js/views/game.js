@@ -753,20 +753,14 @@ function _protonCap(s) {
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : null
 }
 
-// Small metallic ribbon badge rendered at the bottom of the hero data panel
+// Circle medal badge rendered to the left of the hero data panel
 function _protonBadge(protonData, appid) {
     if (!protonData?.tier) return ''
-    const tier     = protonData.tier
-    const reports  = protonData.total != null ? protonData.total.toLocaleString() : null
-    const metaStr  = reports ? `ProtonDB · ${reports} reports` : 'ProtonDB'
+    const tier = protonData.tier
     return `
-        <a class="proton-badge proton-badge--${tier}" href="https://www.protondb.com/app/${appid}" target="_blank" rel="noopener noreferrer" title="View on ProtonDB">
-            <span class="proton-badge-icon">${_SVG_AWARD}</span>
-            <span class="proton-badge-body">
-                <span class="proton-badge-tier">${_protonCap(tier)}</span>
-                <span class="proton-badge-meta">${metaStr}</span>
-            </span>
-            <span class="proton-badge-ext">${_SVG_PROTON_EXT}</span>
+        <a class="proton-badge proton-badge--${tier}" href="https://www.protondb.com/app/${appid}" target="_blank" rel="noopener noreferrer" title="ProtonDB — ${_protonCap(tier)}">
+            <span class="proton-badge-circle">${_SVG_AWARD}</span>
+            <span class="proton-badge-label">${_protonCap(tier)}</span>
         </a>`
 }
 
