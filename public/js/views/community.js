@@ -96,9 +96,18 @@ function _sourceTabs(sources, appid) {
         <div class="community-panels">${panels}</div>`
 }
 
-function _imgSrc(post) {
-    // localImage is the relay path e.g. /images/reddit/1091500/abc.jpeg
+// For post listing cards: prefer cached thumbnail, fall back to cached full image
+function _thumbSrc(post) {
+    if (post.localThumb) return `/relay${post.localThumb}`
     if (post.localImage) return `/relay${post.localImage}`
+    if (post.thumbnail)  return post.thumbnail   // CDN fallback (may expire)
+    return null
+}
+
+// For thread view: prefer full cached image, fall back to thumbnail
+function _imgSrc(post) {
+    if (post.localImage) return `/relay${post.localImage}`
+    if (post.localThumb) return `/relay${post.localThumb}`
     if (post.thumbnail)  return post.thumbnail
     return null
 }
@@ -110,14 +119,14 @@ function _postCard(post, appid) {
     const body     = post.selftext
         ? `<p class="community-post-body">${escapeHtml(post.selftext)}</p>`
         : ''
-    const imgSrc   = _imgSrc(post)
-    const img      = imgSrc
-        ? `<div class="community-post-img-wrap"><img class="community-post-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.closest('.community-post-img-wrap').remove()"></div>`
+    const thumbSrc = _thumbSrc(post)
+    const img      = thumbSrc
+        ? `<div class="community-post-img-wrap"><img class="community-post-img" src="${thumbSrc}" alt="" loading="lazy" onerror="this.closest('.community-post-img-wrap').remove()"></div>`
         : ''
     const href = `/community/${appid}/thread/${post.id}?sub=${encodeURIComponent(post.subreddit ?? '')}`
 
     return `
-        <a class="community-post-card${imgSrc ? ' community-post-card--has-image' : ''}" href="${href}" data-nav>
+        <a class="community-post-card${thumbSrc ? ' community-post-card--has-image' : ''}" href="${href}" data-nav>
             ${img}
             <div class="community-post-content">
                 <div class="community-post-header">
