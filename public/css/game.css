@@ -169,9 +169,7 @@
 /* ── Hero right (data panel) ─────────────────────────────────────────────────── */
 .game-hero-right {
     display: flex;
-    flex-direction: row;
     align-items: flex-end;
-    gap: 10px;
 }
 
 .game-data-panel {
@@ -1795,54 +1793,46 @@
     opacity: 1;
 }
 
-/* ── ProtonDB hero badge (circle medal) ──────────────────────────────────────── */
+/* ── ProtonDB hero badge (square, absolutely anchored left of data panel) ────── */
+
+.game-data-panel { position: relative; }
 
 .proton-badge {
+    position: absolute;
+    right: calc(100% + 10px);
+    bottom: 0;
+    width: 76px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    text-decoration: none;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: filter 0.2s ease;
-}
-
-.proton-badge:hover { filter: brightness(1.2); }
-
-.proton-badge-circle {
-    width: 58px;
-    height: 58px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    border: 2px solid var(--proton-border);
+    gap: 5px;
+    padding: 10px 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    border: 1px solid var(--proton-border);
     background: var(--proton-bg);
-    position: relative;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.10);
     overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transition: filter 0.2s ease;
+    cursor: pointer;
 }
 
-.proton-badge-circle svg {
-    width: 26px;
-    height: 26px;
-    color: var(--proton-clr);
-    stroke-width: 1.75;
-    position: relative;
-    z-index: 1;
-}
+.proton-badge:hover { filter: brightness(1.15); }
 
 /* Animated metallic shine sweep */
-.proton-badge-circle::before {
+.proton-badge::before {
     content: '';
     position: absolute;
-    top: -10%;
+    top: 0;
     left: -70%;
     width: 40%;
-    height: 120%;
-    background: linear-gradient(90deg, transparent, var(--proton-shine, rgba(255, 255, 255, 0.12)), transparent);
+    height: 100%;
+    background: linear-gradient(90deg, transparent, var(--proton-shine, rgba(255, 255, 255, 0.10)), transparent);
     transform: skewX(-15deg);
+    pointer-events: none;
     animation: proton-shine 5s ease-in-out infinite;
     animation-delay: var(--proton-delay, 0s);
 }
@@ -1853,23 +1843,55 @@
     83%, 100% { left: 130%; opacity: 0; }
 }
 
-.proton-badge-label {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.10em;
+.proton-badge--native   { --proton-clr: #7dda84; --proton-border: rgba(125,218,132,0.55); --proton-bg: linear-gradient(160deg, rgba(80,180,88,0.72) 0%, rgba(40,120,48,0.62) 100%); --proton-shine: rgba(180,255,185,0.28); --proton-delay: 0.2s; }
+.proton-badge--platinum { --proton-clr: #e8f2ff; --proton-border: rgba(190,215,248,0.60); --proton-bg: linear-gradient(160deg, rgba(155,185,230,0.72) 0%, rgba(90,125,185,0.62) 100%); --proton-shine: rgba(230,245,255,0.35); --proton-delay: 1.8s; }
+.proton-badge--gold     { --proton-clr: #fff0a0; --proton-border: rgba(220,175,55,0.62); --proton-bg: linear-gradient(160deg, rgba(210,165,50,0.75) 0%, rgba(140,95,10,0.65) 100%); --proton-shine: rgba(255,235,130,0.32); --proton-delay: 0.5s; }
+.proton-badge--silver   { --proton-clr: #e0e8f0; --proton-border: rgba(170,190,210,0.55); --proton-bg: linear-gradient(160deg, rgba(145,165,185,0.70) 0%, rgba(88,105,122,0.60) 100%); --proton-shine: rgba(220,235,250,0.28); --proton-delay: 1.1s; }
+.proton-badge--bronze   { --proton-clr: #ffd0a0; --proton-border: rgba(195,130,60,0.58); --proton-bg: linear-gradient(160deg, rgba(185,118,55,0.73) 0%, rgba(115,65,18,0.63) 100%); --proton-shine: rgba(250,185,100,0.28); --proton-delay: 2.4s; }
+.proton-badge--borked   { --proton-clr: #ffb0b0; --proton-border: rgba(210,70,70,0.58); --proton-bg: linear-gradient(160deg, rgba(190,55,55,0.72) 0%, rgba(120,20,20,0.62) 100%); --proton-shine: rgba(255,140,140,0.20); }
+.proton-badge--pending  { --proton-clr: rgba(255,255,255,0.65); --proton-border: rgba(255,255,255,0.22); --proton-bg: linear-gradient(160deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.08) 100%); --proton-shine: rgba(255,255,255,0.10); }
+
+.proton-badge-tier {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--proton-clr);
     line-height: 1;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+    position: relative;
+    z-index: 1;
+    text-align: center;
 }
 
-.proton-badge--native   { --proton-clr: #7dda84; --proton-border: rgba(125,218,132,0.70); --proton-bg: radial-gradient(circle at 40% 35%, rgba(125,218,132,0.55) 0%, rgba(60,160,66,0.40) 100%); --proton-shine: rgba(180,255,185,0.30); --proton-delay: 0.2s; }
-.proton-badge--platinum { --proton-clr: #deeaf8; --proton-border: rgba(200,220,248,0.72); --proton-bg: radial-gradient(circle at 40% 35%, rgba(210,228,252,0.58) 0%, rgba(130,160,210,0.42) 100%); --proton-shine: rgba(240,248,255,0.38); --proton-delay: 1.8s; }
-.proton-badge--gold     { --proton-clr: #f0c855; --proton-border: rgba(230,190,70,0.72); --proton-bg: radial-gradient(circle at 40% 35%, rgba(240,200,80,0.58) 0%, rgba(170,110,15,0.44) 100%); --proton-shine: rgba(255,235,130,0.36); --proton-delay: 0.5s; }
-.proton-badge--silver   { --proton-clr: #cdd6e0; --proton-border: rgba(185,200,215,0.65); --proton-bg: radial-gradient(circle at 40% 35%, rgba(195,210,225,0.52) 0%, rgba(110,128,145,0.38) 100%); --proton-shine: rgba(220,235,250,0.30); --proton-delay: 1.1s; }
-.proton-badge--bronze   { --proton-clr: #e0a060; --proton-border: rgba(210,145,75,0.68); --proton-bg: radial-gradient(circle at 40% 35%, rgba(210,148,78,0.55) 0%, rgba(130,72,25,0.42) 100%); --proton-shine: rgba(250,185,100,0.30); --proton-delay: 2.4s; }
-.proton-badge--borked   { --proton-clr: #f07070; --proton-border: rgba(224,80,80,0.65); --proton-bg: radial-gradient(circle at 40% 35%, rgba(220,80,80,0.50) 0%, rgba(140,30,30,0.40) 100%); --proton-shine: rgba(255,140,140,0.22); }
-.proton-badge--pending  { --proton-clr: rgba(255,255,255,0.55); --proton-border: rgba(255,255,255,0.25); --proton-bg: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%); --proton-shine: rgba(255,255,255,0.12); }
+.proton-badge-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+}
+
+.proton-badge-icon svg {
+    width: 26px;
+    height: 26px;
+    color: var(--proton-clr);
+    stroke-width: 1.75;
+    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.6));
+}
+
+.proton-badge-sub {
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
 
 /* ── ProtonDB dedicated section ──────────────────────────────────────────────── */
 

@@ -163,8 +163,7 @@ function _hero(game, communityReviews, protonData) {
                     ${badgesHtml ? `<div class="game-hero-badges">${badgesHtml}</div>` : ''}
                 </div>
                 <div class="game-hero-right">
-                    ${_dataPanel(game, communityReviews)}
-                    ${_protonBadge(protonData, game.appid)}
+                    ${_dataPanel(game, communityReviews, protonData)}
                 </div>
             </div>
         </section>`
@@ -267,7 +266,7 @@ function _scoreChip(source, score, display, id = '') {
     </div>`
 }
 
-function _dataPanel(game, communityReviews) {
+function _dataPanel(game, communityReviews, protonData) {
     const rows = []
 
     // Scores row — Steam · OpenCritic (placeholder) · Metacritic
@@ -320,6 +319,7 @@ function _dataPanel(game, communityReviews) {
     rows.push(_gdpRow('Steam ID', `<a class="gdp-steam-link" href="https://store.steampowered.com/app/${game.appid}" target="_blank" rel="noopener">${game.appid} ↗</a>`, true))
 
     return `<div class="game-data-panel">
+        ${_protonBadge(protonData, game.appid)}
         ${rows.join('')}
         <a href="/journal/${game.appid}" class="game-journal-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg> Open Journal</a>
     </div>`
@@ -753,14 +753,15 @@ function _protonCap(s) {
     return s ? s.charAt(0).toUpperCase() + s.slice(1) : null
 }
 
-// Circle medal badge rendered to the left of the hero data panel
+// Square badge absolutely anchored to the left edge of the data panel
 function _protonBadge(protonData, appid) {
     if (!protonData?.tier) return ''
     const tier = protonData.tier
     return `
         <a class="proton-badge proton-badge--${tier}" href="https://www.protondb.com/app/${appid}" target="_blank" rel="noopener noreferrer" title="ProtonDB — ${_protonCap(tier)}">
-            <span class="proton-badge-circle">${_SVG_AWARD}</span>
-            <span class="proton-badge-label">${_protonCap(tier)}</span>
+            <span class="proton-badge-tier">${_protonCap(tier)}</span>
+            <span class="proton-badge-icon">${_SVG_AWARD}</span>
+            <span class="proton-badge-sub">Linux / Proton</span>
         </a>`
 }
 
