@@ -106,6 +106,18 @@ function _fmtElapsed(startIso) {
     return `${h}h ${m}m`
 }
 
+function _setHistoryBackdrop(appid) {
+    const btn = document.querySelector('.sidebar-history-btn')
+    if (!btn) return
+    let backdrop = btn.querySelector('.sidebar-history-backdrop')
+    if (!backdrop) {
+        backdrop = document.createElement('span')
+        backdrop.className = 'sidebar-history-backdrop'
+        btn.appendChild(backdrop)
+    }
+    backdrop.style.backgroundImage = `url('/relay/images/steam/games/${appid}/header.jpg')`
+}
+
 function _renderNowPlaying(playing) {
     const nav = document.getElementById('sidebar-nav')
     if (!nav) return
@@ -115,6 +127,17 @@ function _renderNowPlaying(playing) {
         if (existing) existing.remove()
         _nowPlayingAppid  = null
         _nowPlayingStart  = null
+        // Session ended — re-fetch last-played to show the most recent game
+        fetch('/relay/api/steam/playtime/last-played')
+            .then(r => r.ok ? r.json() : null)
+            .then(map => {
+                if (!map) return
+                const sorted = Object.entries(map)
+                    .filter(([, v]) => v.lastPlayedAt)
+                    .sort((a, b) => new Date(b[1].lastPlayedAt) - new Date(a[1].lastPlayedAt))
+                if (sorted.length) _setHistoryBackdrop(sorted[0][0])
+            })
+            .catch(() => {})
         return
     }
 
@@ -126,6 +149,9 @@ function _renderNowPlaying(playing) {
         if (timeEl) timeEl.textContent = _fmtElapsed(_nowPlayingStart)
         return
     }
+
+    // New game started — update history backdrop immediately
+    _setHistoryBackdrop(playing.appid)
 
     _nowPlayingAppid = playing.appid
     if (existing) existing.remove()
@@ -390,6 +416,24 @@ function buildHistoryButton(isActive) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('history') }
         _arrowNav(e)
     })
+
+    // Async: inject last-played game art as backdrop
+    fetch('/relay/api/steam/playtime/last-played')
+        .then(r => r.ok ? r.json() : null)
+        .then(map => {
+            if (!map) return
+            const sorted = Object.entries(map)
+                .filter(([, v]) => v.lastPlayedAt)
+                .sort((a, b) => new Date(b[1].lastPlayedAt) - new Date(a[1].lastPlayedAt))
+            if (!sorted.length) return
+            const appid = sorted[0][0]
+            const backdrop = document.createElement('span')
+            backdrop.className = 'sidebar-history-backdrop'
+            backdrop.style.backgroundImage = `url('/relay/images/steam/games/${appid}/header.jpg')`
+            el.appendChild(backdrop)
+        })
+        .catch(() => {})
+
     return el
 }
 

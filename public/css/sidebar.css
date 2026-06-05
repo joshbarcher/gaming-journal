@@ -40,6 +40,36 @@
     opacity: 0.75;
 }
 
+/* ── History button backdrop ─────────────────────────────────────────────────── */
+
+.sidebar-history-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-history-backdrop {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 65%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 100%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 100%);
+    opacity: 0.35;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.sidebar-history-btn:hover .sidebar-history-backdrop {
+    opacity: 0.55;
+}
+
+.sidebar-history-btn.active .sidebar-history-backdrop {
+    opacity: 0.25;
+}
+
 /* ── Page items ─────────────────────────────────────────────────────────────── */
 .sidebar-item {
     display: flex;
