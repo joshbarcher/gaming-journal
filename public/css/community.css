@@ -344,14 +344,41 @@
     padding: 32px 40px 40px;
 }
 
+.community-comments-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
 .community-comments-heading {
     font-family: var(--font-title);
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--clr-text);
-    margin: 0 0 20px;
+    margin: 0;
     letter-spacing: 0.02em;
 }
+
+.community-refresh-btn {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--clr-text-muted);
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition);
+}
+
+.community-refresh-btn:hover:not(:disabled) {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+}
+
+.community-refresh-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ── Comment tree ────────────────────────────────────────────────────────── */
 
@@ -368,9 +395,9 @@
     padding-left: 0;
 }
 
-.thread-comment[data-depth="1"] { border-left-color: #5b9bd5; padding-left: 16px; }
-.thread-comment[data-depth="2"] { border-left-color: #e8944a; padding-left: 16px; }
-.thread-comment[data-depth="3"] { border-left-color: #5cb85c; padding-left: 16px; }
+.thread-comment[data-depth="1"] { border-left-color: rgba(91,155,213,0.70); padding-left: 16px; }
+.thread-comment[data-depth="2"] { border-left-color: rgba(232,148,74,0.65); padding-left: 16px; }
+.thread-comment[data-depth="3"] { border-left-color: rgba(92,184,92,0.62); padding-left: 16px; }
 .thread-comment[data-depth="4"] { border-left-color: rgba(255,255,255,0.18); padding-left: 16px; }
 
 .thread-comment-replies {

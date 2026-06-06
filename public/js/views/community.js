@@ -202,8 +202,11 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
             <div class="community-thread-post">
                 ${_fullPostCard(post, thread.subreddit)}
             </div>
-            <div class="community-thread-comments">
-                <h2 class="community-comments-heading">${commentCount} Comment${commentCount !== 1 ? 's' : ''}</h2>
+            <div class="community-thread-comments" data-appid="${appid}" data-post-id="${postId}" data-sub="${escapeHtml(sub)}">
+                <div class="community-comments-header">
+                    <h2 class="community-comments-heading">${commentCount} Comment${commentCount !== 1 ? 's' : ''}</h2>
+                    <button class="community-refresh-btn" title="Fetch latest comments">↻ Refresh</button>
+                </div>
                 ${comments.length === 0
                     ? '<p class="community-empty">No comments yet.</p>'
                     : comments.map(c => _renderComment(c, post.permalink)).join('')}
@@ -212,6 +215,7 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
 
     _initThread(container)
     _initNavLinks(container)
+    _initThreadRefresh(container)
 }
 
 function _countComments(comments) {
@@ -257,13 +261,6 @@ function _renderComment(comment, threadUrl, depth = 0) {
     if (!comment) return ''
     const usedDepth = comment.depth ?? depth
 
-    if (usedDepth >= 5) {
-        return `
-            <div class="thread-comment thread-comment--continue" data-depth="${usedDepth}">
-                <a class="thread-comment-continue" href="${escapeHtml(threadUrl)}" target="_blank" rel="noopener noreferrer">Continue thread →</a>
-            </div>`
-    }
-
     const body    = comment.body
         ? escapeHtml(comment.body)
         : '<em class="thread-comment-deleted">[deleted]</em>'
@@ -271,16 +268,17 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const score   = _fmtScore(comment.score)
     const replies = comment.replies ?? []
 
+    // Replies start collapsed — user expands what they want to read
     const repliesHtml = replies.length > 0
-        ? `<div class="thread-comment-replies">${replies.map(r => _renderComment(r, threadUrl)).join('')}</div>`
+        ? `<div class="thread-comment-replies" hidden>${replies.map(r => _renderComment(r, threadUrl)).join('')}</div>`
         : ''
 
     const toggleBtn = replies.length > 0
-        ? `<button class="thread-comment-toggle" aria-label="Collapse comment">−</button>`
+        ? `<button class="thread-comment-toggle" aria-label="Expand replies">+</button>`
         : ''
 
     return `
-        <div class="thread-comment" data-depth="${usedDepth}">
+        <div class="thread-comment" data-depth="${usedDepth}" data-id="${escapeHtml(comment.id ?? '')}">
             <div class="thread-comment-header">
                 ${toggleBtn}
                 <span class="thread-comment-author">${escapeHtml(comment.author ?? '[deleted]')}</span>
@@ -292,13 +290,95 @@ function _renderComment(comment, threadUrl, depth = 0) {
         </div>`
 }
 
+function _initThreadRefresh(container) {
+    const btn = container.querySelector('.community-refresh-btn')
+    if (!btn) return
+    btn.addEventListener('click', async () => {
+        btn.disabled = true
+        btn.textContent = '↻ Fetching…'
+        const section = container.querySelector('.community-thread-comments')
+        const { appid, postId, sub } = section.dataset
+
+        try {
+            const res = await fetch(`/relay/api/reddit/${appid}/thread/${postId}?sub=${encodeURIComponent(sub)}&force=true`)
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            const thread  = await res.json()
+            const newComments = thread.comments ?? []
+
+            // Collect all comment IDs already in the DOM
+            const existing = new Set(
+                [...section.querySelectorAll('.thread-comment[data-id]')].map(el => el.dataset.id)
+            )
+
+            // Find genuinely new top-level comments not yet rendered
+            const added = []
+            for (const c of newComments) {
+                if (!existing.has(c.id)) {
+                    const tmp = document.createElement('div')
+                    tmp.innerHTML = _renderComment(c, thread.post?.permalink ?? '')
+                    const el = tmp.firstElementChild
+                    if (el) { section.appendChild(el); added.push(c.id) }
+                }
+            }
+
+            // Update scores on existing comments
+            const allNew = _flattenComments(newComments)
+            const scoreMap = new Map(allNew.map(c => [c.id, c.score]))
+            section.querySelectorAll('.thread-comment[data-id]').forEach(el => {
+                const s = scoreMap.get(el.dataset.id)
+                if (s == null) return
+                const scoreEl = el.querySelector('.thread-comment-score')
+                if (scoreEl) scoreEl.textContent = `▲ ${_fmtScore(s)}`
+            })
+
+            // Update heading count
+            const total = _countComments(newComments)
+            const heading = section.querySelector('.community-comments-heading')
+            if (heading) heading.textContent = `${total} Comment${total !== 1 ? 's' : ''}`
+
+            // Wire up any newly added toggle buttons
+            section.querySelectorAll('.thread-comment-toggle').forEach(b => {
+                if (b.dataset.wired) return
+                b.dataset.wired = '1'
+                b.addEventListener('click', () => {
+                    const comment = b.closest('.thread-comment')
+                    const replies = comment?.querySelector('.thread-comment-replies')
+                    if (!replies) return
+                    const nowHidden = replies.toggleAttribute('hidden')
+                    b.textContent = nowHidden ? '+' : '−'
+                    b.setAttribute('aria-label', nowHidden ? 'Expand replies' : 'Collapse replies')
+                })
+            })
+
+            btn.textContent = added.length > 0
+                ? `↻ +${added.length} new`
+                : '↻ Up to date'
+        } catch (err) {
+            btn.textContent = '↻ Failed'
+            console.warn('[thread-refresh]', err)
+        } finally {
+            btn.disabled = false
+            setTimeout(() => { if (btn.isConnected) btn.textContent = '↻ Refresh' }, 3000)
+        }
+    })
+}
+
+function _flattenComments(comments) {
+    const out = []
+    for (const c of comments) { out.push(c); out.push(..._flattenComments(c.replies ?? [])) }
+    return out
+}
+
 function _initThread(container) {
     container.querySelectorAll('.thread-comment-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
             const comment = btn.closest('.thread-comment')
             if (!comment) return
-            const collapsed = comment.classList.toggle('thread-comment--collapsed')
-            btn.textContent = collapsed ? '+' : '−'
+            const replies = comment.querySelector('.thread-comment-replies')
+            if (!replies) return
+            const nowHidden = replies.toggleAttribute('hidden')
+            btn.textContent = nowHidden ? '+' : '−'
+            btn.setAttribute('aria-label', nowHidden ? 'Expand replies' : 'Collapse replies')
         })
     })
 }
