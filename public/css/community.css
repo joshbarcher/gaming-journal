@@ -532,6 +532,8 @@
 
 [data-lightbox-src] { cursor: zoom-in; }
 
+.is-user-filtered { display: none !important; }
+
 .community-img-lightbox {
     position: fixed;
     inset: 0;

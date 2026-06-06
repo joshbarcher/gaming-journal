@@ -335,7 +335,7 @@ function _applyAllPrefs(container, prefs) {
     container.querySelectorAll('[data-author]').forEach(el => {
         const a = el.dataset.author
         if (!a) return
-        el.hidden = prefs.filtered.has(a)
+        el.classList.toggle('is-user-filtered',     prefs.filtered.has(a))
         el.classList.toggle('is-user-muted',        prefs.muted.has(a))
         el.classList.toggle('is-user-favorited',    prefs.favorited.has(a))
         el.classList.toggle('is-user-highlighted',  prefs.highlighted.has(a))
@@ -356,7 +356,7 @@ function _initUserContextMenus(container, appid) {
         // Read live pref state from DOM classes across all elements for this author
         const targets = [...container.querySelectorAll(`[data-author="${CSS.escape(username)}"]`)]
         const first   = targets[0]
-        const isFiltered    = first?.hidden ?? false
+        const isFiltered    = first?.classList.contains('is-user-filtered') ?? false
         const isMuted       = first?.classList.contains('is-user-muted')       ?? false
         const isFavorited   = first?.classList.contains('is-user-favorited')   ?? false
         const isHighlighted = first?.classList.contains('is-user-highlighted') ?? false
@@ -366,7 +366,7 @@ function _initUserContextMenus(container, appid) {
                 label: isFiltered ? `Remove filter on u/${username}` : `Filter u/${username}`,
                 action: () => {
                     const nowOn = !isFiltered
-                    targets.forEach(el => { el.hidden = nowOn })
+                    targets.forEach(el => el.classList.toggle('is-user-filtered', nowOn))
                     toggleFilter(username).catch(console.warn)
                 },
             },
