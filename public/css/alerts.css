@@ -1,5 +1,13 @@
 /* ── Alerts page ─────────────────────────────────────────────────────────────── */
 
+/* Page header — full-width, matching collection pages */
+.page-header:has(+ .alerts-section),
+.page-header:has(+ .alerts-empty) {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 0;
+}
+
 .alerts-empty {
     padding: 40px;
     color: var(--clr-text-muted);

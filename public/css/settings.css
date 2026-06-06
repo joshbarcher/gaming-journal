@@ -1,3 +1,10 @@
+/* Settings page header — full-width */
+.page-header:has(+ .settings-body) {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 0;
+}
+
 .settings-body {
     padding: 32px 40px;
     max-width: 640px;
