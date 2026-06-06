@@ -112,6 +112,12 @@ function _imgSrc(post) {
     return null
 }
 
+// For thread view: locally cached video only — no CDN fallback (URLs expire)
+function _videoSrc(post) {
+    if (post.localVideo) return `/relay${post.localVideo}`
+    return null
+}
+
 function _postCard(post, appid) {
     const score    = _fmtScore(post.score)
     const time     = _fmtTime(post.createdUtc)
@@ -120,8 +126,9 @@ function _postCard(post, appid) {
         ? `<p class="community-post-body">${escapeHtml(post.selftext)}</p>`
         : ''
     const thumbSrc = _thumbSrc(post)
+    const playIcon = post.isVideo ? '<span class="community-post-play">▶</span>' : ''
     const img      = thumbSrc
-        ? `<div class="community-post-img-wrap"><img class="community-post-img" src="${thumbSrc}" alt="" loading="lazy" onerror="this.closest('.community-post-img-wrap').remove()"></div>`
+        ? `<div class="community-post-img-wrap">${playIcon}<img class="community-post-img" src="${thumbSrc}" alt="" loading="lazy" onerror="this.closest('.community-post-img-wrap').remove()"></div>`
         : ''
     const href = `/community/${appid}/thread/${post.id}?sub=${encodeURIComponent(post.subreddit ?? '')}`
 
@@ -238,10 +245,13 @@ function _fullPostCard(post, subreddit) {
     const body     = post.selftext
         ? `<div class="community-thread-post-body">${escapeHtml(post.selftext)}</div>`
         : ''
-    const imgSrc   = _imgSrc(post)
-    const img      = imgSrc
-        ? `<div class="community-thread-post-image"><img src="${imgSrc}" alt="" loading="lazy" onerror="this.closest('.community-thread-post-image').remove()"></div>`
-        : ''
+    const videoSrc = _videoSrc(post)
+    const imgSrc   = !videoSrc ? _imgSrc(post) : null
+    const img      = videoSrc
+        ? `<div class="community-thread-post-image"><video class="community-thread-post-video" src="${videoSrc}" controls loop muted playsinline preload="metadata"></video></div>`
+        : imgSrc
+            ? `<div class="community-thread-post-image"><img src="${imgSrc}" alt="" loading="lazy" onerror="this.closest('.community-thread-post-image').remove()"></div>`
+            : ''
 
     return `
         <div class="community-thread-post-card">
