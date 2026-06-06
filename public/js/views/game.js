@@ -1789,6 +1789,7 @@ function _loadBackgroundSections(container, game, needsCommunitySync) {
                 }
                 const badges = container.querySelector('.game-panel-badges')
                 if (badges) {
+                    badges.querySelector('.proton-badge')?.remove()
                     const tmp = document.createElement('div')
                     tmp.innerHTML = _protonBadge(protonData, appid)
                     const el = tmp.firstElementChild
