@@ -1,14 +1,23 @@
-/* ── Library controls ────────────────────────────────────────────────────────── */
+/* ── Page header ─────────────────────────────────────────────────────────────── */
 .lib-title {
     font-family: var(--font-title);
 }
 
+/* Library header — full-width with internal padding, matching collection pages */
+.page-header:has(.lib-title) {
+    padding: 40px 40px 32px;
+    border-bottom: 1px solid var(--clr-border);
+    margin-bottom: 24px;
+}
+
+/* ── Library controls ────────────────────────────────────────────────────────── */
 .lib-controls {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 24px;
     flex-wrap: wrap;
+    padding: 0 40px;
 }
 
 .lib-search {
@@ -75,6 +84,7 @@
     flex-wrap: wrap;
     gap: 4px;
     margin-bottom: 20px;
+    padding: 0 40px;
 }
 
 .lib-alpha-btn {
@@ -115,6 +125,7 @@
     align-items: center;
     justify-content: space-between;
     margin: 8px 0 48px;
+    padding: 0 40px;
 }
 
 .lib-back-top {
@@ -140,6 +151,7 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
     margin-bottom: 32px;
+    padding: 0 40px;
 }
 
 .lib-empty {

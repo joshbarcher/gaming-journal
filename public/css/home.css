@@ -1,13 +1,12 @@
 /* ── Home landing page ───────────────────────────────────────────────────────── */
 
 .home-wrap {
-    margin: -48px -56px;
     height: 100vh;
     overflow: hidden;
     display: grid;
     grid-template-rows: 45fr 55fr;
     gap: 40px;
-    padding: 24px;
+    padding: 40px;
     background: var(--clr-bg);
     box-sizing: border-box;
 }
