@@ -323,16 +323,16 @@ function _applyAllPrefs(container, prefs) {
 
 function _initUserContextMenus(container, appid) {
     container.addEventListener('contextmenu', e => {
-        const authorEl = e.target.closest('.community-post-author, .thread-comment-author')
-        if (!authorEl) return
+        // Accept right-click anywhere on a post card or comment; author is on data-author
+        const target = e.target.closest('[data-author]')
+        if (!target) return
 
-        const raw      = authorEl.textContent.trim()
-        const username = raw.startsWith('u/') ? raw.slice(2) : raw
+        const username = target.dataset.author
         if (!username || username === '[deleted]') return
 
-        // Read live pref state from DOM classes for the first matching element
-        const targets  = [...container.querySelectorAll(`[data-author="${CSS.escape(username)}"]`)]
-        const first    = targets[0]
+        // Read live pref state from DOM classes across all elements for this author
+        const targets = [...container.querySelectorAll(`[data-author="${CSS.escape(username)}"]`)]
+        const first   = targets[0]
         const isFiltered    = first?.hidden ?? false
         const isMuted       = first?.classList.contains('is-user-muted')       ?? false
         const isFavorited   = first?.classList.contains('is-user-favorited')   ?? false
