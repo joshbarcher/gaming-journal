@@ -289,19 +289,36 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
 
     try {
         console.log(`${tag} firing sync POST...`)
-        const t0      = Date.now()
-        const syncRes = await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
+        const syncRes  = await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
         const syncJson = syncRes.ok ? await syncRes.json().catch(() => null) : null
-        console.log(`${tag} sync response: ${syncRes.status} in ${Date.now() - t0}ms`, syncJson)
+        console.log(`${tag} sync response: ${syncRes.status}`, syncJson)
 
-        console.log(`${tag} re-fetching Reddit entry...`)
-        const res  = await fetch(`/relay/api/reddit/${appid}`)
-        const data = res.ok ? await res.json() : null
-        console.log(`${tag} entry response: ${res.status}, sources:`, data?.sources?.map(s => `${s.subreddit}(${s.posts?.length ?? 0})`))
+        // Sync runs in the background — poll until the new subreddit appears in sources
+        const POLL_INTERVAL_MS = 3_000
+        const POLL_TIMEOUT_MS  = 90_000
+        const pollStart = Date.now()
+        let source = null
 
-        const source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase())
-        const posts  = source?.posts ?? []
-        console.log(`${tag} matched source:`, source ? `${source.subreddit} — ${posts.length} posts` : 'NOT FOUND')
+        console.log(`${tag} polling for r/${subreddit} to appear in sources...`)
+        while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
+            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+            const res  = await fetch(`/relay/api/reddit/${appid}`)
+            const data = res.ok ? await res.json() : null
+            const elapsed = Date.now() - pollStart
+            console.log(`${tag} poll at ${elapsed}ms — sources:`, data?.sources?.map(s => `${s.subreddit}(${s.posts?.length ?? 0})`))
+            source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase()) ?? null
+            if (source) {
+                console.log(`${tag} found after ${elapsed}ms — ${source.posts?.length ?? 0} posts`)
+                break
+            }
+        }
+
+        if (!source) {
+            console.warn(`${tag} timed out after ${POLL_TIMEOUT_MS}ms — subreddit never appeared in sources`)
+        }
+
+        const posts = source?.posts ?? []
+        console.log(`${tag} matched source:`, source ? `${source.subreddit} — ${posts.length} posts` : 'NOT FOUND (timed out)')
 
         console.log(`${tag} rendering ${posts.length} posts into panel...`)
         panel.innerHTML = posts.length > 0
