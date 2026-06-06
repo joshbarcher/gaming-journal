@@ -559,6 +559,18 @@
     display: block;
 }
 
+.thread-comment-gif {
+    margin-top: 8px;
+    display: inline-block;
+}
+
+.thread-comment-gif video {
+    max-width: min(100%, 480px);
+    max-height: 360px;
+    border-radius: 4px;
+    display: block;
+}
+
 .thread-comment--continue {
     border-left-color: rgba(255,255,255,0.08) !important;
 }

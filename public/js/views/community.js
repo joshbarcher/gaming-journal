@@ -494,11 +494,15 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const author    = comment.author ?? ''
 
     const rawBody = comment.body ?? null
-    // Strip bare Reddit image URLs from body text — they're rendered as images below
+    // Strip bare Reddit image URLs and Giphy embeds — rendered separately below
     const displayBody = rawBody
-        ? rawBody.replace(/https?:\/\/(?:preview|i)\.redd\.it\/\S+\.(?:png|jpe?g|gif|webp)\S*/gi, '').trim()
+        ? rawBody
+            .replace(/https?:\/\/(?:preview|i)\.redd\.it\/\S+\.(?:png|jpe?g|gif|webp)\S*/gi, '')
+            .replace(/!\[gif\]\(giphy\|[a-zA-Z0-9]+[^)]*\)/gi, '')
+            .trim()
         : null
     const images = comment.images ?? []
+    const gifs   = comment.gifs   ?? []
 
     const bodyHtml = displayBody
         ? escapeHtml(displayBody)
@@ -509,6 +513,11 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const imagesHtml = images.map(img => {
         const src = img.localImage ? `/relay${img.localImage}` : img.url
         return `<div class="thread-comment-image" data-lightbox-src="${escapeHtml(src)}"><img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.closest('.thread-comment-image').remove()"></div>`
+    }).join('')
+
+    const gifsHtml = gifs.filter(g => g.localVideo).map(g => {
+        const src = `/relay${g.localVideo}`
+        return `<div class="thread-comment-gif"><video src="${escapeHtml(src)}" autoplay loop muted playsinline></video></div>`
     }).join('')
 
     const time    = _fmtTime(comment.createdUtc)
@@ -533,6 +542,7 @@ function _renderComment(comment, threadUrl, depth = 0) {
             </div>
             <div class="thread-comment-body">${bodyHtml}</div>
             ${imagesHtml}
+            ${gifsHtml}
             ${repliesHtml}
         </div>`
 }
