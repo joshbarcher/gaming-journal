@@ -125,7 +125,6 @@ const FROM_LABELS = {
     'history':         'History',
     'in-progress':     'In Progress',
     'my-reviews':     'My Reviews',
-    'community':      'Community',
 }
 
 export function gameBackLabel() {
@@ -135,10 +134,6 @@ export function gameBackLabel() {
 
 export function gameBackPath() {
     const from = sessionStorage.getItem('gj_game_from')
-    if (from === 'community') {
-        const communityAppid = sessionStorage.getItem('gj_community_appid') ?? ''
-        return communityAppid ? `/community/${communityAppid}` : '/library'
-    }
     return from && FROM_LABELS[from] ? `/${from}` : '/library'
 }
 
@@ -148,15 +143,13 @@ export async function navigate(path, { replace = false } = {}) {
 
     // When navigating to a game, record which view we're leaving so the game
     // page can render a context-aware back button. Don't overwrite if already
-    // navigating game-to-game (keeps the original origin view).
+    // navigating game-to-game, or returning from a community sub-page (community
+    // is not a top-level origin — the original library/wishlist/etc. source stands).
     if (route.view === 'game' && _initialized) {
         const prevRoute = parseRoute(getRoutePath())
-        if (prevRoute.view !== 'game') {
+        const isGameSubPage = prevRoute.view === 'community' || prevRoute.view === 'community-thread'
+        if (prevRoute.view !== 'game' && !isGameSubPage) {
             sessionStorage.setItem('gj_game_from', prevRoute.view)
-            if (prevRoute.view === 'community' || prevRoute.view === 'community-thread') {
-                sessionStorage.setItem('gj_game_from', 'community')
-                sessionStorage.setItem('gj_community_appid', prevRoute.appid ?? '')
-            }
         }
     }
 
