@@ -277,7 +277,8 @@
 
 /* ── Flags bar ───────────────────────────────────────────────────────────────── */
 .game-flags-bar {
-    padding: 0 40px 0 68px;
+    /* padding: 0 40px 0 68px; */
+    margin-left: 70px;
     border-bottom: 1px solid var(--clr-border);
 }
 
