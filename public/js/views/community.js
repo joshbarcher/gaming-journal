@@ -24,14 +24,16 @@ function _fmtTime(utc) {
 export async function renderCommunity(appid, container) {
     container.innerHTML = '<p class="page-loading">Loading…</p>'
 
-    let game, redditData, prefs
+    let game, redditData, userSubs, prefs
     try {
-        const [gameRes, redditRes] = await Promise.all([
+        const [gameRes, redditRes, userSubsRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
             fetch(`/relay/api/reddit/${appid}`),
+            fetch(`/api/reddit-subreddits/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(`Game HTTP ${gameRes.status}`)
-        game = await gameRes.json()
+        game     = await gameRes.json()
+        userSubs = userSubsRes.ok ? await userSubsRes.json() : []
         if (redditRes.ok) {
             redditData = await redditRes.json()
         } else {
@@ -66,7 +68,9 @@ export async function renderCommunity(appid, container) {
                 </div>
             </div>
             <div class="community-body">
-                ${sources.length === 0 ? _emptyState() : _sourceTabs(sources, appid)}
+                ${sources.length === 0 && userSubs.length === 0
+                    ? _emptyState(appid, game.name ?? '', userSubs)
+                    : _sourceTabs(sources, appid, game.name ?? '', userSubs)}
             </div>
         </div>`
 
@@ -74,20 +78,62 @@ export async function renderCommunity(appid, container) {
     _initTabs(container)
     _initNavLinks(container)
     _initUserContextMenus(container, appid)
+    _initManagePanel(container, appid, game.name ?? '')
 }
 
-function _emptyState() {
-    return '<p class="community-empty">No community posts found for this game.</p>'
+function _emptyState(appid, gameName, userSubs) {
+    return `
+        <p class="community-empty">No community posts found for this game.</p>
+        ${_managePanelHtml(appid, gameName, userSubs)}`
 }
 
-function _sourceTabs(sources, appid) {
-    const tabs = sources.map((s, i) => `
+function _allSource(sources) {
+    const seen  = new Set()
+    const posts = []
+    for (const s of sources) {
+        for (const p of s.posts) {
+            if (!seen.has(p.id)) { seen.add(p.id); posts.push(p) }
+        }
+    }
+    posts.sort((a, b) => (b.createdUtc ?? 0) - (a.createdUtc ?? 0))
+    return { id: '__all__', label: 'All', posts }
+}
+
+function _managePanelHtml(appid, gameName, userSubs) {
+    const chips = userSubs.map(name => `
+        <span class="community-manage-chip" data-sub="${escapeHtml(name)}">
+            r/${escapeHtml(name)}
+            <button class="community-manage-chip-remove" aria-label="Remove r/${escapeHtml(name)}">×</button>
+        </span>`).join('')
+
+    return `
+        <div class="community-manage-panel" data-appid="${escapeHtml(String(appid))}" data-game="${escapeHtml(gameName)}" hidden>
+            <div class="community-manage-inner">
+                <p class="community-manage-label">Custom Subreddits</p>
+                <div class="community-manage-chips">
+                    ${chips || '<span class="community-manage-none">None added yet</span>'}
+                </div>
+                <div class="community-manage-add-row">
+                    <span class="community-manage-prefix">r/</span>
+                    <input class="community-manage-input" type="text" placeholder="subreddit name" autocomplete="off" spellcheck="false">
+                    <span class="community-manage-status"></span>
+                    <button class="community-manage-add-btn" disabled>Add</button>
+                </div>
+            </div>
+        </div>`
+}
+
+function _sourceTabs(sources, appid, gameName, userSubs) {
+    const allSrc  = _allSource(sources)
+    const display = [allSrc, ...sources]
+
+    const tabs = display.map((s, i) => `
         <button class="community-tab${i === 0 ? ' community-tab--active' : ''}" data-source="${escapeHtml(s.id)}">
             ${escapeHtml(s.label)}
             <span class="community-tab-count">${s.posts.length}</span>
         </button>`).join('')
 
-    const panels = sources.map((s, i) => `
+    const panels = display.map((s, i) => `
         <div class="community-panel${i === 0 ? ' community-panel--active' : ''}" data-source="${escapeHtml(s.id)}">
             ${s.posts.length === 0
                 ? '<p class="community-empty">No posts found.</p>'
@@ -95,7 +141,11 @@ function _sourceTabs(sources, appid) {
         </div>`).join('')
 
     return `
-        <div class="community-tabs">${tabs}</div>
+        <div class="community-tabs-bar">
+            <div class="community-tabs">${tabs}</div>
+            <button class="community-manage-toggle" title="Manage subreddits">⚙ Subreddits</button>
+        </div>
+        ${_managePanelHtml(appid, gameName, userSubs)}
         <div class="community-panels">${panels}</div>`
 }
 
@@ -151,6 +201,110 @@ function _postCard(post, appid) {
                 </div>
             </div>
         </a>`
+}
+
+function _initManagePanel(container, appid, gameName) {
+    const toggleBtn = container.querySelector('.community-manage-toggle')
+    const panel     = container.querySelector('.community-manage-panel')
+    if (!panel) return
+
+    // No toggle in empty state — show panel directly
+    if (!toggleBtn) {
+        panel.removeAttribute('hidden')
+    } else {
+        toggleBtn.addEventListener('click', () => {
+            const hidden = panel.toggleAttribute('hidden')
+            toggleBtn.classList.toggle('community-manage-toggle--active', !hidden)
+        })
+    }
+
+    // Remove chip
+    panel.addEventListener('click', async e => {
+        const removeBtn = e.target.closest('.community-manage-chip-remove')
+        if (!removeBtn) return
+        const chip = removeBtn.closest('.community-manage-chip')
+        const name = chip?.dataset.sub
+        if (!name) return
+
+        removeBtn.disabled = true
+        try {
+            await fetch(`/api/reddit-subreddits/${appid}/${encodeURIComponent(name)}`, { method: 'DELETE' })
+            chip.remove()
+            const chips = panel.querySelector('.community-manage-chips')
+            if (chips && !chips.querySelector('.community-manage-chip')) {
+                chips.innerHTML = '<span class="community-manage-none">None added yet</span>'
+            }
+            _triggerResync(appid, gameName)
+        } catch { removeBtn.disabled = false }
+    })
+
+    // Validation
+    const input     = panel.querySelector('.community-manage-input')
+    const status    = panel.querySelector('.community-manage-status')
+    const addBtn    = panel.querySelector('.community-manage-add-btn')
+    let _validName  = null
+    let _debounce   = null
+
+    input?.addEventListener('input', () => {
+        clearTimeout(_debounce)
+        _validName = null
+        addBtn.disabled = true
+        const val = input.value.trim().replace(/^r\//i, '')
+        if (!val) { status.textContent = ''; status.className = 'community-manage-status'; return }
+        status.textContent = '…'
+        status.className   = 'community-manage-status community-manage-status--loading'
+        _debounce = setTimeout(async () => {
+            try {
+                const res  = await fetch(`/relay/api/reddit/validate-subreddit?name=${encodeURIComponent(val)}`)
+                const data = await res.json()
+                if (data.valid) {
+                    _validName          = data.name  // use canonical casing from Reddit
+                    addBtn.disabled     = false
+                    status.textContent  = `✓ ${data.name} · ${(data.subscribers ?? 0).toLocaleString()} members`
+                    status.className    = 'community-manage-status community-manage-status--valid'
+                } else {
+                    status.textContent = '✗ Not found'
+                    status.className   = 'community-manage-status community-manage-status--invalid'
+                }
+            } catch {
+                status.textContent = '✗ Check failed'
+                status.className   = 'community-manage-status community-manage-status--invalid'
+            }
+        }, 600)
+    })
+
+    // Add
+    addBtn?.addEventListener('click', async () => {
+        if (!_validName) return
+        addBtn.disabled = true
+        try {
+            await fetch(`/api/reddit-subreddits/${appid}`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ name: _validName }),
+            })
+            // Inject chip
+            const chips    = panel.querySelector('.community-manage-chips')
+            const noneEl   = chips?.querySelector('.community-manage-none')
+            if (noneEl) noneEl.remove()
+            const chip = document.createElement('span')
+            chip.className    = 'community-manage-chip'
+            chip.dataset.sub  = _validName
+            chip.innerHTML    = `r/${escapeHtml(_validName)} <button class="community-manage-chip-remove" aria-label="Remove r/${escapeHtml(_validName)}">×</button>`
+            chips?.appendChild(chip)
+
+            input.value        = ''
+            status.textContent = ''
+            status.className   = 'community-manage-status'
+            _validName         = null
+            _triggerResync(appid, gameName)
+        } catch { addBtn.disabled = false }
+    })
+}
+
+function _triggerResync(appid, gameName) {
+    fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
+        .catch(() => {})
 }
 
 function _initTabs(container) {

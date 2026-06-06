@@ -8,6 +8,7 @@ import localReviewsRouter from './localReviews.js'
 import localWishlistRouter from './localWishlist.js'
 import orderRouter from './order.js'
 import communityPrefsRouter from './communityPrefs.js'
+import redditSubredditsRouter from './redditSubreddits.js'
 
 const router = Router()
 
@@ -24,5 +25,6 @@ router.use('/local-reviews',    localReviewsRouter)
 router.use('/local-wishlist',   localWishlistRouter)
 router.use('/order',            orderRouter)
 router.use('/community-prefs',  communityPrefsRouter)
+router.use('/reddit-subreddits', redditSubredditsRouter)
 
 export default router

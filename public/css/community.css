@@ -636,3 +636,200 @@
 .game-community-btn:hover {
     background: rgba(91, 155, 213, 0.22);
 }
+
+/* ── Tabs bar (tabs row + manage toggle on the right) ────────────────────── */
+
+.community-tabs-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.community-tabs-bar .community-tabs {
+    margin-bottom: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Manage subreddits toggle button ─────────────────────────────────────── */
+
+.community-manage-toggle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 13px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--clr-text-muted);
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+    white-space: nowrap;
+}
+
+.community-manage-toggle:hover {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+}
+
+.community-manage-toggle--active {
+    color: var(--community-accent);
+    border-color: var(--community-accent-bd);
+    background: var(--community-accent-lo);
+}
+
+/* ── Manage panel ─────────────────────────────────────────────────────────── */
+
+.community-manage-panel {
+    margin-bottom: 20px;
+}
+
+.community-manage-panel[hidden] { display: none; }
+
+.community-manage-inner {
+    padding: 16px 20px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.community-manage-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    margin: 0;
+}
+
+/* Chips */
+
+.community-manage-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 28px;
+    align-items: center;
+}
+
+.community-manage-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px 3px 10px;
+    background: var(--community-accent-lo);
+    border: 1px solid var(--community-accent-bd);
+    border-radius: 99px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--community-accent);
+}
+
+.community-manage-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: var(--community-accent);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity var(--transition), background var(--transition);
+}
+
+.community-manage-chip-remove:hover {
+    opacity: 1;
+    background: rgba(91, 155, 213, 0.2);
+}
+
+.community-manage-chip-remove:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.community-manage-none {
+    font-size: 0.8rem;
+    color: var(--clr-text-muted);
+    font-style: italic;
+}
+
+/* Add row */
+
+.community-manage-add-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.community-manage-prefix {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.community-manage-input {
+    flex: 1;
+    min-width: 140px;
+    max-width: 240px;
+    padding: 5px 10px;
+    font-size: 0.82rem;
+    color: var(--clr-text);
+    background: var(--clr-bg);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.community-manage-input:focus {
+    border-color: var(--community-accent);
+}
+
+.community-manage-status {
+    font-size: 0.77rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.community-manage-status--loading { color: var(--clr-text-muted); }
+.community-manage-status--valid   { color: #4caf82; }
+.community-manage-status--invalid { color: #e05252; }
+
+.community-manage-add-btn {
+    flex-shrink: 0;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--community-accent);
+    background: var(--community-accent-lo);
+    border: 1px solid var(--community-accent-bd);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background var(--transition), opacity var(--transition);
+}
+
+.community-manage-add-btn:hover:not(:disabled) {
+    background: rgba(91, 155, 213, 0.22);
+}
+
+.community-manage-add-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
