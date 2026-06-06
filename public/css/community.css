@@ -644,7 +644,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 4px;
+    margin-bottom: 20px;
 }
 
 .community-tabs-bar .community-tabs {
@@ -684,30 +684,73 @@
     background: var(--community-accent-lo);
 }
 
-/* ── Manage panel ─────────────────────────────────────────────────────────── */
+/* ── Empty state manage button ────────────────────────────────────────────── */
 
-.community-manage-panel {
-    margin-bottom: 20px;
+.community-empty-manage {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
 }
 
-.community-manage-panel[hidden] { display: none; }
+/* ── Manage modal ─────────────────────────────────────────────────────────── */
 
-.community-manage-inner {
-    padding: 16px 20px;
+.community-manage-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 800;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    padding: 24px;
+}
+
+.community-manage-dialog {
+    width: 100%;
+    max-width: 480px;
+    padding: 24px 28px;
     background: var(--clr-bg-raised);
     border: 1px solid var(--clr-border);
-    border-radius: var(--radius);
+    border-radius: calc(var(--radius) * 1.5);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
+}
+
+.community-manage-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.community-manage-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--clr-text-muted);
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: color var(--transition), background var(--transition);
+}
+
+.community-manage-close:hover {
+    color: var(--clr-text);
+    background: rgba(255, 255, 255, 0.07);
 }
 
 .community-manage-label {
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--clr-text-muted);
+    color: var(--clr-text);
     margin: 0;
 }
 
@@ -804,8 +847,7 @@
 
 .community-manage-status {
     font-size: 0.77rem;
-    flex: 1;
-    min-width: 0;
+    min-height: 1em;
 }
 
 .community-manage-status--loading { color: var(--clr-text-muted); }

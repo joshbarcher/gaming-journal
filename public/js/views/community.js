@@ -78,13 +78,15 @@ export async function renderCommunity(appid, container) {
     _initTabs(container)
     _initNavLinks(container)
     _initUserContextMenus(container, appid)
-    _initManagePanel(container, appid, game.name ?? '')
+    _initManagePanel(container, appid, game.name ?? '', userSubs)
 }
 
 function _emptyState(appid, gameName, userSubs) {
     return `
         <p class="community-empty">No community posts found for this game.</p>
-        ${_managePanelHtml(appid, gameName, userSubs)}`
+        <div class="community-empty-manage">
+            <button class="community-manage-toggle">⚙ Manage Subreddits</button>
+        </div>`
 }
 
 function _allSource(sources) {
@@ -97,30 +99,6 @@ function _allSource(sources) {
     }
     posts.sort((a, b) => (b.createdUtc ?? 0) - (a.createdUtc ?? 0))
     return { id: '__all__', label: 'All', posts }
-}
-
-function _managePanelHtml(appid, gameName, userSubs) {
-    const chips = userSubs.map(name => `
-        <span class="community-manage-chip" data-sub="${escapeHtml(name)}">
-            r/${escapeHtml(name)}
-            <button class="community-manage-chip-remove" aria-label="Remove r/${escapeHtml(name)}">×</button>
-        </span>`).join('')
-
-    return `
-        <div class="community-manage-panel" data-appid="${escapeHtml(String(appid))}" data-game="${escapeHtml(gameName)}" hidden>
-            <div class="community-manage-inner">
-                <p class="community-manage-label">Custom Subreddits</p>
-                <div class="community-manage-chips">
-                    ${chips || '<span class="community-manage-none">None added yet</span>'}
-                </div>
-                <div class="community-manage-add-row">
-                    <span class="community-manage-prefix">r/</span>
-                    <input class="community-manage-input" type="text" placeholder="subreddit name" autocomplete="off" spellcheck="false">
-                    <span class="community-manage-status"></span>
-                    <button class="community-manage-add-btn" disabled>Add</button>
-                </div>
-            </div>
-        </div>`
 }
 
 function _sourceTabs(sources, appid, gameName, userSubs) {
@@ -145,7 +123,6 @@ function _sourceTabs(sources, appid, gameName, userSubs) {
             <div class="community-tabs">${tabs}</div>
             <button class="community-manage-toggle" title="Manage subreddits">⚙ Subreddits</button>
         </div>
-        ${_managePanelHtml(appid, gameName, userSubs)}
         <div class="community-panels">${panels}</div>`
 }
 
@@ -203,51 +180,75 @@ function _postCard(post, appid) {
         </a>`
 }
 
-function _initManagePanel(container, appid, gameName) {
-    const toggleBtn = container.querySelector('.community-manage-toggle')
-    const panel     = container.querySelector('.community-manage-panel')
-    if (!panel) return
+function _buildManageModal(appid, gameName, userSubs) {
+    const modal = document.createElement('div')
+    modal.className = 'community-manage-modal'
 
-    // No toggle in empty state — show panel directly
-    if (!toggleBtn) {
-        panel.removeAttribute('hidden')
+    const chips = userSubs.map(name => {
+        const chip = document.createElement('span')
+        chip.className   = 'community-manage-chip'
+        chip.dataset.sub = name
+        chip.innerHTML   = `r/${escapeHtml(name)} <button class="community-manage-chip-remove" aria-label="Remove r/${escapeHtml(name)}">×</button>`
+        return chip
+    })
+
+    modal.innerHTML = `
+        <div class="community-manage-dialog">
+            <div class="community-manage-dialog-header">
+                <p class="community-manage-label">Subreddits</p>
+                <button class="community-manage-close" aria-label="Close">×</button>
+            </div>
+            <div class="community-manage-chips"></div>
+            <div class="community-manage-add-row">
+                <span class="community-manage-prefix">r/</span>
+                <input class="community-manage-input" type="text" placeholder="subreddit name" autocomplete="off" spellcheck="false">
+                <button class="community-manage-add-btn" disabled>Add</button>
+            </div>
+            <p class="community-manage-status"></p>
+        </div>`
+
+    const chipsEl = modal.querySelector('.community-manage-chips')
+    if (chips.length === 0) {
+        chipsEl.innerHTML = '<span class="community-manage-none">None added yet</span>'
     } else {
-        toggleBtn.addEventListener('click', () => {
-            const hidden = panel.toggleAttribute('hidden')
-            toggleBtn.classList.toggle('community-manage-toggle--active', !hidden)
-        })
+        chips.forEach(c => chipsEl.appendChild(c))
     }
 
+    // Close handlers
+    const close = () => modal.remove()
+    modal.addEventListener('click', e => { if (e.target === modal) close() })
+    modal.querySelector('.community-manage-close').addEventListener('click', close)
+    const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey) } }
+    document.addEventListener('keydown', onKey)
+
     // Remove chip
-    panel.addEventListener('click', async e => {
+    chipsEl.addEventListener('click', async e => {
         const removeBtn = e.target.closest('.community-manage-chip-remove')
         if (!removeBtn) return
         const chip = removeBtn.closest('.community-manage-chip')
         const name = chip?.dataset.sub
         if (!name) return
-
         removeBtn.disabled = true
         try {
             await fetch(`/api/reddit-subreddits/${appid}/${encodeURIComponent(name)}`, { method: 'DELETE' })
             chip.remove()
-            const chips = panel.querySelector('.community-manage-chips')
-            if (chips && !chips.querySelector('.community-manage-chip')) {
-                chips.innerHTML = '<span class="community-manage-none">None added yet</span>'
+            if (!chipsEl.querySelector('.community-manage-chip')) {
+                chipsEl.innerHTML = '<span class="community-manage-none">None added yet</span>'
             }
             _triggerResync(appid, gameName)
         } catch { removeBtn.disabled = false }
     })
 
     // Validation
-    const input     = panel.querySelector('.community-manage-input')
-    const status    = panel.querySelector('.community-manage-status')
-    const addBtn    = panel.querySelector('.community-manage-add-btn')
-    let _validName  = null
-    let _debounce   = null
+    const input    = modal.querySelector('.community-manage-input')
+    const status   = modal.querySelector('.community-manage-status')
+    const addBtn   = modal.querySelector('.community-manage-add-btn')
+    let _validName = null
+    let _debounce  = null
 
-    input?.addEventListener('input', () => {
+    input.addEventListener('input', () => {
         clearTimeout(_debounce)
-        _validName = null
+        _validName      = null
         addBtn.disabled = true
         const val = input.value.trim().replace(/^r\//i, '')
         if (!val) { status.textContent = ''; status.className = 'community-manage-status'; return }
@@ -258,10 +259,10 @@ function _initManagePanel(container, appid, gameName) {
                 const res  = await fetch(`/relay/api/reddit/validate-subreddit?name=${encodeURIComponent(val)}`)
                 const data = await res.json()
                 if (data.valid) {
-                    _validName          = data.name  // use canonical casing from Reddit
-                    addBtn.disabled     = false
-                    status.textContent  = `✓ ${data.name} · ${(data.subscribers ?? 0).toLocaleString()} members`
-                    status.className    = 'community-manage-status community-manage-status--valid'
+                    _validName         = data.name
+                    addBtn.disabled    = false
+                    status.textContent = `✓ ${data.name} · ${(data.subscribers ?? 0).toLocaleString()} members`
+                    status.className   = 'community-manage-status community-manage-status--valid'
                 } else {
                     status.textContent = '✗ Not found'
                     status.className   = 'community-manage-status community-manage-status--invalid'
@@ -274,7 +275,7 @@ function _initManagePanel(container, appid, gameName) {
     })
 
     // Add
-    addBtn?.addEventListener('click', async () => {
+    addBtn.addEventListener('click', async () => {
         if (!_validName) return
         addBtn.disabled = true
         try {
@@ -283,15 +284,13 @@ function _initManagePanel(container, appid, gameName) {
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ name: _validName }),
             })
-            // Inject chip
-            const chips    = panel.querySelector('.community-manage-chips')
-            const noneEl   = chips?.querySelector('.community-manage-none')
+            const noneEl = chipsEl.querySelector('.community-manage-none')
             if (noneEl) noneEl.remove()
             const chip = document.createElement('span')
-            chip.className    = 'community-manage-chip'
-            chip.dataset.sub  = _validName
-            chip.innerHTML    = `r/${escapeHtml(_validName)} <button class="community-manage-chip-remove" aria-label="Remove r/${escapeHtml(_validName)}">×</button>`
-            chips?.appendChild(chip)
+            chip.className   = 'community-manage-chip'
+            chip.dataset.sub = _validName
+            chip.innerHTML   = `r/${escapeHtml(_validName)} <button class="community-manage-chip-remove" aria-label="Remove r/${escapeHtml(_validName)}">×</button>`
+            chipsEl.appendChild(chip)
 
             input.value        = ''
             status.textContent = ''
@@ -299,6 +298,29 @@ function _initManagePanel(container, appid, gameName) {
             _validName         = null
             _triggerResync(appid, gameName)
         } catch { addBtn.disabled = false }
+    })
+
+    return modal
+}
+
+function _initManagePanel(container, appid, gameName, userSubs) {
+    const toggleBtn = container.querySelector('.community-manage-toggle')
+    if (!toggleBtn) return
+
+    toggleBtn.addEventListener('click', () => {
+        toggleBtn.classList.add('community-manage-toggle--active')
+        const modal = _buildManageModal(appid, gameName, userSubs)
+        document.body.appendChild(modal)
+        modal.querySelector('.community-manage-input').focus()
+
+        // Clear active state when modal is removed
+        const observer = new MutationObserver(() => {
+            if (!document.body.contains(modal)) {
+                toggleBtn.classList.remove('community-manage-toggle--active')
+                observer.disconnect()
+            }
+        })
+        observer.observe(document.body, { childList: true })
     })
 }
 
