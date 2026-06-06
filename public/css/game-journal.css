@@ -1178,7 +1178,7 @@ div.gj-ach-badge {
     text-decoration: none;
     cursor: pointer;
     transition: background var(--transition), border-color var(--transition);
-    width: 100%;
+    flex: 1;
     box-sizing: border-box;
 }
 .game-journal-btn:hover {
