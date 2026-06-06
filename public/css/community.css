@@ -350,7 +350,20 @@
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
     margin-bottom: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+        "head head"
+        "img  body"
+        "foot foot";
+    gap: 12px 20px;
+    align-items: start;
 }
+
+.community-thread-post-card > .community-post-header        { grid-area: head; }
+.community-thread-post-card > .community-thread-post-image  { grid-area: img;  margin: 0; }
+.community-thread-post-card > .community-thread-post-body   { grid-area: body; margin: 0; }
+.community-thread-post-card > .community-post-meta          { grid-area: foot; }
 
 .community-thread-post-body {
     font-size: 0.9rem;
