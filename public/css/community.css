@@ -303,15 +303,16 @@
 
 .community-post-flair {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 99px;
     background: var(--community-accent-lo);
     border: 1px solid var(--community-accent-bd);
     color: var(--community-accent);
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .community-post-body {
@@ -570,6 +571,13 @@
 
 .thread-comment-continue:hover {
     text-decoration: underline;
+}
+
+/* ── Infinite scroll sentinel ────────────────────────────────────────────── */
+
+.community-scroll-sentinel {
+    grid-column: 1 / -1;
+    height: 1px;
 }
 
 /* ── Image lightbox ──────────────────────────────────────────────────────── */

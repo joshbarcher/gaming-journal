@@ -21,6 +21,8 @@ function _fmtTime(utc) {
 
 // ── Community listing ─────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 25
+
 export async function renderCommunity(appid, container) {
     container.innerHTML = '<p class="page-loading">Loading…</p>'
 
@@ -56,6 +58,7 @@ export async function renderCommunity(appid, container) {
         }))
 
     const totalPosts = sources.reduce((n, s) => n + s.posts.length, 0)
+    const display    = [_allSource(sources), ...sources]
 
     container.innerHTML = `
         <div class="community-page" data-appid="${escapeHtml(String(appid))}">
@@ -70,7 +73,7 @@ export async function renderCommunity(appid, container) {
             <div class="community-body">
                 ${sources.length === 0 && userSubs.length === 0
                     ? _emptyState(appid, game.name ?? '', userSubs)
-                    : _sourceTabs(sources, appid, game.name ?? '', userSubs)}
+                    : _sourceTabs(display, appid, game.name ?? '', userSubs)}
             </div>
         </div>`
 
@@ -79,6 +82,7 @@ export async function renderCommunity(appid, container) {
     _initNavLinks(container)
     _initUserContextMenus(container, appid)
     _initManagePanel(container, appid, game.name ?? '', userSubs)
+    _initInfiniteScroll(container, display, appid, prefs)
 }
 
 function _emptyState(appid, gameName, userSubs) {
@@ -101,10 +105,14 @@ function _allSource(sources) {
     return { id: '__all__', label: 'All', posts }
 }
 
-function _sourceTabs(sources, appid, gameName, userSubs) {
-    const allSrc  = _allSource(sources)
-    const display = [allSrc, ...sources]
+function _renderPanelPosts(posts, appid) {
+    if (posts.length === 0) return '<p class="community-empty">No posts found.</p>'
+    const initial = posts.slice(0, PAGE_SIZE)
+    return initial.map(p => _postCard(p, appid)).join('')
+        + (posts.length > PAGE_SIZE ? '<div class="community-scroll-sentinel"></div>' : '')
+}
 
+function _sourceTabs(display, appid, gameName, userSubs) {
     const tabs = display.map((s, i) => `
         <button class="community-tab${i === 0 ? ' community-tab--active' : ''}" data-source="${escapeHtml(s.id)}">
             ${escapeHtml(s.label)}
@@ -113,9 +121,7 @@ function _sourceTabs(sources, appid, gameName, userSubs) {
 
     const panels = display.map((s, i) => `
         <div class="community-panel${i === 0 ? ' community-panel--active' : ''}" data-source="${escapeHtml(s.id)}">
-            ${s.posts.length === 0
-                ? '<p class="community-empty">No posts found.</p>'
-                : s.posts.map(p => _postCard(p, appid)).join('')}
+            ${_renderPanelPosts(s.posts, appid)}
         </div>`).join('')
 
     return `
@@ -124,6 +130,29 @@ function _sourceTabs(sources, appid, gameName, userSubs) {
             <button class="community-manage-toggle" title="Manage subreddits">⚙ Subreddits</button>
         </div>
         <div class="community-panels">${panels}</div>`
+}
+
+function _observePanel(panel, postMap, appid, prefs) {
+    const sentinel = panel.querySelector('.community-scroll-sentinel')
+    if (!sentinel) return
+    const srcId    = panel.dataset.source
+    const observer = new IntersectionObserver(entries => {
+        if (!entries[0].isIntersecting) return
+        const remaining = postMap.get(srcId)
+        if (!remaining?.length) { observer.disconnect(); sentinel.remove(); return }
+        const batch = remaining.splice(0, PAGE_SIZE)
+        sentinel.insertAdjacentHTML('beforebegin', batch.map(p => _postCard(p, appid)).join(''))
+        if (prefs) _applyAllPrefs(panel, prefs)
+        if (!remaining.length) { observer.disconnect(); sentinel.remove() }
+    }, { rootMargin: '300px' })
+    observer.observe(sentinel)
+}
+
+function _initInfiniteScroll(container, display, appid, prefs) {
+    const postMap = new Map(display.map(s => [s.id, s.posts.slice(PAGE_SIZE)]))
+    container.querySelectorAll('.community-panel').forEach(panel => {
+        _observePanel(panel, postMap, appid, prefs)
+    })
 }
 
 function _thumbSrc(post) {
@@ -165,7 +194,6 @@ function _postCard(post, appid) {
             ${img}
             <div class="community-post-content">
                 <div class="community-post-header">
-                    ${flair}
                     <span class="community-post-title">${escapeHtml(post.title)}</span>
                 </div>
                 ${body}
@@ -175,6 +203,7 @@ function _postCard(post, appid) {
                     <span class="community-post-author">u/${escapeHtml(author)}</span>
                     <span class="community-post-sub">r/${escapeHtml(post.subreddit ?? '')}</span>
                     <span class="community-post-time">${escapeHtml(time)}</span>
+                    ${flair}
                 </div>
             </div>
         </a>`
@@ -252,33 +281,24 @@ function _buildManageModal(container, appid, gameName) {
 }
 
 async function _addOptimisticTab(container, appid, gameName, subreddit) {
-    const tag = `[community:add-sub r/${subreddit}]`
-    console.log(`${tag} starting — appid=${appid} game="${gameName}"`)
-
     const tabsEl   = container.querySelector('.community-tabs')
     const panelsEl = container.querySelector('.community-panels')
-    if (!tabsEl || !panelsEl) {
-        console.warn(`${tag} aborting — tabs or panels container not found in DOM`)
-        return
-    }
+    if (!tabsEl || !panelsEl) return
 
     // Persist to journal
-    console.log(`${tag} persisting subreddit to journal...`)
-    const persistRes = await fetch(`/api/reddit-subreddits/${appid}`, {
+    await fetch(`/api/reddit-subreddits/${appid}`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ name: subreddit }),
-    }).catch(err => { console.error(`${tag} persist failed:`, err); return null })
-    console.log(`${tag} persist response: ${persistRes?.status ?? 'failed'}`)
+    }).catch(() => {})
 
-    // Optimistic tab — disabled, spinner badge
+    // Optimistic tab — disabled with spinner while sync runs
     const tab = document.createElement('button')
     tab.className      = 'community-tab community-tab--loading'
     tab.dataset.source = subreddit
     tab.disabled       = true
     tab.innerHTML      = `r/${escapeHtml(subreddit)}<span class="community-tab-spinner"></span>`
     tabsEl.appendChild(tab)
-    console.log(`${tag} optimistic tab added to DOM (disabled, spinner)`)
 
     // Loading panel
     const panel = document.createElement('div')
@@ -288,10 +308,7 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     panelsEl.appendChild(panel)
 
     try {
-        console.log(`${tag} firing sync POST...`)
-        const syncRes  = await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
-        const syncJson = syncRes.ok ? await syncRes.json().catch(() => null) : null
-        console.log(`${tag} sync response: ${syncRes.status}`, syncJson)
+        await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
 
         // Sync runs in the background — poll until the new subreddit appears in sources
         const POLL_INTERVAL_MS = 3_000
@@ -299,43 +316,27 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
         const pollStart = Date.now()
         let source = null
 
-        console.log(`%c${tag} POLLING STARTED — checking every ${POLL_INTERVAL_MS/1000}s, timeout ${POLL_TIMEOUT_MS/1000}s`, 'color: orange; font-weight: bold')
         while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
-            const waitUntil = Date.now() + POLL_INTERVAL_MS
-            console.log(`${tag} waiting ${POLL_INTERVAL_MS/1000}s before next poll...`)
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
             const res  = await fetch(`/relay/api/reddit/${appid}`)
             const data = res.ok ? await res.json() : null
-            const elapsed = Date.now() - pollStart
-            console.log(`${tag} poll at ${elapsed}ms — sources:`, data?.sources?.map(s => `${s.subreddit}(${s.posts?.length ?? 0})`))
             source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase()) ?? null
-            if (source) {
-                console.log(`${tag} found after ${elapsed}ms — ${source.posts?.length ?? 0} posts`)
-                break
-            }
+            if (source) break
         }
 
-        if (!source) {
-            console.warn(`${tag} timed out after ${POLL_TIMEOUT_MS}ms — subreddit never appeared in sources`)
+        const posts = (source?.posts ?? []).map(p => ({ ...p, subreddit: p.subreddit ?? source?.subreddit ?? subreddit }))
+        panel.innerHTML = _renderPanelPosts(posts, appid)
+        if (posts.length > PAGE_SIZE) {
+            const postMap = new Map([[subreddit, posts.slice(PAGE_SIZE)]])
+            _observePanel(panel, postMap, appid, null)
         }
-
-        const posts = source?.posts ?? []
-        console.log(`${tag} matched source:`, source ? `${source.subreddit} — ${posts.length} posts` : 'NOT FOUND (timed out)')
-
-        console.log(`${tag} rendering ${posts.length} posts into panel...`)
-        panel.innerHTML = posts.length > 0
-            ? posts.map(p => _postCard({ ...p, subreddit: p.subreddit ?? source.subreddit }, appid)).join('')
-            : '<p class="community-empty">No posts found.</p>'
-        console.log(`${tag} panel children after render: ${panel.children.length}`)
 
         const tabLabel = `r/${escapeHtml(source?.subreddit ?? subreddit)}`
         tab.innerHTML = `${tabLabel}<span class="community-tab-count">${posts.length}</span>`
         tab.disabled  = false
         tab.classList.remove('community-tab--loading')
-        console.log(`${tag} tab updated — label="${tabLabel}" disabled=${tab.disabled} classes="${tab.className}"`)
-        console.log(`${tag} tab in DOM:`, document.contains(tab))
     } catch (err) {
-        console.error(`${tag} error:`, err)
+        console.error('[community] add-sub failed:', err)
         tab.innerHTML = `r/${escapeHtml(subreddit)}<span class="community-tab-error">✗</span>`
         tab.classList.remove('community-tab--loading')
         tab.classList.add('community-tab--error')
