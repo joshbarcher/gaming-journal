@@ -510,6 +510,71 @@
     text-decoration: underline;
 }
 
+/* ── User preference states ──────────────────────────────────────────────── */
+
+/* Muted: severely reduced presence — right-click to unmute */
+.community-post-card.is-user-muted {
+    opacity: 0.12;
+    filter: grayscale(0.85);
+    transition: opacity 0.15s, filter 0.15s;
+}
+.community-post-card.is-user-muted:hover {
+    opacity: 0.28;
+    filter: grayscale(0.5);
+}
+
+.thread-comment.is-user-muted > .thread-comment-header,
+.thread-comment.is-user-muted > .thread-comment-body {
+    opacity: 0.12;
+    filter: grayscale(0.85);
+    transition: opacity 0.15s, filter 0.15s;
+}
+.thread-comment.is-user-muted:hover > .thread-comment-header,
+.thread-comment.is-user-muted:hover > .thread-comment-body {
+    opacity: 0.3;
+    filter: grayscale(0.5);
+}
+
+/* Highlighted: per-game emphasis — teal/mint accent */
+.community-post-card.is-user-highlighted {
+    border-color: rgba(52, 211, 190, 0.65);
+    background: rgba(52, 211, 190, 0.05);
+    box-shadow: 0 0 0 1px rgba(52, 211, 190, 0.2);
+}
+.thread-comment.is-user-highlighted {
+    background: rgba(52, 211, 190, 0.05);
+    border-left-color: rgba(52, 211, 190, 0.75) !important;
+}
+.thread-comment[data-depth="0"].is-user-highlighted {
+    border-left: 2px solid rgba(52, 211, 190, 0.75);
+    padding-left: 16px;
+}
+
+/* Favorited: global emphasis — warm amber accent */
+.community-post-card.is-user-favorited {
+    border-color: rgba(251, 191, 36, 0.65);
+    background: rgba(251, 191, 36, 0.05);
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2);
+}
+.thread-comment.is-user-favorited {
+    background: rgba(251, 191, 36, 0.05);
+    border-left-color: rgba(251, 191, 36, 0.75) !important;
+}
+.thread-comment[data-depth="0"].is-user-favorited {
+    border-left: 2px solid rgba(251, 191, 36, 0.75);
+    padding-left: 16px;
+}
+
+/* Author name tinting for highlighted/favorited in meta row */
+[data-author].is-user-highlighted .community-post-author,
+[data-author].is-user-highlighted .thread-comment-author {
+    color: rgba(52, 211, 190, 0.9);
+}
+[data-author].is-user-favorited .community-post-author,
+[data-author].is-user-favorited .thread-comment-author {
+    color: rgba(251, 191, 36, 0.9);
+}
+
 /* ── Panel buttons (game page) ───────────────────────────────────────────── */
 
 .game-panel-btns {

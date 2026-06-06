@@ -1,4 +1,6 @@
 import { escapeHtml } from '../utils.js'
+import { showContextMenu } from './context-menu.js'
+import { loadPrefs, toggleFilter, toggleMute, toggleFavorite, toggleHighlight } from '../community-user-prefs.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,7 +24,7 @@ function _fmtTime(utc) {
 export async function renderCommunity(appid, container) {
     container.innerHTML = '<p class="page-loading">Loading…</p>'
 
-    let game, redditData
+    let game, redditData, prefs
     try {
         const [gameRes, redditRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
@@ -30,19 +32,18 @@ export async function renderCommunity(appid, container) {
         ])
         if (!gameRes.ok) throw new Error(`Game HTTP ${gameRes.status}`)
         game = await gameRes.json()
-        // If reddit data is not yet cached, fetch with name
         if (redditRes.ok) {
             redditData = await redditRes.json()
         } else {
             const r2 = await fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(game.name ?? '')}`)
             redditData = r2.ok ? await r2.json() : null
         }
+        prefs = await loadPrefs(appid)
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
     }
 
-    // Build sources array — generic abstraction (Reddit now, Steam community later)
     const sources = (redditData?.sources ?? [])
         .filter(s => s.posts?.length > 0)
         .map(s => ({
@@ -55,7 +56,7 @@ export async function renderCommunity(appid, container) {
     const totalPosts = sources.reduce((n, s) => n + s.posts.length, 0)
 
     container.innerHTML = `
-        <div class="community-page">
+        <div class="community-page" data-appid="${escapeHtml(String(appid))}">
             <div class="community-header">
                 <div class="community-header-body">
                     <a class="community-back" href="/game/${appid}" data-nav>← ${escapeHtml(game.name ?? 'Game')}</a>
@@ -69,8 +70,10 @@ export async function renderCommunity(appid, container) {
             </div>
         </div>`
 
+    _applyAllPrefs(container, prefs)
     _initTabs(container)
     _initNavLinks(container)
+    _initUserContextMenus(container, appid)
 }
 
 function _emptyState() {
@@ -96,15 +99,13 @@ function _sourceTabs(sources, appid) {
         <div class="community-panels">${panels}</div>`
 }
 
-// For post listing cards: prefer cached thumbnail, fall back to cached full image
 function _thumbSrc(post) {
     if (post.localThumb) return `/relay${post.localThumb}`
     if (post.localImage) return `/relay${post.localImage}`
-    if (post.thumbnail)  return post.thumbnail   // CDN fallback (may expire)
+    if (post.thumbnail)  return post.thumbnail
     return null
 }
 
-// For thread view: prefer full cached image, fall back to thumbnail
 function _imgSrc(post) {
     if (post.localImage) return `/relay${post.localImage}`
     if (post.localThumb) return `/relay${post.localThumb}`
@@ -112,13 +113,13 @@ function _imgSrc(post) {
     return null
 }
 
-// For thread view: locally cached video only — no CDN fallback (URLs expire)
 function _videoSrc(post) {
     if (post.localVideo) return `/relay${post.localVideo}`
     return null
 }
 
 function _postCard(post, appid) {
+    const author   = post.author ?? ''
     const score    = _fmtScore(post.score)
     const time     = _fmtTime(post.createdUtc)
     const flair    = post.flair ? `<span class="community-post-flair">${escapeHtml(post.flair)}</span>` : ''
@@ -133,7 +134,7 @@ function _postCard(post, appid) {
     const href = `/community/${appid}/thread/${post.id}?sub=${encodeURIComponent(post.subreddit ?? '')}`
 
     return `
-        <a class="community-post-card${thumbSrc ? ' community-post-card--has-image' : ''}" href="${href}" data-nav>
+        <a class="community-post-card${thumbSrc ? ' community-post-card--has-image' : ''}" href="${href}" data-nav data-author="${escapeHtml(author)}">
             ${img}
             <div class="community-post-content">
                 <div class="community-post-header">
@@ -144,7 +145,7 @@ function _postCard(post, appid) {
                 <div class="community-post-meta">
                     <span class="community-post-score">▲ ${escapeHtml(score)}</span>
                     <span class="community-post-comments">💬 ${(post.numComments ?? 0).toLocaleString()}</span>
-                    <span class="community-post-author">u/${escapeHtml(post.author ?? '')}</span>
+                    <span class="community-post-author">u/${escapeHtml(author)}</span>
                     <span class="community-post-sub">r/${escapeHtml(post.subreddit ?? '')}</span>
                     <span class="community-post-time">${escapeHtml(time)}</span>
                 </div>
@@ -165,8 +166,6 @@ function _initTabs(container) {
 }
 
 function _initNavLinks(container) {
-    // Guard: only attach one delegated listener per container element,
-    // regardless of how many times this is called across renders.
     if (container._communityNavWired) return
     container._communityNavWired = true
     container.addEventListener('click', e => {
@@ -183,11 +182,10 @@ function _initNavLinks(container) {
 // ── Thread view ───────────────────────────────────────────────────────────────
 
 export async function renderCommunityThread(appid, postId, container, sub = '') {
-    // sub is passed from the router (parsed before pushState), fall back to location search
     if (!sub) sub = new URLSearchParams(window.location.search).get('sub') ?? ''
     container.innerHTML = '<p class="page-loading">Loading…</p>'
 
-    let game, thread
+    let game, thread, prefs
     try {
         const [gameRes, threadRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
@@ -197,6 +195,7 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
         if (!threadRes.ok) throw new Error(`Thread HTTP ${threadRes.status}`)
         game   = await gameRes.json()
         thread = await threadRes.json()
+        prefs  = await loadPrefs(appid)
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
@@ -207,14 +206,14 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
     const commentCount = _countComments(comments)
 
     container.innerHTML = `
-        <div class="community-page">
+        <div class="community-page" data-appid="${escapeHtml(String(appid))}">
             <div class="community-thread-nav">
                 <a class="community-back" href="/community/${appid}" data-nav>← Community</a>
             </div>
             <div class="community-thread-post">
                 ${_fullPostCard(post, thread.subreddit)}
             </div>
-            <div class="community-thread-comments" data-appid="${appid}" data-post-id="${postId}" data-sub="${escapeHtml(sub)}">
+            <div class="community-thread-comments" data-appid="${escapeHtml(String(appid))}" data-post-id="${postId}" data-sub="${escapeHtml(sub)}">
                 <div class="community-comments-header">
                     <h2 class="community-comments-heading">${commentCount} Comment${commentCount !== 1 ? 's' : ''}</h2>
                     <button class="community-refresh-btn" title="Fetch latest comments">↻ Refresh</button>
@@ -225,9 +224,11 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
             </div>
         </div>`
 
+    _applyAllPrefs(container, prefs)
     _initThread(container)
     _initNavLinks(container)
-    _initThreadRefresh(container)
+    _initThreadRefresh(container, prefs)
+    _initUserContextMenus(container, appid)
 }
 
 function _countComments(comments) {
@@ -275,6 +276,7 @@ function _fullPostCard(post, subreddit) {
 function _renderComment(comment, threadUrl, depth = 0) {
     if (!comment) return ''
     const usedDepth = comment.depth ?? depth
+    const author    = comment.author ?? ''
 
     const body    = comment.body
         ? escapeHtml(comment.body)
@@ -283,7 +285,6 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const score   = _fmtScore(comment.score)
     const replies = comment.replies ?? []
 
-    // Replies start collapsed — user expands what they want to read
     const repliesHtml = replies.length > 0
         ? `<div class="thread-comment-replies" hidden>${replies.map(r => _renderComment(r, threadUrl)).join('')}</div>`
         : ''
@@ -293,10 +294,10 @@ function _renderComment(comment, threadUrl, depth = 0) {
         : ''
 
     return `
-        <div class="thread-comment" data-depth="${usedDepth}" data-id="${escapeHtml(comment.id ?? '')}">
+        <div class="thread-comment" data-depth="${usedDepth}" data-id="${escapeHtml(comment.id ?? '')}" data-author="${escapeHtml(author)}">
             <div class="thread-comment-header">
                 ${toggleBtn}
-                <span class="thread-comment-author">${escapeHtml(comment.author ?? '[deleted]')}</span>
+                <span class="thread-comment-author">${escapeHtml(author || '[deleted]')}</span>
                 <span class="thread-comment-score">▲ ${escapeHtml(score)}</span>
                 <span class="thread-comment-time">${escapeHtml(time)}</span>
             </div>
@@ -305,7 +306,79 @@ function _renderComment(comment, threadUrl, depth = 0) {
         </div>`
 }
 
-function _initThreadRefresh(container) {
+// ── Pref application ──────────────────────────────────────────────────────────
+
+function _applyAllPrefs(container, prefs) {
+    container.querySelectorAll('[data-author]').forEach(el => {
+        const a = el.dataset.author
+        if (!a) return
+        el.hidden = prefs.filtered.has(a)
+        el.classList.toggle('is-user-muted',        prefs.muted.has(a))
+        el.classList.toggle('is-user-favorited',    prefs.favorited.has(a))
+        el.classList.toggle('is-user-highlighted',  prefs.highlighted.has(a))
+    })
+}
+
+// ── User context menu ─────────────────────────────────────────────────────────
+
+function _initUserContextMenus(container, appid) {
+    container.addEventListener('contextmenu', e => {
+        const authorEl = e.target.closest('.community-post-author, .thread-comment-author')
+        if (!authorEl) return
+
+        const raw      = authorEl.textContent.trim()
+        const username = raw.startsWith('u/') ? raw.slice(2) : raw
+        if (!username || username === '[deleted]') return
+
+        // Read live pref state from DOM classes for the first matching element
+        const targets  = [...container.querySelectorAll(`[data-author="${CSS.escape(username)}"]`)]
+        const first    = targets[0]
+        const isFiltered    = first?.hidden ?? false
+        const isMuted       = first?.classList.contains('is-user-muted')       ?? false
+        const isFavorited   = first?.classList.contains('is-user-favorited')   ?? false
+        const isHighlighted = first?.classList.contains('is-user-highlighted') ?? false
+
+        showContextMenu(e, [
+            {
+                label: isFiltered ? `Remove filter on u/${username}` : `Filter u/${username}`,
+                action: () => {
+                    const nowOn = !isFiltered
+                    targets.forEach(el => { el.hidden = nowOn })
+                    toggleFilter(username).catch(console.warn)
+                },
+            },
+            {
+                label: isMuted ? `Unmute u/${username}` : `Mute u/${username}`,
+                action: () => {
+                    const nowOn = !isMuted
+                    targets.forEach(el => el.classList.toggle('is-user-muted', nowOn))
+                    toggleMute(username).catch(console.warn)
+                },
+            },
+            'separator',
+            {
+                label: isHighlighted ? `Remove highlight (this game)` : `Highlight u/${username} (this game)`,
+                action: () => {
+                    const nowOn = !isHighlighted
+                    targets.forEach(el => el.classList.toggle('is-user-highlighted', nowOn))
+                    toggleHighlight(appid, username).catch(console.warn)
+                },
+            },
+            {
+                label: isFavorited ? `Remove favorite on u/${username}` : `Favorite u/${username}`,
+                action: () => {
+                    const nowOn = !isFavorited
+                    targets.forEach(el => el.classList.toggle('is-user-favorited', nowOn))
+                    toggleFavorite(username).catch(console.warn)
+                },
+            },
+        ])
+    })
+}
+
+// ── Thread refresh ────────────────────────────────────────────────────────────
+
+function _initThreadRefresh(container, prefs) {
     const btn = container.querySelector('.community-refresh-btn')
     if (!btn) return
     btn.addEventListener('click', async () => {
@@ -317,15 +390,13 @@ function _initThreadRefresh(container) {
         try {
             const res = await fetch(`/relay/api/reddit/${appid}/thread/${postId}?sub=${encodeURIComponent(sub)}&force=true`)
             if (!res.ok) throw new Error(`HTTP ${res.status}`)
-            const thread  = await res.json()
+            const thread      = await res.json()
             const newComments = thread.comments ?? []
 
-            // Collect all comment IDs already in the DOM
             const existing = new Set(
                 [...section.querySelectorAll('.thread-comment[data-id]')].map(el => el.dataset.id)
             )
 
-            // Find genuinely new top-level comments not yet rendered
             const added = []
             for (const c of newComments) {
                 if (!existing.has(c.id)) {
@@ -336,8 +407,7 @@ function _initThreadRefresh(container) {
                 }
             }
 
-            // Update scores on existing comments
-            const allNew = _flattenComments(newComments)
+            const allNew  = _flattenComments(newComments)
             const scoreMap = new Map(allNew.map(c => [c.id, c.score]))
             section.querySelectorAll('.thread-comment[data-id]').forEach(el => {
                 const s = scoreMap.get(el.dataset.id)
@@ -346,12 +416,10 @@ function _initThreadRefresh(container) {
                 if (scoreEl) scoreEl.textContent = `▲ ${_fmtScore(s)}`
             })
 
-            // Update heading count
             const total = _countComments(newComments)
             const heading = section.querySelector('.community-comments-heading')
             if (heading) heading.textContent = `${total} Comment${total !== 1 ? 's' : ''}`
 
-            // Wire up any newly added toggle buttons
             section.querySelectorAll('.thread-comment-toggle').forEach(b => {
                 if (b.dataset.wired) return
                 b.dataset.wired = '1'
@@ -364,6 +432,9 @@ function _initThreadRefresh(container) {
                     b.setAttribute('aria-label', nowHidden ? 'Expand replies' : 'Collapse replies')
                 })
             })
+
+            // Apply current prefs to any newly injected comment elements
+            if (added.length > 0) _applyAllPrefs(section, prefs)
 
             btn.textContent = added.length > 0
                 ? `↻ +${added.length} new`
