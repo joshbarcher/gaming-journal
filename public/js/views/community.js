@@ -49,7 +49,7 @@ export async function renderCommunity(appid, container) {
             id:    s.subreddit,
             label: `r/${s.subreddit}`,
             type:  'reddit',
-            posts: s.posts.slice(0, 5).map(p => ({ ...p, subreddit: p.subreddit ?? s.subreddit })),
+            posts: s.posts.map(p => ({ ...p, subreddit: p.subreddit ?? s.subreddit })),
         }))
 
     const totalPosts = sources.reduce((n, s) => n + s.posts.length, 0)
