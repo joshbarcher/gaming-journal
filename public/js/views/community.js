@@ -24,7 +24,7 @@ function _fmtTime(utc) {
 const PAGE_SIZE = 25
 
 export async function renderCommunity(appid, container) {
-    container.innerHTML = '<p class="page-loading">Loading…</p>'
+    container.innerHTML = '<div class="community-loader-wrap"><div class="community-loader"></div></div>'
 
     let game, redditData, userSubs, prefs
     try {
@@ -397,7 +397,7 @@ function _initNavLinks(container) {
 
 export async function renderCommunityThread(appid, postId, container, sub = '') {
     if (!sub) sub = new URLSearchParams(window.location.search).get('sub') ?? ''
-    container.innerHTML = '<p class="page-loading">Loading…</p>'
+    container.innerHTML = '<div class="community-loader-wrap"><div class="community-loader"></div></div>'
 
     let game, thread, prefs
     try {
@@ -568,6 +568,8 @@ function _renderComment(comment, threadUrl, depth = 0) {
 // ── Image lightbox ────────────────────────────────────────────────────────────
 
 function _initImageLightbox(container) {
+    if (container._lightboxInit) return
+    container._lightboxInit = true
     container.addEventListener('click', e => {
         const wrap = e.target.closest('[data-lightbox-src]')
         if (!wrap) return
@@ -588,6 +590,8 @@ function _initImageLightbox(container) {
 }
 
 function _initImgurCarousel(container) {
+    if (container._carouselInit) return
+    container._carouselInit = true
     container.addEventListener('click', e => {
         const album = e.target.closest('[data-carousel]')
         if (!album) return
