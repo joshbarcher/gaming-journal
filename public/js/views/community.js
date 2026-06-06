@@ -166,6 +166,7 @@ function _initNavLinks(container) {
         const link = e.target.closest('[data-nav]')
         if (!link) return
         e.preventDefault()
+        e.stopPropagation()
         const href = link.getAttribute('href')
         if (!href) return
         import('../router.js').then(m => m.navigate(href.slice(1)))

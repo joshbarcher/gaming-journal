@@ -136,7 +136,6 @@ export async function renderGame(appid, container) {
             ${_itad(undefined, game)}
             <div data-bg-section="protondb"></div>
             ${_pcgw(undefined, game)}
-            <div data-bg-section="reddit"></div>
         </div>`
 
     _startHeroSlideshow(container, game)
@@ -1831,22 +1830,10 @@ function _loadBackgroundSections(container, game, needsCommunitySync) {
         finally { badge.decrement() }
     })()
 
-    // ── Reddit ────────────────────────────────────────────────────────────────
+    // ── Reddit cache warm (on-demand sync if not cached; section removed from page) ──
     ;(async () => {
-        const placeholder = container.querySelector('[data-bg-section="reddit"]')
-        try {
-            const { data } = await _workerMgr.fetch(`/relay/api/reddit/${appid}?name=${name}`)
-            if (placeholder) {
-                const html = _reddit(data, game)
-                if (html) {
-                    const tmp = document.createElement('div')
-                    tmp.innerHTML = html
-                    const newEl = tmp.firstElementChild
-                    if (newEl) { placeholder.replaceWith(newEl); _initReddit(container, game); _navRailEl?._rebuild?.() }
-                    else placeholder.remove()
-                } else placeholder.remove()
-            }
-        } catch { placeholder?.remove() }
+        try { await _workerMgr.fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(name)}`) }
+        catch { /* silent */ }
         finally { badge.decrement() }
     })()
 
@@ -1958,7 +1945,6 @@ const _NAV_ICONS = {
     tag:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
     monitor:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
     award:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`,
-    reddit:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M14.5 8.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5S12.17 7 13 7s1.5.67 1.5 1.5z"/><path d="M8.5 11c.83 0 1.5.67 1.5 1.5S9.33 14 8.5 14 7 13.33 7 12.5 7.67 11 8.5 11z"/><path d="M15.5 11c.83 0 1.5.67 1.5 1.5S16.33 14 15.5 14 14 13.33 14 12.5s.67-1.5 1.5-1.5z"/><path d="M9 16s.75 1 3 1 3-1 3-1"/></svg>`,
 }
 
 const _NAV_ITEMS = [
@@ -1975,7 +1961,6 @@ const _NAV_ITEMS = [
     { id: 'game-sec-prices',            label: 'Prices',            icon: _NAV_ICONS.tag       },
     { id: 'game-sec-protondb',          label: 'Linux Compat.',     icon: _NAV_ICONS.award     },
     { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: _NAV_ICONS.monitor   },
-    { id: 'game-sec-reddit',            label: 'Community',         icon: _NAV_ICONS.reddit    },
 ]
 
 let _navRailEl = null
@@ -2212,140 +2197,13 @@ function _initItadRefresh(container, game) {
     })
 }
 
-// ── Reddit ────────────────────────────────────────────────────────────────────
-
-function _fmtRedditScore(n) {
-    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-    return String(n)
-}
-
-function _fmtRedditTime(utc) {
-    if (!utc) return ''
-    const diff = Math.floor((Date.now() / 1000) - utc)
-    if (diff < 3600)  return `${Math.floor(diff / 60)}m`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`
-    if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d`
-    return new Date(utc * 1000).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-}
-
-function _redditPost(post, appid) {
-    const score    = _fmtRedditScore(post.score)
-    const time     = _fmtRedditTime(post.createdUtc)
-    const flair    = post.flair ? `<span class="reddit-post-flair">${escapeHtml(post.flair)}</span>` : ''
-    const body     = post.selftext
-        ? `<p class="reddit-post-body">${escapeHtml(post.selftext)}${post.selftext.length >= 600 ? '…' : ''}</p>`
-        : ''
-    const thumb    = post.thumbnail && !post.isImage
-        ? `<img class="reddit-post-thumb" src="${post.thumbnail}" alt="" loading="lazy" onerror="this.remove()">`
-        : ''
-    const href = appid
-        ? `/community/${appid}/thread/${post.id}?sub=${encodeURIComponent(post.subreddit ?? '')}`
-        : escapeHtml(post.permalink)
-
-    return `
-        <a class="reddit-post" href="${href}" ${appid ? 'data-nav' : 'target="_blank" rel="noopener noreferrer"'}>
-            ${thumb ? `<div class="reddit-post-img">${thumb}</div>` : ''}
-            <div class="reddit-post-content">
-                <div class="reddit-post-header">
-                    ${flair}
-                    <span class="reddit-post-title">${escapeHtml(post.title)}</span>
-                </div>
-                ${body}
-                <div class="reddit-post-meta">
-                    <span class="reddit-post-score">▲ ${score}</span>
-                    <span class="reddit-post-comments">💬 ${post.numComments.toLocaleString()}</span>
-                    <span class="reddit-post-author">u/${escapeHtml(post.author)}</span>
-                    <span class="reddit-post-sub">r/${escapeHtml(post.subreddit)}</span>
-                    <span class="reddit-post-time">${time}</span>
-                </div>
-            </div>
-        </a>`
-}
-
-function _reddit(data, game) {
-    if (!data?.sources?.length) return ''
-
-    const refreshBtn = `<button class="game-refresh-btn" data-role="reddit-refresh" title="Refresh Reddit posts">↻</button>`
-
-    // Build tabs — only show sources that have posts
-    const tabs = data.sources
-        .filter(s => s.posts?.length > 0)
-        .map((s, i) => `
-            <button class="reddit-tab${i === 0 ? ' reddit-tab--active' : ''}" data-source="${escapeHtml(s.subreddit)}">
-                r/${escapeHtml(s.subreddit)}
-                <span class="reddit-tab-count">${s.posts.length}</span>
-            </button>`).join('')
-
-    if (!tabs) return ''
-
-    // Panels for each source
-    const panels = data.sources
-        .filter(s => s.posts?.length > 0)
-        .map((s, i) => `
-            <div class="reddit-panel${i === 0 ? ' reddit-panel--active' : ''}" data-source="${escapeHtml(s.subreddit)}">
-                ${s.posts.slice(0, 5).map(p => _redditPost(p, game?.appid)).join('')}
-            </div>`).join('')
-
-    return `
-        <section class="game-section" id="game-sec-reddit">
-            <h2 class="game-section-title">Community ${refreshBtn}</h2>
-            <div class="reddit-tabs">${tabs}</div>
-            <div class="reddit-panels">${panels}</div>
-        </section>`
-}
-
-function _initReddit(container, game) {
-    // Tab switching
-    container.querySelectorAll('.reddit-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const src = btn.dataset.source
-            container.querySelectorAll('.reddit-tab').forEach(b => b.classList.toggle('reddit-tab--active', b.dataset.source === src))
-            container.querySelectorAll('.reddit-panel').forEach(p => p.classList.toggle('reddit-panel--active', p.dataset.source === src))
-        })
-    })
-
-    // In-app nav links (community thread links)
-    container.querySelectorAll('#game-sec-reddit [data-nav]').forEach(el => {
-        el.addEventListener('click', e => {
-            e.preventDefault()
-            const href = el.getAttribute('href')
-            if (!href) return
-            sessionStorage.setItem('gj_game_from', 'community')
-            sessionStorage.setItem('gj_community_appid', String(game?.appid ?? ''))
-            import('../router.js').then(m => m.navigate(href.slice(1)))
-        })
-    })
-
-    // Refresh
-    const btn = container.querySelector('[data-role="reddit-refresh"]')
-    if (!btn) return
-    btn.addEventListener('click', async () => {
-        btn.classList.add('game-refresh-btn--spinning')
-        btn.disabled = true
-        try {
-            await fetch(`/relay/api/reddit/${game.appid}/sync?name=${encodeURIComponent(game.name ?? '')}&force=true`, { method: 'POST' })
-            const fresh = await fetch(`/relay/api/reddit/${game.appid}?name=${encodeURIComponent(game.name ?? '')}`)
-            const data  = fresh.ok ? await fresh.json() : null
-            const section = container.querySelector('#game-sec-reddit')
-            if (!section) return
-            const tmp = document.createElement('div')
-            tmp.innerHTML = _reddit(data, game)
-            const newSection = tmp.firstElementChild
-            if (newSection) {
-                section.replaceWith(newSection)
-                _navRailEl?._rebuild?.()
-                _initReddit(container, game)
-            }
-        } catch { /* silent */ }
-        finally { btn.classList.remove('game-refresh-btn--spinning'); btn.disabled = false }
-    })
-}
 
 function _initCommunityBtn(container, game) {
     const btn = container.querySelector('.game-community-btn')
     if (!btn) return
     btn.addEventListener('click', e => {
         e.preventDefault()
+        e.stopPropagation()
         sessionStorage.setItem('gj_game_from', 'game')
         import('../router.js').then(m => m.navigate(`community/${game.appid}`))
     })
