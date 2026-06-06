@@ -170,11 +170,10 @@ function _initNavLinks(container) {
 
 // ── Thread view ───────────────────────────────────────────────────────────────
 
-export async function renderCommunityThread(appid, postId, container) {
+export async function renderCommunityThread(appid, postId, container, sub = '') {
+    // sub is passed from the router (parsed before pushState), fall back to location search
+    if (!sub) sub = new URLSearchParams(window.location.search).get('sub') ?? ''
     container.innerHTML = '<p class="page-loading">Loading…</p>'
-
-    const params    = new URLSearchParams(window.location.search)
-    const sub       = params.get('sub') ?? ''
 
     let game, thread
     try {

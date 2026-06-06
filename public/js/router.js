@@ -89,10 +89,12 @@ export function parseRoute(path) {
         return { view: 'journal', appid: parts[1], sub: parts[2] ?? null }
     }
     if (path.startsWith('community/')) {
-        const parts = path.split('/')
-        // community/{appid}/thread/{postId}
+        // Split path and inline query string cleanly
+        const [pathOnly, queryOnly] = path.split('?')
+        const parts = pathOnly.split('/')
         if (parts[2] === 'thread' && parts[3]) {
-            const sub = new URLSearchParams(window.location.search).get('sub') ?? ''
+            // Parse sub from inline query string first, fall back to current location
+            const sub = new URLSearchParams(queryOnly ?? window.location.search).get('sub') ?? ''
             return { view: 'community-thread', appid: parts[1], postId: parts[3], sub }
         }
         return { view: 'community', appid: parts[1] }
@@ -101,8 +103,9 @@ export function parseRoute(path) {
 }
 
 export function getRoutePath() {
-    // Strip leading slash to get the route key (e.g. "/library" → "library")
-    return window.location.pathname.slice(1)
+    // Strip leading slash; preserve query string so thread ?sub= survives back/forward
+    const p = window.location.pathname.slice(1)
+    return window.location.search ? `${p}${window.location.search}` : p
 }
 
 const FROM_LABELS = {
@@ -335,7 +338,7 @@ export async function navigate(path, { replace = false } = {}) {
     if (route.view === 'community-thread') {
         setActiveItem(null)
         const { renderCommunityThread } = await import('./views/community.js')
-        await renderCommunityThread(route.appid, route.postId, mainEl())
+        await renderCommunityThread(route.appid, route.postId, mainEl(), route.sub)
         _restoreScroll(path)
         return
     }
