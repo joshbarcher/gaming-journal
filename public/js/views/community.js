@@ -299,8 +299,10 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
         const pollStart = Date.now()
         let source = null
 
-        console.log(`${tag} polling for r/${subreddit} to appear in sources...`)
+        console.log(`%c${tag} POLLING STARTED — checking every ${POLL_INTERVAL_MS/1000}s, timeout ${POLL_TIMEOUT_MS/1000}s`, 'color: orange; font-weight: bold')
         while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
+            const waitUntil = Date.now() + POLL_INTERVAL_MS
+            console.log(`${tag} waiting ${POLL_INTERVAL_MS/1000}s before next poll...`)
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
             const res  = await fetch(`/relay/api/reddit/${appid}`)
             const data = res.ok ? await res.json() : null
