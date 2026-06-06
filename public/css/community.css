@@ -585,6 +585,132 @@
     text-decoration: underline;
 }
 
+/* ── Imgur album thumbnail ───────────────────────────────────────────────── */
+
+.thread-comment-imgur-album {
+    margin-top: 8px;
+    display: inline-block;
+    position: relative;
+    cursor: zoom-in;
+}
+
+.thread-comment-imgur-album img {
+    max-width: min(100%, 480px);
+    max-height: 360px;
+    border-radius: 4px;
+    object-fit: contain;
+    display: block;
+}
+
+.thread-comment-album-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 99px;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+}
+
+/* ── Imgur carousel modal ────────────────────────────────────────────────── */
+
+.community-carousel-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9100;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+    padding: 24px;
+}
+
+.community-carousel-dialog {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 90vw;
+    max-height: 90vh;
+    position: relative;
+}
+
+.community-carousel-close {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition);
+}
+
+.community-carousel-close:hover { background: rgba(255, 255, 255, 0.2); }
+
+.community-carousel-img-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-height: calc(90vh - 64px);
+}
+
+.community-carousel-img-wrap img {
+    max-width: 90vw;
+    max-height: calc(90vh - 64px);
+    object-fit: contain;
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.community-carousel-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.community-carousel-prev,
+.community-carousel-next {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition);
+}
+
+.community-carousel-prev:hover:not(:disabled),
+.community-carousel-next:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); }
+
+.community-carousel-prev:disabled,
+.community-carousel-next:disabled { opacity: 0.25; cursor: default; }
+
+.community-carousel-counter {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.7);
+    min-width: 48px;
+    text-align: center;
+}
+
 /* ── Infinite scroll sentinel ────────────────────────────────────────────── */
 
 .community-scroll-sentinel {

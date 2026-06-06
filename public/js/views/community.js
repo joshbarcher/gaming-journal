@@ -444,6 +444,7 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
     _initThreadRefresh(container, prefs)
     _initUserContextMenus(container, appid)
     _initImageLightbox(container)
+    _initImgurCarousel(container)
 }
 
 function _countComments(comments) {
@@ -494,15 +495,18 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const author    = comment.author ?? ''
 
     const rawBody = comment.body ?? null
-    // Strip bare Reddit image URLs and Giphy embeds — rendered separately below
+    // Strip bare Reddit image URLs, Giphy embeds, and Imgur links — rendered separately below
     const displayBody = rawBody
         ? rawBody
             .replace(/https?:\/\/(?:preview|i)\.redd\.it\/\S+\.(?:png|jpe?g|gif|webp)\S*/gi, '')
             .replace(/!\[gif\]\(giphy\|[a-zA-Z0-9]+[^)]*\)/gi, '')
+            .replace(/\[[^\]]*\]\(https?:\/\/(?:i\.)?imgur\.com\/[^)]+\)/gi, '')
+            .replace(/https?:\/\/(?:i\.)?imgur\.com\/\S+/gi, '')
             .trim()
         : null
     const images = comment.images ?? []
     const gifs   = comment.gifs   ?? []
+    const imgur  = (comment.imgur ?? []).filter(e => e.images?.length && !e.failed)
 
     const bodyHtml = displayBody
         ? escapeHtml(displayBody)
@@ -518,6 +522,19 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const gifsHtml = gifs.filter(g => g.localVideo).map(g => {
         const src = `/relay${g.localVideo}`
         return `<div class="thread-comment-gif"><video src="${escapeHtml(src)}" autoplay loop muted playsinline></video></div>`
+    }).join('')
+
+    const imgurHtml = imgur.map(entry => {
+        const first  = entry.images[0]
+        const src    = first.localImage ? `/relay${first.localImage}` : first.url
+        if (entry.images.length === 1) {
+            return `<div class="thread-comment-image" data-lightbox-src="${escapeHtml(src)}"><img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.closest('.thread-comment-image').remove()"></div>`
+        }
+        const srcs = entry.images.map(img => img.localImage ? `/relay${img.localImage}` : img.url)
+        return `<div class="thread-comment-imgur-album" data-carousel="${escapeHtml(JSON.stringify(srcs))}">
+            <img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.closest('.thread-comment-imgur-album').remove()">
+            <span class="thread-comment-album-badge">+${entry.images.length - 1} more</span>
+        </div>`
     }).join('')
 
     const time    = _fmtTime(comment.createdUtc)
@@ -543,6 +560,7 @@ function _renderComment(comment, threadUrl, depth = 0) {
             <div class="thread-comment-body">${bodyHtml}</div>
             ${imagesHtml}
             ${gifsHtml}
+            ${imgurHtml}
             ${repliesHtml}
         </div>`
 }
@@ -567,6 +585,55 @@ function _initImageLightbox(container) {
 
         document.body.appendChild(modal)
     })
+}
+
+function _initImgurCarousel(container) {
+    container.addEventListener('click', e => {
+        const album = e.target.closest('[data-carousel]')
+        if (!album) return
+        const srcs = JSON.parse(album.dataset.carousel)
+        _openCarousel(srcs)
+    })
+}
+
+function _openCarousel(srcs, startIndex = 0) {
+    let current = startIndex
+
+    const modal = document.createElement('div')
+    modal.className = 'community-carousel-modal'
+
+    const render = () => {
+        const isFirst = current === 0
+        const isLast  = current === srcs.length - 1
+        modal.innerHTML = `
+            <div class="community-carousel-dialog">
+                <button class="community-carousel-close" aria-label="Close">×</button>
+                <div class="community-carousel-img-wrap">
+                    <img src="${escapeHtml(srcs[current])}" alt="">
+                </div>
+                <div class="community-carousel-controls">
+                    <button class="community-carousel-prev" ${isFirst ? 'disabled' : ''} aria-label="Previous">←</button>
+                    <span class="community-carousel-counter">${current + 1} / ${srcs.length}</span>
+                    <button class="community-carousel-next" ${isLast  ? 'disabled' : ''} aria-label="Next">→</button>
+                </div>
+            </div>`
+        modal.querySelector('.community-carousel-close').addEventListener('click', close)
+        modal.querySelector('.community-carousel-prev').addEventListener('click', () => { if (current > 0) { current--; render() } })
+        modal.querySelector('.community-carousel-next').addEventListener('click', () => { if (current < srcs.length - 1) { current++; render() } })
+    }
+
+    const close = () => { modal.remove(); document.removeEventListener('keydown', onKey) }
+    modal.addEventListener('click', e => { if (e.target === modal) close() })
+
+    const onKey = e => {
+        if (e.key === 'Escape')      close()
+        if (e.key === 'ArrowLeft'  && current > 0)              { current--; render() }
+        if (e.key === 'ArrowRight' && current < srcs.length - 1) { current++; render() }
+    }
+    document.addEventListener('keydown', onKey)
+
+    render()
+    document.body.appendChild(modal)
 }
 
 // ── Pref application ──────────────────────────────────────────────────────────
