@@ -492,9 +492,24 @@ function _renderComment(comment, threadUrl, depth = 0) {
     const usedDepth = comment.depth ?? depth
     const author    = comment.author ?? ''
 
-    const body    = comment.body
-        ? escapeHtml(comment.body)
-        : '<em class="thread-comment-deleted">[deleted]</em>'
+    const rawBody = comment.body ?? null
+    // Strip bare Reddit image URLs from body text — they're rendered as images below
+    const displayBody = rawBody
+        ? rawBody.replace(/https?:\/\/(?:preview|i)\.redd\.it\/\S+\.(?:png|jpe?g|gif|webp)\S*/gi, '').trim()
+        : null
+    const images = comment.images ?? []
+
+    const bodyHtml = displayBody
+        ? escapeHtml(displayBody)
+        : images.length === 0
+            ? '<em class="thread-comment-deleted">[deleted]</em>'
+            : ''
+
+    const imagesHtml = images.map(img => {
+        const src = img.localImage ? `/relay${img.localImage}` : img.url
+        return `<div class="thread-comment-image" data-lightbox-src="${escapeHtml(src)}"><img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.closest('.thread-comment-image').remove()"></div>`
+    }).join('')
+
     const time    = _fmtTime(comment.createdUtc)
     const score   = _fmtScore(comment.score)
     const replies = comment.replies ?? []
@@ -515,7 +530,8 @@ function _renderComment(comment, threadUrl, depth = 0) {
                 <span class="thread-comment-score">▲ ${escapeHtml(score)}</span>
                 <span class="thread-comment-time">${escapeHtml(time)}</span>
             </div>
-            <div class="thread-comment-body">${body}</div>
+            <div class="thread-comment-body">${bodyHtml}</div>
+            ${imagesHtml}
             ${repliesHtml}
         </div>`
 }
