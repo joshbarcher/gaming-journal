@@ -414,6 +414,10 @@
 .thread-comment[data-depth="0"] {
     border-left-color: transparent;
     padding-left: 0;
+    border-top: 1px solid var(--clr-border);
+    padding-top: 18px;
+    margin-top: 4px;
+    margin-bottom: 18px;
 }
 
 .thread-comment[data-depth="1"] { border-left-color: rgba(91,155,213,0.70); padding-left: 16px; }
