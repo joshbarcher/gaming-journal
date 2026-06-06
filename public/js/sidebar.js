@@ -212,13 +212,14 @@ function _updateAlertsBadge(count) {
 
 async function _fetchCollectionCounts() {
     try {
-        const [flagsRes, accountRes] = await Promise.all([
+        const [flagsRes, accountRes, franchisesRes] = await Promise.all([
             fetch('/api/flags'),
             fetch('/relay/api/account'),
+            fetch('/api/franchises'),
         ])
         if (!flagsRes.ok) return
         const flags = await flagsRes.json()
-        const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0 }
+        const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 }
         for (const f of Object.values(flags)) {
             if (f.favorite)  counts.favorites++
             if (f.inProgress)    counts.inProgress++
@@ -231,19 +232,24 @@ async function _fetchCollectionCounts() {
             counts.library  = account?.stats?.totalGames   ?? 0
             counts.wishlist = account?.stats?.wishlistCount ?? 0
         }
+        if (franchisesRes.ok) {
+            const franchises = await franchisesRes.json()
+            counts.franchises = Array.isArray(franchises) ? franchises.length : 0
+        }
         _updateCollectionBadges(counts)
     } catch { /* silent — non-critical */ }
 }
 
 function _updateCollectionBadges(counts) {
     const updates = [
-        ['.sidebar-library-btn',   counts.library],
-        ['.sidebar-wishlist-btn',  counts.wishlist],
-        ['.sidebar-favorites-btn', counts.favorites],
-        ['.sidebar-inprogress-btn',    counts.inProgress],
-        ['.sidebar-backlog-btn',     counts.backlog],
-        ['.sidebar-abandoned-btn', counts.dropped],
-        ['.sidebar-hof-btn',       counts.completed],
+        ['.sidebar-library-btn',    counts.library],
+        ['.sidebar-wishlist-btn',   counts.wishlist],
+        ['.sidebar-favorites-btn',  counts.favorites],
+        ['.sidebar-inprogress-btn', counts.inProgress],
+        ['.sidebar-backlog-btn',    counts.backlog],
+        ['.sidebar-abandoned-btn',  counts.dropped],
+        ['.sidebar-hof-btn',        counts.completed],
+        ['.sidebar-franchises-btn', counts.franchises],
     ]
     for (const [sel, count] of updates) {
         const badge = document.querySelector(`${sel} .sidebar-collection-badge`)
@@ -526,7 +532,7 @@ function buildFranchisesButton(isActive) {
     el.className = 'sidebar-nav-btn sidebar-franchises-btn' + (isActive ? ' active' : '')
     el.dataset.id = 'franchises'
     el.tabIndex = 0
-    el.innerHTML = `${_ICONS.franchises} Franchises`
+    el.innerHTML = `${_ICONS.franchises} Franchises <span class="sidebar-collection-badge" style="display:none"></span>`
     el.addEventListener('click', () => _onNavigate('franchises'))
     el.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _onNavigate('franchises') }
