@@ -1793,14 +1793,125 @@
     opacity: 1;
 }
 
-/* ── ProtonDB hero badge (square, absolutely anchored left of data panel) ────── */
+/* ── Hero badges (proton + updating) — flex column to the left of the data panel */
 
 .game-data-panel { position: relative; }
 
-.proton-badge {
+/* Flex container anchored to the left of the panel.
+   Update badge appears first (afterbegin), proton badge last. */
+.game-panel-badges {
     position: absolute;
     right: calc(100% + 10px);
     bottom: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+/* ── Updating badge ── */
+
+.update-badge {
+    width: 76px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(130, 190, 255, 0.22);
+    background: linear-gradient(160deg, rgba(8,7,6,0.82) 0%, rgba(18,45,85,0.72) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10);
+    overflow: hidden;
+    position: relative;
+}
+
+.update-badge-count {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: rgba(150, 205, 255, 0.9);
+    line-height: 1;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
+
+.update-badge-count--bump {
+    animation: update-count-bump 0.22s ease-out;
+}
+
+.update-badge-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+}
+
+.update-badge-icon svg {
+    width: 22px;
+    height: 22px;
+    color: rgba(130, 195, 255, 0.75);
+    stroke-width: 1.75;
+    filter: drop-shadow(0 1px 4px rgba(0,0,0,0.6));
+    animation: update-spin 1.8s linear infinite;
+}
+
+.update-badge-sub {
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.55);
+    line-height: 1;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
+
+.update-badge--gone {
+    animation: update-badge-out 0.35s ease-out forwards;
+}
+
+/* Subtle blue sweep, same rhythm as proton-badge shine */
+.update-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -70%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(100,180,255,0.10), transparent);
+    transform: skewX(-15deg);
+    pointer-events: none;
+    animation: proton-shine 4s ease-in-out infinite;
+}
+
+@keyframes update-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+@keyframes update-count-bump {
+    0%   { transform: scale(1);    opacity: 1; }
+    40%  { transform: scale(1.45); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes update-badge-out {
+    from { opacity: 1; transform: scale(1);    }
+    to   { opacity: 0; transform: scale(0.82); }
+}
+
+/* ── ProtonDB hero badge (square, inside .game-panel-badges flex container) ── */
+
+.proton-badge {
     width: 76px;
     display: flex;
     flex-direction: column;

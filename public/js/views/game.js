@@ -3,6 +3,74 @@ import { refreshAlertsBadge } from '../sidebar.js'
 import { openReviewModal, renderLocalReviewCard } from '../review-modal.js'
 import { gameBackLabel, gameBackPath } from '../router.js'
 
+// ── Worker manager ────────────────────────────────────────────────────────────
+// Routes fetch calls through a dedicated worker so long-running network ops
+// never block the main thread. Falls back to main-thread fetch if unsupported.
+const _workerMgr = (() => {
+    let _w = null, _seq = 0
+    const _cbs = new Map()
+    const _ok  = typeof Worker !== 'undefined'
+
+    function _boot() {
+        if (_w) return _w
+        _w = new Worker('/js/workers/game-refresh.worker.js')
+        _w.onmessage = ({ data }) => { const cb = _cbs.get(data.id); if (cb) { _cbs.delete(data.id); cb(data) } }
+        _w.onerror   = ()       => { for (const [id, cb] of _cbs) { _cbs.delete(id); cb({ id, data: null }) } }
+        return _w
+    }
+
+    function _post(msg) {
+        return new Promise(resolve => { const id = _seq++; _cbs.set(id, resolve); _boot().postMessage({ ...msg, id }) })
+    }
+
+    async function _mainGet(url)              { try { const r = await fetch(url);  return { data: r.ok ? await r.json() : null } } catch { return { data: null } } }
+    async function _mainPostGet(postUrl, getUrl) { try { await fetch(postUrl, { method: 'POST' }); const r = await fetch(getUrl); return { data: r.ok ? await r.json() : null } } catch { return { data: null } } }
+
+    return {
+        fetch(url)                 { return _ok ? _post({ type: 'get',      url })                  : _mainGet(url) },
+        sync(postUrl, getUrl)      { return _ok ? _post({ type: 'post_get', postUrl, getUrl })       : _mainPostGet(postUrl, getUrl) },
+    }
+})()
+
+// ── Updating badge ────────────────────────────────────────────────────────────
+// Shows a count-down badge in .game-panel-badges while background sections load.
+const _UpdateBadge = (() => {
+    function show(container, total) {
+        if (total <= 0) return { decrement: () => {} }
+        const wrap = container.querySelector('.game-panel-badges')
+        if (!wrap) return { decrement: () => {} }
+
+        let count = total
+        const el  = document.createElement('div')
+        el.className = 'update-badge'
+        el.innerHTML = `
+            <span class="update-badge-count">${total}</span>
+            <span class="update-badge-icon">${_SVG_SYNC}</span>
+            <span class="update-badge-sub">Updating</span>`
+        wrap.insertAdjacentElement('afterbegin', el)
+
+        function decrement() {
+            count = Math.max(0, count - 1)
+            const n = el.querySelector('.update-badge-count')
+            if (n) {
+                n.textContent = count
+                n.classList.remove('update-badge-count--bump')
+                void n.offsetWidth
+                n.classList.add('update-badge-count--bump')
+            }
+            if (count === 0) {
+                el.classList.add('update-badge--gone')
+                el.addEventListener('animationend', () => el.remove(), { once: true })
+            }
+        }
+
+        return { decrement }
+    }
+    return { show }
+})()
+
+const _SVG_SYNC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`
+
 export async function renderGame(appid, container) {
     // Clean up any nav rail left over from a previous game page
     _navRailEl?.remove()
@@ -16,12 +84,13 @@ export async function renderGame(appid, container) {
 
     container.innerHTML = `<p class="page-loading">Loading…</p>`
 
-    let game, itadData, pcgwData, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted, news, protonData, redditData
+    // ── Phase 1: fast fetches (local / relay-cached data only) ────────────────
+    // ITAD, PCGW, ProtonDB, news, and reddit can hit slow external APIs — they
+    // load in the background after the page renders (_loadBackgroundSections).
+    let game, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted
     try {
-        const [gameRes, itadRes, pcgwRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes, newsRes, protonRes] = await Promise.all([
+        const [gameRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
             fetch(`/relay/api/games/${appid}`),
-            fetch(`/relay/api/itad/${appid}`),
-            fetch(`/relay/api/pcgw/${appid}`),
             fetch(`/relay/api/steam/community-reviews/${appid}`),
             fetch(`/relay/api/steam/reviews/${appid}`),
             fetch(`/relay/api/player-counts/${appid}`),
@@ -29,42 +98,26 @@ export async function renderGame(appid, container) {
             fetch(`/api/local-reviews/${appid}`),
             fetch(`/relay/api/videos/${appid}`),
             fetch(`/api/local-wishlist/${appid}`),
-            fetch(`/relay/api/news/${appid}`),
-            fetch(`/relay/api/protondb/${appid}`),
         ])
         if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
-        game             = await gameRes.json()
-        itadData         = itadRes.ok      ? await itadRes.json()      : null
-        pcgwData         = pcgwRes.ok      ? await pcgwRes.json()      : null
-        communityReviews = crRes.ok        ? await crRes.json()        : null
-        myReview         = mrRes.ok        ? await mrRes.json()        : null
-        playerCounts     = pcRes.ok        ? await pcRes.json()        : null
-        flags            = flagsRes.ok     ? await flagsRes.json()     : {}
-        localReview      = localRevRes.ok  ? await localRevRes.json()  : null
-        trailers         = trailersRes.ok  ? await trailersRes.json()  : []
-        localWishlisted  = localWlRes.ok   ? (await localWlRes.json()).wishlisted : false
-        news             = newsRes.ok      ? await newsRes.json()      : null
-        protonData       = protonRes.ok    ? await protonRes.json()    : null
-        if (protonData?.notFound || !protonData?.tier) protonData = null
-        // Reddit: fetch with game name now that we have it; ok to be null (loads async)
-        const redditRes = await fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(game.name ?? '')}`)
-        redditData = redditRes.ok ? await redditRes.json() : null
-        if (_newsBBCodeDirty(news)) {
-            try {
-                await fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' })
-                const freshRes = await fetch(`/relay/api/news/${appid}`)
-                if (freshRes.ok) news = await freshRes.json()
-            } catch { /* ignore — render whatever we have */ }
-        } else {
-            fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }).catch(() => {})
-        }
+        game            = await gameRes.json()
+        communityReviews = crRes.ok       ? await crRes.json()              : null
+        myReview        = mrRes.ok        ? await mrRes.json()              : null
+        playerCounts    = pcRes.ok        ? await pcRes.json()              : null
+        flags           = flagsRes.ok     ? await flagsRes.json()           : {}
+        localReview     = localRevRes.ok  ? await localRevRes.json()        : null
+        trailers        = trailersRes.ok  ? await trailersRes.json()        : []
+        localWishlisted = localWlRes.ok   ? (await localWlRes.json()).wishlisted : false
     } catch (err) {
         container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
         return
     }
 
+    // ── Render immediately ────────────────────────────────────────────────────
+    // ITAD/PCGW: pass undefined → pending placeholder (background loader swaps in).
+    // ProtonDB / news / reddit: placeholder divs, background loader fills or removes.
     container.innerHTML = `
-        ${_hero(game, communityReviews, protonData)}
+        ${_hero(game, communityReviews, null)}
         ${game.store?.unavailable ? `<div class="game-unavailable-banner"><span class="game-unavailable-icon">&#9888;</span> This game is no longer available on the Steam store.</div>` : ''}
         ${_releaseBanner(game)}
         <div class="game-flags-bar" data-appid="${appid}">
@@ -76,14 +129,14 @@ export async function renderGame(appid, container) {
             ${_hltb(game)}
             ${_playerCounts(playerCounts, game)}
             ${_screenshots(game)}
-            ${_news(news)}
+            <div data-bg-section="news"></div>
             ${_localReviewSection(localReview, appid)}
             ${_myReview(myReview)}
             ${_communityReviews(communityReviews, game)}
-            ${_itad(itadData, game)}
-            ${_protondb(protonData, game)}
-            ${_pcgw(pcgwData, game)}
-            ${_reddit(redditData, game)}
+            ${_itad(undefined, game)}
+            <div data-bg-section="protondb"></div>
+            ${_pcgw(undefined, game)}
+            <div data-bg-section="reddit"></div>
         </div>`
 
     _startHeroSlideshow(container, game)
@@ -93,32 +146,10 @@ export async function renderGame(appid, container) {
     _initLocalReviewSection(container, appid, game?.name ?? 'Game')
     _initSteamReview(container)
     _initTrailers(container, appid)
-    _initNews(container)
     _initNavRail(container)
     _initHltbSessionUpdate(container, appid)
     _initHltbRefresh(container, game)
-    _initPcgwRefresh(container, game)
-    _initItadRefresh(container, game)
-    _initProtondbRefresh(container, game)
-    _initReddit(container, game)
     _initCommunityBtn(container, game)
-
-    // Fetch missing "About" description in the background and swap it in when ready
-    if (!game.store?.detailedDescription && game.store && !game.store.unavailable && game.source !== 'discovered') {
-        _loadAboutDynamic(container, appid)
-    }
-
-    // Progressively load any sections not yet cached (discovered games always,
-    // library/wishlist games when HLTB is missing or previously unmatched)
-    if (container.querySelector('.game-hltb-pending, .game-itad-pending, .game-pcgw-pending')) {
-        _loadDiscoveredData(container, game)
-    }
-
-    // Community reviews: fetch on demand if not yet cached (covers discovered games + any
-    // library game that hasn't been through the community-reviews sync yet)
-    if (communityReviews === null && _releaseStatus(game) !== 'coming_soon') {
-        _loadCommunityReviews(container, game)
-    }
 
     container.querySelector('.game-shots-grid')?.addEventListener('click', e => {
         const img = e.target.closest('.game-shot-img')
@@ -128,6 +159,10 @@ export async function renderGame(appid, container) {
         }
     })
 
+    // ── Phase 2: background section loading ───────────────────────────────────
+    // Fires all slow fetches off the main thread via the worker, shows a count-down
+    // badge in the hero panel while sections trickle in.
+    _loadBackgroundSections(container, game, communityReviews === null)
 }
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
@@ -325,7 +360,9 @@ function _dataPanel(game, communityReviews, protonData) {
     rows.push(_gdpRow('Steam ID', `<a class="gdp-steam-link" href="https://store.steampowered.com/app/${game.appid}" target="_blank" rel="noopener">${game.appid} ↗</a>`, true))
 
     return `<div class="game-data-panel">
-        ${_protonBadge(protonData, game.appid)}
+        <div class="game-panel-badges">
+            ${_protonBadge(protonData, game.appid)}
+        </div>
         ${rows.join('')}
         <div class="game-panel-btns">
             <a href="/journal/${game.appid}" class="game-journal-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;vertical-align:middle"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg> Open Journal</a>
@@ -479,8 +516,8 @@ function _storeIconHtml(storeName) {
 }
 
 function _itad(itad, game) {
-    // Discovered game: data not yet fetched — placeholder for async progressive load
-    if (game?.source === 'discovered' && itad === null) return '<div class="game-itad-pending"></div>'
+    // undefined = not yet fetched — pending placeholder for all sources
+    if (itad === undefined) return '<div class="game-itad-pending"></div>'
 
     const refreshBtn = `<button class="game-refresh-btn" data-role="itad-refresh" title="Refresh price data">↻</button>`
 
@@ -729,9 +766,9 @@ function _about(game) {
     return ''
 }
 
-async function _loadAboutDynamic(container, appid) {
+async function _loadAboutDynamic(container, appid, onDone) {
     const placeholder = container.querySelector('.game-about-pending')
-    if (!placeholder) return
+    if (!placeholder) { onDone?.(); return }
 
     try {
         const res = await fetch(`/relay/api/games/${appid}?refresh=true`)
@@ -750,6 +787,8 @@ async function _loadAboutDynamic(container, appid) {
         _navRailEl?._rebuild?.()
     } catch {
         placeholder.remove()
+    } finally {
+        onDone?.()
     }
 }
 
@@ -907,8 +946,8 @@ function _pcgwRows(obj, defs) {
 
 function _pcgw(pcgwData, game) {
     if (!pcgwData?.found) {
-        // Discovered released/EA game, data not yet fetched — placeholder for async load
-        if (game?.source === 'discovered' && pcgwData === null && _releaseStatus(game) !== 'coming_soon')
+        // undefined = not yet fetched — pending placeholder for all sources (not coming-soon)
+        if (pcgwData === undefined && _releaseStatus(game) !== 'coming_soon')
             return '<div class="game-pcgw-pending"></div>'
         return ''
     }
@@ -1395,31 +1434,7 @@ function _communityReviews(data, game) {
 
 // Fires when community reviews aren't cached yet — syncs then swaps in both
 // the hero Steam score chip and the full reviews section without a page reload.
-async function _loadCommunityReviews(container, game) {
-    try {
-        await fetch(`/relay/api/steam/community-reviews/${game.appid}/sync`, { method: 'POST' })
-
-        const res = await fetch(`/relay/api/steam/community-reviews/${game.appid}`)
-        if (!res.ok) return
-        const data = await res.json()
-
-        // Update Steam score chip in the hero data panel
-        const chip = container.querySelector('#gdp-steam-chip')
-        if (chip) {
-            const ratio = data?.summary?.ratio ?? null
-            chip.outerHTML = _scoreChip('Steam', ratio, ratio != null ? Math.round(ratio) + '%' : null, 'gdp-steam-chip')
-        }
-
-        // Swap the community reviews section
-        const section = container.querySelector('#game-sec-community-reviews')
-        if (section) {
-            const tmp = document.createElement('div')
-            tmp.innerHTML = _communityReviews(data, game)
-            const newEl = tmp.firstElementChild
-            if (newEl) section.replaceWith(newEl)
-        }
-    } catch { /* non-critical — page is fully usable without reviews */ }
-}
+// Community-review syncing is now handled inside _loadBackgroundSections.
 
 // ── Screenshot modal ──────────────────────────────────────────────────────────
 
@@ -1651,13 +1666,21 @@ function _initLocalReviewSection(container, appid, gameName) {
 
 // Fires after the initial render for discovered games that are missing HLTB / ITAD / PCGW.
 // Each service runs independently and swaps its placeholder out when it resolves.
-function _loadDiscoveredData(container, game) {
-    const appid  = game.appid
-    const name   = encodeURIComponent(game.name)
-    const status = _releaseStatus(game)
+// Fires after the page renders. Fetches all slow / external-API sections via the
+// worker, swaps each section into the DOM as results arrive, and drives the
+// count-down updating badge in the hero panel.
+//
+// needsCommunitySync — true when community reviews came back null in phase 1,
+// meaning the relay hasn't cached them yet and needs a sync POST.
+function _loadBackgroundSections(container, game, needsCommunitySync) {
+    const appid   = game.appid
+    const name    = encodeURIComponent(game.name ?? '')
+    const status  = _releaseStatus(game)
+    const isDisc  = game.source === 'discovered'
+    const notSoon = status !== 'coming_soon'
 
-    // Helper — replaces a placeholder element with rendered HTML, or removes it
     function _swap(el, html) {
+        if (!el) return
         if (!html) { el.remove(); return }
         const tmp = document.createElement('div')
         tmp.innerHTML = html
@@ -1666,62 +1689,193 @@ function _loadDiscoveredData(container, game) {
         else el.remove()
     }
 
-    // HLTB — released / early access only (unreleased games have no completion data)
-    if (status !== 'coming_soon') {
+    const hltbEl = notSoon ? container.querySelector('.game-hltb-pending') : null
+    const itadEl = container.querySelector('.game-itad-pending')
+    const pcgwEl = notSoon ? container.querySelector('.game-pcgw-pending') : null
+
+    let count = 0
+    if (hltbEl)             count++
+    if (itadEl)             count++
+    if (pcgwEl)             count++
+    count++                        // protondb
+    count++                        // news
+    count++                        // reddit
+    if (needsCommunitySync) count++
+
+    const hasAbout = !game.store?.detailedDescription && game.store
+        && !game.store.unavailable && !isDisc
+    if (hasAbout) count++
+
+    if (!notSoon) {
+        container.querySelector('.game-hltb-pending')?.remove()
+        container.querySelector('.game-pcgw-pending')?.remove()
+    }
+
+    if (count === 0) return
+    const badge = _UpdateBadge.show(container, count)
+
+    // ── HLTB ─────────────────────────────────────────────────────────────────
+    if (hltbEl) {
         ;(async () => {
-            const el = container.querySelector('.game-hltb-pending')
-            if (!el) return
-            const noData = () => _swap(el, `
+            const noData = () => _swap(hltbEl, `
                 <section class="game-section" id="game-sec-hltb">
                     <h2 class="game-section-title">How Long To Beat</h2>
                     <p class="game-section-empty">No data available for this game.</p>
                 </section>`)
             try {
-                const res = await fetch(`/relay/api/hltb/${appid}?fetch=true&name=${name}`)
-                if (!res.ok) { noData(); return }
-                const entry = await res.json()
-                const hasTimes = entry.matched &&
-                    (entry.gameplayMain ?? entry.gameplayMainExtra ?? entry.gameplayCompletionist) != null
+                const { data } = await _workerMgr.fetch(`/relay/api/hltb/${appid}?fetch=true&name=${name}`)
+                const hasTimes = data?.matched &&
+                    (data.gameplayMain ?? data.gameplayMainExtra ?? data.gameplayCompletionist) != null
                 if (!hasTimes) { noData(); return }
-                _swap(el, _hltb({ ...game, hltb: entry }))
-                // Re-init the session pin timer now that milestones/scale are populated
+                _swap(hltbEl, _hltb({ ...game, hltb: data }))
                 _initHltbSessionUpdate(container, appid)
-                _initHltbRefresh(container, { ...game, hltb: entry })
+                _initHltbRefresh(container, { ...game, hltb: data })
             } catch { noData() }
+            finally { badge.decrement() }
         })()
-    } else {
-        container.querySelector('.game-hltb-pending')?.remove()
     }
 
-    // ITAD — all discovered games including coming-soon (pre-purchase deals are real)
+    // ── ITAD ─────────────────────────────────────────────────────────────────
+    if (itadEl) {
+        ;(async () => {
+            try {
+                const url   = isDisc ? `/relay/api/itad/${appid}?fetch=true&name=${name}` : `/relay/api/itad/${appid}`
+                const { data } = await _workerMgr.fetch(url)
+                // {} not null — null re-renders pending placeholder, {} gives empty-state section
+                const entry = data ?? {}
+                _swap(itadEl, _itad(entry, game))
+                _initItadRefresh(container, game)
+                if (data) {
+                    const gdpPrices = container.querySelector('[data-role="gdp-prices"]')
+                    if (gdpPrices) {
+                        const tmp2 = document.createElement('div')
+                        tmp2.innerHTML = _gdpPricesHtml(data, game)
+                        gdpPrices.replaceWith(tmp2.firstElementChild)
+                    }
+                }
+            } catch {
+                _swap(itadEl, _itad({}, game))
+                _initItadRefresh(container, game)
+            } finally { badge.decrement() }
+        })()
+    }
+
+    // ── PCGW ─────────────────────────────────────────────────────────────────
+    if (pcgwEl) {
+        ;(async () => {
+            try {
+                const url   = isDisc ? `/relay/api/pcgw/${appid}?fetch=true&name=${name}` : `/relay/api/pcgw/${appid}`
+                const { data } = await _workerMgr.fetch(url)
+                if (data?.found) {
+                    _swap(pcgwEl, _pcgw(data, game))
+                    _initPcgwRefresh(container, game)
+                } else {
+                    pcgwEl.remove()
+                }
+            } catch { pcgwEl.remove() }
+            finally { badge.decrement() }
+        })()
+    }
+
+    // ── ProtonDB ──────────────────────────────────────────────────────────────
     ;(async () => {
-        const el = container.querySelector('.game-itad-pending')
-        if (!el) return
+        const placeholder = container.querySelector('[data-bg-section="protondb"]')
         try {
-            const res   = await fetch(`/relay/api/itad/${appid}?fetch=true&name=${name}`)
-            // {} (not null) so _itad renders empty state rather than the pending placeholder
-            const entry = res.ok ? await res.json() : {}
-            _swap(el, _itad(entry, game))
-        } catch { _swap(el, _itad({}, game)) }
-        _initItadRefresh(container, game)
+            const { data: raw } = await _workerMgr.fetch(`/relay/api/protondb/${appid}`)
+            const protonData = (raw?.notFound || !raw?.tier) ? null : raw
+            if (protonData) {
+                if (placeholder) {
+                    _swap(placeholder, _protondb(protonData, game))
+                    _initProtondbRefresh(container, game)
+                }
+                const badges = container.querySelector('.game-panel-badges')
+                if (badges) {
+                    const tmp = document.createElement('div')
+                    tmp.innerHTML = _protonBadge(protonData, appid)
+                    const el = tmp.firstElementChild
+                    if (el) badges.appendChild(el)
+                }
+            } else {
+                placeholder?.remove()
+            }
+        } catch { placeholder?.remove() }
+        finally { badge.decrement() }
     })()
 
-    // PCGW — released / early access only (unreleased games rarely have wiki pages)
-    if (status !== 'coming_soon') {
+    // ── News ──────────────────────────────────────────────────────────────────
+    ;(async () => {
+        const placeholder = container.querySelector('[data-bg-section="news"]')
+        try {
+            const { data: newsRaw } = await _workerMgr.fetch(`/relay/api/news/${appid}`)
+            let news = newsRaw
+            if (_newsBBCodeDirty(news)) {
+                try {
+                    await fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' })
+                    const freshRes = await fetch(`/relay/api/news/${appid}`)
+                    if (freshRes.ok) news = await freshRes.json()
+                } catch { /* render whatever we have */ }
+            } else {
+                fetch(`/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }).catch(() => {})
+            }
+            if (placeholder) {
+                const html = _news(news)
+                if (html) {
+                    const tmp = document.createElement('div')
+                    tmp.innerHTML = html
+                    const newEl = tmp.firstElementChild
+                    if (newEl) { placeholder.replaceWith(newEl); _initNews(container); _navRailEl?._rebuild?.() }
+                    else placeholder.remove()
+                } else placeholder.remove()
+            }
+        } catch { placeholder?.remove() }
+        finally { badge.decrement() }
+    })()
+
+    // ── Reddit ────────────────────────────────────────────────────────────────
+    ;(async () => {
+        const placeholder = container.querySelector('[data-bg-section="reddit"]')
+        try {
+            const { data } = await _workerMgr.fetch(`/relay/api/reddit/${appid}?name=${name}`)
+            if (placeholder) {
+                const html = _reddit(data, game)
+                if (html) {
+                    const tmp = document.createElement('div')
+                    tmp.innerHTML = html
+                    const newEl = tmp.firstElementChild
+                    if (newEl) { placeholder.replaceWith(newEl); _initReddit(container, game); _navRailEl?._rebuild?.() }
+                    else placeholder.remove()
+                } else placeholder.remove()
+            }
+        } catch { placeholder?.remove() }
+        finally { badge.decrement() }
+    })()
+
+    // ── Community reviews sync (if not in relay cache) ────────────────────────
+    if (needsCommunitySync && notSoon) {
         ;(async () => {
-            const el = container.querySelector('.game-pcgw-pending')
-            if (!el) return
             try {
-                const res = await fetch(`/relay/api/pcgw/${appid}?fetch=true&name=${name}`)
-                if (!res.ok) { el.remove(); return }
-                const entry = await res.json()
-                if (!entry.found) { el.remove(); return }
-                _swap(el, _pcgw(entry, game))
-                _initPcgwRefresh(container, game)
-            } catch { el.remove() }
+                await fetch(`/relay/api/steam/community-reviews/${appid}/sync`, { method: 'POST' })
+                const res = await fetch(`/relay/api/steam/community-reviews/${appid}`)
+                if (!res.ok) return
+                const data = await res.json()
+                const section = container.querySelector('#game-sec-community-reviews')
+                if (section) {
+                    const tmp = document.createElement('div')
+                    tmp.innerHTML = _communityReviews(data, game)
+                    const newEl = tmp.firstElementChild
+                    if (newEl) section.replaceWith(newEl)
+                }
+                const ratio = data?.summary?.ratio ?? null
+                const chip  = container.querySelector('#gdp-steam-chip')
+                if (chip) chip.outerHTML = _scoreChip('Steam', ratio, ratio != null ? Math.round(ratio) + '%' : null, 'gdp-steam-chip')
+            } catch { /* non-critical */ }
+            finally { badge.decrement() }
         })()
-    } else {
-        container.querySelector('.game-pcgw-pending')?.remove()
+    }
+
+    // ── About description (if missing for library/wishlist games) ─────────────
+    if (hasAbout) {
+        _loadAboutDynamic(container, appid, () => badge.decrement())
     }
 }
 
@@ -1971,12 +2125,12 @@ function _initHltbRefresh(container, game) {
         btn.classList.add('game-refresh-btn--spinning')
         btn.disabled = true
         try {
-            await fetch(`/relay/api/hltb/sync/${game.appid}?force=true`, { method: 'POST' })
-            const newGame = await fetch(`/relay/api/games/${game.appid}`).then(r => r.ok ? r.json() : null)
+            const { data: newGame } = await _workerMgr.sync(
+                `/relay/api/hltb/sync/${game.appid}?force=true`,
+                `/relay/api/games/${game.appid}`)
             if (!newGame) return
             const section = container.querySelector('#game-sec-hltb')
             if (!section) return
-            // _hltb() updates _gpBasePlaytimeMin + _gpRenderTime as a side-effect
             const tmp = document.createElement('div')
             tmp.innerHTML = _hltb(newGame)
             const newSection = tmp.firstElementChild
@@ -1986,7 +2140,7 @@ function _initHltbRefresh(container, game) {
                 _initHltbRefresh(container, newGame)
                 _initHltbSessionUpdate(container, newGame.appid)
             }
-        } catch { /* silent — network error or no data */ }
+        } catch { /* silent */ }
     })
 }
 
@@ -2001,9 +2155,10 @@ function _initPcgwRefresh(container, game) {
         btn.classList.add('game-refresh-btn--spinning')
         btn.disabled = true
         try {
-            await fetch(`/relay/api/pcgw/sync/${game.appid}?force=true`, { method: 'POST' })
-            const pcgwData = await fetch(`/relay/api/pcgw/${game.appid}`).then(r => r.ok ? r.json() : null)
-            const section  = container.querySelector('#game-sec-pcgw')
+            const { data: pcgwData } = await _workerMgr.sync(
+                `/relay/api/pcgw/sync/${game.appid}?force=true`,
+                `/relay/api/pcgw/${game.appid}`)
+            const section = container.querySelector('#game-sec-pcgw')
             if (!section) return
             const tmp = document.createElement('div')
             tmp.innerHTML = _pcgw(pcgwData, game)
@@ -2032,9 +2187,11 @@ function _initItadRefresh(container, game) {
         btn.classList.add('game-refresh-btn--spinning')
         btn.disabled = true
         try {
-            await fetch(`/relay/api/itad/sync/${game.appid}?force=true`, { method: 'POST' })
-            // Use {} (not null) on 404 — null would re-render the pending placeholder for discovered games
-            const itadData = await fetch(`/relay/api/itad/${game.appid}`).then(r => r.ok ? r.json() : {})
+            const { data } = await _workerMgr.sync(
+                `/relay/api/itad/sync/${game.appid}?force=true`,
+                `/relay/api/itad/${game.appid}`)
+            // {} not null — null re-renders pending placeholder, {} gives empty-state section
+            const itadData = data ?? {}
             const section  = container.querySelector('#game-sec-prices')
             if (!section) return
             const tmp = document.createElement('div')
@@ -2044,7 +2201,6 @@ function _initItadRefresh(container, game) {
                 section.replaceWith(newSection)
                 _navRailEl?._rebuild?.()
                 _initItadRefresh(container, game)
-                // Patch the data-panel price block in the hero with fresh data
                 const gdpPrices = container.querySelector('[data-role="gdp-prices"]')
                 if (gdpPrices) {
                     const tmp2 = document.createElement('div')
@@ -2202,8 +2358,9 @@ function _initProtondbRefresh(container, game) {
         btn.classList.add('game-refresh-btn--spinning')
         btn.disabled = true
         try {
-            await fetch(`/relay/api/protondb/sync/${game.appid}?force=true`, { method: 'POST' })
-            const fresh = await fetch(`/relay/api/protondb/${game.appid}`).then(r => r.ok ? r.json() : null)
+            const { data: fresh } = await _workerMgr.sync(
+                `/relay/api/protondb/sync/${game.appid}?force=true`,
+                `/relay/api/protondb/${game.appid}`)
             const protonData = (fresh?.notFound || !fresh?.tier) ? null : fresh
             const section = container.querySelector('#game-sec-protondb')
             if (!section) return
@@ -2216,12 +2373,14 @@ function _initProtondbRefresh(container, game) {
                 _initProtondbRefresh(container, game)
             }
             // Patch the hero badge in-place
-            const badge = container.querySelector('.proton-badge')
-            if (badge) {
+            const badges = container.querySelector('.game-panel-badges')
+            const existing = container.querySelector('.proton-badge')
+            if (badges) {
                 const tmp2 = document.createElement('div')
                 tmp2.innerHTML = _protonBadge(protonData, game.appid)
-                if (tmp2.firstElementChild) badge.replaceWith(tmp2.firstElementChild)
-                else badge.remove()
+                const newBadge = tmp2.firstElementChild
+                if (existing) { if (newBadge) existing.replaceWith(newBadge); else existing.remove() }
+                else if (newBadge) badges.appendChild(newBadge)
             }
         } catch { /* silent */ }
         finally {
