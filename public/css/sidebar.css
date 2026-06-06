@@ -3,7 +3,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 14px;
+    padding: clamp(4px, 0.85vh, 8px) 14px;
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
     cursor: pointer;
@@ -14,6 +14,8 @@
     color: var(--clr-text);
     transition: border-color var(--transition), background var(--transition), color var(--transition);
     user-select: none;
+    flex-shrink: 1;
+    min-height: 0;
 }
 
 .sidebar-nav-btn:hover {
@@ -45,6 +47,8 @@
 .sidebar-history-btn {
     position: relative;
     overflow: hidden;
+    flex-shrink: 1;
+    min-height: 0;
 }
 
 .sidebar-history-backdrop {
@@ -75,13 +79,15 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 9px 10px 9px 6px;
+    padding: clamp(4px, 0.85vh, 9px) 10px clamp(4px, 0.85vh, 9px) 6px;
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
     cursor: default;
     transition: border-color var(--transition), background var(--transition), opacity var(--transition);
     user-select: none;
     position: relative;
+    flex-shrink: 1;
+    min-height: 0;
 }
 
 .sidebar-item:hover {
@@ -444,7 +450,7 @@
 .sidebar-bottom-sep {
     height: 1px;
     background: var(--clr-border);
-    margin: 8px 0;
+    margin: clamp(3px, 0.5vh, 8px) 0;
     flex-shrink: 0;
 }
 
