@@ -277,7 +277,7 @@
 
 /* ── Flags bar ───────────────────────────────────────────────────────────────── */
 .game-flags-bar {
-    padding: 0 40px;
+    padding: 0 40px 0 68px;
     border-bottom: 1px solid var(--clr-border);
 }
 
@@ -354,7 +354,7 @@
 
 /* ── Game body (below hero) ──────────────────────────────────────────────────── */
 .game-body {
-    padding: 44px 40px 0;
+    padding: 44px 40px 0 68px;
 }
 
 /* ── Section chrome ──────────────────────────────────────────────────────────── */
