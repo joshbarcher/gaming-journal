@@ -354,7 +354,8 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
         "head head"
-        "img  body"
+        "img  ."
+        "body  body"
         "foot foot";
     gap: 12px 20px;
     align-items: start;
