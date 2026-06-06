@@ -252,16 +252,24 @@ function _buildManageModal(container, appid, gameName) {
 }
 
 async function _addOptimisticTab(container, appid, gameName, subreddit) {
+    const tag = `[community:add-sub r/${subreddit}]`
+    console.log(`${tag} starting — appid=${appid} game="${gameName}"`)
+
     const tabsEl   = container.querySelector('.community-tabs')
     const panelsEl = container.querySelector('.community-panels')
-    if (!tabsEl || !panelsEl) return
+    if (!tabsEl || !panelsEl) {
+        console.warn(`${tag} aborting — tabs or panels container not found in DOM`)
+        return
+    }
 
     // Persist to journal
-    await fetch(`/api/reddit-subreddits/${appid}`, {
+    console.log(`${tag} persisting subreddit to journal...`)
+    const persistRes = await fetch(`/api/reddit-subreddits/${appid}`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ name: subreddit }),
-    }).catch(() => {})
+    }).catch(err => { console.error(`${tag} persist failed:`, err); return null })
+    console.log(`${tag} persist response: ${persistRes?.status ?? 'failed'}`)
 
     // Optimistic tab — disabled, spinner badge
     const tab = document.createElement('button')
@@ -270,6 +278,7 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     tab.disabled       = true
     tab.innerHTML      = `r/${escapeHtml(subreddit)}<span class="community-tab-spinner"></span>`
     tabsEl.appendChild(tab)
+    console.log(`${tag} optimistic tab added to DOM (disabled, spinner)`)
 
     // Loading panel
     const panel = document.createElement('div')
@@ -279,21 +288,35 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     panelsEl.appendChild(panel)
 
     try {
-        await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
+        console.log(`${tag} firing sync POST...`)
+        const t0      = Date.now()
+        const syncRes = await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
+        const syncJson = syncRes.ok ? await syncRes.json().catch(() => null) : null
+        console.log(`${tag} sync response: ${syncRes.status} in ${Date.now() - t0}ms`, syncJson)
 
-        const res    = await fetch(`/relay/api/reddit/${appid}`)
-        const data   = res.ok ? await res.json() : null
+        console.log(`${tag} re-fetching Reddit entry...`)
+        const res  = await fetch(`/relay/api/reddit/${appid}`)
+        const data = res.ok ? await res.json() : null
+        console.log(`${tag} entry response: ${res.status}, sources:`, data?.sources?.map(s => `${s.subreddit}(${s.posts?.length ?? 0})`))
+
         const source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase())
         const posts  = source?.posts ?? []
+        console.log(`${tag} matched source:`, source ? `${source.subreddit} — ${posts.length} posts` : 'NOT FOUND')
 
+        console.log(`${tag} rendering ${posts.length} posts into panel...`)
         panel.innerHTML = posts.length > 0
             ? posts.map(p => _postCard({ ...p, subreddit: p.subreddit ?? source.subreddit }, appid)).join('')
             : '<p class="community-empty">No posts found.</p>'
+        console.log(`${tag} panel children after render: ${panel.children.length}`)
 
-        tab.innerHTML = `r/${escapeHtml(source?.subreddit ?? subreddit)}<span class="community-tab-count">${posts.length}</span>`
+        const tabLabel = `r/${escapeHtml(source?.subreddit ?? subreddit)}`
+        tab.innerHTML = `${tabLabel}<span class="community-tab-count">${posts.length}</span>`
         tab.disabled  = false
         tab.classList.remove('community-tab--loading')
-    } catch {
+        console.log(`${tag} tab updated — label="${tabLabel}" disabled=${tab.disabled} classes="${tab.className}"`)
+        console.log(`${tag} tab in DOM:`, document.contains(tab))
+    } catch (err) {
+        console.error(`${tag} error:`, err)
         tab.innerHTML = `r/${escapeHtml(subreddit)}<span class="community-tab-error">✗</span>`
         tab.classList.remove('community-tab--loading')
         tab.classList.add('community-tab--error')
