@@ -527,6 +527,31 @@
     text-decoration: underline;
 }
 
+/* ── Image lightbox ──────────────────────────────────────────────────────── */
+
+[data-lightbox-src] { cursor: zoom-in; }
+
+.community-img-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    backdrop-filter: blur(6px);
+}
+
+.community-img-lightbox img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: var(--radius);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+    cursor: default;
+}
+
 /* ── User preference states ──────────────────────────────────────────────── */
 
 /* Muted: severely reduced presence — right-click to unmute */

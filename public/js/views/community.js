@@ -229,6 +229,7 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
     _initNavLinks(container)
     _initThreadRefresh(container, prefs)
     _initUserContextMenus(container, appid)
+    _initImageLightbox(container)
 }
 
 function _countComments(comments) {
@@ -251,7 +252,7 @@ function _fullPostCard(post, subreddit) {
     const img      = videoSrc
         ? `<div class="community-thread-post-image"><video class="community-thread-post-video" src="${videoSrc}" controls loop muted playsinline preload="metadata"></video></div>`
         : imgSrc
-            ? `<div class="community-thread-post-image"><img src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.closest('.community-thread-post-image').remove()"></div>`
+            ? `<div class="community-thread-post-image" data-lightbox-src="${escapeHtml(imgSrc)}"><img src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.closest('.community-thread-post-image').remove()"></div>`
             : ''
 
     return `
@@ -304,6 +305,29 @@ function _renderComment(comment, threadUrl, depth = 0) {
             <div class="thread-comment-body">${body}</div>
             ${repliesHtml}
         </div>`
+}
+
+// ── Image lightbox ────────────────────────────────────────────────────────────
+
+function _initImageLightbox(container) {
+    container.addEventListener('click', e => {
+        const wrap = e.target.closest('[data-lightbox-src]')
+        if (!wrap) return
+        const src = wrap.dataset.lightboxSrc
+
+        const modal = document.createElement('div')
+        modal.className = 'community-img-lightbox'
+        modal.innerHTML = `<img src="${escapeHtml(src)}" alt="">`
+
+        const close = () => modal.remove()
+        modal.addEventListener('click', close)
+        modal.querySelector('img').addEventListener('click', e => e.stopPropagation())
+
+        const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey) } }
+        document.addEventListener('keydown', onKey)
+
+        document.body.appendChild(modal)
+    })
 }
 
 // ── Pref application ──────────────────────────────────────────────────────────
