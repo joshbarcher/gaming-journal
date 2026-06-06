@@ -321,7 +321,6 @@ function _initImageLightbox(container) {
 
         const close = () => modal.remove()
         modal.addEventListener('click', close)
-        modal.querySelector('img').addEventListener('click', e => e.stopPropagation())
 
         const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey) } }
         document.addEventListener('keydown', onKey)

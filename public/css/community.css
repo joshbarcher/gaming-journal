@@ -550,7 +550,6 @@
     object-fit: contain;
     border-radius: var(--radius);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
-    cursor: default;
 }
 
 /* ── User preference states ──────────────────────────────────────────────── */
