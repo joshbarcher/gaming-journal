@@ -158,13 +158,17 @@ function _initTabs(container) {
 }
 
 function _initNavLinks(container) {
-    container.querySelectorAll('[data-nav]').forEach(el => {
-        el.addEventListener('click', e => {
-            e.preventDefault()
-            const href = el.getAttribute('href')
-            if (!href) return
-            import('../router.js').then(m => m.navigate(href.slice(1)))
-        })
+    // Guard: only attach one delegated listener per container element,
+    // regardless of how many times this is called across renders.
+    if (container._communityNavWired) return
+    container._communityNavWired = true
+    container.addEventListener('click', e => {
+        const link = e.target.closest('[data-nav]')
+        if (!link) return
+        e.preventDefault()
+        const href = link.getAttribute('href')
+        if (!href) return
+        import('../router.js').then(m => m.navigate(href.slice(1)))
     })
 }
 
