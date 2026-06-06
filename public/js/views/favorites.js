@@ -65,7 +65,8 @@ function _hearts() {
 
 function _starStr(n) {
     if (!n) return null
-    return '★'.repeat(n) + '☆'.repeat(5 - n)
+    const display = Math.min(n, 5)
+    return '★'.repeat(display) + '☆'.repeat(5 - display) + (n > 5 ? ' ✦' : '')
 }
 
 function _hero(game, review, flags, hltb, community) {
