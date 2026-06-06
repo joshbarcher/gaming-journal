@@ -228,18 +228,18 @@
     background: #000;
 }
 
-/* Images constrained to 40% with click-to-expand */
+/* Images constrained to 50% with click-to-expand */
 .community-thread-post-image--expandable {
     position: relative;
     display: inline-block;
-    max-width: 40%;
+    max-width: 50%;
     cursor: zoom-in;
     border-radius: var(--radius);
     overflow: hidden;
 }
 
 .community-thread-post-image--expandable img {
-    max-height: 260px;
+    max-height: 320px;
     width: 100%;
     object-fit: cover;
     display: block;
@@ -280,8 +280,8 @@
 }
 
 .community-img-lightbox img {
-    max-width: 90vw;
-    max-height: 90vh;
+    width: 90vw;
+    height: 90vh;
     object-fit: contain;
     border-radius: var(--radius);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
