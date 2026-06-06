@@ -1016,13 +1016,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 240px;
+    min-height: 100vh;
 }
 
 .community-loader {
     width: 44.8px;
     height: 44.8px;
-    color: var(--community-accent);
+    color: var(--clr-accent);
     position: relative;
     background: radial-gradient(11.2px, currentColor 94%, #0000);
 }
