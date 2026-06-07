@@ -280,6 +280,15 @@ function _buildManageModal(container, appid, gameName) {
     return modal
 }
 
+function _renderSubredditLoader(msg) {
+    return `
+        <div class="community-sync-wrap">
+            <div class="community-loader"></div>
+            <p class="community-sync-status">${escapeHtml(msg)}</p>
+            <div class="community-sync-bar"><div class="community-sync-bar-fill"></div></div>
+        </div>`
+}
+
 async function _addOptimisticTab(container, appid, gameName, subreddit) {
     const tabsEl   = container.querySelector('.community-tabs')
     const panelsEl = container.querySelector('.community-panels')
@@ -304,37 +313,39 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     const panel = document.createElement('div')
     panel.className      = 'community-panel'
     panel.dataset.source = subreddit
-    panel.innerHTML      = '<p class="community-empty">Fetching posts…</p>'
+    panel.innerHTML      = _renderSubredditLoader('Starting sync…')
     panelsEl.appendChild(panel)
 
+    const setStatus = (msg) => {
+        const el = panel.querySelector('.community-sync-status')
+        if (el) el.textContent = msg
+    }
+
     try {
-        const syncUrl = `/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`
-        console.log(`[add-sub] triggering sync — appid=${appid} gameName="${gameName}" subreddit="${subreddit}" url=${syncUrl}`)
-        const syncRes = await fetch(syncUrl, { method: 'POST' })
-        const syncJson = syncRes.ok ? await syncRes.json() : null
-        console.log(`[add-sub] sync response: status=${syncRes.status}`, syncJson)
+        // Open the SSE stream before POSTing so we don't miss early events
+        await new Promise((resolve) => {
+            const es = new EventSource(`/relay/api/reddit/${appid}/sync/progress`)
+            const fallback = setTimeout(() => { es.close(); resolve() }, 90_000)
 
-        // Sync runs in the background — poll until the new subreddit appears in sources
-        const POLL_INTERVAL_MS = 3_000
-        const POLL_TIMEOUT_MS  = 90_000
-        const pollStart = Date.now()
+            es.onmessage = (e) => {
+                try {
+                    const event = JSON.parse(e.data)
+                    if (event.type === 'status') setStatus(event.message)
+                    if (event.type === 'done')   { clearTimeout(fallback); es.close(); resolve() }
+                } catch {}
+            }
+            es.onerror = () => { clearTimeout(fallback); es.close(); resolve() }
+
+            fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
+                .catch(() => {})
+        })
+
         let source = null
-
-        while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
-            await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
-            const elapsed = Date.now() - pollStart
-            const res  = await fetch(`/relay/api/reddit/${appid}`)
-            const data = res.ok ? await res.json() : null
-            const sourceNames = (data?.sources ?? []).map(s => `${s.subreddit}(${s.posts?.length ?? 0})`)
-            console.log(`[add-sub] poll @${elapsed}ms — sources: [${sourceNames.join(', ')}] — looking for "${subreddit}"`)
-            source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase()) ?? null
-            if (source) { console.log(`[add-sub] found! posts=${source.posts?.length ?? 0}`); break }
-        }
-
-        if (!source) console.warn(`[add-sub] timed out after ${POLL_TIMEOUT_MS}ms — "${subreddit}" never appeared`)
+        const res  = await fetch(`/relay/api/reddit/${appid}`)
+        const data = res.ok ? await res.json() : null
+        source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase()) ?? null
 
         const posts = (source?.posts ?? []).map(p => ({ ...p, subreddit: p.subreddit ?? source?.subreddit ?? subreddit }))
-        console.log(`[add-sub] done — rendering ${posts.length} posts`)
         panel.innerHTML = _renderPanelPosts(posts, appid)
         if (posts.length > PAGE_SIZE) {
             const postMap = new Map([[subreddit, posts.slice(PAGE_SIZE)]])
@@ -346,7 +357,7 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
         tab.disabled  = false
         tab.classList.remove('community-tab--loading')
     } catch (err) {
-        console.error('[add-sub] failed:', err)
+        console.error('[community] add-sub failed:', err)
         tab.innerHTML = `r/${escapeHtml(subreddit)}<span class="community-tab-error">✗</span>`
         tab.classList.remove('community-tab--loading')
         tab.classList.add('community-tab--error')
@@ -411,17 +422,25 @@ export async function renderCommunityThread(appid, postId, container, sub = '') 
 
     let game, thread, prefs
     try {
-        const [gameRes, threadRes] = await Promise.all([
-            fetch(`/relay/api/games/${appid}`),
-            fetch(`/relay/api/reddit/${appid}/thread/${postId}?sub=${encodeURIComponent(sub)}`),
-        ])
+        const abort = new AbortController()
+        const timeout = setTimeout(() => abort.abort(), 20_000)
+        let gameRes, threadRes
+        try {
+            ;[gameRes, threadRes] = await Promise.all([
+                fetch(`/relay/api/games/${appid}`, { signal: abort.signal }),
+                fetch(`/relay/api/reddit/${appid}/thread/${postId}?sub=${encodeURIComponent(sub)}`, { signal: abort.signal }),
+            ])
+        } finally {
+            clearTimeout(timeout)
+        }
         if (!gameRes.ok)   throw new Error(`Game HTTP ${gameRes.status}`)
         if (!threadRes.ok) throw new Error(`Thread HTTP ${threadRes.status}`)
         game   = await gameRes.json()
         thread = await threadRes.json()
         prefs  = await loadPrefs(appid)
     } catch (err) {
-        container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(err.message)}</p>`
+        const msg = err.name === 'AbortError' ? 'Thread took too long to load — the relay may be stuck.' : err.message
+        container.innerHTML = `<p class="page-error">Failed to load: ${escapeHtml(msg)}</p>`
         return
     }
 
