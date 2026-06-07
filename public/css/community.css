@@ -242,14 +242,15 @@
     margin: 12px 0;
     border-radius: var(--radius);
     overflow: hidden;
-    max-height: 600px;
-    background: var(--clr-bg);
+    display: inline-block;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .community-thread-post-image img {
-    width: 100%;
+    max-width: 100%;
     max-height: 600px;
-    object-fit: contain;
+    width: auto;
+    height: auto;
     display: block;
 }
 
@@ -440,8 +441,7 @@
 }
 
 .community-thread-post-card > .community-post-header        { grid-area: head; }
-.community-thread-post-card > .community-thread-post-image  { grid-area: img;  margin: 0; max-height: 380px; }
-.community-thread-post-card > .community-thread-post-image img { max-height: 380px; }
+.community-thread-post-card > .community-thread-post-image  { grid-area: img; margin: 0; }
 .community-thread-post-card > .community-gallery-grid       { grid-area: gallery; margin: 0; }
 .community-thread-post-card > .community-thread-post-body   { grid-area: body; margin: 0; }
 .community-thread-post-card > .community-post-meta          { grid-area: foot; }
