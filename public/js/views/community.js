@@ -159,6 +159,9 @@ function _thumbSrc(post) {
     if (post.localThumb) return `/relay${post.localThumb}`
     if (post.localImage) return `/relay${post.localImage}`
     if (post.thumbnail)  return post.thumbnail
+    const firstGallery = post.galleryImages?.[0]
+    if (firstGallery?.localImage) return `/relay${firstGallery.localImage}`
+    if (firstGallery?.thumbnail)  return firstGallery.thumbnail
     return null
 }
 
@@ -182,10 +185,12 @@ function _postCard(post, appid) {
     const body     = post.selftext
         ? `<p class="community-post-body">${escapeHtml(post.selftext)}</p>`
         : ''
-    const thumbSrc = _thumbSrc(post)
-    const playIcon = post.isVideo ? '<span class="community-post-play">▶</span>' : ''
-    const img      = thumbSrc
-        ? `<div class="community-post-img-wrap">${playIcon}<img class="community-post-img" src="${thumbSrc}" alt="" loading="lazy" onerror="this.closest('.community-post-img-wrap').remove()"></div>`
+    const thumbSrc     = _thumbSrc(post)
+    const galleryCount = post.isGallery ? (post.galleryImages?.length ?? 0) : 0
+    const playIcon     = post.isVideo ? '<span class="community-post-play">▶</span>' : ''
+    const galleryBadge = galleryCount > 1 ? `<span class="community-post-gallery-badge">⊞ ${galleryCount}</span>` : ''
+    const img          = thumbSrc
+        ? `<div class="community-post-img-wrap">${playIcon}${galleryBadge}<img class="community-post-img" src="${thumbSrc}" alt="" loading="lazy" onerror="this.closest('.community-post-img-wrap').remove()"></div>`
         : ''
     const href = `/community/${appid}/thread/${post.id}?sub=${encodeURIComponent(post.subreddit ?? '')}`
 
@@ -504,13 +509,23 @@ function _fullPostCard(post, subreddit) {
     const body     = post.selftext
         ? `<div class="community-thread-post-body">${escapeHtml(post.selftext)}</div>`
         : ''
-    const videoSrc = _videoSrc(post)
-    const imgSrc   = !videoSrc ? _imgSrc(post) : null
-    const img      = videoSrc
+    const videoSrc      = _videoSrc(post)
+    const imgSrc        = !videoSrc && !post.isGallery ? _imgSrc(post) : null
+    const galleryImages = post.isGallery ? (post.galleryImages ?? []) : []
+    const galleryHtml   = galleryImages.length > 0
+        ? `<div class="community-gallery-grid">${galleryImages.map(g => {
+            const src = g.localImage ? `/relay${g.localImage}` : (g.thumbnail ?? g.url)
+            const full = g.localImage ? `/relay${g.localImage}` : g.url
+            return `<div class="community-gallery-item" data-lightbox-src="${escapeHtml(full)}"><img src="${escapeHtml(src)}" alt="" loading="lazy" onerror="this.closest('.community-gallery-item').remove()"></div>`
+          }).join('')}</div>`
+        : ''
+    const img           = videoSrc
         ? `<div class="community-thread-post-image"><video class="community-thread-post-video" src="${videoSrc}" controls loop muted playsinline preload="metadata"></video></div>`
-        : imgSrc
-            ? `<div class="community-thread-post-image" data-lightbox-src="${escapeHtml(imgSrc)}"><img src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.closest('.community-thread-post-image').remove()"></div>`
-            : ''
+        : galleryHtml
+            ? galleryHtml
+            : imgSrc
+                ? `<div class="community-thread-post-image" data-lightbox-src="${escapeHtml(imgSrc)}"><img src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.closest('.community-thread-post-image').remove()"></div>`
+                : ''
 
     return `
         <div class="community-thread-post-card">
