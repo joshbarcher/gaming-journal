@@ -328,7 +328,17 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     }
 
     try {
-        // Open the SSE stream before POSTing so we don't miss early events
+        // POST sync — retry on 409 (another game's sync holds the lock)
+        const syncUrl = `/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`
+        for (let attempt = 0; attempt < 15; attempt++) {
+            const r = await fetch(syncUrl, { method: 'POST' }).catch(() => null)
+            if (!r || r.status !== 409) break
+            setStatus('Waiting for another sync to finish…')
+            await new Promise(r => setTimeout(r, 4_000))
+        }
+
+        // Open SSE after sync is confirmed started — initProgress is called server-side
+        // before the 200 response, so the entry exists by the time we connect.
         await new Promise((resolve) => {
             const es = new EventSource(`/relay/api/reddit/${appid}/sync/progress`)
             const fallback = setTimeout(() => { es.close(); resolve() }, 90_000)
@@ -341,9 +351,6 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
                 } catch {}
             }
             es.onerror = () => { clearTimeout(fallback); es.close(); resolve() }
-
-            fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
-                .catch(() => {})
         })
 
         let source = null
