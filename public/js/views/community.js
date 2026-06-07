@@ -667,7 +667,7 @@ function _initImageLightbox(container) {
         setImage(idx)
 
         const close = () => { modal.remove(); document.removeEventListener('keydown', onKey) }
-        modal.addEventListener('click', e => { if (e.target === modal) close() })
+        modal.addEventListener('click', e => { if (!e.target.closest('.lightbox-chevron')) close() })
 
         const onKey = e => {
             if (e.key === 'Escape')     close()
