@@ -630,16 +630,50 @@ function _initImageLightbox(container) {
     container.addEventListener('click', e => {
         const wrap = e.target.closest('[data-lightbox-src]')
         if (!wrap) return
-        const src = wrap.dataset.lightboxSrc
+
+        // Collect sibling gallery items if this is inside a gallery grid
+        const grid = wrap.closest('.community-gallery-grid')
+        const srcs = grid
+            ? [...grid.querySelectorAll('[data-lightbox-src]')].map(el => el.dataset.lightboxSrc)
+            : [wrap.dataset.lightboxSrc]
+        let idx = grid ? srcs.indexOf(wrap.dataset.lightboxSrc) : 0
 
         const modal = document.createElement('div')
         modal.className = 'community-img-lightbox'
-        modal.innerHTML = `<img src="${escapeHtml(src)}" alt="">`
 
-        const close = () => modal.remove()
-        modal.addEventListener('click', close)
+        const img = document.createElement('img')
+        img.alt = ''
 
-        const onKey = e => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey) } }
+        const setImage = (i) => {
+            idx = (i + srcs.length) % srcs.length
+            img.src = srcs[idx]
+            if (prevBtn) prevBtn.style.visibility = srcs.length > 1 ? 'visible' : 'hidden'
+            if (nextBtn) nextBtn.style.visibility = srcs.length > 1 ? 'visible' : 'hidden'
+        }
+
+        const prevBtn = document.createElement('button')
+        prevBtn.className = 'lightbox-chevron lightbox-chevron--prev'
+        prevBtn.innerHTML = '&#8249;'
+        prevBtn.addEventListener('click', e => { e.stopPropagation(); setImage(idx - 1) })
+
+        const nextBtn = document.createElement('button')
+        nextBtn.className = 'lightbox-chevron lightbox-chevron--next'
+        nextBtn.innerHTML = '&#8250;'
+        nextBtn.addEventListener('click', e => { e.stopPropagation(); setImage(idx + 1) })
+
+        modal.appendChild(prevBtn)
+        modal.appendChild(img)
+        modal.appendChild(nextBtn)
+        setImage(idx)
+
+        const close = () => { modal.remove(); document.removeEventListener('keydown', onKey) }
+        modal.addEventListener('click', e => { if (e.target === modal) close() })
+
+        const onKey = e => {
+            if (e.key === 'Escape')     close()
+            if (e.key === 'ArrowLeft')  setImage(idx - 1)
+            if (e.key === 'ArrowRight') setImage(idx + 1)
+        }
         document.addEventListener('keydown', onKey)
 
         document.body.appendChild(modal)

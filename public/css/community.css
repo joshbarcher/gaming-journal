@@ -785,12 +785,39 @@
 }
 
 .community-img-lightbox img {
-    max-width: 90vw;
+    max-width: min(90vw, calc(100vw - 120px));
     max-height: 90vh;
     object-fit: contain;
     border-radius: var(--radius);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
 }
+
+.lightbox-chevron {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    font-size: 48px;
+    line-height: 1;
+    width: 52px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s ease;
+    z-index: 1;
+}
+
+.lightbox-chevron:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.lightbox-chevron--prev { left: 16px; }
+.lightbox-chevron--next { right: 16px; }
 
 /* ── User preference states ──────────────────────────────────────────────── */
 
