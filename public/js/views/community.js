@@ -309,12 +309,18 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     tab.innerHTML      = `r/${escapeHtml(subreddit)}<span class="community-tab-spinner"></span>`
     tabsEl.appendChild(tab)
 
-    // Loading panel
+    // Loading panel — activate immediately so progress is visible without clicking
     const panel = document.createElement('div')
-    panel.className      = 'community-panel'
+    panel.className      = 'community-panel community-panel--active'
     panel.dataset.source = subreddit
     panel.innerHTML      = _renderSubredditLoader('Starting sync…')
     panelsEl.appendChild(panel)
+
+    // Deactivate whatever tab/panel was active and switch to the new one
+    container.querySelectorAll('.community-tab').forEach(b => b.classList.remove('community-tab--active'))
+    container.querySelectorAll('.community-panel').forEach(p => p.classList.remove('community-panel--active'))
+    tab.classList.add('community-tab--active')
+    panel.classList.add('community-panel--active')
 
     const setStatus = (msg) => {
         const el = panel.querySelector('.community-sync-status')
