@@ -242,7 +242,7 @@
     margin: 12px 0;
     border-radius: var(--radius);
     overflow: hidden;
-    display: inline-block;
+    justify-self: start;
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
