@@ -308,7 +308,11 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
     panelsEl.appendChild(panel)
 
     try {
-        await fetch(`/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`, { method: 'POST' })
+        const syncUrl = `/relay/api/reddit/${appid}/sync?name=${encodeURIComponent(gameName)}`
+        console.log(`[add-sub] triggering sync — appid=${appid} gameName="${gameName}" subreddit="${subreddit}" url=${syncUrl}`)
+        const syncRes = await fetch(syncUrl, { method: 'POST' })
+        const syncJson = syncRes.ok ? await syncRes.json() : null
+        console.log(`[add-sub] sync response: status=${syncRes.status}`, syncJson)
 
         // Sync runs in the background — poll until the new subreddit appears in sources
         const POLL_INTERVAL_MS = 3_000
@@ -318,13 +322,19 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
 
         while (Date.now() - pollStart < POLL_TIMEOUT_MS) {
             await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+            const elapsed = Date.now() - pollStart
             const res  = await fetch(`/relay/api/reddit/${appid}`)
             const data = res.ok ? await res.json() : null
+            const sourceNames = (data?.sources ?? []).map(s => `${s.subreddit}(${s.posts?.length ?? 0})`)
+            console.log(`[add-sub] poll @${elapsed}ms — sources: [${sourceNames.join(', ')}] — looking for "${subreddit}"`)
             source = data?.sources?.find(s => s.subreddit.toLowerCase() === subreddit.toLowerCase()) ?? null
-            if (source) break
+            if (source) { console.log(`[add-sub] found! posts=${source.posts?.length ?? 0}`); break }
         }
 
+        if (!source) console.warn(`[add-sub] timed out after ${POLL_TIMEOUT_MS}ms — "${subreddit}" never appeared`)
+
         const posts = (source?.posts ?? []).map(p => ({ ...p, subreddit: p.subreddit ?? source?.subreddit ?? subreddit }))
+        console.log(`[add-sub] done — rendering ${posts.length} posts`)
         panel.innerHTML = _renderPanelPosts(posts, appid)
         if (posts.length > PAGE_SIZE) {
             const postMap = new Map([[subreddit, posts.slice(PAGE_SIZE)]])
@@ -336,7 +346,7 @@ async function _addOptimisticTab(container, appid, gameName, subreddit) {
         tab.disabled  = false
         tab.classList.remove('community-tab--loading')
     } catch (err) {
-        console.error('[community] add-sub failed:', err)
+        console.error('[add-sub] failed:', err)
         tab.innerHTML = `r/${escapeHtml(subreddit)}<span class="community-tab-error">✗</span>`
         tab.classList.remove('community-tab--loading')
         tab.classList.add('community-tab--error')
