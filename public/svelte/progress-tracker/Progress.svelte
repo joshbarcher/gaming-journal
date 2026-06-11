@@ -1,0 +1,201 @@
+<script>
+    import { api } from '../../js/api.js'
+    import { uuid } from '../../js/utils.js'
+    import { refreshSidebarItem } from '../../js/sidebar.js'
+    import { segmentColor, globalSegments } from '../../js/views/progress-helpers.js'
+    import { fireParticles } from '../../js/particles.js'
+    import { showContextMenu } from '../../js/views/context-menu.js'
+    import { navigate } from '../../js/router.js'
+
+    const STATES       = ['started', 'working', 'done']
+    const STATE_LABELS = { started: 'STARTED', working: 'WORKING', done: 'DONE' }
+
+    let { page: pageProp } = $props()
+
+    let pd           = $state(JSON.parse(JSON.stringify(pageProp)))
+    let draggedId    = $state(null)
+    let dropTargetId = $state(null)
+    let draggableId  = $state(null)
+    let notesTimer   = null
+
+    let segs = $derived(globalSegments(pd))
+
+    async function onTitleBlur(e) {
+        const t = e.currentTarget.textContent.trim()
+        if (!t || t === pd.title) { e.currentTarget.textContent = pd.title; return }
+        pd.title = t
+        const updated = await api.pages.update(pd.id, { title: t })
+        if (updated) refreshSidebarItem(updated)
+    }
+
+    async function onTaskTitleBlur(taskId, e) {
+        const newTitle = e.currentTarget.textContent.trim()
+        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+        if (!task || task.title === newTitle) return
+        task.title = newTitle
+        await save()
+    }
+
+    async function onStateClick(taskId, state, btnEl) {
+        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+        if (!task) return
+        const prev = task.state
+        task.state = task.state === state ? null : state
+        if (task.state === 'done' && prev !== 'done') {
+            const required = (pd.tasks ?? []).filter(t => !t.optional)
+            if (required.length > 0 && required.every(t => t.state === 'done')) {
+                fireParticles(btnEl, pd.title)
+            }
+        }
+        await save()
+    }
+
+    function onNotesInput(e) {
+        pd.notes = e.target.value
+        clearTimeout(notesTimer)
+        notesTimer = setTimeout(save, 800)
+    }
+
+    async function addTask() {
+        const task = { id: uuid(), title: '', state: null }
+        pd.tasks = [...(pd.tasks ?? []), task]
+        await save()
+        requestAnimationFrame(() => {
+            document.querySelector(`.progress-task[data-id="${task.id}"] .progress-task-title`)?.focus()
+        })
+    }
+
+    async function deleteTask(taskId) {
+        pd.tasks = (pd.tasks ?? []).filter(t => t.id !== taskId)
+        await save()
+    }
+
+    async function toggleTaskOptional(taskId) {
+        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+        if (!task) return
+        task.optional = !task.optional
+        await save()
+    }
+
+    function onContextMenu(e, taskId) {
+        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+        if (!task) return
+        showContextMenu(e, [
+            { label: task.optional ? 'Unmark Optional' : 'Mark Optional', action: () => toggleTaskOptional(taskId) },
+            'separator',
+            { label: 'Delete', danger: true, action: () => deleteTask(taskId) },
+        ])
+    }
+
+    function onDragStart(e, taskId) {
+        requestAnimationFrame(() => { draggedId = taskId })
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    function onDragEnd() {
+        draggableId  = null
+        draggedId    = null
+        dropTargetId = null
+    }
+
+    function onDragOver(e, taskId) {
+        if (!draggedId || draggedId === taskId) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        dropTargetId = taskId
+    }
+
+    function onDragLeave(taskId) {
+        if (dropTargetId === taskId) dropTargetId = null
+    }
+
+    async function onDrop(e, taskId) {
+        if (!draggedId || draggedId === taskId) return
+        e.preventDefault()
+        dropTargetId = null
+        const tasks   = pd.tasks ?? []
+        const fromIdx = tasks.findIndex(t => t.id === draggedId)
+        const toIdx   = tasks.findIndex(t => t.id === taskId)
+        if (fromIdx === -1 || toIdx === -1) return
+        const next = [...tasks]
+        const [moved] = next.splice(fromIdx, 1)
+        next.splice(toIdx, 0, moved)
+        pd.tasks = next
+        await save()
+    }
+
+    async function save() {
+        const updated = await api.pages.update(pd.id, { tasks: pd.tasks, notes: pd.notes })
+        if (updated) refreshSidebarItem(updated)
+    }
+</script>
+
+<div class="page-header">
+    {#if pd.appid}
+        <a class="gj-sub-back" href="/journal/{pd.appid}"
+           onclick={(e) => { e.preventDefault(); navigate(`journal/${pd.appid}`) }}>← Journal</a>
+    {/if}
+    <h1 class="page-title page-title--editable" contenteditable="true"
+        onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}
+        onblur={onTitleBlur}>{pd.title}</h1>
+    <p class="page-subtitle">Progress Tracker</p>
+</div>
+
+<div class="progress-global-bar">
+    {#if segs.length === 0}
+        <span class="progress-global-empty">No tasks yet</span>
+    {:else}
+        {#each segs as seg (seg.num)}
+            <div class="progress-global-seg{seg.optional ? ' progress-global-seg--optional' : ''}"
+                 style="background:{seg.color}"
+                 title={seg.label || `Task ${seg.num}`}
+                 data-num={seg.num}>
+                <span class="progress-seg-num">{seg.num}</span>
+                {#if seg.stateLabel}<span class="progress-seg-state">{seg.stateLabel}</span>{/if}
+            </div>
+        {/each}
+    {/if}
+</div>
+
+<div class="progress-tasks">
+    {#each (pd.tasks ?? []) as task (task.id)}
+        <div class="progress-task{task.optional ? ' progress-task--optional' : ''}"
+             class:progress-task--dragging={draggedId === task.id}
+             class:progress-task--drag-over={dropTargetId === task.id}
+             data-id={task.id}
+             draggable={draggableId === task.id}
+             ondragstart={(e) => onDragStart(e, task.id)}
+             ondragend={onDragEnd}
+             ondragover={(e) => onDragOver(e, task.id)}
+             ondragleave={() => onDragLeave(task.id)}
+             ondrop={(e) => onDrop(e, task.id)}
+             oncontextmenu={(e) => onContextMenu(e, task.id)}>
+            <div class="progress-task-handle" title="Drag to reorder"
+                 onmousedown={() => { draggableId = task.id }}>⠿</div>
+            <div class="progress-task-title" contenteditable="true" aria-label="Task title"
+                 onmousedown={(e) => { if (e.button === 2) e.preventDefault() }}
+                 onblur={(e) => onTaskTitleBlur(task.id, e)}
+                 onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}>{task.title ?? ''}</div>
+            {#if task.optional}
+                <span class="progress-optional-tag">OPTIONAL</span>
+            {/if}
+            <div class="progress-state-btns">
+                {#each STATES as state}
+                    <button class="progress-state-btn"
+                            class:active={task.state === state}
+                            data-state={state}
+                            style="--state-color:{segmentColor(state)}"
+                            onclick={(e) => onStateClick(task.id, state, e.currentTarget)}>{STATE_LABELS[state]}</button>
+                {/each}
+            </div>
+        </div>
+    {/each}
+</div>
+
+<button class="progress-add-btn" onclick={addTask}>+ Add Task</button>
+
+<div class="progress-notes-wrap">
+    <label class="progress-notes-label">Notes</label>
+    <textarea class="progress-notes" placeholder="Add notes…"
+              oninput={onNotesInput}>{pd.notes ?? ''}</textarea>
+</div>

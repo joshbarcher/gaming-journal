@@ -1,39 +1,67 @@
+import { mount, unmount } from 'svelte'
 import { api } from './api.js'
 import { escapeHtml } from './utils.js'
 import { setWithTTL, getWithTTL } from './storage.js'
 import { loadSidebar, setActiveItem, getPages, addPageToSidebar } from './sidebar.js'
-import { renderToc } from './views/toc.js'
-import { renderHome } from './views/home.js'
-import { renderHeatmap } from './views/heatmap.js'
-import { renderLibrary } from './views/library.js'
-import { renderWishlist } from './views/wishlist.js'
-import { renderAccount } from './views/account.js'
-import { renderCalendar, renderReleases } from './views/calendar.js'
-import { renderSettings } from './views/settings.js'
-import { renderAlerts } from './views/alerts.js'
-import { renderBacklog } from './views/backlog.js'
-import { renderAbandoned } from './views/abandoned.js'
-import { renderHallOfFame } from './views/hall-of-fame.js'
-import { renderFavorites } from './views/favorites.js'
-import { renderFranchises } from './views/franchises.js'
-import { renderFranchise } from './views/franchise.js'
-import { renderInProgress } from './views/in-progress.js'
-import { renderHistory } from './views/history.js'
-import { renderMyReviews } from './views/my-reviews.js'
-import { renderDiscover } from './views/discover.js'
 import { newPageDialog, showError } from './dialog.js'
+
+// ── Named-route components ────────────────────────────────────────────────────
+import Toc          from '../svelte/toc/Toc.svelte'
+import Home         from '../svelte/home/Home.svelte'
+import LibraryPage  from '../svelte/library/LibraryPage.svelte'
+import WishlistPage from '../svelte/wishlist/WishlistPage.svelte'
+import Account      from '../svelte/account/Account.svelte'
+import Calendar     from '../svelte/calendar/Calendar.svelte'
+import Alerts       from '../svelte/alerts/Alerts.svelte'
+import Favorites    from '../svelte/favorites/Favorites.svelte'
+import Backlog      from '../svelte/backlog/Backlog.svelte'
+import Abandoned    from '../svelte/abandoned/Abandoned.svelte'
+import History      from '../svelte/history/History.svelte'
+import InProgress   from '../svelte/in-progress/InProgress.svelte'
+import HallOfFame   from '../svelte/hall-of-fame/HallOfFame.svelte'
+import Settings     from '../svelte/settings/Settings.svelte'
+import Franchises   from '../svelte/franchises/Franchises.svelte'
+import Franchise    from '../svelte/franchise/Franchise.svelte'
+import MyReviews    from '../svelte/my-reviews/MyReviews.svelte'
+import Discover     from '../svelte/discover/Discover.svelte'
+
+// ── Page-type components ──────────────────────────────────────────────────────
+import ListPage     from '../svelte/list/ListPage.svelte'
+import Progress     from '../svelte/progress-tracker/Progress.svelte'
+import ProgressBars from '../svelte/progress/ProgressBars.svelte'
+import Notes        from '../svelte/notes/Notes.svelte'
+import PageEditor   from '../svelte/page-editor/PageEditor.svelte'
+import Counter      from '../svelte/counter/Counter.svelte'
+import MultiCounter from '../svelte/multi-counter/MultiCounter.svelte'
+
+const PAGE_COMPONENTS = new Map([
+    ['list',           ListPage    ],
+    ['progress',       Progress    ],
+    ['progress-bars',  ProgressBars],
+    ['notes',          Notes       ],
+    ['page',           PageEditor  ],
+    ['counter',        Counter     ],
+    ['multi-counter',  MultiCounter],
+])
+
+// ── Mount helpers ─────────────────────────────────────────────────────────────
+
+let _mounted = null
+const mainEl = () => document.getElementById('main-content')
+
+function _cleanup() {
+    if (_mounted) { unmount(_mounted); _mounted = null }
+}
+
+function _mount(Component, props = {}) {
+    _cleanup()
+    mainEl().innerHTML = ''
+    _mounted = mount(Component, { target: mainEl(), props })
+}
 
 function _closeMobile() {
     import('./app.js').then(m => m.closeMobileSidebar?.())
 }
-
-const _renderers = new Map()
-
-export function registerRenderer(type, fn) {
-    _renderers.set(type, fn)
-}
-
-const mainEl = () => document.getElementById('main-content')
 
 // ── Scroll persistence ────────────────────────────────────────────────────────
 
@@ -73,27 +101,25 @@ export function parseRoute(path) {
     if (path === 'top-games')     return { view: 'top-games' }
     if (path === 'alerts')        return { view: 'alerts' }
     if (path === 'favorites')     return { view: 'favorites' }
-    if (path === 'backlog')         return { view: 'backlog' }
+    if (path === 'backlog')       return { view: 'backlog' }
     if (path === 'abandoned')     return { view: 'abandoned' }
-    if (path === 'history')                  return { view: 'history' }
-    if (path === 'in-progress')              return { view: 'in-progress' }
-    if (path === 'hall-of-fame')         return { view: 'hall-of-fame' }
-    if (path === 'settings')             return { view: 'settings' }
-    if (path === 'franchises')           return { view: 'franchises' }
-    if (path === 'my-reviews')             return { view: 'my-reviews' }
-    if (path === 'discover')               return { view: 'discover' }
-    if (path.startsWith('franchise/'))   return { view: 'franchise', franchiseId: path.slice(10) }
-    if (path.startsWith('game/'))        return { view: 'game', appid: path.slice(5) }
+    if (path === 'history')       return { view: 'history' }
+    if (path === 'in-progress')   return { view: 'in-progress' }
+    if (path === 'hall-of-fame')  return { view: 'hall-of-fame' }
+    if (path === 'settings')      return { view: 'settings' }
+    if (path === 'franchises')    return { view: 'franchises' }
+    if (path === 'my-reviews')    return { view: 'my-reviews' }
+    if (path === 'discover')      return { view: 'discover' }
+    if (path.startsWith('franchise/'))  return { view: 'franchise', franchiseId: path.slice(10) }
+    if (path.startsWith('game/'))       return { view: 'game', appid: path.slice(5) }
     if (path.startsWith('journal/')) {
         const parts = path.split('/')
         return { view: 'journal', appid: parts[1], sub: parts[2] ?? null }
     }
     if (path.startsWith('community/')) {
-        // Split path and inline query string cleanly
         const [pathOnly, queryOnly] = path.split('?')
         const parts = pathOnly.split('/')
         if (parts[2] === 'thread' && parts[3]) {
-            // Parse sub from inline query string first, fall back to current location
             const sub = new URLSearchParams(queryOnly ?? window.location.search).get('sub') ?? ''
             return { view: 'community-thread', appid: parts[1], postId: parts[3], sub }
         }
@@ -103,7 +129,6 @@ export function parseRoute(path) {
 }
 
 export function getRoutePath() {
-    // Strip leading slash; preserve query string so thread ?sub= survives back/forward
     const p = window.location.pathname.slice(1)
     return window.location.search ? `${p}${window.location.search}` : p
 }
@@ -122,8 +147,8 @@ const FROM_LABELS = {
     backlog:          'Backlog',
     'hall-of-fame':   'Hall of Fame',
     abandoned:        'Abandoned',
-    'history':         'History',
-    'in-progress':     'In Progress',
+    history:          'History',
+    'in-progress':    'In Progress',
     'my-reviews':     'My Reviews',
 }
 
@@ -141,10 +166,6 @@ export async function navigate(path, { replace = false } = {}) {
     if (typeof path !== 'string') path = ''
     const route = parseRoute(path)
 
-    // When navigating to a game, record which view we're leaving so the game
-    // page can render a context-aware back button. Don't overwrite if already
-    // navigating game-to-game, or returning from a community sub-page (community
-    // is not a top-level origin — the original library/wishlist/etc. source stands).
     if (route.view === 'game' && _initialized) {
         const prevRoute = parseRoute(getRoutePath())
         const isGameSubPage = prevRoute.view === 'community' || prevRoute.view === 'community-thread'
@@ -153,8 +174,6 @@ export async function navigate(path, { replace = false } = {}) {
         }
     }
 
-    // Save scroll position of the page we're leaving — but not on the initial
-    // page load, where scrollTop is 0 and would overwrite a valid stored position
     if (_initialized) _saveScroll(getRoutePath())
 
     if (!_initialized) {
@@ -174,172 +193,172 @@ export async function navigate(path, { replace = false } = {}) {
 
     if (route.view === 'home') {
         setActiveItem('home')
-        await renderHome(mainEl())
+        _mount(Home)
         return
     }
 
     if (route.view === 'toc') {
         setActiveItem('toc')
-        await renderToc(getPages(), mainEl())
+        _mount(Toc, { pages: getPages() })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'library') {
         setActiveItem('library')
-        await renderLibrary(mainEl())
+        _mount(LibraryPage)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'wishlist') {
         setActiveItem('wishlist')
-        await renderWishlist(mainEl())
+        _mount(WishlistPage)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'account') {
         setActiveItem('account')
-        await renderAccount(mainEl())
+        _mount(Account)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'calendar') {
         setActiveItem('calendar')
-        await renderCalendar(mainEl())
+        _mount(Calendar, { mode: 'play' })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'releases') {
         setActiveItem('releases')
-        await renderReleases(mainEl())
+        _mount(Calendar, { mode: 'releases' })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'top-games') {
         setActiveItem('top-games')
-        const { renderTopGames } = await import('./views/top-games.js')
-        await renderTopGames(mainEl())
+        const { default: TopGames } = await import('../svelte/top-games/TopGames.svelte')
+        _mount(TopGames)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'alerts') {
         setActiveItem('alerts')
-        await renderAlerts(mainEl())
+        _mount(Alerts)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'favorites') {
         setActiveItem('favorites')
-        await renderFavorites(mainEl())
+        _mount(Favorites)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'backlog') {
         setActiveItem('backlog')
-        await renderBacklog(mainEl())
+        _mount(Backlog)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'abandoned') {
         setActiveItem('abandoned')
-        await renderAbandoned(mainEl())
+        _mount(Abandoned)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'history') {
         setActiveItem('history')
-        await renderHistory(mainEl())
+        _mount(History)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'in-progress') {
         setActiveItem('in-progress')
-        await renderInProgress(mainEl())
+        _mount(InProgress)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'hall-of-fame') {
         setActiveItem('hall-of-fame')
-        await renderHallOfFame(mainEl())
+        _mount(HallOfFame)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'settings') {
         setActiveItem('settings')
-        await renderSettings(mainEl())
+        _mount(Settings)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'franchises') {
         setActiveItem('franchises')
-        await renderFranchises(mainEl(), navigate)
+        _mount(Franchises)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'franchise') {
         setActiveItem('franchises')
-        await renderFranchise(route.franchiseId, mainEl(), navigate)
+        _mount(Franchise, { franchiseId: route.franchiseId })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'my-reviews') {
         setActiveItem('my-reviews')
-        await renderMyReviews(mainEl(), navigate)
+        _mount(MyReviews)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'discover') {
         setActiveItem('discover')
-        await renderDiscover(mainEl(), navigate)
+        _mount(Discover)
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'game') {
         setActiveItem('library')
-        const { renderGame } = await import('./views/game.js')
-        await renderGame(route.appid, mainEl())
+        const { default: GamePage } = await import('../svelte/game/GamePage.svelte')
+        _mount(GamePage, { appid: route.appid })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'community') {
         setActiveItem(null)
-        const { renderCommunity } = await import('./views/community.js')
-        await renderCommunity(route.appid, mainEl())
+        const { default: CommunityPage } = await import('../svelte/community/CommunityPage.svelte')
+        _mount(CommunityPage, { appid: route.appid })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'community-thread') {
         setActiveItem(null)
-        const { renderCommunityThread } = await import('./views/community.js')
-        await renderCommunityThread(route.appid, route.postId, mainEl(), route.sub)
+        const { default: CommunityThread } = await import('../svelte/community/CommunityThread.svelte')
+        _mount(CommunityThread, { appid: route.appid, postId: route.postId, sub: route.sub })
         _restoreScroll(path)
         return
     }
 
     if (route.view === 'journal') {
         setActiveItem(null)
-        const { renderGameJournal } = await import('./views/game-journal.js')
-        await renderGameJournal(route.appid, route.sub, mainEl(), navigate)
+        const { default: GameJournal } = await import('../svelte/journal/GameJournal.svelte')
+        _mount(GameJournal, { appid: route.appid, sub: route.sub })
         _restoreScroll(path)
         return
     }
@@ -363,6 +382,7 @@ export async function addNewPage() {
 }
 
 async function renderPageById(id) {
+    _cleanup()
     mainEl().innerHTML = `<p class="page-loading">Loading…</p>`
     let page
     try {
@@ -371,17 +391,18 @@ async function renderPageById(id) {
         mainEl().innerHTML = `<p class="page-error">Page not found.</p>`
         return
     }
-    const renderer = _renderers.get(page.type)
-    if (renderer) {
-        renderer(page, mainEl())
+    const Component = PAGE_COMPONENTS.get(page.type)
+    if (Component) {
+        _mount(Component, { page })
     } else {
-        renderPlaceholder(page)
+        _renderPlaceholder(page)
     }
 }
 
-function renderPlaceholder(page) {
+function _renderPlaceholder(page) {
     const label = {
-        list: 'List', progress: 'Progress Bar', 'progress-bars': 'Multi-Bar Progress', notes: 'Notes', page: 'Page', counter: 'Counter', 'multi-counter': 'Multi-Counter',
+        list: 'List', progress: 'Progress Bar', 'progress-bars': 'Multi-Bar Progress',
+        notes: 'Notes', page: 'Page', counter: 'Counter', 'multi-counter': 'Multi-Counter',
     }[page.type] ?? page.type
     mainEl().innerHTML = `
         <div class="page-header">

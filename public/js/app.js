@@ -1,19 +1,4 @@
-import { navigate, getRoutePath, registerRenderer } from './router.js'
-import { renderList } from './views/list.js'
-import { renderProgress } from './views/progress.js'
-import { renderProgressBars } from './views/progress-bars.js'
-import { renderNotes } from './views/notes.js'
-import { renderPage } from './views/page.js'
-import { renderCounter } from './views/counter.js'
-import { renderMultiCounter } from './views/multi-counter.js'
-
-registerRenderer('list', renderList)
-registerRenderer('progress', renderProgress)
-registerRenderer('progress-bars', renderProgressBars)
-registerRenderer('notes', renderNotes)
-registerRenderer('page', renderPage)
-registerRenderer('counter', renderCounter)
-registerRenderer('multi-counter', renderMultiCounter)
+import { navigate, getRoutePath } from './router.js'
 
 // ── Mobile sidebar toggle ──────────────────────────────────────────────────────
 const toggleBtn = document.getElementById('sidebar-toggle')
