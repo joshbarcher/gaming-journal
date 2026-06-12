@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tests &amp; Coverage — Gaming Journal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/tests.css">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+    <header class="app-header">
+        <span class="logo">Gaming Journal</span>
+        <span class="header-sep">/</span>
+        <span class="header-title">Tests &amp; Coverage</span>
+        <nav class="header-nav">
+            <a href="/" class="header-link">← App</a>
+        </nav>
+        <div>
+            <button class="btn-primary" id="btn-run">
+                <i data-lucide="play"></i> Run Tests
+            </button>
+        </div>
+    </header>
+
+    <div class="tests-workspace">
+
+        <div class="summary-bar" id="summary-bar">
+            <div class="summary-empty" id="summary-empty">
+                <i data-lucide="flask-conical"></i>
+                No results yet. Click <strong>Run Tests</strong> to start.
+            </div>
+            <div class="summary-counts hidden" id="summary-counts">
+                <span class="count-pill pill-pass" id="pill-pass">0 passed</span>
+                <span class="count-pill pill-fail hidden" id="pill-fail">0 failed</span>
+                <span class="count-sep">·</span>
+                <span class="count-meta" id="count-meta"></span>
+            </div>
+            <div class="spinner hidden" id="spinner">
+                <i data-lucide="loader-2"></i>
+                <span>Running tests…</span>
+            </div>
+        </div>
+
+        <div class="component-tabs" id="component-tabs">
+            <button class="comp-tab active" data-comp="all">All</button>
+        </div>
+
+        <div class="tests-content">
+
+            <div class="suite-panel" id="suite-panel">
+                <div class="panel-header">
+                    <span class="panel-header-title">Suites</span>
+                    <button class="icon-btn" id="btn-expand-all" title="Expand all">
+                        <i data-lucide="chevrons-down-up"></i>
+                    </button>
+                    <button class="icon-btn" id="btn-collapse-all" title="Collapse all">
+                        <i data-lucide="chevrons-up-down"></i>
+                    </button>
+                </div>
+                <div class="suite-list" id="suite-list">
+                    <div class="placeholder-msg">Run the tests to see results.</div>
+                </div>
+            </div>
+
+            <div class="coverage-panel" id="coverage-panel">
+                <div class="panel-header">
+                    <span class="panel-header-title">Coverage</span>
+                </div>
+                <div class="coverage-body" id="coverage-body">
+                    <div class="placeholder-msg">Coverage data appears after running tests.</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script type="module">
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let lastResults = null
+let activeComp  = 'all'
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+
+const btnRun        = document.getElementById('btn-run')
+const spinner       = document.getElementById('spinner')
+const summaryEmpty  = document.getElementById('summary-empty')
+const summaryCounts = document.getElementById('summary-counts')
+const pillPass      = document.getElementById('pill-pass')
+const pillFail      = document.getElementById('pill-fail')
+const countMeta     = document.getElementById('count-meta')
+const suiteList     = document.getElementById('suite-list')
+const coverageBody  = document.getElementById('coverage-body')
+const compTabs      = document.getElementById('component-tabs')
+
+// ── Run tests ─────────────────────────────────────────────────────────────────
+
+btnRun.addEventListener('click', async () => {
+    if (btnRun.disabled) return
+    setRunning(true)
+    try {
+        const res = await fetch('/api/tests', { method: 'POST' })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+            if (res.status === 409) { alert('Tests are already running.'); return }
+            throw new Error(err.error ?? res.statusText)
+        }
+        lastResults = await res.json()
+        render(lastResults)
+    } catch (err) {
+        showError(err.message)
+    } finally {
+        setRunning(false)
+    }
+})
+
+// ── Load cached results on page load ─────────────────────────────────────────
+
+;(async () => {
+    try {
+        const res = await fetch('/api/tests')
+        if (res.ok) { lastResults = await res.json(); render(lastResults) }
+    } catch { /* no cached results — fine */ }
+})()
+
+// ── Component tabs ────────────────────────────────────────────────────────────
+
+compTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.comp-tab')
+    if (!tab || !lastResults) return
+    activeComp = tab.dataset.comp
+    compTabs.querySelectorAll('.comp-tab').forEach(t => t.classList.toggle('active', t === tab))
+    renderView()
+})
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function render(data) {
+    renderSummary(data)
+    buildComponentTabs(data)
+    renderView()
+    lucide.createIcons()
+}
+
+function renderView() {
+    if (!lastResults) return
+    const isAll    = activeComp === 'all'
+    const comp     = isAll ? null : lastResults.components?.[activeComp]
+    const suites   = isAll ? (lastResults.suites   ?? []) : (comp?.suites   ?? [])
+    const coverage = isAll ? (lastResults.coverage  ?? {}) : (comp?.coverage ?? {})
+    renderSuites(suites)
+    renderCoverage(coverage)
+    lucide.createIcons({ el: document.getElementById('suite-panel') })
+    lucide.createIcons({ el: document.getElementById('coverage-panel') })
+}
+
+function buildComponentTabs(data) {
+    const components = data.components ?? {}
+    compTabs.querySelectorAll('.comp-tab:not([data-comp="all"])').forEach(t => t.remove())
+    for (const [key, { label, summary }] of Object.entries(components)) {
+        const allPass = (summary?.fail ?? 0) === 0
+        const btn     = document.createElement('button')
+        btn.className    = 'comp-tab'
+        btn.dataset.comp = key
+        btn.innerHTML    = `${esc(label)}<span class="comp-tab-badge ${allPass ? 'badge-pass' : 'badge-fail'}">${summary?.total ?? 0}</span>`
+        compTabs.appendChild(btn)
+    }
+    const valid = ['all', ...Object.keys(components)]
+    if (!valid.includes(activeComp)) activeComp = 'all'
+    compTabs.querySelectorAll('.comp-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.comp === activeComp)
+    )
+}
+
+function renderSummary(data) {
+    summaryEmpty.classList.add('hidden')
+    summaryCounts.classList.remove('hidden')
+
+    const { pass = 0, fail = 0, total = 0 } = data.summary ?? {}
+    const elapsed = data.elapsedMs ? (data.elapsedMs / 1000).toFixed(1) : '0'
+    const ranAt   = data.ranAt ? new Date(data.ranAt).toLocaleTimeString() : ''
+
+    pillPass.textContent = `${pass} passed`
+    pillPass.classList.toggle('all-pass', fail === 0 && pass > 0)
+
+    if (fail > 0) {
+        pillFail.textContent = `${fail} failed`
+        pillFail.classList.remove('hidden')
+    } else {
+        pillFail.classList.add('hidden')
+    }
+
+    countMeta.textContent = `${total} tests · ${elapsed}s${ranAt ? ' · ' + ranAt : ''}`
+}
+
+function renderSuites(suites) {
+    if (!suites.length) {
+        suiteList.innerHTML = '<div class="placeholder-msg">No suites found.</div>'
+        return
+    }
+
+    suiteList.innerHTML = ''
+
+    for (const suite of suites) {
+        const allPass = suite.fail === 0
+        const item    = document.createElement('div')
+        item.className = `suite-item${allPass ? '' : ' suite-has-failures'}`
+
+        const header = document.createElement('div')
+        header.className = 'suite-header'
+        header.innerHTML = `
+            <span class="suite-toggle"><i data-lucide="chevron-right"></i></span>
+            <span class="suite-dot ${allPass ? 'dot-pass' : 'dot-fail'}"></span>
+            <span class="suite-name">${esc(suite.name)}</span>
+            <span class="suite-counts">
+                <span class="sc-pass">${suite.pass}</span>
+                ${suite.fail ? `<span class="sc-fail">${suite.fail}</span>` : ''}
+            </span>`
+        item.appendChild(header)
+
+        const body = document.createElement('div')
+        body.className = 'suite-body collapsed'
+
+        for (const test of suite.tests ?? []) {
+            const row = document.createElement('div')
+            row.className = `test-row ${test.pass ? 'test-pass' : 'test-fail'}`
+            row.innerHTML = `
+                <span class="test-icon">${test.pass ? '✓' : '✗'}</span>
+                <span class="test-name">${esc(test.name)}</span>
+                <span class="test-dur">${test.duration > 0 ? test.duration.toFixed(0) + 'ms' : ''}</span>`
+            if (!test.pass && test.error) {
+                const err = document.createElement('div')
+                err.className   = 'test-error'
+                err.textContent = test.error
+                row.appendChild(err)
+            }
+            body.appendChild(row)
+        }
+
+        item.appendChild(body)
+
+        header.addEventListener('click', () => {
+            const open = !body.classList.contains('collapsed')
+            body.classList.toggle('collapsed', open)
+            header.querySelector('.suite-toggle').classList.toggle('open', !open)
+        })
+
+        if (!allPass) {
+            body.classList.remove('collapsed')
+            header.querySelector('.suite-toggle').classList.add('open')
+        }
+
+        suiteList.appendChild(item)
+    }
+}
+
+function renderCoverage(coverage) {
+    if (!coverage.lines && !coverage.files?.length) {
+        coverageBody.innerHTML = '<div class="placeholder-msg">No coverage data. Run tests to generate.</div>'
+        return
+    }
+
+    const pct = (n, warn = 80, danger = 60) => {
+        const cls = n == null ? '' : n >= warn ? 'cov-good' : n >= danger ? 'cov-warn' : 'cov-bad'
+        return `<span class="${cls}">${n?.toFixed(1) ?? '—'}%</span>`
+    }
+
+    const bar = n => {
+        if (n == null) return ''
+        const cls = n >= 80 ? 'bar-good' : n >= 60 ? 'bar-warn' : 'bar-bad'
+        return `<div class="cov-bar-track"><div class="cov-bar-fill ${cls}" style="width:${Math.min(n,100)}%"></div></div>`
+    }
+
+    const pctClass = n => n == null ? '' : n >= 80 ? 'pct-good' : n >= 60 ? 'pct-warn' : 'pct-bad'
+
+    const rows = (coverage.files ?? [])
+        .sort((a, b) => a.file.localeCompare(b.file))
+        .map(f => `
+        <tr>
+            <td class="cov-file">${esc(f.file)}</td>
+            <td class="cov-num">${pct(f.lines)}  ${bar(f.lines)}</td>
+            <td class="cov-num">${pct(f.branches)} ${bar(f.branches)}</td>
+            <td class="cov-num">${pct(f.funcs)} ${bar(f.funcs)}</td>
+            <td class="cov-uncov">${esc(f.uncovered?.join(', ') ?? '')}</td>
+        </tr>`).join('')
+
+    coverageBody.innerHTML = `
+        <div class="cov-summary">
+            <div class="cov-summary-item">
+                <div class="cov-summary-label">Lines</div>
+                <div class="cov-summary-pct ${pctClass(coverage.lines)}">${coverage.lines?.toFixed(1) ?? '—'}%</div>
+                ${bar(coverage.lines)}
+            </div>
+            <div class="cov-summary-item">
+                <div class="cov-summary-label">Branches</div>
+                <div class="cov-summary-pct ${pctClass(coverage.branches)}">${coverage.branches?.toFixed(1) ?? '—'}%</div>
+                ${bar(coverage.branches)}
+            </div>
+            <div class="cov-summary-item">
+                <div class="cov-summary-label">Functions</div>
+                <div class="cov-summary-pct ${pctClass(coverage.funcs)}">${coverage.funcs?.toFixed(1) ?? '—'}%</div>
+                ${bar(coverage.funcs)}
+            </div>
+        </div>
+        <table class="cov-table">
+            <thead>
+                <tr>
+                    <th>File</th>
+                    <th>Lines</th>
+                    <th>Branches</th>
+                    <th>Functions</th>
+                    <th>Uncovered lines</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`
+}
+
+// ── Expand / collapse all ─────────────────────────────────────────────────────
+
+document.getElementById('btn-expand-all').addEventListener('click', () => {
+    suiteList.querySelectorAll('.suite-body').forEach(b => b.classList.remove('collapsed'))
+    suiteList.querySelectorAll('.suite-toggle').forEach(t => t.classList.add('open'))
+})
+
+document.getElementById('btn-collapse-all').addEventListener('click', () => {
+    suiteList.querySelectorAll('.suite-body').forEach(b => b.classList.add('collapsed'))
+    suiteList.querySelectorAll('.suite-toggle').forEach(t => t.classList.remove('open'))
+})
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function setRunning(yes) {
+    btnRun.disabled = yes
+    spinner.classList.toggle('hidden', !yes)
+    if (yes) {
+        summaryEmpty.classList.add('hidden')
+        summaryCounts.classList.add('hidden')
+    }
+}
+
+function showError(msg) {
+    summaryEmpty.classList.remove('hidden')
+    summaryEmpty.innerHTML = `<i data-lucide="alert-triangle"></i> <span>Error: ${esc(msg)}</span>`
+    lucide.createIcons({ el: summaryEmpty })
+}
+
+function esc(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+lucide.createIcons()
+</script>
+</body>
+</html>

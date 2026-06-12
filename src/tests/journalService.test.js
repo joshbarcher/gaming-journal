@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import os from 'node:os'
 import path from 'node:path'
 import fsp from 'node:fs/promises'
-import { JournalService } from '../services/journalService.js'
+import { JournalService } from '../lib/server/services/journalService.js'
 
 function tmpPath() {
     return path.join(os.tmpdir(), `journal-test-${Date.now()}-${Math.random().toString(36).slice(2)}.json`)

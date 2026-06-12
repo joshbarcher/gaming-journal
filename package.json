@@ -3,18 +3,22 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "node --env-file .env src/boot.js",
-        "dev:client": "vite",
+        "dev": "vite dev",
         "build": "vite build",
-        "test": "node --test src/tests/*.test.js"
-    },
-    "dependencies": {
-        "express": "^4.18.2"
+        "preview": "node --env-file .env build/index.js",
+        "test": "node --test src/tests/*.test.js",
+        "test:coverage": "node --experimental-test-coverage --test-reporter=tap src/tests/*.test.js"
     },
     "devDependencies": {
+        "@playwright/test": "^1.60.0",
+        "@sveltejs/adapter-node": "^5.5.4",
+        "@sveltejs/kit": "^2.65.0",
         "@sveltejs/vite-plugin-svelte": "^7.1.2",
         "jsdom": "^29.1.1",
         "svelte": "^5.56.3",
         "vite": "^8.0.16"
+    },
+    "overrides": {
+        "cookie": "^0.7.0"
     }
 }

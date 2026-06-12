@@ -1,20 +1,17 @@
-import { defineConfig } from 'vite'
-import { svelte } from '@sveltejs/vite-plugin-svelte'
-import { resolve } from 'path'
+import { sveltekit }             from '@sveltejs/kit/vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
-    root: 'public',
-    plugins: [svelte({ configFile: resolve('svelte.config.js') })],
-    server: {
-        port: 5173,
-        proxy: {
-            '/api': 'http://localhost:8061',
-            '/relay': 'http://localhost:8061',
-            '/health': 'http://localhost:8061',
-        }
-    },
-    build: {
-        outDir: '../dist',
-        emptyOutDir: true,
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '')
+
+    // Mirror what `node --env-file .env` does in production:
+    // inject all .env variables into process.env so server code can use them.
+    for (const [k, v] of Object.entries(env)) {
+        process.env[k] ??= v
+    }
+
+    return {
+        plugins: [sveltekit()],
+        server:  { port: parseInt(env.PORT) || 5173 },
     }
 })

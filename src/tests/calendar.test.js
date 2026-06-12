@@ -1,7 +1,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { localDateStr as _localDateStr } from '../../public/js/utils.js';
-import { _buildDayMap, _splitAtMidnight } from '../../public/js/views/calendar.js';
+import { localDateStr as _localDateStr } from '../lib/js/utils.js';
+import {
+    buildDayMap as _buildDayMap,
+    splitAtMidnight as _splitAtMidnight,
+    localMidnight,
+    buildReleaseMap,
+    buildCell,
+    buildMonth,
+} from '../lib/js/views/calendar-render.js';
 
 // ── _localDateStr ─────────────────────────────────────────────────────────────
 
@@ -189,5 +196,185 @@ describe('_buildDayMap — cross-midnight', () => {
         assert.ok(e18, 'session on the 18th should exist');
         assert.equal(e17.durationMin, 60, '17th should have only its own 60 min');
         assert.equal(e18.durationMin, 90, '18th should have only its own 90 min');
+    });
+});
+
+// ── localMidnight ─────────────────────────────────────────────────────────────
+
+describe('localMidnight', () => {
+    it('returns the Unix ms timestamp of midnight local time for a date string', () => {
+        const ts = localMidnight('2026-05-17');
+        const d  = new Date(ts);
+        assert.equal(d.getFullYear(), 2026);
+        assert.equal(d.getMonth(),    4);      // May is 0-indexed 4
+        assert.equal(d.getDate(),     17);
+        assert.equal(d.getHours(),    0);
+        assert.equal(d.getMinutes(),  0);
+        assert.equal(d.getSeconds(),  0);
+    });
+
+    it('returns different timestamps for different dates', () => {
+        assert.notEqual(localMidnight('2026-05-17'), localMidnight('2026-05-18'));
+    });
+});
+
+// ── buildReleaseMap ───────────────────────────────────────────────────────────
+
+describe('buildReleaseMap', () => {
+    it('returns an empty map for empty input', () => {
+        assert.equal(buildReleaseMap([]).size, 0);
+    });
+
+    it('groups games by releaseDateIso', () => {
+        const map = buildReleaseMap([
+            { releaseDateIso: '2026-05-17', appid: 570, name: 'Dota 2' },
+            { releaseDateIso: '2026-05-17', appid: 440, name: 'TF2' },
+            { releaseDateIso: '2026-05-18', appid: 400, name: 'Portal 2' },
+        ]);
+        assert.equal(map.size, 2);
+        assert.equal(map.get('2026-05-17').length, 2);
+        assert.equal(map.get('2026-05-18').length, 1);
+        assert.deepEqual(map.get('2026-05-18')[0], { appid: 400, name: 'Portal 2' });
+    });
+
+    it('skips entries without a releaseDateIso', () => {
+        const map = buildReleaseMap([
+            { appid: 570, name: 'Dota 2' },
+            { releaseDateIso: '2026-05-17', appid: 440, name: 'TF2' },
+        ]);
+        assert.equal(map.size, 1);
+    });
+});
+
+// ── buildCell ─────────────────────────────────────────────────────────────────
+
+describe('buildCell', () => {
+    it('renders a basic empty cell with the day number', () => {
+        const html = buildCell(2026, 4, 17, false, [], []);
+        assert.ok(html.includes('cal-cell'));
+        assert.ok(html.includes('17'));
+        assert.ok(!html.includes('cal-cell--today'));
+        assert.ok(!html.includes('cal-cell--played'));
+        assert.ok(!html.includes('cal-cell--release-day'));
+    });
+
+    it('adds today class when isToday is true', () => {
+        const html = buildCell(2026, 4, 17, true, [], []);
+        assert.ok(html.includes('cal-cell--today'));
+    });
+
+    it('adds played class and entry link when entries are present', () => {
+        const html = buildCell(2026, 4, 17, false, [{ appid: 570, name: 'Dota 2', durationMin: 60 }], []);
+        assert.ok(html.includes('cal-cell--played'));
+        assert.ok(html.includes('Dota 2'));
+        assert.ok(html.includes('/game/570'));
+    });
+
+    it('adds release-day class when releases are present', () => {
+        const html = buildCell(2026, 4, 17, false, [], [{ appid: 440, name: 'TF2' }]);
+        assert.ok(html.includes('cal-cell--release-day'));
+        assert.ok(html.includes('TF2'));
+    });
+
+    it('formats duration: minutes only', () => {
+        const html = buildCell(2026, 4, 17, false, [{ appid: 1, name: 'X', durationMin: 45 }], []);
+        assert.ok(html.includes('45m'));
+    });
+
+    it('formats duration: hours only (no minutes)', () => {
+        const html = buildCell(2026, 4, 17, false, [{ appid: 1, name: 'X', durationMin: 120 }], []);
+        assert.ok(html.includes('2h'));
+        assert.ok(!html.includes('2h 0m'));
+    });
+
+    it('formats duration: hours and minutes', () => {
+        const html = buildCell(2026, 4, 17, false, [{ appid: 1, name: 'X', durationMin: 90 }], []);
+        assert.ok(html.includes('1h 30m'));
+    });
+
+    it('formats zero duration as 0m', () => {
+        const html = buildCell(2026, 4, 17, false, [{ appid: 1, name: 'X', durationMin: 0 }], []);
+        assert.ok(html.includes('0m'));
+    });
+
+    it('shows overflow badge when more than 3 total items', () => {
+        const entries = [1, 2, 3, 4].map(i => ({ appid: i, name: `G${i}`, durationMin: 10 }));
+        const html = buildCell(2026, 4, 17, false, entries, []);
+        assert.ok(html.includes('+1'));
+    });
+
+    it('releases appear before play entries in the display', () => {
+        const html = buildCell(2026, 4, 17, false,
+            [{ appid: 1, name: 'Game', durationMin: 60 }],
+            [{ appid: 2, name: 'Release' }]
+        );
+        const releaseIdx = html.indexOf('Release');
+        const gameIdx    = html.indexOf('Game');
+        assert.ok(releaseIdx < gameIdx, 'release entry should appear before play entry');
+    });
+
+    it('entries are sorted by durationMin descending', () => {
+        const entries = [
+            { appid: 1, name: 'Short',  durationMin: 10 },
+            { appid: 2, name: 'Medium', durationMin: 50 },
+            { appid: 3, name: 'Long',   durationMin: 90 },
+        ];
+        const html = buildCell(2026, 4, 17, false, entries, []);
+        const longIdx   = html.indexOf('Long');
+        const mediumIdx = html.indexOf('Medium');
+        assert.ok(longIdx < mediumIdx, 'longer session should appear first');
+    });
+});
+
+// ── buildMonth ────────────────────────────────────────────────────────────────
+
+describe('buildMonth', () => {
+    it('renders a month container with the correct name', () => {
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', new Map(), new Map(), 'play');
+        assert.ok(html.includes('cal-month'));
+        assert.ok(html.includes('May'));
+    });
+
+    it('marks the current month with id="cal-month-current"', () => {
+        const html = buildMonth(2026, 4, 'May', '2026-05-17', new Map(), new Map(), 'play');
+        assert.ok(html.includes('id="cal-month-current"'));
+    });
+
+    it('does not mark a non-current month', () => {
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', new Map(), new Map(), 'play');
+        assert.ok(!html.includes('id="cal-month-current"'));
+    });
+
+    it('includes all day-of-week headers', () => {
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', new Map(), new Map(), 'play');
+        for (const dow of ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']) {
+            assert.ok(html.includes(`<div class="cal-dow">${dow}</div>`), `missing ${dow}`);
+        }
+    });
+
+    it('generates empty leading cells for the first day-of-week offset', () => {
+        // May 2026: May 1 is a Friday (index 5) → 5 leading empty cells
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', new Map(), new Map(), 'play');
+        const emptyCount = (html.match(/cal-cell--empty/g) ?? []).length;
+        assert.ok(emptyCount >= 5, `expected ≥5 empty cells, got ${emptyCount}`);
+    });
+
+    it('in play mode, shows played entries from dayMap', () => {
+        const dayMap = new Map([['2026-05-17', [{ appid: 570, name: 'Dota 2', durationMin: 60 }]]]);
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', dayMap, new Map(), 'play');
+        assert.ok(html.includes('cal-cell--played'));
+        assert.ok(html.includes('Dota 2'));
+    });
+
+    it('in releases mode, shows release entries from releaseMap', () => {
+        const releaseMap = new Map([['2026-05-17', [{ appid: 440, name: 'TF2' }]]]);
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', new Map(), releaseMap, 'releases');
+        assert.ok(html.includes('cal-cell--release-day'));
+    });
+
+    it('in releases mode, does not show play entries', () => {
+        const dayMap    = new Map([['2026-05-17', [{ appid: 570, name: 'Dota 2', durationMin: 60 }]]]);
+        const html = buildMonth(2026, 4, 'May', '2026-06-01', dayMap, new Map(), 'releases');
+        assert.ok(!html.includes('cal-cell--played'));
     });
 });
