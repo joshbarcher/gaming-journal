@@ -3,7 +3,8 @@
     import type { SteamGame, CommunitySource, LoadedPrefs, RedditSource, RedditData } from '../../types.js'
     import { loadPrefs, toggleFilter, toggleMute, toggleFavorite, toggleHighlight } from '../../js/community-user-prefs.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
-    import { fmtScore, fmtTime, thumbSrc, renderSubredditLoader } from '../../js/views/community-render.js'
+    import { fmtScore, fmtTime, thumbSrc } from '../../js/views/community-render.js'
+    import SubredditLoader from './SubredditLoader.svelte'
 
     let { appid } = $props()
 
@@ -367,7 +368,7 @@
                         {#if pendingSub.error}
                             <p class="community-empty">Failed to fetch posts.</p>
                         {:else}
-                            {@html renderSubredditLoader(pendingSub.status)}
+                            <SubredditLoader status={pendingSub.status} />
                         {/if}
                     </div>
                 {/if}

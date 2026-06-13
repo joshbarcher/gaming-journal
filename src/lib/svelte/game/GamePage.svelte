@@ -3,20 +3,24 @@
     import type { SteamGame, CommunityReviews, SteamUserReviewEntry, PlayerCounts, Flags, LocalReview, Trailer, ItadData, ProtonData, PcgwData, NewsData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { navigate } from '../../js/router.js'
-    import { openReviewModal, renderLocalReviewCard } from '../../js/review-modal.js'
+    import { openReviewModal } from '../../js/review-modal.js'
+    import { releaseStatus, newsBBCodeDirty } from '../../js/views/game-render.js'
     import GameHero from './GameHero.svelte'
     import FlagsBar from './FlagsBar.svelte'
     import HltbSection from './HltbSection.svelte'
     import PlayerChart from './PlayerChart.svelte'
     import NavRail from './NavRail.svelte'
-    import {
-        releaseStatus, releaseBanner,
-        renderAbout, renderTrailers, initTrailers,
-        renderScreenshots, renderMyReview, initSteamReview,
-        renderCommunityReviews, renderItad, renderProtondb, renderProtonBadge,
-        renderPcgw, renderNews, initNews,
-        newsBBCodeDirty,
-    } from '../../js/views/game-render.js'
+    import ReleaseBanner from './sections/ReleaseBanner.svelte'
+    import About from './sections/About.svelte'
+    import Trailers from './sections/Trailers.svelte'
+    import Screenshots from './sections/Screenshots.svelte'
+    import News from './sections/News.svelte'
+    import LocalReviewCard from './sections/LocalReviewCard.svelte'
+    import MyReview from './sections/MyReview.svelte'
+    import CommunityReviewsSection from './sections/CommunityReviews.svelte'
+    import ItadPrices from './sections/ItadPrices.svelte'
+    import ProtonDB from './sections/ProtonDB.svelte'
+    import PCGW from './sections/PCGW.svelte'
 
     let { appid } = $props()
 
@@ -46,7 +50,7 @@
     // Effective ITAD: undefined until background resolves, then the object (or {})
     let effectiveItad = $derived(itadData !== undefined ? itadData : game?.itad)
 
-    // ── Screenshot modal (vanilla JS — screenshots are {@html}) ──────────────
+    // ── Screenshot modal ──────────────────────────────────────────────────────
     let _modalEl: HTMLElement | null = null, _modalSrcs: string[] = [], _modalIdx = 0
 
     function _modalNav(delta: number) {
@@ -109,88 +113,21 @@
     // ── Container ref (for NavRail) ───────────────────────────────────────────
     let containerEl = $state<HTMLElement | null>(null)
 
-    // ── Element refs for {@html} sections that need post-render init ──────────
-    let trailersEl     = $state<HTMLElement | null>(null)
-    let steamReviewEl  = $state<HTMLElement | null>(null)
-    let shotsEl        = $state<HTMLElement | null>(null)
-    let newsEl         = $state<HTMLElement | null>(null)
-    let itadEl         = $state<HTMLElement | null>(null)
-    let pcgwEl         = $state<HTMLElement | null>(null)
-    let protondbEl     = $state<HTMLElement | null>(null)
+    // ── Refresh callbacks wired to workerMgr ──────────────────────────────────
+    async function refreshItad() {
+        const { data } = await workerMgr.sync(`/relay/api/itad/sync/${appid}?force=true`, `/relay/api/itad/${appid}`)
+        itadData = data ?? {}
+    }
 
-    // Wire interactive event handlers after each {@html} section renders
-    $effect(() => { if (trailersEl && trailers.length)  initTrailers(trailersEl) })
-    $effect(() => { if (steamReviewEl && myReview)      initSteamReview(steamReviewEl) })
-    $effect(() => { if (newsEl && newsData)             initNews(newsEl) })
+    async function refreshProton() {
+        const { data } = await workerMgr.sync(`/relay/api/protondb/sync/${appid}?force=true`, `/relay/api/protondb/${appid}`)
+        protonData = (data?.notFound || !data?.tier) ? null : data
+    }
 
-    $effect(() => {
-        const shotsRef = shotsEl
-        if (!shotsRef) return
-        shotsRef.addEventListener('click', e => {
-            const img = (e.target as Element)?.closest('.game-shot-img') as HTMLImageElement | null
-            if (img) {
-                const srcs = [...shotsRef.querySelectorAll<HTMLImageElement>('.game-shot-img')].map(i => i.src)
-                _openModal(srcs, srcs.indexOf(img.src))
-            }
-        })
-    })
-
-    $effect(() => {
-        if (!itadEl || effectiveItad === undefined) return
-        const btn = itadEl.querySelector<HTMLButtonElement>('[data-role="itad-refresh"]')
-        if (!btn) return
-        const handler = async () => {
-            btn.classList.add('game-refresh-btn--spinning')
-            btn.disabled = true
-            try {
-                const { data } = await workerMgr.sync(`/relay/api/itad/sync/${appid}?force=true`, `/relay/api/itad/${appid}`)
-                itadData = data ?? {}
-            } catch { /* silent */ } finally {
-                btn.classList.remove('game-refresh-btn--spinning')
-                btn.disabled = false
-            }
-        }
-        btn.addEventListener('click', handler)
-        return () => btn.removeEventListener('click', handler)
-    })
-
-    $effect(() => {
-        if (!pcgwEl || !pcgwData?.found) return
-        const btn = pcgwEl.querySelector<HTMLButtonElement>('[data-role="pcgw-refresh"]')
-        if (!btn) return
-        const handler = async () => {
-            btn.classList.add('game-refresh-btn--spinning')
-            btn.disabled = true
-            try {
-                const { data } = await workerMgr.sync(`/relay/api/pcgw/sync/${appid}?force=true`, `/relay/api/pcgw/${appid}`)
-                pcgwData = data
-            } catch { /* silent */ } finally {
-                btn.classList.remove('game-refresh-btn--spinning')
-                btn.disabled = false
-            }
-        }
-        btn.addEventListener('click', handler)
-        return () => btn.removeEventListener('click', handler)
-    })
-
-    $effect(() => {
-        if (!protondbEl || !protonData?.tier) return
-        const btn = protondbEl.querySelector<HTMLButtonElement>('[data-role="protondb-refresh"]')
-        if (!btn) return
-        const handler = async () => {
-            btn.classList.add('game-refresh-btn--spinning')
-            btn.disabled = true
-            try {
-                const { data: fresh } = await workerMgr.sync(`/relay/api/protondb/sync/${appid}?force=true`, `/relay/api/protondb/${appid}`)
-                protonData = (fresh?.notFound || !fresh?.tier) ? null : fresh
-            } catch { /* silent */ } finally {
-                btn.classList.remove('game-refresh-btn--spinning')
-                btn.disabled = false
-            }
-        }
-        btn.addEventListener('click', handler)
-        return () => btn.removeEventListener('click', handler)
-    })
+    async function refreshPcgw() {
+        const { data } = await workerMgr.sync(`/relay/api/pcgw/sync/${appid}?force=true`, `/relay/api/pcgw/${appid}`)
+        pcgwData = data?.found ? data : null
+    }
 
     // ── Community btn navigation ──────────────────────────────────────────────
     function handleCommunityClick(e: MouseEvent) {
@@ -373,8 +310,6 @@
             hltbData = newGame.hltb
         }
     }
-
-
 </script>
 
 <div bind:this={containerEl}>
@@ -398,7 +333,7 @@
             </div>
         {/if}
 
-        {@html releaseBanner(game)}
+        <ReleaseBanner {game} />
 
         <div class="game-flags-bar">
             <FlagsBar {appid} bind:flags bind:localWishlisted {game} />
@@ -407,43 +342,33 @@
         <div class="game-body">
             <!-- Trailers -->
             {#if trailers.length}
-                <div bind:this={trailersEl}>
-                    {@html renderTrailers(appid, trailers)}
-                </div>
+                <Trailers {appid} {trailers} />
             {/if}
 
             <!-- About This Game -->
-            {#if game.store?.detailedDescription}
-                {@html renderAbout(game)}
-            {/if}
+            <About {game} />
 
             <!-- How Long To Beat -->
             {#if effectiveHltb !== undefined}
                 <HltbSection {game} hltb={effectiveHltb} onRefresh={refreshHltb} />
-            {:else}
-                <!-- pending placeholder; HltbSection renders once background load resolves -->
             {/if}
 
             <!-- Player Count -->
             <PlayerChart data={playerCounts} />
 
             <!-- Screenshots -->
-            <div bind:this={shotsEl}>
-                {@html renderScreenshots(game)}
-            </div>
+            <Screenshots {game} onShotClick={_openModal} />
 
             <!-- News (background-loaded) -->
-            {#if newsData}
-                <div bind:this={newsEl}>
-                    {@html renderNews(newsData)}
-                </div>
+            {#if newsData !== undefined}
+                <News news={newsData} />
             {/if}
 
             <!-- Local Review -->
             <section class="game-section rev-local-section" id="game-sec-local-review">
                 <h2 class="game-section-title">Local Review</h2>
                 {#if localReview}
-                    {@html renderLocalReviewCard(localReview, appid)}
+                    <LocalReviewCard review={localReview} />
                     <button class="rev-edit-btn" onclick={openLocalReview}>Edit Review</button>
                 {:else}
                     <button class="rev-no-review" onclick={openLocalReview}>✦ Write a Review for this game</button>
@@ -452,34 +377,24 @@
             </section>
 
             <!-- My Steam Review -->
-            {#if myReview?.review}
-                <div bind:this={steamReviewEl}>
-                    {@html renderMyReview(myReview)}
-                </div>
-            {/if}
+            <MyReview entry={myReview} />
 
             <!-- Community Reviews -->
-            {@html renderCommunityReviews(communityReviews, game)}
+            <CommunityReviewsSection data={communityReviews} {game} />
 
             <!-- ITAD Prices (background-loaded) -->
             {#if effectiveItad !== undefined}
-                <div bind:this={itadEl}>
-                    {@html renderItad(effectiveItad, game)}
-                </div>
+                <ItadPrices itad={effectiveItad} {game} onRefresh={refreshItad} />
             {/if}
 
             <!-- ProtonDB (background-loaded) -->
-            {#if protonData}
-                <div bind:this={protondbEl}>
-                    {@html renderProtondb(protonData, game)}
-                </div>
+            {#if protonData !== undefined}
+                <ProtonDB protonData={protonData} {game} onRefresh={refreshProton} />
             {/if}
 
             <!-- PCGamingWiki (background-loaded) -->
-            {#if pcgwData?.found}
-                <div bind:this={pcgwEl}>
-                    {@html renderPcgw(pcgwData, game)}
-                </div>
+            {#if pcgwData !== undefined}
+                <PCGW {pcgwData} {game} onRefresh={refreshPcgw} />
             {/if}
         </div>
 

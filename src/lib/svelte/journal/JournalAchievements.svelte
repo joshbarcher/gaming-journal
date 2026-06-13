@@ -1,11 +1,12 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
-    import type { AchievementItem } from '../../types.js'
-    import { mergeSessionAchievements, renderAchItem } from '../../js/views/journal-render.js'
+    import type { AchievementItem as AchievementItemType } from '../../types.js'
+    import { mergeSessionAchievements } from '../../js/views/journal-render.js'
+    import AchievementItem from './AchievementItem.svelte'
 
     let { appid } = $props()
 
-    let achList    = $state<AchievementItem[]>([])
+    let achList    = $state<AchievementItemType[]>([])
     let loading    = $state(true)
     let showHidden = $state(false)
 
@@ -88,7 +89,7 @@
         <p class="gj-ach-section-label">Unlocked ({unlocked.length})</p>
         <div class="gj-ach-grid">
             {#each unlocked as a (a.apiname)}
-                {@html renderAchItem(a, true, false)}
+                <AchievementItem achievement={a} isUnlocked={true} isHidden={false} />
             {/each}
         </div>
     {/if}
@@ -97,7 +98,7 @@
         <p class="gj-ach-section-label">Locked ({lockedVis.length})</p>
         <div class="gj-ach-grid">
             {#each lockedVis as a (a.apiname)}
-                {@html renderAchItem(a, false, false)}
+                <AchievementItem achievement={a} isUnlocked={false} isHidden={false} />
             {/each}
         </div>
     {/if}
@@ -106,7 +107,7 @@
         <p class="gj-ach-section-label">Hidden ({lockedHidden.length})</p>
         <div class="gj-ach-grid">
             {#each lockedHidden as a (a.apiname)}
-                {@html renderAchItem(a, false, true)}
+                <AchievementItem achievement={a} isUnlocked={false} isHidden={true} />
             {/each}
         </div>
     {/if}

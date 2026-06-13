@@ -2,10 +2,11 @@
     import { onMount, onDestroy, tick } from 'svelte'
     import {
         localDateStr, localMidnight, splitAtMidnight,
-        buildDayMap, buildReleaseMap, buildMonth, MONTHS,
+        buildDayMap, buildReleaseMap, MONTHS,
     } from '../../js/views/calendar-render.js'
     import type { DayEntry, ReleaseEntry } from '../../js/views/calendar-render.js'
     import type { NowPlayingSession } from '../../types.js'
+    import CalendarMonth from './CalendarMonth.svelte'
 
     let { mode = 'play' } = $props()
 
@@ -17,6 +18,7 @@
     let loading    = $state(true)
     let error      = $state<string | null>(null)
     let calEl      = $state<HTMLElement | null>(null)
+    let today      = $state(localDateStr(new Date()))
 
     // Live session state
     let liveSession        = $state<NowPlayingSession | null>(null)
@@ -27,18 +29,9 @@
 
     let _liveTimer: ReturnType<typeof setInterval> | null = null
 
-    // ── Derived calendar HTML ──────────────────────────────────────────────────
-
-    let calendarHtml = $derived.by(() => {
-        // Track all reactive inputs
-        liveTick; year; mode
-
-        const today    = localDateStr(new Date())
-        const effectiveDayMap = buildEffectiveDayMap()
-
-        return MONTHS.map((name, m) =>
-            buildMonth(year, m, name, today, effectiveDayMap, releaseMap, mode)
-        ).join('')
+    let effectiveDayMap = $derived.by(() => {
+        liveTick
+        return buildEffectiveDayMap()
     })
 
     function buildEffectiveDayMap() {
@@ -77,7 +70,7 @@
     // ── Scroll to current month ────────────────────────────────────────────────
 
     $effect(() => {
-        year; calendarHtml // track changes
+        year; effectiveDayMap // track changes
         tick().then(() => {
             if (year === new Date().getFullYear()) {
                 calEl?.querySelector('#cal-month-current')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -170,6 +163,7 @@
             liveDate    = todayStr
             liveSession = playing ?? null
             liveTick    = Date.now()
+            today       = todayStr
         } catch { /* silent */ }
     }
 
@@ -219,6 +213,16 @@
         <button class="cal-nav-btn" onclick={() => year++}>{year + 1} →</button>
     </div>
     <div class="cal-grid" bind:this={calEl}>
-        {@html calendarHtml}
+        {#each MONTHS as name, m}
+            <CalendarMonth
+                {year}
+                monthIdx={m}
+                {name}
+                {today}
+                dayMap={effectiveDayMap}
+                {releaseMap}
+                {mode}
+            />
+        {/each}
     </div>
 {/if}

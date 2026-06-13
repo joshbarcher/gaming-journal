@@ -267,6 +267,7 @@ export interface SteamGame {
 
     media?: {
         header?:      string
+        poster?:      string
         background?:  string
         logo?:        string
         screenshots?: string[]

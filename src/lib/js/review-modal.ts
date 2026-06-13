@@ -1,9 +1,8 @@
 import type { LocalReview } from '$lib/types.js'
-import { escapeHtml } from './utils.js'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const SLIDER_KEYS = [
+export const SLIDER_KEYS = [
     { key: 'story',        label: 'Story' },
     { key: 'soundMusic',   label: 'Sound & Music' },
     { key: 'gameplay',     label: 'Gameplay' },
@@ -27,7 +26,7 @@ function _badgeIcon(paths: string): string {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
 }
 
-interface BadgeDef {
+export interface BadgeDef {
     id:       string
     label:    string
     color:    string
@@ -35,7 +34,7 @@ interface BadgeDef {
     hasCount?: boolean
 }
 
-const BADGES: BadgeDef[] = [
+export const BADGES: BadgeDef[] = [
     { id: 'comfortGame',     label: 'Comfort Game',      color: '#e8975a', icon: _badgeIcon(`<path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"/><path d="M4 18v2"/><path d="M20 18v2"/><path d="M12 4v9"/>`) },
     { id: 'replayed',        label: 'Replayed',          color: '#5ab4e8', icon: _badgeIcon(`<path d="m2 9 3-3 3 3"/><path d="M13 18H7a4 4 0 0 1-4-4V6"/><path d="m22 15-3 3-3-3"/><path d="M11 6h6a4 4 0 0 1 4 4v8"/>`), hasCount: true },
     { id: 'hiddenGem',       label: 'Hidden Gem',        color: '#4ecb8d', icon: _badgeIcon(`<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>`) },
@@ -365,75 +364,4 @@ export function openReviewModal(appid: number | string, gameName: string, existi
         document.body.appendChild(overlay)
         ;(modal.querySelector('.rev-modal-close') as HTMLElement)?.focus()
     })
-}
-
-// ── renderLocalReviewCard ──────────────────────────────────────────────────────
-
-export function renderLocalReviewCard(review: LocalReview | null | undefined, appid: number | string): string {
-    if (!review) return ''
-
-    const isLegendary = review.stars === 6
-    const displayStars = isLegendary ? 5 : review.stars
-    let starsHtml = ''
-    for (let i = 1; i <= 5; i++) {
-        const filled = i <= displayStars
-        starsHtml += `<span class="rev-local-star${filled ? ' rev-local-star--active' : ''}">${filled ? '★' : '☆'}</span>`
-    }
-    if (isLegendary) starsHtml += `<span class="rev-legendary-badge">✦ Legendary</span>`
-
-    let barsHtml = ''
-    const ratings = review.ratings ?? {}
-    for (const { key, label } of SLIDER_KEYS) {
-        const val = ratings[key]
-        if (!val || val <= 0) continue
-        const pct = (val / 10) * 100
-        barsHtml += `
-            <div class="rev-bar-row">
-                <span class="rev-bar-label">${escapeHtml(label)}</span>
-                <div class="rev-bar-track"><div class="rev-bar-fill" style="width:${pct}%"></div></div>
-                <span class="rev-bar-val">${val}</span>
-            </div>`
-    }
-
-    let tagsHtml = ''
-    if (review.tags?.length) {
-        tagsHtml = `<div class="rev-tags-row">${review.tags.map(t =>
-            `<span class="rev-tag-pill">${escapeHtml(t)}</span>`
-        ).join('')}</div>`
-    }
-
-    let badgesHtml = ''
-    const badgeData = review.badges ?? {}
-    for (const b of BADGES) {
-        const val = badgeData[b.id]
-        if (!val) continue
-        const circleInner = b.hasCount && (val as number) > 1
-            ? `<span class="rev-badge-num">×${val}</span>`
-            : b.icon
-        badgesHtml += `
-            <div class="rev-badge" style="--badge-clr:${b.color}">
-                <div class="rev-badge-circle">${circleInner}</div>
-                <span class="rev-badge-label">${escapeHtml(b.label)}</span>
-            </div>`
-    }
-    const badgesRowHtml = badgesHtml ? `<div class="rev-badges-row">${badgesHtml}</div>` : ''
-
-    let reviewTextHtml = ''
-    if (review.review) reviewTextHtml = `<p class="rev-review-text">${escapeHtml(review.review)}</p>`
-
-    const hasColumns = !!(barsHtml || tagsHtml || badgesRowHtml)
-
-    return `
-        <div class="rev-local-card">
-            <div class="rev-local-header">
-                <div class="rev-local-stars">${starsHtml}</div>
-                <button class="rev-edit-btn" data-appid="${appid}">Edit Review</button>
-            </div>
-            ${hasColumns ? `
-            <div class="rev-local-body">
-                <div class="rev-local-left"><div class="rev-bars">${barsHtml}</div></div>
-                <div class="rev-local-right">${tagsHtml}${badgesRowHtml}</div>
-            </div>` : ''}
-            ${reviewTextHtml}
-        </div>`
 }

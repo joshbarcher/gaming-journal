@@ -6,10 +6,13 @@
     import { globalSegments, pagePct, percentToColor, percentToStateLabel } from '../../js/views/progress-helpers.js'
     import {
         IC, STAR_LABELS, RATING_KEYS, RATING_LBLS, TRACKER_TYPES,
-        fmtDate, fmtHours, starsHtml, mergeSessionAchievements,
-        renderRecentAchStrip, renderSessionAchs,
-        renderLastSessionCard, renderSessionHistoryRail,
+        fmtDate, fmtHours, mergeSessionAchievements,
     } from '../../js/views/journal-render.js'
+    import Stars from './Stars.svelte'
+    import AchievementStrip from './AchievementStrip.svelte'
+    import SessionAchievements from './SessionAchievements.svelte'
+    import LastSessionCard from './LastSessionCard.svelte'
+    import SessionHistoryRail from './SessionHistoryRail.svelte'
 
     let { appid } = $props()
 
@@ -53,14 +56,11 @@
     let achUnlocked = $derived(displayAchList.filter(a => a.achieved).length)
     let achPct      = $derived(achTotal > 0 ? Math.round(achUnlocked / achTotal * 100) : 0)
     let recentAchs  = $derived([...displayAchList].filter(a => a.achieved).sort((a, b) => (b.unlocktime ?? 0) - (a.unlocktime ?? 0)).slice(0, 4))
-    let recentAchStripHtml = $derived(renderRecentAchStrip(recentAchs))
-
     let sessionAchMap = $derived.by(() => {
         const m: Record<string, AchievementItem> = {}
         for (const a of displayAchList) m[a.apiname] = a
         return m
     })
-    let sessionAchsHtml = $derived(renderSessionAchs(achDuring, sessionAchMap, 'No achievements yet'))
 
     let ratedKeys = $derived(RATING_KEYS.filter(k => review?.ratings?.[k] != null))
 
@@ -84,8 +84,6 @@
     let hltbPinPct  = $derived(playerHours > 0 ? hltbPct(playerHours) : null)
     let hltbFillPct = $derived(hltbPinPct ?? (hltbMilestones.length ? hltbPct(hltbMilestones[0].h) : 0))
 
-    let lastSessionCardHtml    = $derived(renderLastSessionCard(gameSessions, displayAchList, appid))
-    let sessionHistoryRailHtml = $derived(renderSessionHistoryRail(closedSessions))
 
     // ── Data loading ───────────────────────────────────────────────────────────
 
@@ -314,7 +312,7 @@
                 <span class="gj-card-title">My Rating</span>
                 {#if review && review.stars > 0}
                     <div class="gj-rating-header-stars">
-                        <div class="gj-rating-stars-row">{@html starsHtml(review.stars)}</div>
+                        <div class="gj-rating-stars-row"><Stars stars={review.stars} /></div>
                         <span class="gj-rating-label">{STAR_LABELS[review.stars] ?? ''}</span>
                     </div>
                 {:else}
@@ -356,7 +354,7 @@
                 </div>
                 {#if recentAchs.length > 0}
                     <p class="gj-ach-recent-label">Recent</p>
-                    <div class="gj-ach-strip">{@html recentAchStripHtml}</div>
+                    <div class="gj-ach-strip"><AchievementStrip achievements={recentAchs} /></div>
                 {/if}
             {:else}
                 <p class="gj-no-data">No achievement data</p>
@@ -377,10 +375,10 @@
                 {#if achDuring.length > 0}
                     <p class="gj-ach-recent-label">Earned ({achDuring.length})</p>
                 {/if}
-                <div>{@html sessionAchsHtml}</div>
+                <SessionAchievements achs={achDuring} achMap={sessionAchMap} noDataMsg="No achievements yet" />
             </div>
         {:else}
-            {@html lastSessionCardHtml}
+            <LastSessionCard sessions={gameSessions} displayAchList={displayAchList} {appid} />
         {/if}
 
         <!-- HLTB card -->
@@ -426,7 +424,7 @@
 
         <!-- Session history rail -->
         {#if closedSessions.length > 0}
-            {@html sessionHistoryRailHtml}
+            <SessionHistoryRail sessions={closedSessions} />
         {/if}
 
         <!-- Progress trackers card -->

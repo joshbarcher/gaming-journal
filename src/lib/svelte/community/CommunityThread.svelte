@@ -3,7 +3,8 @@
     import type { SteamGame, RedditPost, RedditComment, LoadedPrefs } from '../../types.js'
     import { loadPrefs, toggleFilter, toggleMute, toggleFavorite, toggleHighlight } from '../../js/community-user-prefs.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
-    import { fmtScore, fmtTime, imgSrc, videoSrc, flattenComments, countComments, renderComment } from '../../js/views/community-render.js'
+    import { fmtScore, fmtTime, imgSrc, videoSrc, flattenComments, countComments } from '../../js/views/community-render.js'
+    import Comment from './Comment.svelte'
 
     let { appid, postId, sub = '' } = $props()
 
@@ -82,26 +83,6 @@
             },
         ])
     }
-
-    // ── Comment toggle wiring (runs after each render) ─────────────────────────
-
-    $effect(() => {
-        // Track comments to re-run after new ones are added
-        comments.length
-        if (!containerEl) return
-
-        containerEl.querySelectorAll('.thread-comment-toggle:not([data-wired])').forEach(btn => {
-            ;(btn as HTMLElement).dataset.wired = '1'
-            btn.addEventListener('click', () => {
-                const comment = btn.closest('.thread-comment')
-                const replies = comment?.querySelector('.thread-comment-replies')
-                if (!replies) return
-                const nowHidden = replies.toggleAttribute('hidden')
-                btn.textContent = nowHidden ? '+' : '−'
-                btn.setAttribute('aria-label', nowHidden ? 'Expand replies' : 'Collapse replies')
-            })
-        })
-    })
 
     // ── Image lightbox ─────────────────────────────────────────────────────────
 
@@ -358,7 +339,7 @@
             <p class="community-empty">No comments yet.</p>
         {:else}
             {#each comments as c (c.id)}
-                {@html renderComment(c, post.permalink ?? '')}
+                <Comment comment={c} threadUrl={post.permalink ?? ''} />
             {/each}
         {/if}
     </div>

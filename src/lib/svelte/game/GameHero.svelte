@@ -3,7 +3,9 @@
     import type { SteamGame, CommunityReviews, ProtonData, ItadData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { gameBackLabel, gameBackPath } from '../../js/router.js'
-    import { scoreChip, fmtHours, renderGdpPrices } from '../../js/views/game-render.js'
+    import { fmtHours } from '../../js/views/game-render.js'
+    import ScoreChip from './sections/ScoreChip.svelte'
+    import GdpPrices from './sections/GdpPrices.svelte'
 
     interface Props {
         game:             SteamGame | null
@@ -158,9 +160,9 @@
 
                 <!-- Score row -->
                 <div class="gdp-score-row">
-                    {@html scoreChip('Steam', steamRatio, steamRatio != null ? Math.round(steamRatio) + '%' : '', 'gdp-steam-chip')}
-                    {@html scoreChip('OpenCritic', null, '')}
-                    {@html scoreChip('Metacritic', mcScore, mcScore != null ? String(mcScore) : '')}
+                    <ScoreChip source="Steam" score={steamRatio} display={steamRatio != null ? Math.round(steamRatio) + '%' : ''} id="gdp-steam-chip" />
+                    <ScoreChip source="OpenCritic" score={null} display="" />
+                    <ScoreChip source="Metacritic" score={mcScore} display={mcScore != null ? String(mcScore) : ''} />
                 </div>
 
                 <!-- Playtime -->
@@ -181,7 +183,7 @@
                 {/if}
 
                 <!-- ITAD prices -->
-                {#if game}{@html renderGdpPrices(itad, game)}{/if}
+                {#if game}<GdpPrices {itad} {game} />{/if}
 
                 <!-- Release / meta -->
                 <div class="gdp-divider"></div>
