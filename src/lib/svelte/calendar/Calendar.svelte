@@ -70,7 +70,7 @@
     // ── Scroll to current month ────────────────────────────────────────────────
 
     $effect(() => {
-        year; effectiveDayMap // track changes
+        year; effectiveDayMap; releaseMap // track changes
         tick().then(() => {
             if (year === new Date().getFullYear()) {
                 calEl?.querySelector('#cal-month-current')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

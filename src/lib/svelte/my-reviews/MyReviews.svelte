@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount } from 'svelte'
-    import { navigate } from '../../js/router.js'
     import type { LocalReview, SteamGame } from '../../types.js'
 
     let allEntries = $state<[string, LocalReview][]>([])
@@ -98,8 +97,7 @@
                 {@const stars   = rev.stars ?? 0}
                 {@const tags    = rev.tags ?? []}
                 {@const excerpt = rev.review ?? ''}
-                <a class="mr-card" href="/game/{appid}"
-                   onclick={(e) => { e.preventDefault(); navigate(`game/${appid}`) }}>
+                <a class="mr-card" href="/game/{appid}">
                     <div class="mr-card-img-wrap">
                         <img class="mr-card-img{stars === 0 ? ' mr-card-img--unrated' : ''}"
                              src="/relay/images/steam/games/{appid}/header.jpg"

@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { goto } from '$app/navigation'
     import { page } from '$app/state'
     import { store } from '$lib/sidebar.svelte.js'
     import type { NowPlayingInfo } from '$lib/sidebar.svelte.js'
@@ -55,15 +54,6 @@
         if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()
         if (e.key === 'ArrowUp'   && idx > 0)                    focusable[idx - 1].focus()
     }
-
-    function navBtn(path: string, e: MouseEvent | KeyboardEvent) {
-        const key = 'key' in e ? e.key : null
-        if (e.type === 'click' || key === 'Enter' || key === ' ') {
-            if (key === ' ' || key === 'Enter') e.preventDefault()
-            goto(path ? `/${path}` : '/')
-        }
-        if ('key' in e) arrowNav(e as KeyboardEvent)
-    }
 </script>
 
 <nav bind:this={navEl}>
@@ -71,9 +61,7 @@
     {#if store.nowPlaying}
         {@const np = store.nowPlaying}
         <div class="now-playing-wrap">
-            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-            <a class="now-playing-card" href="/game/{np.appid}"
-               onclick={(e) => { e.preventDefault(); goto(`/game/${np.appid}`) }}>
+            <a class="now-playing-card" href="/game/{np.appid}">
                 <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/{np.appid}/header.jpg')"></div>
                 <div class="now-playing-scrim"></div>
                 <div class="now-playing-body">
@@ -87,133 +75,115 @@
     {/if}
 
     <!-- Main nav -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-home-btn" role="button" tabindex="0"
-         data-id="home" class:active={activeId === 'home'}
-         onclick={(e) => navBtn('', e)} onkeydown={(e) => navBtn('', e)}>
+    <a class="sidebar-nav-btn sidebar-home-btn" href="/"
+       data-id="home" class:active={activeId === 'home'}
+       onkeydown={arrowNav}>
         {@html ICONS.home} Home
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-library-btn" role="button" tabindex="0"
-         data-id="library" class:active={activeId === 'library'}
-         onclick={(e) => navBtn('library', e)} onkeydown={(e) => navBtn('library', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-library-btn" href="/library"
+       data-id="library" class:active={activeId === 'library'}
+       onkeydown={arrowNav}>
         {@html ICONS.library} Steam Library
         {#if store.counts.library > 0}<span class="sidebar-collection-badge">{store.counts.library}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-wishlist-btn" role="button" tabindex="0"
-         data-id="wishlist" class:active={activeId === 'wishlist'}
-         onclick={(e) => navBtn('wishlist', e)} onkeydown={(e) => navBtn('wishlist', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-wishlist-btn" href="/wishlist"
+       data-id="wishlist" class:active={activeId === 'wishlist'}
+       onkeydown={arrowNav}>
         {@html ICONS.wishlist} Wishlist
         {#if store.counts.wishlist > 0}<span class="sidebar-collection-badge">{store.counts.wishlist}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-discover-btn" role="button" tabindex="0"
-         data-id="discover" class:active={activeId === 'discover'}
-         onclick={(e) => navBtn('discover', e)} onkeydown={(e) => navBtn('discover', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-discover-btn" href="/discover"
+       data-id="discover" class:active={activeId === 'discover'}
+       onkeydown={arrowNav}>
         {@html ICONS.discover} Discover
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-alerts-btn" role="button" tabindex="0"
-         data-id="alerts" class:active={activeId === 'alerts'}
-         onclick={(e) => navBtn('alerts', e)} onkeydown={(e) => navBtn('alerts', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-alerts-btn" href="/alerts"
+       data-id="alerts" class:active={activeId === 'alerts'}
+       onkeydown={arrowNav}>
         {@html ICONS.alerts} Sale Alerts
         {#if store.alertsCount > 0}<span class="sidebar-alerts-badge">{store.alertsCount}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-calendar-btn" role="button" tabindex="0"
-         data-id="calendar" class:active={activeId === 'calendar'}
-         onclick={(e) => navBtn('calendar', e)} onkeydown={(e) => navBtn('calendar', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-calendar-btn" href="/calendar"
+       data-id="calendar" class:active={activeId === 'calendar'}
+       onkeydown={arrowNav}>
         {@html ICONS.calendar} Play Calendar
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-releases-btn" role="button" tabindex="0"
-         data-id="releases" class:active={activeId === 'releases'}
-         onclick={(e) => navBtn('releases', e)} onkeydown={(e) => navBtn('releases', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-releases-btn" href="/releases"
+       data-id="releases" class:active={activeId === 'releases'}
+       onkeydown={arrowNav}>
         {@html ICONS.releases} Release Calendar
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-top-games-btn" role="button" tabindex="0"
-         data-id="top-games" class:active={activeId === 'top-games'}
-         onclick={(e) => navBtn('top-games', e)} onkeydown={(e) => navBtn('top-games', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-top-games-btn" href="/top-games"
+       data-id="top-games" class:active={activeId === 'top-games'}
+       onkeydown={arrowNav}>
         {@html ICONS.topGames} Top Games
-    </div>
+    </a>
 
     <div class="sidebar-bottom-sep"></div>
 
     <!-- Collection -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-history-btn" role="button" tabindex="0"
-         data-id="history" class:active={activeId === 'history'}
-         onclick={(e) => navBtn('history', e)} onkeydown={(e) => navBtn('history', e)}>
+    <a class="sidebar-nav-btn sidebar-history-btn" href="/history"
+       data-id="history" class:active={activeId === 'history'}
+       onkeydown={arrowNav}>
         {#if store.historyAppid}
             <span class="sidebar-history-backdrop"
                   style="background-image:url('/relay/images/steam/games/{store.historyAppid}/header.jpg')"></span>
         {/if}
         {@html ICONS.history} History
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-inprogress-btn" role="button" tabindex="0"
-         data-id="in-progress" class:active={activeId === 'in-progress'}
-         onclick={(e) => navBtn('in-progress', e)} onkeydown={(e) => navBtn('in-progress', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-inprogress-btn" href="/in-progress"
+       data-id="in-progress" class:active={activeId === 'in-progress'}
+       onkeydown={arrowNav}>
         {@html ICONS.inProgress} In Progress
         {#if store.counts.inProgress > 0}<span class="sidebar-collection-badge">{store.counts.inProgress}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-backlog-btn" role="button" tabindex="0"
-         data-id="backlog" class:active={activeId === 'backlog'}
-         onclick={(e) => navBtn('backlog', e)} onkeydown={(e) => navBtn('backlog', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-backlog-btn" href="/backlog"
+       data-id="backlog" class:active={activeId === 'backlog'}
+       onkeydown={arrowNav}>
         {@html ICONS.backlog} Backlog
         {#if store.counts.backlog > 0}<span class="sidebar-collection-badge">{store.counts.backlog}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-favorites-btn" role="button" tabindex="0"
-         data-id="favorites" class:active={activeId === 'favorites'}
-         onclick={(e) => navBtn('favorites', e)} onkeydown={(e) => navBtn('favorites', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-favorites-btn" href="/favorites"
+       data-id="favorites" class:active={activeId === 'favorites'}
+       onkeydown={arrowNav}>
         {@html ICONS.favorites} Favorites
         {#if store.counts.favorites > 0}<span class="sidebar-collection-badge">{store.counts.favorites}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-abandoned-btn" role="button" tabindex="0"
-         data-id="abandoned" class:active={activeId === 'abandoned'}
-         onclick={(e) => navBtn('abandoned', e)} onkeydown={(e) => navBtn('abandoned', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-abandoned-btn" href="/abandoned"
+       data-id="abandoned" class:active={activeId === 'abandoned'}
+       onkeydown={arrowNav}>
         {@html ICONS.abandoned} Abandoned
         {#if store.counts.dropped > 0}<span class="sidebar-collection-badge">{store.counts.dropped}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-hof-btn" role="button" tabindex="0"
-         data-id="hall-of-fame" class:active={activeId === 'hall-of-fame'}
-         onclick={(e) => navBtn('hall-of-fame', e)} onkeydown={(e) => navBtn('hall-of-fame', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-hof-btn" href="/hall-of-fame"
+       data-id="hall-of-fame" class:active={activeId === 'hall-of-fame'}
+       onkeydown={arrowNav}>
         {@html ICONS.hallOfFame} Completed
         {#if store.counts.completed > 0}<span class="sidebar-collection-badge">{store.counts.completed}</span>{/if}
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-franchises-btn" role="button" tabindex="0"
-         data-id="franchises" class:active={activeId === 'franchises'}
-         onclick={(e) => navBtn('franchises', e)} onkeydown={(e) => navBtn('franchises', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-franchises-btn" href="/franchises"
+       data-id="franchises" class:active={activeId === 'franchises'}
+       onkeydown={arrowNav}>
         {@html ICONS.franchises} Franchises
         {#if store.counts.franchises > 0}<span class="sidebar-collection-badge">{store.counts.franchises}</span>{/if}
-    </div>
+    </a>
 
     <div class="sidebar-bottom-sep"></div>
 
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-myreviews-btn" role="button" tabindex="0"
-         data-id="my-reviews" class:active={activeId === 'my-reviews'}
-         onclick={(e) => navBtn('my-reviews', e)} onkeydown={(e) => navBtn('my-reviews', e)}>
+    <a class="sidebar-nav-btn sidebar-myreviews-btn" href="/my-reviews"
+       data-id="my-reviews" class:active={activeId === 'my-reviews'}
+       onkeydown={arrowNav}>
         {@html ICONS.myReviews} My Reviews
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-account-btn" role="button" tabindex="0"
-         data-id="account" class:active={activeId === 'account'}
-         onclick={(e) => navBtn('account', e)} onkeydown={(e) => navBtn('account', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-account-btn" href="/account"
+       data-id="account" class:active={activeId === 'account'}
+       onkeydown={arrowNav}>
         {@html ICONS.account} Account
-    </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="sidebar-nav-btn sidebar-settings-btn" role="button" tabindex="0"
-         data-id="settings" class:active={activeId === 'settings'}
-         onclick={(e) => navBtn('settings', e)} onkeydown={(e) => navBtn('settings', e)}>
+    </a>
+    <a class="sidebar-nav-btn sidebar-settings-btn" href="/settings"
+       data-id="settings" class:active={activeId === 'settings'}
+       onkeydown={arrowNav}>
         {@html ICONS.settings} Settings
-    </div>
+    </a>
 
 </nav>
