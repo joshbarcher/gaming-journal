@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { page } from '$app/state'
     import GameJournal from '$lib/svelte/journal/GameJournal.svelte'
 </script>

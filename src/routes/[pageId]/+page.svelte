@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { page } from '$app/state'
 
@@ -12,8 +12,8 @@
         'multi-counter':  () => import('$lib/svelte/multi-counter/MultiCounter.svelte'),
     }
 
-    let Component = $state(null)
-    let pageData  = $state(null)
+    let Component = $state<any>(null)
+    let pageData  = $state<any>(null)
     let notFound  = $state(false)
 
     onMount(async () => {
@@ -21,7 +21,7 @@
             const res = await fetch(`/api/pages/${page.params.pageId}`)
             if (!res.ok) { notFound = true; return }
             pageData = await res.json()
-            const loader = PAGE_COMPONENTS[pageData.type]
+            const loader = PAGE_COMPONENTS[pageData.type as keyof typeof PAGE_COMPONENTS]
             if (loader) Component = (await loader()).default
         } catch {
             notFound = true

@@ -1,22 +1,23 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame, LocalReview, Flags, FlagKey, CommunityReviews } from '../../types.js'
 
-    let games         = $state([])
+    let games         = $state<SteamGame[]>([])
     let loading       = $state(true)
-    let error         = $state(null)
-    let hero          = $state(null)
-    let rest          = $state([])
-    let heroReview    = $state(null)
-    let heroFlags     = $state(null)
-    let heroHltb      = $state(null)
-    let heroCommunity = $state(null)
-    let bgA           = $state(null)
-    let bgB           = $state(null)
+    let error         = $state<string | null>(null)
+    let hero          = $state<SteamGame | null>(null)
+    let rest          = $state<SteamGame[]>([])
+    let heroReview    = $state<LocalReview | null>(null)
+    let heroFlags     = $state<Flags | null>(null)
+    let heroHltb      = $state<SteamGame['hltb'] | null>(null)
+    let heroCommunity = $state<CommunityReviews | null>(null)
+    let bgA           = $state<HTMLElement | null>(null)
+    let bgB           = $state<HTMLElement | null>(null)
 
     let totalMins = $derived(games.reduce((s, g) => s + (g.playtime ?? 0), 0))
     let subtitle  = $derived(`${games.length} game${games.length !== 1 ? 's' : ''} · ${fmtHours(totalMins) ?? '0h'} played`)
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number | null | undefined) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -24,7 +25,7 @@
         return `${Math.round(h)}h`
     }
 
-    function starStr(n) {
+    function starStr(n: number | null | undefined) {
         if (!n) return null
         const display = Math.min(n, 5)
         return '★'.repeat(display) + '☆'.repeat(5 - display) + (n > 5 ? ' ✦' : '')
@@ -33,16 +34,17 @@
     // Slideshow: runs when bgA and bgB elements are available and hero is set
     $effect(() => {
         if (!bgA || !bgB || !hero) return
+        const bgAEl = bgA, bgBEl = bgB
 
         const appid    = hero.appid
         const INTERVAL = 14000
         const PAN_DUR  = 10000
         let stopped    = false
-        let timer      = null
+        let timer: ReturnType<typeof setInterval> | null = null
 
         const randDir = () => Math.random() < 0.5 ? 'top' : 'bottom'
 
-        function pan(el, dir) {
+        function pan(el: HTMLElement, dir: string) {
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 el.style.transition         = `opacity 1.5s ease, background-position ${PAN_DUR}ms linear`
                 el.style.backgroundPosition = `center ${dir}`
@@ -67,18 +69,18 @@
             const headerUrl = `/relay/images/steam/games/${appid}/header.jpg`
             const frames    = [...screenshots.sort(() => Math.random() - 0.5), headerUrl]
 
-            bgA.style.backgroundImage = `url('${frames[0]}')`
-            pan(bgA, randDir())
+            bgAEl.style.backgroundImage = `url('${frames[0]}')`
+            pan(bgAEl, randDir())
 
             let idx      = 1
             let showingA = true
 
             timer = setInterval(() => {
-                if (stopped) { clearInterval(timer); return }
+                if (stopped) { clearInterval(timer ?? undefined); return }
                 const url      = frames[idx % frames.length]
                 const dir      = randDir()
-                const incoming = showingA ? bgB : bgA
-                const outgoing = showingA ? bgA : bgB
+                const incoming = (showingA ? bgBEl : bgAEl)!
+                const outgoing = (showingA ? bgAEl : bgBEl)!
                 idx++
 
                 incoming.style.transition         = 'none'
@@ -114,8 +116,8 @@
             const flags    = await flagsRes.json()
             const gamesRaw = await gamesRes.json()
             const owned    = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
-            const ownedMap = new Map(owned.map(g => [g.appid, g]))
-            const ids      = Object.entries(flags).filter(([, f]) => f.favorite).map(([id]) => Number(id))
+            const ownedMap = new Map<number, SteamGame>(owned.map((g: SteamGame) => [g.appid, g]))
+            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.favorite).map(([id]) => Number(id))
 
             if (!ids.length) { loading = false; return }
 
@@ -146,7 +148,7 @@
             heroHltb      = hltbRes.ok      ? await hltbRes.json()      : null
             heroCommunity = communityRes.ok ? await communityRes.json() : null
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -184,7 +186,7 @@
                     { val: hltbVal,                           label: 'HLTB'   },
                 ]}
                 {@const flagLabels = { completed: 'Completed', revisit: 'Revisit', inProgress: 'In Progress', dropped: 'Dropped' }}
-                {@const activeTags = Object.entries(flagLabels).filter(([k]) => heroFlags?.[k]).map(([, label]) => label)}
+                {@const activeTags = Object.entries(flagLabels).filter(([k]) => heroFlags?.[k as FlagKey]).map(([, label]) => label)}
                 {@const quote      = heroReview?.review ?? null}
                 <a class="fav-hero" href="/game/{hero.appid}" data-appid={hero.appid}>
                     <div class="fav-hero-art">
@@ -225,7 +227,7 @@
                     <div class="fav-card-img-wrap">
                         <img class="fav-card-img"
                              src="/relay/images/steam/games/{g.appid}/header.jpg"
-                             alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                             alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                         <div class="fav-card-shine"></div>
                         {#if hours}<span class="fav-card-hours">{hours}</span>{/if}
                     </div>

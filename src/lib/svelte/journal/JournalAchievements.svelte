@@ -1,22 +1,23 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { AchievementItem } from '../../types.js'
     import { mergeSessionAchievements, renderAchItem } from '../../js/views/journal-render.js'
 
     let { appid } = $props()
 
-    let achList    = $state([])
+    let achList    = $state<AchievementItem[]>([])
     let loading    = $state(true)
     let showHidden = $state(false)
 
-    let unlocked     = $derived([...achList].filter(a => a.achieved).sort((a, b) => b.unlocktime - a.unlocktime))
+    let unlocked     = $derived([...achList].filter(a => a.achieved).sort((a, b) => (b.unlocktime ?? 0) - (a.unlocktime ?? 0)))
     let lockedVis    = $derived(achList.filter(a => !a.achieved && !a.hidden))
     let lockedHidden = $derived(achList.filter(a => !a.achieved && a.hidden))
 
     // Tooltip
-    let tooltipEl = null
-    let _lastTip  = null
+    let tooltipEl: HTMLElement | null = null
+    let _lastTip: Element | null      = null
 
-    function showTip(text, rect) {
+    function showTip(text: string, rect: DOMRect) {
         if (!tooltipEl) {
             tooltipEl = document.createElement('div')
             tooltipEl.className = 'gj-tooltip'
@@ -37,11 +38,11 @@
 
     function hideTip() { if (tooltipEl) tooltipEl.style.display = 'none' }
 
-    function handleOver(e) {
-        const el = e.target.closest('[data-tooltip]')
+    function handleOver(e: MouseEvent) {
+        const el = (e.target as Element)?.closest('[data-tooltip]')
         if (el === _lastTip) return
         _lastTip = el
-        if (el) showTip(el.dataset.tooltip, el.getBoundingClientRect())
+        if (el) showTip((el as HTMLElement).dataset.tooltip ?? '', el.getBoundingClientRect())
         else hideTip()
     }
 
@@ -50,8 +51,8 @@
             fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null).catch(() => null),
             fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null).catch(() => null),
         ])
-        const raw    = achRes.value?.achievements ?? []
-        const np     = npRes.value ?? null
+        const raw: AchievementItem[] = (achRes as PromiseFulfilledResult<any>).value?.achievements ?? []
+        const np     = (npRes as PromiseFulfilledResult<any>).value ?? null
         const sess   = np?.playing?.appid === Number(appid) ? np.playing : null
         achList = mergeSessionAchievements(raw, sess?.achievementsDuring)
         loading = false

@@ -1,33 +1,36 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame, AlertResult, DiscoverSection } from '../../types.js'
     import { loadGameFilter } from '../../js/views/game-filter.js'
 
     const RESUME_WINDOW_S = 7 * 24 * 60 * 60
     const MOSAIC_COUNT    = 6
 
-    let loading     = $state(true)
-    let releaseGame = $state(null)
-    let saleGame    = $state(null)
-    let resumeGame  = $state(null)
-    let resumeSteam = $state(null)
-    let libPosters  = $state([])
-    let wlPosters   = $state([])
-    let discPosters = $state([])
+    type Poster = { appid?: number; src?: string | null; fallback?: string | null }
 
-    function heroBg(game) {
+    let loading     = $state(true)
+    let releaseGame = $state<SteamGame | null>(null)
+    let saleGame    = $state<AlertResult | null>(null)
+    let resumeGame  = $state<SteamGame | null>(null)
+    let resumeSteam = $state<SteamGame | null>(null)
+    let libPosters  = $state<Poster[]>([])
+    let wlPosters   = $state<Poster[]>([])
+    let discPosters = $state<Poster[]>([])
+
+    function heroBg(game: SteamGame) {
         return game.media?.header ?? `/relay/images/steam/games/${game.appid}/header.jpg`
     }
 
-    function resumeWhen(sg) {
+    function resumeWhen(sg: SteamGame | null) {
         const days = Math.floor((Date.now() / 1000 - (sg?.rtime_last_played ?? 0)) / 86400)
         return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`
     }
 
-    function resumeHours(sg, game) {
+    function resumeHours(sg: SteamGame | null, game: SteamGame | null) {
         return ((sg?.playtime_forever ?? game?.playtimeMinutes ?? 0) / 60).toFixed(1)
     }
 
-    function isToday(game) {
+    function isToday(game: SteamGame) {
         const str = game.store?.releaseDate
         if (!str) return false
         const parsed = new Date(str)
@@ -36,7 +39,7 @@
         return parsed.getDate() === now.getDate() && parsed.getMonth() === now.getMonth() && parsed.getFullYear() === now.getFullYear()
     }
 
-    function sample(arr, n) {
+    function sample<T>(arr: T[], n: number): T[] {
         if (!arr?.length) return []
         const copy = [...arr]
         for (let i = copy.length - 1; i > 0; i--) {
@@ -46,7 +49,7 @@
         return copy.slice(0, n)
     }
 
-    function unwrapLibrary(json) {
+    function unwrapLibrary(json: any) {
         if (!json) return []
         if (Array.isArray(json))                                 return json
         if (Array.isArray(json.games))                           return json.games
@@ -65,12 +68,12 @@
             fetch('/relay/api/steam/playtime/last-played').then(r => r.ok ? r.json() : null),
         ])
 
-        const allGames      = Array.isArray(allGamesRes.value) ? allGamesRes.value : []
-        const filterFn      = shouldShowRes.value ?? (() => true)
-        const rawSteamLib   = unwrapLibrary(steamRes.value)
-        const alerts        = alertsRes.value   ?? {}
-        const discover      = discRes.value     ?? []
-        const lastPlayedMap = lastPlayedRes.value ?? {}
+        const allGames: SteamGame[]        = Array.isArray((allGamesRes as PromiseFulfilledResult<any>).value) ? (allGamesRes as PromiseFulfilledResult<any>).value : []
+        const filterFn                     = (shouldShowRes as PromiseFulfilledResult<any>).value ?? (() => true)
+        const rawSteamLib: SteamGame[]     = unwrapLibrary((steamRes as PromiseFulfilledResult<any>).value)
+        const alerts                       = (alertsRes as PromiseFulfilledResult<any>).value   ?? {}
+        const discover: DiscoverSection[]  = (discRes as PromiseFulfilledResult<any>).value     ?? []
+        const lastPlayedMap                = (lastPlayedRes as PromiseFulfilledResult<any>).value ?? {}
 
         const steamLib = rawSteamLib
             .map(g => {
@@ -95,7 +98,7 @@
         const nowSec = Math.floor(Date.now() / 1000)
         const rs     = steamLib
             .filter(g => g.rtime_last_played && (nowSec - g.rtime_last_played) < RESUME_WINDOW_S)
-            .sort((a, b) => b.rtime_last_played - a.rtime_last_played)[0] ?? null
+            .sort((a, b) => (b.rtime_last_played ?? 0) - (a.rtime_last_played ?? 0))[0] ?? null
         resumeSteam = rs
         resumeGame  = rs ? { ...rs, ...(allGames.find(g => String(g.appid) === String(rs.appid)) ?? {}) } : null
 
@@ -171,18 +174,18 @@
                             {#if poster?.src}
                                 <img class="home-mosaic-img" src={poster.src} alt="" loading="lazy"
                                      onerror={(e) => {
-                                         e.currentTarget.onerror = null
+                                         (e.currentTarget as HTMLImageElement).onerror = null
                                          if (poster.fallback && poster.fallback !== poster.src) {
-                                             e.currentTarget.src = poster.fallback
+                                             (e.currentTarget as HTMLImageElement).src = poster.fallback
                                          } else {
-                                             e.currentTarget.style.visibility = 'hidden'
+                                             (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
                                          }
                                      }}>
                             {:else if poster?.appid}
                                 <img class="home-mosaic-img"
                                      src="/relay/images/steam/games/{poster.appid}/poster.jpg"
                                      alt="" loading="lazy"
-                                     onerror={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `/relay/images/steam/games/${poster.appid}/header.jpg` }}>
+                                     onerror={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = `/relay/images/steam/games/${poster.appid}/header.jpg` }}>
                             {:else}
                                 <div class="home-mosaic-img" style="background:#111"></div>
                             {/if}

@@ -1,11 +1,9 @@
-import { spawn }          from 'node:child_process'
-import fsp               from 'node:fs/promises'
-import path              from 'node:path'
+import { spawn } from 'node:child_process'
+import fsp from 'node:fs/promises'
+import path from 'node:path'
+import os from 'node:os'
 
-const ROOT     = process.cwd()
-const TEST_DIR = path.join(ROOT, 'src', 'tests')
-
-const COVERAGE_FLAG = '--experimental-test-coverage'
+const ROOT = process.cwd()
 
 // ── Shared state (singleton per server process) ───────────────────────────────
 
@@ -23,181 +21,84 @@ const TEST_GROUPS = {
     server:   { label: 'Server',    names: new Set(['server', 'logger']) },
 }
 
-function groupForFile(filename) {
-    const stem = filename.replace('.test.js', '')
+function groupForFile(filePath) {
+    const stem = path.basename(filePath).replace(/\.test\.[jt]s$/, '')
     for (const [key, { names }] of Object.entries(TEST_GROUPS)) {
         if (names.has(stem)) return key
     }
     return 'other'
 }
 
-// ── Coverage parser (Node 22+ hierarchical TAP format) ────────────────────────
+// ── Vitest JSON parser ────────────────────────────────────────────────────────
 
-function parseCoverage(lines) {
-    const files   = []
-    const summary = { lines: null, branches: null, funcs: null }
-    const stack   = []   // path components indexed by depth
-    let inCoverage = false
+function parseVitestJson(json) {
+    const suiteMap = new Map()   // suiteName → { name, tests, pass, fail }
+    const summary  = {
+        pass:     json.numPassedTests  ?? 0,
+        fail:     json.numFailedTests  ?? 0,
+        total:    json.numTotalTests   ?? 0,
+        duration: json.testResults
+            ? json.testResults.reduce((s, r) => s + ((r.endTime ?? 0) - (r.startTime ?? 0)), 0)
+            : 0,
+    }
 
-    for (const line of lines) {
-        if (line.includes('start of coverage report')) { inCoverage = true;  continue }
-        if (line.includes('end of coverage report'))   { inCoverage = false; continue }
-        if (!inCoverage || !line.startsWith('#'))      continue
-
-        // Strip "# " prefix (always 2 chars)
-        const content = line.length > 2 ? line.slice(2) : ''
-        if (!content.includes('|')) continue
-        if (content.trimStart().startsWith('-')) continue   // separator line
-
-        const pipeIdx = content.indexOf('|')
-        const namePart = content.slice(0, pipeIdx)
-        const dataPart = content.slice(pipeIdx + 1)
-
-        // depth = number of leading spaces in the name segment
-        const depth = namePart.search(/\S/)
-        if (depth === -1) continue
-
-        const name = namePart.trim()
-        if (!name || name === 'file') continue   // header row
-
-        // Parse the 3 pct columns + uncovered lines
-        const cols      = dataPart.split('|').map(s => s.trim())
-        const linePct   = cols[0] !== '' ? +cols[0] : null
-        const branchPct = cols[1] !== '' ? +cols[1] : null
-        const funcPct   = cols[2] !== '' ? +cols[2] : null
-        const uncovered = (cols[3] ?? '').trim().split(/[\s,]+/).filter(Boolean)
-
-        if (name === 'all files') {
-            if (linePct !== null) {
-                summary.lines    = linePct
-                summary.branches = branchPct
-                summary.funcs    = funcPct
+    for (const fileResult of json.testResults ?? []) {
+        for (const assertion of fileResult.assertionResults ?? []) {
+            const suiteName = assertion.ancestorTitles?.[0] ?? path.basename(fileResult.name)
+            if (!suiteMap.has(suiteName)) {
+                suiteMap.set(suiteName, { name: suiteName, tests: [], pass: 0, fail: 0 })
             }
-            continue
-        }
-
-        // Update path stack to current depth, then push this component
-        stack.length    = depth
-        stack[depth]    = name
-
-        // Leaf file — has actual coverage numbers
-        if (linePct !== null) {
-            files.push({
-                file:     stack.slice(0, depth + 1).join('/'),
-                lines:    linePct,
-                branches: branchPct,
-                funcs:    funcPct,
-                uncovered,
+            const suite  = suiteMap.get(suiteName)
+            const passed = assertion.status === 'passed'
+            suite.tests.push({
+                name:     assertion.title,
+                pass:     passed,
+                duration: assertion.duration ?? 0,
+                error:    !passed ? (assertion.failureMessages?.[0] ?? null) : null,
             })
+            if (passed) suite.pass++; else suite.fail++
         }
     }
 
-    return { ...summary, files }
+    return { summary, suites: [...suiteMap.values()] }
 }
 
-// ── TAP parser ────────────────────────────────────────────────────────────────
+// ── Coverage parser (v8 json-summary format) ──────────────────────────────────
 
-function parseTAP(raw) {
-    const lines   = raw.split('\n')
-    const suites  = []
-    const summary = { pass: 0, fail: 0, total: 0, duration: 0 }
+function parseCoverageSummary(json) {
+    const files   = []
+    const total   = json.total ?? {}
 
-    let currentSuite   = null
-    let inError        = false
-    let lastTestFailed = false
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-
-        // Root-level suite header: no leading whitespace before "# Subtest:"
-        const suiteMatch = line.match(/^# Subtest: (.+)$/)
-        if (suiteMatch) {
-            currentSuite = { name: suiteMatch[1], tests: [], pass: 0, fail: 0 }
-            suites.push(currentSuite)
-            continue
-        }
-
-        // Individual test pass — must be indented (inner ok lines)
-        const passMatch = line.match(/^\s+ok \d+ - (.+)$/)
-        if (passMatch && currentSuite) {
-            let duration = 0
-            if (lines[i + 1]?.includes('---')) {
-                for (let j = i + 2; j < Math.min(i + 10, lines.length); j++) {
-                    const d = lines[j].match(/duration_ms:\s*([\d.]+)/)
-                    if (d) { duration = +d[1]; break }
-                    if (lines[j].includes('...')) break
-                }
-            }
-            currentSuite.tests.push({ name: passMatch[1], pass: true, duration })
-            currentSuite.pass++
-            summary.pass++
-            summary.total++
-            lastTestFailed = false
-            inError        = false
-            continue
-        }
-
-        // Individual test fail — must be indented
-        const failMatch = line.match(/^\s+not ok \d+ - (.+)$/)
-        if (failMatch && currentSuite) {
-            currentSuite.tests.push({ name: failMatch[1], pass: false, duration: 0, error: null })
-            currentSuite.fail++
-            summary.fail++
-            summary.total++
-            lastTestFailed = true
-            inError        = true
-            continue
-        }
-
-        // Capture error message from YAML block after a failing test
-        if (inError && lastTestFailed && currentSuite) {
-            const msgMatch = line.match(/^\s+message:\s*'(.+)'$/)
-            if (msgMatch) {
-                const last = currentSuite.tests.at(-1)
-                if (last && !last.pass) {
-                    last.error = msgMatch[1].replace(/\\n/g, '\n').replace(/\\'/g, "'")
-                }
-            }
-            if (line.trim() === '...') inError = false
-        }
-
-        // Root-level ok/not ok — top-level test() (no describe wrapper)
-        // These appear as "# Subtest: name" followed immediately by "ok N - name"
-        // with no inner indented tests.
-        const rootOkMatch  = line.match(/^ok \d+ - (.+)$/)
-        const rootFailMatch = line.match(/^not ok \d+ - (.+)$/)
-        if ((rootOkMatch || rootFailMatch) && currentSuite && currentSuite.tests.length === 0 && currentSuite.name === (rootOkMatch ?? rootFailMatch)[1]) {
-            const pass = !!rootOkMatch
-            let duration = 0
-            if (lines[i + 1]?.includes('---')) {
-                for (let j = i + 2; j < Math.min(i + 10, lines.length); j++) {
-                    const d = lines[j].match(/duration_ms:\s*([\d.]+)/)
-                    if (d) { duration = +d[1]; break }
-                    if (lines[j].includes('...')) break
-                }
-            }
-            currentSuite.tests.push({ name: currentSuite.name, pass, duration })
-            if (pass) { currentSuite.pass++; summary.pass++ } else { currentSuite.fail++; summary.fail++ }
-            summary.total++
-            currentSuite = null
-            continue
-        }
-
-        // Overall duration from diagnostic lines
-        const durMatch = line.match(/^# duration_ms\s+([\d.]+)$/)
-        if (durMatch) summary.duration = +durMatch[1]
+    for (const [key, val] of Object.entries(json)) {
+        if (key === 'total') continue
+        const rel = key.startsWith(ROOT.replace(/\\/g, '/'))
+            ? key.slice(ROOT.replace(/\\/g, '/').length + 1)
+            : key
+        files.push({
+            file:     rel,
+            lines:    val.lines?.pct     ?? null,
+            branches: val.branches?.pct  ?? null,
+            funcs:    val.functions?.pct ?? null,
+            uncovered: [],
+        })
     }
 
-    return { summary, suites, coverage: parseCoverage(lines) }
+    return {
+        lines:    total.lines?.pct     ?? null,
+        branches: total.branches?.pct  ?? null,
+        funcs:    total.functions?.pct ?? null,
+        files,
+    }
 }
 
-// ── Source file predicate ─────────────────────────────────────────────────────
+// ── Runner ────────────────────────────────────────────────────────────────────
 
 function isSourceFile(filePath) {
-    if (!filePath.startsWith('src/'))              return false
-    if (filePath.includes('node_modules'))         return false
-    if (filePath.endsWith('.test.js'))             return false
-    if (path.basename(filePath) === 'helpers.js')  return false
+    const norm = filePath.replace(/\\/g, '/')
+    if (!norm.startsWith('src/'))          return false
+    if (norm.includes('node_modules'))     return false
+    if (norm.match(/\.test\.[jt]s$/))      return false
+    if (path.basename(norm) === 'helpers.js') return false
     return true
 }
 
@@ -208,97 +109,81 @@ function recalcSummary(coverage) {
     return { ...coverage, lines: avg('lines'), branches: avg('branches'), funcs: avg('funcs') }
 }
 
-// ── Per-group runner ──────────────────────────────────────────────────────────
-
-async function runGroup(testFiles) {
-    if (!testFiles.length) return {
-        summary:  { pass: 0, fail: 0, total: 0, duration: 0 },
-        suites:   [],
-        coverage: { lines: null, branches: null, funcs: null, files: [] },
-    }
-
-    const { stdout } = await new Promise(resolve => {
-        const chunks = []
-        const proc   = spawn(process.execPath, [
-            '--test',
-            COVERAGE_FLAG,
-            '--test-reporter=tap',
-            ...testFiles,
-        ], { cwd: ROOT })
-        proc.stdout.on('data', d  => chunks.push(d))
-        proc.stderr.on('data', d  => chunks.push(d))
-        proc.on('close',  ()      => resolve({ stdout: Buffer.concat(chunks).toString('utf8') }))
-        proc.on('error', err      => resolve({ stdout: '', spawnError: err.message }))
-    })
-
-    return parseTAP(stdout)
-}
-
-// ── Main export ───────────────────────────────────────────────────────────────
-
 export async function runTests() {
     if (_running) throw new Error('Tests already running')
     _running = true
 
+    const resultFile   = path.join(os.tmpdir(), `vitest-results-${Date.now()}.json`)
+    const coverageDir  = path.join(ROOT, 'coverage')
+    const summaryFile  = path.join(coverageDir, 'coverage-summary.json')
+
     try {
-        const allFiles = (await fsp.readdir(TEST_DIR))
-            .filter(f => f.endsWith('.test.js'))
-            .map(f => ({ name: f, abs: path.join(TEST_DIR, f) }))
+        const startedAt = Date.now()
 
-        if (!allFiles.length) {
-            _lastResults = { error: 'No test files found', summary: {}, components: {}, suites: [], coverage: {} }
-            return _lastResults
-        }
+        await new Promise((resolve, reject) => {
+            const proc = spawn(
+                process.execPath,
+                [
+                    'node_modules/.bin/vitest',
+                    'run',
+                    '--reporter=json',
+                    `--outputFile=${resultFile}`,
+                    '--coverage',
+                    '--coverage.reporter=json-summary',
+                ],
+                { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] }
+            )
+            proc.on('close', () => resolve())
+            proc.on('error', reject)
+        })
 
-        // Group files by domain
-        const groups = {}
-        for (const { name, abs } of allFiles) {
-            const key = groupForFile(name)
-            ;(groups[key] ??= []).push(abs)
-        }
+        // Read test results
+        const resultJson  = JSON.parse(await fsp.readFile(resultFile, 'utf8').catch(() => '{}'))
+        const { summary, suites } = parseVitestJson(resultJson)
 
-        const startedAt   = Date.now()
-        const groupKeys   = Object.keys(groups)
-        const groupResults = await Promise.all(groupKeys.map(k => runGroup(groups[k])))
+        // Read coverage summary
+        let allCoverage = { lines: null, branches: null, funcs: null, files: [] }
+        try {
+            const covJson = JSON.parse(await fsp.readFile(summaryFile, 'utf8'))
+            allCoverage = parseCoverageSummary(covJson)
+        } catch { /* coverage unavailable */ }
 
+        // Build per-component views
         const components = {}
-        const totals     = { pass: 0, fail: 0, total: 0 }
+        const groupMap = {}
 
-        for (let i = 0; i < groupKeys.length; i++) {
-            const key    = groupKeys[i]
-            const result = groupResults[i]
-            const meta   = TEST_GROUPS[key] ?? { label: key }
+        for (const suite of suites) {
+            // Find which file owns this suite by cross-referencing testResults
+            const fileResult = (resultJson.testResults ?? []).find(r =>
+                r.assertionResults?.some(a => a.ancestorTitles?.[0] === suite.name || a.title === suite.name)
+            )
+            const key = fileResult ? groupForFile(fileResult.name) : 'other'
+            ;(groupMap[key] ??= []).push(suite)
+        }
 
-            const ownFiles = (result.coverage.files ?? []).filter(f => isSourceFile(f.file))
-            const ownCov   = recalcSummary({ ...result.coverage, files: ownFiles })
+        for (const [key, meta] of Object.entries(TEST_GROUPS)) {
+            const groupSuites = groupMap[key] ?? []
+            const pass  = groupSuites.reduce((s, g) => s + g.pass,  0)
+            const fail  = groupSuites.reduce((s, g) => s + g.fail,  0)
+            const total = pass + fail
+
+            const ownFiles = (allCoverage.files ?? []).filter(f => isSourceFile(f.file))
+            const ownCov   = recalcSummary({ ...allCoverage, files: ownFiles })
 
             components[key] = {
-                label:    meta.label ?? key,
-                summary:  result.summary,
-                suites:   result.suites,
+                label:    meta.label,
+                summary:  { pass, fail, total, duration: 0 },
+                suites:   groupSuites,
                 coverage: ownCov,
             }
-
-            totals.pass  += result.summary.pass  ?? 0
-            totals.fail  += result.summary.fail  ?? 0
-            totals.total += result.summary.total ?? 0
         }
 
-        // Combined "all" view — deduplicate by keeping the highest-coverage entry per file
-        const allSuites = groupResults.flatMap(r => r.suites)
-        const best = new Map()
-        for (const r of groupResults) {
-            for (const f of r.coverage.files ?? []) {
-                if (!isSourceFile(f.file)) continue
-                const existing = best.get(f.file)
-                if (!existing || f.lines > existing.lines) best.set(f.file, f)
-            }
-        }
-        const combinedCoverage = recalcSummary({ files: [...best.values()] })
+        const sourceCovFiles = (allCoverage.files ?? []).filter(f => isSourceFile(f.file))
+        const combinedCoverage = recalcSummary({ files: sourceCovFiles })
 
         _lastResults = {
-            summary:   totals,
-            suites:    allSuites,
+            summary,
+            suites,
             coverage:  combinedCoverage,
             components,
             ranAt:     new Date().toISOString(),
@@ -307,5 +192,6 @@ export async function runTests() {
         return _lastResults
     } finally {
         _running = false
+        fsp.unlink(resultFile).catch(() => {})
     }
 }

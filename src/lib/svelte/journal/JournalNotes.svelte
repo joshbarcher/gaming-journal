@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { ReviewNote } from '../../types.js'
     import { api } from '../../js/api.js'
     import { IC, fmtDate } from '../../js/views/journal-render.js'
 
     let { appid } = $props()
 
-    let notes   = $state([])
+    let notes   = $state<ReviewNote[]>([])
     let loading = $state(true)
     let pinning = $state(false)
     let noteInput = $state('')
@@ -30,17 +31,17 @@
         await refresh()
     }
 
-    async function togglePin(n) {
+    async function togglePin(n: ReviewNote) {
         await api.localReviews.updateNote(appid, n.id, { pinned: !n.pinned })
         await refresh()
     }
 
-    async function deleteNote(n) {
+    async function deleteNote(n: ReviewNote) {
         await api.localReviews.deleteNote(appid, n.id)
         await refresh()
     }
 
-    function handleKeydown(e) {
+    function handleKeydown(e: KeyboardEvent) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() }
     }
 

@@ -1,6 +1,7 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { navigate } from '../../js/router.js'
+    import type { DiscoverItem, DiscoverSection } from '../../types.js'
 
     const FEATURED_TABS = [
         { id: 'new_releases', label: 'New Releases' },
@@ -17,26 +18,26 @@
     let mode         = $state('browse')
     let featuredTab  = $state('new_releases')
     let searchQuery  = $state('')
-    let featuredData = $state(null)
-    let tabPages     = $state({})
-    let owned        = $state(new Set())
-    let wishlist     = $state(new Set())
+    let featuredData = $state<DiscoverSection[]>([])
+    let tabPages     = $state<Record<string, number>>({})
+    let owned        = $state<Set<number>>(new Set())
+    let wishlist     = $state<Set<number>>(new Set())
 
     // Search state
-    let searchResults  = $state([])
+    let searchResults  = $state<DiscoverItem[]>([])
     let searchTotal    = $state(0)
     let searchPage     = $state(1)
     let searchLoading  = $state(false)
-    let searchError    = $state(null)
+    let searchError    = $state<string | null>(null)
 
     // Featured loading
     let featuredLoading = $state(false)
-    let featuredError   = $state(null)
+    let featuredError   = $state<string | null>(null)
 
     // Non-reactive
-    let _searchCache  = new Map()
-    let _debounce     = null
-    let _lastResults  = null  // persisted to localStorage for back-nav
+    let _searchCache: Map<number, DiscoverItem[]> = new Map()
+    let _debounce: ReturnType<typeof setTimeout> | null = null
+    let _lastResults: DiscoverItem[] | null = null
 
     // ── LocalStorage ──────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@
             const res = await fetch('/relay/api/games/ownership')
             if (!res.ok) return
             const games = await res.json()
-            const o = new Set(), w = new Set()
+            const o = new Set<number>(), w = new Set<number>()
             for (const g of games) {
                 if (g.source === 'library' || g.source === 'both')  o.add(g.appid)
                 if (g.source === 'wishlist' || g.source === 'both') w.add(g.appid)
@@ -109,7 +110,7 @@
         }
     }
 
-    async function loadFeaturedPage(tab, page) {
+    async function loadFeaturedPage(tab: string, page: number) {
         featuredLoading = true
         featuredError   = null
         try {
@@ -133,7 +134,7 @@
         }
     }
 
-    function switchTab(tab) {
+    function switchTab(tab: string) {
         featuredTab = tab
         saveState()
         const existing = featuredData?.find(s => s.id === tab)
@@ -145,7 +146,7 @@
     // ── Search ────────────────────────────────────────────────────────────────
 
     function onSearchInput() {
-        clearTimeout(_debounce)
+        clearTimeout(_debounce ?? undefined)
         if (searchQuery.trim()) {
             mode = 'search'
             _debounce = setTimeout(doSearch, 350)
@@ -160,7 +161,7 @@
         }
     }
 
-    function onSearchKeydown(e) {
+    function onSearchKeydown(e: KeyboardEvent) {
         if (e.key === 'Escape') {
             searchQuery   = ''
             mode          = 'browse'
@@ -195,17 +196,17 @@
             _lastResults  = data.results
             saveState()
         } catch (err) {
-            searchError = `Search unavailable: ${err.message}`
+            searchError = `Search unavailable: ${(err as Error).message}`
         } finally {
             searchLoading = false
         }
     }
 
-    async function goSearchPage(dir) {
+    async function goSearchPage(dir: number) {
         const page = searchPage + dir
         if (_searchCache.has(page)) {
             searchPage    = page
-            searchResults = _searchCache.get(page)
+            searchResults = _searchCache.get(page) ?? []
             _lastResults  = searchResults
             saveState()
             return
@@ -226,7 +227,7 @@
             _lastResults  = data.results
             saveState()
         } catch (err) {
-            searchError = `Failed to load page ${page}: ${err.message}`
+            searchError = `Failed to load page ${page}: ${(err as Error).message}`
         } finally {
             searchLoading = false
         }
@@ -236,10 +237,11 @@
 
     // ── Image error handler ───────────────────────────────────────────────────
 
-    function onCardImgError(e, appid) {
+    function onCardImgError(e: Event, appid: number) {
+        const img = e.currentTarget as HTMLImageElement
         const capsule = `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/capsule_616x353.jpg`
-        if (e.currentTarget.src !== capsule) e.currentTarget.src = capsule
-        else e.currentTarget.style.visibility = 'hidden'
+        if (img.src !== capsule) img.src = capsule
+        else img.style.visibility = 'hidden'
     }
 
     // ── Mount ─────────────────────────────────────────────────────────────────
@@ -331,7 +333,7 @@
                                 {#if item.isFree}
                                     <span class="disc-price disc-price--free">Free</span>
                                 {:else if item.price != null}
-                                    {#if item.discount > 0 && item.originalPrice != null}
+                                    {#if (item.discount ?? 0) > 0 && item.originalPrice != null}
                                         <span class="disc-discount">-{item.discount}%</span>
                                         <span class="disc-price disc-price--was">${item.originalPrice.toFixed(2)}</span>
                                         <span class="disc-price">${item.price.toFixed(2)}</span>
@@ -406,7 +408,7 @@
                                 {#if item.isFree}
                                     <span class="disc-price disc-price--free">Free</span>
                                 {:else if item.price != null}
-                                    {#if item.discount > 0 && item.originalPrice != null}
+                                    {#if (item.discount ?? 0) > 0 && item.originalPrice != null}
                                         <span class="disc-discount">-{item.discount}%</span>
                                         <span class="disc-price disc-price--was">${item.originalPrice.toFixed(2)}</span>
                                         <span class="disc-price">${item.price.toFixed(2)}</span>

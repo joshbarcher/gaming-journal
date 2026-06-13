@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
 
     // Sections are watched; rail rebuilds whenever the DOM changes (bg sections loading in)
@@ -36,9 +36,9 @@
         { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: NAV_ICONS.monitor   },
     ]
 
-    let visible  = $state([])
+    let visible  = $state<typeof ALL_ITEMS>([] as typeof ALL_ITEMS)
     let activeId = $state(ALL_ITEMS[0].id)
-    let railEl   = $state(null)
+    let railEl   = $state<HTMLElement | null>(null)
 
     function rebuild() {
         visible = ALL_ITEMS.filter(item => document.getElementById(item.id))
@@ -61,17 +61,18 @@
         if (!flagsInner && !hero) return
         const top = flagsInner
             ? flagsInner.getBoundingClientRect().top + 6
-            : hero.getBoundingClientRect().bottom
+            : hero!.getBoundingClientRect().bottom
         railEl.style.top = Math.max(top, 20) + 'px'
     }
 
     function onScroll() { updatePosition(); updateActive() }
 
-    function scrollTo(id) {
+    function scrollTo(id: string) {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
 
-    let scrollEl, mo
+    let scrollEl: HTMLElement | null = null
+    let mo: MutationObserver | undefined
 
     onMount(() => {
         // Portal: move rail to body so it floats outside the game container

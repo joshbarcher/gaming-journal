@@ -1,10 +1,11 @@
-<script>
+<script lang="ts">
     import { goto } from '$app/navigation'
     import { page } from '$app/state'
     import { store } from '$lib/sidebar.svelte.js'
+    import type { NowPlayingInfo } from '$lib/sidebar.svelte.js'
 
     // ── SVG icons ─────────────────────────────────────────────────────────────
-    const ICO = (paths) =>
+    const ICO = (paths: string) =>
         `<svg class="sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
 
     const ICONS = {
@@ -30,7 +31,7 @@
     }
 
     // ── Active item ───────────────────────────────────────────────────────────
-    function getActiveId(pathname) {
+    function getActiveId(pathname: string): string | null {
         if (!pathname || pathname === '/') return 'home'
         const seg = pathname.split('/')[1]
         if (!seg) return 'home'
@@ -43,24 +44,25 @@
     const activeId = $derived(getActiveId(page.url.pathname))
 
     // ── Keyboard nav ───────────────────────────────────────────────────────────
-    let navEl = $state(null)
+    let navEl = $state<HTMLElement | null>(null)
 
-    function arrowNav(e) {
+    function arrowNav(e: KeyboardEvent) {
         if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
         e.preventDefault()
-        const focusable = [...navEl.querySelectorAll('.sidebar-nav-btn')]
-        const idx = focusable.indexOf(document.activeElement)
+        const focusable = [...navEl!.querySelectorAll<HTMLElement>('.sidebar-nav-btn')]
+        const idx = focusable.indexOf(document.activeElement as HTMLElement)
         if (idx === -1) return
         if (e.key === 'ArrowDown' && idx < focusable.length - 1) focusable[idx + 1].focus()
         if (e.key === 'ArrowUp'   && idx > 0)                    focusable[idx - 1].focus()
     }
 
-    function navBtn(path, e) {
-        if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') {
-            if (e.key === ' ' || e.key === 'Enter') e.preventDefault()
+    function navBtn(path: string, e: MouseEvent | KeyboardEvent) {
+        const key = 'key' in e ? e.key : null
+        if (e.type === 'click' || key === 'Enter' || key === ' ') {
+            if (key === ' ' || key === 'Enter') e.preventDefault()
             goto(path ? `/${path}` : '/')
         }
-        arrowNav(e)
+        if ('key' in e) arrowNav(e as KeyboardEvent)
     }
 </script>
 

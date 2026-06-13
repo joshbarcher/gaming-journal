@@ -1,15 +1,16 @@
-<script>
+<script lang="ts">
+    import type { Page } from '$lib/types.js'
     import { progressPercent, isSuperComplete } from '../../js/utils.js'
     import { heatmapRows } from '../../js/views/progress-helpers.js'
 
     const BADGE_THEMES = ['badge--teal', 'badge--purple', 'badge--blue', 'badge--rose', 'badge--amber']
     const BADGE_ICONS  = ['✦', '◈', '✸', '⬡', '◆', '✤']
 
-    let { pages } = $props()
+    let { pages }: { pages: Page[] } = $props()
 
     let rows      = $derived(heatmapRows(pages))
-    let eligible  = $derived(pages.filter(p => p.type === 'progress' || p.type === 'progress-bars' || p.type === 'list'))
-    let completed = $derived(eligible.filter(p => progressPercent(p) === 100))
+    let eligible  = $derived(pages.filter((p: Page) => p.type === 'progress' || p.type === 'progress-bars' || p.type === 'list'))
+    let completed = $derived(eligible.filter((p: Page) => progressPercent(p) === 100))
     let allDone   = $derived(completed.length === eligible.length && eligible.length > 0)
 </script>
 

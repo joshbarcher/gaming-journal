@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount }     from 'svelte'
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import { setWithTTL, getWithTTL } from '../../js/storage.js'
@@ -14,15 +14,16 @@
 
     let { scrollContainer = null } = $props()
 
-    let all     = $state([])
+    import type { SteamGame } from '../../types.js'
+    let all     = $state<SteamGame[]>([])
     let loading = $state(true)
-    let error   = $state(null)
+    let error   = $state<string | null>(null)
     let query   = $state('')
     let sort    = $state('name')
     let dir     = $state('asc')
     let page    = $state(1)
-    let letter  = $state(null)
-    let debounce = null
+    let letter  = $state<string | null>(null)
+    let debounce: ReturnType<typeof setTimeout> | null = null
 
     let available = $derived.by(() => {
         const q  = query.toLowerCase()
@@ -40,7 +41,7 @@
         const q   = query.toLowerCase()
         let res   = q ? all.filter(g => g.name.toLowerCase().includes(q)) : [...all]
         if      (letter === '#') res = res.filter(g => !/^[A-Za-z]/.test(g.name))
-        else if (letter)         res = res.filter(g => g.name.toUpperCase().startsWith(letter))
+        else if (letter)         res = res.filter(g => g.name.toUpperCase().startsWith(letter!))
         const flip = dir === 'asc' ? 1 : -1
         if      (sort === 'playtime') res.sort((a, b) => flip * ((a.playtime_forever ?? 0) - (b.playtime_forever ?? 0)))
         else if (sort === 'recent')   res.sort((a, b) => flip * ((a.rtime_last_played ?? 0) - (b.rtime_last_played ?? 0)))
@@ -56,7 +57,7 @@
             : `${all.length} games — page ${page} of ${totalPages}`
     )
 
-    function fmtPlaytime(minutes) {
+    function fmtPlaytime(minutes: number) {
         if (!minutes) return null
         const h = Math.floor(minutes / 60)
         return h === 0 ? `${minutes}m` : `${h.toLocaleString()} hrs`
@@ -64,18 +65,18 @@
 
     // ── Event handlers ────────────────────────────────────────────────────────
 
-    function onSearchInput(e) {
-        clearTimeout(debounce)
+    function onSearchInput(e: Event) {
+        clearTimeout(debounce ?? undefined)
         debounce = setTimeout(() => {
-            query  = e.target.value
+            query  = (e.target as HTMLInputElement).value
             page   = 1
             setWithTTL(STORAGE_QUERY, query)
             setWithTTL(STORAGE_PAGE,  1)
         }, 200)
     }
 
-    function onSortChange(e) {
-        sort  = e.target.value
+    function onSortChange(e: Event) {
+        sort  = (e.target as HTMLSelectElement).value
         dir   = sort === 'name' ? 'asc' : 'desc'
         page  = 1
         localStorage.setItem(STORAGE_SORT, sort)
@@ -90,7 +91,7 @@
         setWithTTL(STORAGE_PAGE, 1)
     }
 
-    function onLetterClick(ch) {
+    function onLetterClick(ch: string) {
         letter = ch === 'A-Z' ? null : ch
         page   = 1
         setWithTTL(STORAGE_LETTER, letter ?? '')
@@ -115,13 +116,13 @@
 
     $effect(() => {
         if (!scrollContainer) return
-        let timer = null
+        let timer: ReturnType<typeof setTimeout> | null = null
         function onScroll() {
-            clearTimeout(timer)
+            clearTimeout(timer ?? undefined)
             timer = setTimeout(() => { setWithTTL(STORAGE_SCROLL, scrollContainer.scrollTop) }, 150)
         }
         scrollContainer.addEventListener('scroll', onScroll)
-        return () => { clearTimeout(timer); scrollContainer.removeEventListener('scroll', onScroll) }
+        return () => { clearTimeout(timer ?? undefined); scrollContainer.removeEventListener('scroll', onScroll) }
     })
 
     // ── Load ──────────────────────────────────────────────────────────────────
@@ -142,17 +143,17 @@
                        : Array.isArray(json.data)                   ? json.data
                        : json.response && Array.isArray(json.response.games) ? json.response.games
                        : []
-            all = raw.filter(g => shouldShow(g.appid))
+            all = (raw as SteamGame[]).filter(g => shouldShow(g.appid))
         } catch (err) {
-            error   = err.message
+            error   = (err as Error).message
             loading = false
             return
         }
 
-        query  = getWithTTL(STORAGE_QUERY)       ?? ''
-        sort   = localStorage.getItem(STORAGE_SORT) ?? 'name'
-        dir    = localStorage.getItem(STORAGE_DIR)  ?? 'asc'
-        letter = getWithTTL(STORAGE_LETTER) || null
+        query  = (getWithTTL(STORAGE_QUERY) as string)  ?? ''
+        sort   = localStorage.getItem(STORAGE_SORT)    ?? 'name'
+        dir    = localStorage.getItem(STORAGE_DIR)     ?? 'asc'
+        letter = (getWithTTL(STORAGE_LETTER) as string) || null
         loading = false
 
         page = Math.min(savedPage, totalPages) || 1

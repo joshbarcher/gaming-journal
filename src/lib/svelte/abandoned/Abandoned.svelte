@@ -1,9 +1,10 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame } from '../../types.js'
 
-    let games   = $state([])
+    let games   = $state<SteamGame[]>([])
     let loading = $state(true)
-    let error   = $state(null)
+    let error   = $state<string | null>(null)
 
     let totalMin = $derived(games.reduce((s, g) => s + (g.playtime ?? 0), 0))
     let subtitle = $derived(
@@ -12,7 +13,7 @@
             : `${games.length} game${games.length !== 1 ? 's' : ''} set aside`
     )
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number | null | undefined) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -20,7 +21,7 @@
         return `${Math.round(h)}h`
     }
 
-    function remainingLabel(hltb, playtimeMin) {
+    function remainingLabel(hltb: SteamGame['hltb'], playtimeMin: number) {
         const mainH = hltb?.gameplayMain ?? hltb?.mainStory ?? null
         if (!mainH) return null
         const remaining = mainH * 60 - playtimeMin
@@ -40,8 +41,8 @@
             const flags    = await flagsRes.json()
             const gamesRaw = await gamesRes.json()
             const owned    = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
-            const ownedMap = new Map(owned.map(g => [g.appid, g]))
-            const ids      = Object.entries(flags).filter(([, f]) => f.dropped).map(([id]) => Number(id))
+            const ownedMap = new Map<number, SteamGame>(owned.map((g: SteamGame) => [g.appid, g]))
+            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.dropped).map(([id]) => Number(id))
 
             if (!ids.length) { loading = false; return }
 
@@ -60,7 +61,7 @@
 
             games = results.sort((a, b) => b.playtime - a.playtime)
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -88,12 +89,12 @@
         <div class="ab-grid">
             {#each games as g (g.appid)}
                 {@const invested  = fmtHours(g.playtime)}
-                {@const remaining = remainingLabel(g.hltb, g.playtime)}
+                {@const remaining = remainingLabel(g.hltb, g.playtime ?? 0)}
                 <a class="ab-card" href="/game/{g.appid}" data-appid={g.appid}>
                     <div class="ab-card-img-wrap">
                         <img class="ab-card-img"
                              src="/relay/images/steam/games/{g.appid}/header.jpg"
-                             alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                             alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                         <div class="ab-card-fog"></div>
                         <div class="ab-card-overlay"></div>
                         {#if invested}<span class="ab-card-invested">{invested} in</span>{/if}

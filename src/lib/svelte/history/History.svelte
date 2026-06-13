@@ -1,10 +1,18 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame } from '../../types.js'
     import { loadGameFilter } from '../../js/views/game-filter.js'
 
-    let games   = $state([])
+    interface HistoryEntry {
+        appid:        number
+        name:         string
+        playtime:     number
+        lastPlayedAt: string | null
+    }
+
+    let games   = $state<HistoryEntry[]>([])
     let loading = $state(true)
-    let error   = $state(null)
+    let error   = $state<string | null>(null)
 
     let topGames  = $derived(games.slice(0, 3))
     let restGames = $derived(games.slice(3))
@@ -14,7 +22,7 @@
             : ''
     )
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -22,7 +30,7 @@
         return `${Math.round(h)}h`
     }
 
-    function fmtRelative(isoStr) {
+    function fmtRelative(isoStr: string | null | undefined) {
         if (!isoStr) return null
         const diffMs  = Date.now() - new Date(isoStr).getTime()
         const diffMin = Math.floor(diffMs / 60_000)
@@ -46,10 +54,10 @@
             if (!lastPlayedRes.ok) throw new Error(`Last-played HTTP ${lastPlayedRes.status}`)
             if (!gamesRes.ok)      throw new Error(`Games HTTP ${gamesRes.status}`)
 
-            const lastPlayedMap = await lastPlayedRes.json()
+            const lastPlayedMap = await lastPlayedRes.json() as Record<string, any>
             const gamesRaw      = await gamesRes.json()
             const owned         = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
-            const gameInfoMap   = new Map(owned.map(g => [g.appid, g]))
+            const gameInfoMap   = new Map<number, SteamGame>((owned as SteamGame[]).map(g => [g.appid, g]))
 
             games = Object.entries(lastPlayedMap)
                 .map(([appidStr, data]) => {
@@ -63,9 +71,9 @@
                     }
                 })
                 .filter(g => g.lastPlayedAt && shouldShow(g.appid))
-                .sort((a, b) => new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt))
+                .sort((a, b) => new Date(b.lastPlayedAt).getTime() - new Date(a.lastPlayedAt).getTime())
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -103,7 +111,7 @@
                             <img class="history-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
                                  alt="" loading="lazy"
-                                 onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <div class="history-card-overlay"></div>
                             <span class="history-card-num">{i + 1}</span>
                             {#if relLabel}<span class="history-card-time">{relLabel}</span>{/if}
@@ -129,7 +137,7 @@
                             <img class="history-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
                                  alt="" loading="lazy"
-                                 onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <div class="history-card-overlay"></div>
                             <span class="history-card-num">{i + 4}</span>
                             {#if relLabel}<span class="history-card-time">{relLabel}</span>{/if}

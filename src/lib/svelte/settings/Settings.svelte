@@ -1,9 +1,10 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { Settings } from '../../types.js'
 
     let loading    = $state(true)
-    let error      = $state(null)
-    let settings   = $state({})
+    let error      = $state<string | null>(null)
+    let settings   = $state<Partial<Settings>>({})
     let flagCounts = $state({ childLocked: 0, filtered: 0 })
 
     onMount(async () => {
@@ -16,18 +17,18 @@
             settings = await settingsRes.json()
 
             const flags   = flagsRes?.ok ? await flagsRes.json() : {}
-            const entries = Object.values(flags)
+            const entries: { childLock?: boolean; filtered?: boolean }[] = Object.values(flags)
             flagCounts = {
                 childLocked: entries.filter(f => f?.childLock).length,
                 filtered:    entries.filter(f => f?.filtered).length,
             }
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         }
         loading = false
     })
 
-    async function onToggle(key, checked) {
+    async function onToggle(key: keyof Settings, checked: boolean) {
         const prev = settings[key]
         settings[key] = key === 'hideUnavailable' ? !checked : checked
         try {

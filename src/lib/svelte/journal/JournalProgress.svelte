@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { Page } from '../../types.js'
     import { api } from '../../js/api.js'
     import { navigate } from '../../js/router.js'
     import { confirmDialog } from '../../js/dialog.js'
@@ -8,20 +9,20 @@
 
     let { appid } = $props()
 
-    let pages   = $state([])
+    let pages   = $state<Page[]>([])
     let loading = $state(true)
 
     async function load() {
         const res = await api.pages.listByGame(appid).catch(() => [])
-        pages = (res ?? []).filter(p => TRACKER_TYPES.includes(p.type))
+        pages = (res ?? []).filter((p: Page) => TRACKER_TYPES.includes(p.type))
     }
 
-    async function newTracker(type, title, extra = {}) {
+    async function newTracker(type: string, title: string, extra: Record<string, unknown> = {}) {
         const page = await api.pages.create({ type, title, appid: String(appid), ...extra })
         if (page) navigate(page.id)
     }
 
-    async function deleteTracker(p) {
+    async function deleteTracker(p: Page) {
         const ok = await confirmDialog(
             `Delete "${p.title}"?`,
             'This will permanently delete the tracker and all its data.',
@@ -59,7 +60,7 @@
     {#each pages as p (p.id)}
         {@const meta = TRACKER_META[p.type] ?? TRACKER_META['progress']}
         {@const segs = globalSegments(p)}
-        <a class="gj-full-item" href="/{p.id}" onclick={(e) => { if (e.target.closest('[data-del]')) e.preventDefault() }}>
+        <a class="gj-full-item" href="/{p.id}" onclick={(e) => { if ((e.target as Element)?.closest('[data-del]')) e.preventDefault() }}>
             <span class="gj-full-item-icon">{@html meta.icon()}</span>
             <div class="gj-full-item-body">
                 <div class="gj-full-item-title">{p.title}</div>

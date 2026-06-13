@@ -1,26 +1,36 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { SteamGame, CommunityReviews, ProtonData, ItadData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { gameBackLabel, gameBackPath } from '../../js/router.js'
     import { scoreChip, fmtHours, renderGdpPrices } from '../../js/views/game-render.js'
 
-    let { game, communityReviews, protonData, itad, hltb, bgPending = 0 } = $props()
+    interface Props {
+        game:             SteamGame | null
+        communityReviews: CommunityReviews | null
+        protonData:       ProtonData | null
+        itad:             ItadData | null | undefined
+        hltb:             SteamGame['hltb'] | null | undefined
+        bgPending?:       number
+    }
+    let { game, communityReviews, protonData, itad, hltb, bgPending = 0 }: Props = $props()
 
     const SVG_AWARD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`
     const SVG_SYNC  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`
 
     // Background slideshow
-    let bgAEl = $state(null)
-    let bgBEl = $state(null)
-    let timer = null
+    let bgAEl = $state<HTMLDivElement | null>(null)
+    let bgBEl = $state<HTMLDivElement | null>(null)
+    let timer: ReturnType<typeof setInterval> | null = null
 
     onMount(() => {
-        if (!bgAEl || !bgBEl) return
+        const bgARef = bgAEl, bgBRef = bgBEl
+        if (!bgARef || !bgBRef) return
         const shots = game?.media?.screenshots ?? []
-        const candidates = shots.length > 0 ? shots : [game?.media?.background].filter(Boolean)
+        const candidates = shots.length > 0 ? shots : ([game?.media?.background].filter(Boolean) as string[])
         if (candidates.length < 2) return
 
-        Promise.all(candidates.map(url => new Promise(resolve => {
+        Promise.all(candidates.map((url: string) => new Promise(resolve => {
             const img = new Image()
             img.onload  = () => resolve(url)
             img.onerror = () => resolve(null)
@@ -38,21 +48,21 @@
             const randDir = () => Math.random() < 0.5 ? 'top' : 'bottom'
             const willPan = () => Math.random() < 0.2
 
-            const applyTransition = (el, pan) => {
+            const applyTransition = (el: HTMLDivElement, pan: boolean) => {
                 requestAnimationFrame(() => requestAnimationFrame(() => {
                     el.style.transition = pan ? `opacity 1.5s ease, background-position ${PAN_DUR}ms linear` : 'opacity 1.5s ease'
                     if (pan) el.style.backgroundPosition = `center ${randDir()}`
                 }))
             }
 
-            applyTransition(bgAEl, willPan())
+            applyTransition(bgARef, willPan())
             let idx = 1, showingA = true
 
             timer = setInterval(() => {
-                if (!document.contains(bgAEl)) { clearInterval(timer); return }
+                if (!document.contains(bgARef)) { clearInterval(timer ?? undefined); return }
                 const url      = frames[idx % frames.length]
-                const incoming = showingA ? bgBEl : bgAEl
-                const outgoing = showingA ? bgAEl : bgBEl
+                const incoming = (showingA ? bgBRef : bgARef)!
+                const outgoing = (showingA ? bgARef : bgBRef)!
                 const pan      = willPan()
                 idx++
                 incoming.style.transition         = 'none'
@@ -60,7 +70,7 @@
                 incoming.style.backgroundPosition = 'center center'
                 incoming.style.opacity            = '0'
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                    if (!document.contains(bgAEl)) return
+                    if (!document.contains(bgARef)) return
                     incoming.style.transition = pan ? `opacity 1.5s ease, background-position ${PAN_DUR}ms linear` : 'opacity 1.5s ease'
                     incoming.style.opacity    = '1'
                     if (pan) incoming.style.backgroundPosition = `center ${randDir()}`
@@ -79,7 +89,7 @@
     let desc         = $derived(game?.store?.description ?? '')
     let steamRatio   = $derived(communityReviews?.summary?.ratio ?? null)
     let mcData       = $derived(game?.store?.metacritic)
-    let mcScore      = $derived(mcData?.score ?? (typeof mcData === 'number' ? mcData : null))
+    let mcScore      = $derived(typeof mcData === 'number' ? mcData : (mcData?.score ?? null))
     let playerHours  = $derived((game?.playtimeMinutes ?? 0) / 60)
 
     let hltbRows = $derived(
@@ -87,12 +97,12 @@
             hltb.gameplayMain          != null && { label: 'Main Story',    h: hltb.gameplayMain },
             hltb.gameplayMainExtra     != null && { label: 'Main + Extras', h: hltb.gameplayMainExtra },
             hltb.gameplayCompletionist != null && { label: 'Completionist', h: hltb.gameplayCompletionist },
-        ].filter(Boolean) : []
+        ].filter(Boolean) as { label: string; h: number }[] : []
     )
 
     let tags = $derived.by(() => {
         const genres = game?.store?.genres ?? []
-        const cats = (game?.store?.categories ?? []).filter(c =>
+        const cats = (game?.store?.categories ?? []).filter((c: string) =>
             ['Single-player', 'Multi-player', 'Co-op', 'Online Co-op', 'Steam Achievements', 'Steam Cloud', 'Full controller support'].includes(c)
         )
         return [...genres, ...cats].slice(0, 7)
@@ -102,7 +112,7 @@
     let platStr = $derived(plat ? [plat.windows && 'Windows', plat.mac && 'macOS', plat.linux && 'Linux'].filter(Boolean).join(' · ') : '')
 
     let protonTier = $derived(protonData?.tier)
-    let protonCap  = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : null
+    let protonCap  = (s: string | null | undefined) => s ? s.charAt(0).toUpperCase() + s.slice(1) : null
 </script>
 
 <section class="game-hero" id="game-sec-hero">
@@ -115,7 +125,7 @@
         <div class="game-hero-left">
             <div class="game-hero-spacer"></div>
             {#if logoUrl}
-                <img class="game-hero-logo" src={logoUrl} alt="" onerror={(e) => { e.currentTarget.style.display = 'none' }}>
+                <img class="game-hero-logo" src={logoUrl} alt="" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}>
             {/if}
             <h1 class="game-hero-title">{game?.name ?? ''}</h1>
             {#if desc}<p class="game-hero-desc">{desc}</p>{/if}
@@ -148,9 +158,9 @@
 
                 <!-- Score row -->
                 <div class="gdp-score-row">
-                    {@html scoreChip('Steam', steamRatio, steamRatio != null ? Math.round(steamRatio) + '%' : null, 'gdp-steam-chip')}
-                    {@html scoreChip('OpenCritic', null, null)}
-                    {@html scoreChip('Metacritic', mcScore, mcScore)}
+                    {@html scoreChip('Steam', steamRatio, steamRatio != null ? Math.round(steamRatio) + '%' : '', 'gdp-steam-chip')}
+                    {@html scoreChip('OpenCritic', null, '')}
+                    {@html scoreChip('Metacritic', mcScore, mcScore != null ? String(mcScore) : '')}
                 </div>
 
                 <!-- Playtime -->
@@ -171,7 +181,7 @@
                 {/if}
 
                 <!-- ITAD prices -->
-                {@html renderGdpPrices(itad, game)}
+                {#if game}{@html renderGdpPrices(itad, game)}{/if}
 
                 <!-- Release / meta -->
                 <div class="gdp-divider"></div>

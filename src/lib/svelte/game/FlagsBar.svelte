@@ -1,9 +1,16 @@
-<script>
+<script lang="ts">
+    import type { SteamGame, Flags, FlagKey } from '../../types.js'
     import { refreshAlertsBadge } from '../../js/sidebar.js'
 
-    let { appid, flags = $bindable({}), game, localWishlisted = $bindable(false) } = $props()
+    interface Props {
+        appid:           number | string
+        flags:           Flags
+        game:            SteamGame | null
+        localWishlisted: boolean
+    }
+    let { appid, flags = $bindable({}), game, localWishlisted = $bindable(false) }: Props = $props()
 
-    const SVG = (paths) => `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
+    const SVG = (paths: string) => `<svg class="game-flag-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
 
     const FLAG_GROUPS = [
         [
@@ -31,9 +38,10 @@
     let isLibrary = $derived(game?.source === 'library' || game?.source === 'both')
     let isSteamWl = $derived(game?.wishlist?.steam === true)
 
-    async function toggleFlag(key) {
-        const prev = !!flags[key]
-        flags = { ...flags, [key]: !prev }
+    async function toggleFlag(key: string) {
+        const fkey = key as FlagKey
+        const prev = !!flags[fkey]
+        flags = { ...flags, [fkey]: !prev }
         try {
             await fetch(`/api/flags/${appid}`, {
                 method:  'PATCH',
@@ -64,7 +72,7 @@
             {#each group as f}
                 <button
                     class="game-flag game-flag--{f.key}"
-                    class:game-flag--active={!!flags[f.key]}
+                    class:game-flag--active={!!flags[f.key as FlagKey]}
                     title={f.label}
                     onclick={() => toggleFlag(f.key)}
                 >

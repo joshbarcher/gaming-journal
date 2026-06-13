@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { loadGameFilter } from '../../js/views/game-filter.js'
 
@@ -6,9 +6,22 @@
     const ICO_UNMUTE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`
     const ICO_FILTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`
 
-    let allEntries   = $state([])
+    interface TopGameEntry {
+        appid:        number
+        name?:        string
+        latest?:      number
+        peak24h?:     number
+        peak7d?:      number
+        peakAllTime?: number
+        samples24h?:  [number, number][]
+        filtered:     boolean
+        owned?:       boolean
+        wishlisted?:  boolean
+    }
+
+    let allEntries   = $state<TopGameEntry[]>([])
     let loading      = $state(true)
-    let error        = $state(null)
+    let error        = $state<string | null>(null)
     let hideFiltered = $state(false)
     let updatedAt    = $state('')
 
@@ -23,14 +36,14 @@
         ]
     })
 
-    function fmt(n) {
+    function fmt(n: number | null | undefined) {
         if (n == null || n === 0) return '—'
         if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
         if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`
         return n.toLocaleString()
     }
 
-    function sparkline(samples, peakAllTime = null) {
+    function sparkline(samples: [number, number][] | null | undefined) {
         if (!samples?.length) return '<svg class="tg-spark" aria-hidden="true"></svg>'
         const raw  = samples.map(s => s[1])
         const MAX  = 30
@@ -42,12 +55,12 @@
         const max   = Math.max(...vals)
         const range = max - min
         const n     = vals.length
-        const toY = v => range === 0 ? 50 : +(100 - ((v - min) / range * 100)).toFixed(2)
-        const d = vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${i} ${toY(v)}`).join(' ')
+        const toY = (v: number) => range === 0 ? 50 : +(100 - ((v - min) / range * 100)).toFixed(2)
+        const d = vals.map((v: number, i: number) => `${i === 0 ? 'M' : 'L'}${i} ${toY(v)}`).join(' ')
         return `<svg class="tg-spark" viewBox="0 0 ${Math.max(n - 1, 1)} 100" preserveAspectRatio="none" aria-hidden="true"><path fill="none" style="stroke:var(--clr-accent);opacity:0.8" stroke-width="2" vector-effect="non-scaling-stroke" d="${d}"/></svg>`
     }
 
-    async function setFiltered(appid, isFiltered) {
+    async function setFiltered(appid: number, isFiltered: boolean) {
         const method = isFiltered ? 'POST' : 'DELETE'
         const res = await fetch(`/relay/api/player-counts/filtered/${appid}`, { method })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -55,7 +68,7 @@
         if (entry) entry.filtered = isFiltered
     }
 
-    async function toggleMute(appid) {
+    async function toggleMute(appid: number) {
         const entry = allEntries.find(e => e.appid === appid)
         if (!entry) return
         try {
@@ -72,11 +85,11 @@
                 loadGameFilter(),
             ])
             if (!res.ok) throw new Error(`HTTP ${res.status}`)
-            allEntries = (await res.json()).filter(e => shouldShow(e.appid))
+            allEntries = (await res.json() as TopGameEntry[]).filter(e => shouldShow(e.appid))
             updatedAt  = new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
             error      = null
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         }
         loading = false
     }
@@ -134,7 +147,7 @@
                         <span class="tg-rank">{entry.displayRank}</span>
                         <img class="tg-thumb" src="/relay/images/steam/games/{entry.appid}/header.jpg"
                              alt="" loading="lazy"
-                             onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                             onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                         <span class="tg-name">
                             {name}
                             {#if entry.owned}<span class="tg-badge tg-badge--owned">Owned</span>{/if}
@@ -144,7 +157,7 @@
                         <span class="tg-stat tg-stat--muted">{fmt(entry.peak24h)}</span>
                         <span class="tg-stat tg-stat--muted">{fmt(entry.peak7d)}</span>
                         <span class="tg-stat tg-stat--muted">{fmt(entry.peakAllTime)}</span>
-                        <span class="tg-spark-cell">{@html sparkline(entry.samples24h, entry.peakAllTime)}</span>
+                        <span class="tg-spark-cell">{@html sparkline(entry.samples24h)}</span>
                     </a>
                     <button class="tg-mute-btn" title="{entry.filtered ? 'Restore' : 'Hide'} {name}"
                             onclick={() => toggleMute(entry.appid)}>

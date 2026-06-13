@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { SteamGame, CommunityReviews, SteamUserReviewEntry, PlayerCounts, Flags, LocalReview, Trailer, ItadData, ProtonData, PcgwData, NewsData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { navigate } from '../../js/router.js'
     import { openReviewModal, renderLocalReviewCard } from '../../js/review-modal.js'
@@ -20,24 +21,24 @@
     let { appid } = $props()
 
     // ── Phase 1 state (fast fetches) ─────────────────────────────────────────
-    let game             = $state(null)
-    let communityReviews = $state(null)
-    let myReview         = $state(null)
-    let playerCounts     = $state(null)
-    let flags            = $state({})
-    let localReview      = $state(null)
-    let trailers         = $state([])
+    let game             = $state<SteamGame | null>(null)
+    let communityReviews = $state<CommunityReviews | null>(null)
+    let myReview         = $state<SteamUserReviewEntry | null>(null)
+    let playerCounts     = $state<PlayerCounts | null>(null)
+    let flags            = $state<Flags>({})
+    let localReview      = $state<LocalReview | null>(null)
+    let trailers         = $state<Trailer[]>([])
     let localWishlisted  = $state(false)
     let loading          = $state(true)
-    let error            = $state(null)
+    let error            = $state<string | null>(null)
 
     // ── Phase 2 state (background loads) ─────────────────────────────────────
     // undefined = not yet fetched (show pending), null = fetched but no data, object = data
-    let hltbData    = $state(undefined)
-    let itadData    = $state(undefined)
-    let protonData  = $state(undefined)
-    let pcgwData    = $state(undefined)
-    let newsData    = $state(undefined)
+    let hltbData    = $state<SteamGame['hltb'] | null | undefined>(undefined)
+    let itadData    = $state<ItadData | null | undefined>(undefined)
+    let protonData  = $state<ProtonData | null | undefined>(undefined)
+    let pcgwData    = $state<PcgwData | null | undefined>(undefined)
+    let newsData    = $state<NewsData | null | undefined>(undefined)
     let bgPending   = $state(0)
 
     // Effective HLTB: prefer background load, fall back to phase-1 game data
@@ -46,22 +47,22 @@
     let effectiveItad = $derived(itadData !== undefined ? itadData : game?.itad)
 
     // ── Screenshot modal (vanilla JS — screenshots are {@html}) ──────────────
-    let _modalEl = null, _modalSrcs = [], _modalIdx = 0
+    let _modalEl: HTMLElement | null = null, _modalSrcs: string[] = [], _modalIdx = 0
 
-    function _modalNav(delta) {
+    function _modalNav(delta: number) {
         _modalIdx = (_modalIdx + delta + _modalSrcs.length) % _modalSrcs.length
-        _modalEl.querySelector('.shot-modal-img').src = _modalSrcs[_modalIdx]
+        ;(_modalEl!.querySelector('.shot-modal-img') as HTMLImageElement).src = _modalSrcs[_modalIdx]
     }
-    function _openModal(srcs, idx = 0) {
+    function _openModal(srcs: string[], idx = 0) {
         if (!_modalEl) {
             _modalEl = document.createElement('div')
             _modalEl.className = 'shot-modal'
             _modalEl.innerHTML = `<div class="shot-modal-backdrop"></div><button class="shot-modal-prev shot-modal-nav" aria-label="Previous">&#8249;</button><img class="shot-modal-img" src="" alt="Screenshot"><button class="shot-modal-next shot-modal-nav" aria-label="Next">&#8250;</button><button class="shot-modal-close" aria-label="Close">✕</button>`
             document.body.appendChild(_modalEl)
-            _modalEl.querySelector('.shot-modal-backdrop').addEventListener('click', _closeModal)
-            _modalEl.querySelector('.shot-modal-close').addEventListener('click', _closeModal)
-            _modalEl.querySelector('.shot-modal-prev').addEventListener('click', () => _modalNav(-1))
-            _modalEl.querySelector('.shot-modal-next').addEventListener('click', () => _modalNav(1))
+            _modalEl.querySelector('.shot-modal-backdrop')!.addEventListener('click', _closeModal)
+            _modalEl.querySelector('.shot-modal-close')!.addEventListener('click', _closeModal)
+            _modalEl.querySelector('.shot-modal-prev')!.addEventListener('click', () => _modalNav(-1))
+            _modalEl.querySelector('.shot-modal-next')!.addEventListener('click', () => _modalNav(1))
             document.addEventListener('keydown', e => {
                 if (!_modalEl?.classList.contains('shot-modal--open')) return
                 if (e.key === 'Escape')     _closeModal()
@@ -72,18 +73,18 @@
         }
         _modalSrcs = srcs
         _modalIdx  = idx
-        _modalEl.querySelector('.shot-modal-img').src = srcs[idx]
+        ;(_modalEl!.querySelector('.shot-modal-img') as HTMLImageElement).src = srcs[idx]
         const hidden = srcs.length <= 1
-        _modalEl.querySelector('.shot-modal-prev').style.display = hidden ? 'none' : ''
-        _modalEl.querySelector('.shot-modal-next').style.display = hidden ? 'none' : ''
-        _modalEl.classList.add('shot-modal--open')
+        ;(_modalEl!.querySelector('.shot-modal-prev') as HTMLElement).style.display = hidden ? 'none' : ''
+        ;(_modalEl!.querySelector('.shot-modal-next') as HTMLElement).style.display = hidden ? 'none' : ''
+        _modalEl!.classList.add('shot-modal--open')
     }
     function _closeModal() { _modalEl?.classList.remove('shot-modal--open') }
 
     // ── Worker manager ────────────────────────────────────────────────────────
     const workerMgr = (() => {
-        let _w = null, _seq = 0
-        const _cbs = new Map()
+        let _w: Worker | null = null, _seq = 0
+        const _cbs: Map<number, (data: any) => void> = new Map()
         const _ok  = typeof Worker !== 'undefined'
 
         function _boot() {
@@ -93,29 +94,29 @@
             _w.onerror   = ()       => { for (const [id, cb] of _cbs) { _cbs.delete(id); cb({ id, data: null }) } }
             return _w
         }
-        function _post(msg) {
-            return new Promise(resolve => { const id = _seq++; _cbs.set(id, resolve); _boot().postMessage({ ...msg, id }) })
+        function _post(msg: any): Promise<any> {
+            return new Promise<any>(resolve => { const id = _seq++; _cbs.set(id, resolve); _boot().postMessage({ ...msg, id }) })
         }
-        async function _mainGet(url) { try { const r = await fetch(url); return { data: r.ok ? await r.json() : null } } catch { return { data: null } } }
-        async function _mainPostGet(pu, gu) { try { await fetch(pu, { method: 'POST' }); const r = await fetch(gu); return { data: r.ok ? await r.json() : null } } catch { return { data: null } } }
+        async function _mainGet(url: string) { try { const r = await fetch(url); return { data: r.ok ? await r.json() : null } } catch { return { data: null } } }
+        async function _mainPostGet(pu: string, gu: string) { try { await fetch(pu, { method: 'POST' }); const r = await fetch(gu); return { data: r.ok ? await r.json() : null } } catch { return { data: null } } }
 
         return {
-            fetch(url)            { return _ok ? _post({ type: 'get',      url })             : _mainGet(url) },
-            sync(postUrl, getUrl) { return _ok ? _post({ type: 'post_get', postUrl, getUrl }) : _mainPostGet(postUrl, getUrl) },
+            fetch(url: string)                        { return _ok ? _post({ type: 'get',      url })             : _mainGet(url) },
+            sync(postUrl: string, getUrl: string)     { return _ok ? _post({ type: 'post_get', postUrl, getUrl }) : _mainPostGet(postUrl, getUrl) },
         }
     })()
 
     // ── Container ref (for NavRail) ───────────────────────────────────────────
-    let containerEl = $state(null)
+    let containerEl = $state<HTMLElement | null>(null)
 
     // ── Element refs for {@html} sections that need post-render init ──────────
-    let trailersEl     = $state(null)
-    let steamReviewEl  = $state(null)
-    let shotsEl        = $state(null)
-    let newsEl         = $state(null)
-    let itadEl         = $state(null)
-    let pcgwEl         = $state(null)
-    let protondbEl     = $state(null)
+    let trailersEl     = $state<HTMLElement | null>(null)
+    let steamReviewEl  = $state<HTMLElement | null>(null)
+    let shotsEl        = $state<HTMLElement | null>(null)
+    let newsEl         = $state<HTMLElement | null>(null)
+    let itadEl         = $state<HTMLElement | null>(null)
+    let pcgwEl         = $state<HTMLElement | null>(null)
+    let protondbEl     = $state<HTMLElement | null>(null)
 
     // Wire interactive event handlers after each {@html} section renders
     $effect(() => { if (trailersEl && trailers.length)  initTrailers(trailersEl) })
@@ -123,11 +124,12 @@
     $effect(() => { if (newsEl && newsData)             initNews(newsEl) })
 
     $effect(() => {
-        if (!shotsEl) return
-        shotsEl.addEventListener('click', e => {
-            const img = e.target.closest('.game-shot-img')
+        const shotsRef = shotsEl
+        if (!shotsRef) return
+        shotsRef.addEventListener('click', e => {
+            const img = (e.target as Element)?.closest('.game-shot-img') as HTMLImageElement | null
             if (img) {
-                const srcs = [...shotsEl.querySelectorAll('.game-shot-img')].map(i => i.src)
+                const srcs = [...shotsRef.querySelectorAll<HTMLImageElement>('.game-shot-img')].map(i => i.src)
                 _openModal(srcs, srcs.indexOf(img.src))
             }
         })
@@ -135,7 +137,7 @@
 
     $effect(() => {
         if (!itadEl || effectiveItad === undefined) return
-        const btn = itadEl.querySelector('[data-role="itad-refresh"]')
+        const btn = itadEl.querySelector<HTMLButtonElement>('[data-role="itad-refresh"]')
         if (!btn) return
         const handler = async () => {
             btn.classList.add('game-refresh-btn--spinning')
@@ -154,7 +156,7 @@
 
     $effect(() => {
         if (!pcgwEl || !pcgwData?.found) return
-        const btn = pcgwEl.querySelector('[data-role="pcgw-refresh"]')
+        const btn = pcgwEl.querySelector<HTMLButtonElement>('[data-role="pcgw-refresh"]')
         if (!btn) return
         const handler = async () => {
             btn.classList.add('game-refresh-btn--spinning')
@@ -173,7 +175,7 @@
 
     $effect(() => {
         if (!protondbEl || !protonData?.tier) return
-        const btn = protondbEl.querySelector('[data-role="protondb-refresh"]')
+        const btn = protondbEl.querySelector<HTMLButtonElement>('[data-role="protondb-refresh"]')
         if (!btn) return
         const handler = async () => {
             btn.classList.add('game-refresh-btn--spinning')
@@ -191,7 +193,7 @@
     })
 
     // ── Community btn navigation ──────────────────────────────────────────────
-    function handleCommunityClick(e) {
+    function handleCommunityClick(e: MouseEvent) {
         e.preventDefault()
         e.stopPropagation()
         sessionStorage.setItem('gj_game_from', 'game')
@@ -233,11 +235,12 @@
             trailers         = trailersRes.ok ? await trailersRes.json()       : []
             localWishlisted  = localWlRes.ok  ? (await localWlRes.json()).wishlisted : false
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
             loading = false
             return
         }
         loading = false
+        if (!game) return
 
         // ── Phase 2: background section loading ───────────────────────────────
         const name    = encodeURIComponent(game.name ?? '')
@@ -349,7 +352,7 @@
                     if (res.ok) {
                         const refreshed = await res.json()
                         if (refreshed.store?.detailedDescription) {
-                            game = { ...game, store: { ...game.store, detailedDescription: refreshed.store.detailedDescription } }
+                            game = { ...game!, store: { ...game!.store, detailedDescription: refreshed.store.detailedDescription } } as SteamGame
                         }
                     }
                 } catch { /* silent */ }
@@ -379,11 +382,11 @@
         <p class="page-loading">Loading…</p>
     {:else if error}
         <p class="page-error">Failed to load: {escapeHtml(error)}</p>
-    {:else}
+    {:else if game}
         <GameHero
             {game}
             {communityReviews}
-            {protonData}
+            protonData={protonData ?? null}
             itad={effectiveItad}
             hltb={effectiveHltb}
             {bgPending}

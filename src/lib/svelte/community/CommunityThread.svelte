@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { SteamGame, RedditPost, RedditComment, LoadedPrefs } from '../../types.js'
     import { loadPrefs, toggleFilter, toggleMute, toggleFavorite, toggleHighlight } from '../../js/community-user-prefs.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { fmtScore, fmtTime, imgSrc, videoSrc, flattenComments, countComments, renderComment } from '../../js/views/community-render.js'
@@ -8,31 +9,30 @@
 
     // ── State ──────────────────────────────────────────────────────────────────
 
-    let game         = $state(null)
-    let post         = $state(null)
+    let game         = $state<SteamGame | null>(null)
+    let post         = $state<RedditPost | null>(null)
     let subreddit    = $state('')
-    let comments     = $state([])
-    let prefs        = $state({ filtered: new Set(), muted: new Set(), favorited: new Set(), highlighted: new Set() })
+    let comments     = $state<RedditComment[]>([])
+    let prefs        = $state<LoadedPrefs>({ filtered: new Set<string>(), muted: new Set<string>(), favorited: new Set<string>(), highlighted: new Set<string>() })
     let commentCount = $state(0)
     let loading      = $state(true)
-    let error        = $state(null)
+    let error        = $state<string | null>(null)
     let refreshing   = $state(false)
     let refreshLabel = $state('↻ Refresh')
 
-    // Container ref for event delegation
-    let containerEl = $state(null)
+    let containerEl = $state<HTMLElement | null>(null)
 
     // ── Prefs ──────────────────────────────────────────────────────────────────
 
-    function _setPref(key, username, value) {
+    function _setPref(key: keyof LoadedPrefs, username: string, value: boolean) {
         const s = new Set(prefs[key])
         value ? s.add(username) : s.delete(username)
-        prefs[key] = s
+        prefs = { ...prefs, [key]: s }
     }
 
-    function applyPrefs(root) {
+    function applyPrefs(root: Element | null | undefined) {
         root?.querySelectorAll('[data-author]').forEach(el => {
-            const a = el.dataset.author
+            const a = (el as HTMLElement).dataset.author
             if (!a) return
             el.classList.toggle('is-user-filtered',    prefs.filtered.has(a))
             el.classList.toggle('is-user-muted',       prefs.muted.has(a))
@@ -50,10 +50,10 @@
 
     // ── Context menu ───────────────────────────────────────────────────────────
 
-    function handleContextMenu(e) {
-        const target = e.target.closest('[data-author]')
+    function handleContextMenu(e: MouseEvent) {
+        const target = (e.target as Element)?.closest('[data-author]')
         if (!target) return
-        const username = target.dataset.author
+        const username = (target as HTMLElement).dataset.author
         if (!username || username === '[deleted]') return
         e.preventDefault()
 
@@ -91,7 +91,7 @@
         if (!containerEl) return
 
         containerEl.querySelectorAll('.thread-comment-toggle:not([data-wired])').forEach(btn => {
-            btn.dataset.wired = '1'
+            ;(btn as HTMLElement).dataset.wired = '1'
             btn.addEventListener('click', () => {
                 const comment = btn.closest('.thread-comment')
                 const replies = comment?.querySelector('.thread-comment-replies')
@@ -105,19 +105,19 @@
 
     // ── Image lightbox ─────────────────────────────────────────────────────────
 
-    let _lightboxCleanup = null
+    let _lightboxCleanup: (() => void) | null = null
 
-    function initLightbox(container) {
+    function initLightbox(container: HTMLElement) {
         if (_lightboxCleanup) return
-        const handler = (e) => {
-            const wrap = e.target.closest('[data-lightbox-src]')
+        const handler = (e: Event) => {
+            const wrap = (e.target as Element)?.closest('[data-lightbox-src]') as HTMLElement | null
             if (!wrap) return
 
             const grid = wrap.closest('.community-gallery-grid')
             const srcs = grid
-                ? [...grid.querySelectorAll('[data-lightbox-src]')].map(el => el.dataset.lightboxSrc)
-                : [wrap.dataset.lightboxSrc]
-            let idx = grid ? srcs.indexOf(wrap.dataset.lightboxSrc) : 0
+                ? [...grid.querySelectorAll('[data-lightbox-src]')].map(el => (el as HTMLElement).dataset.lightboxSrc!)
+                : [wrap.dataset.lightboxSrc!]
+            let idx = grid ? srcs.indexOf(wrap.dataset.lightboxSrc!) : 0
 
             const modal   = document.createElement('div')
             modal.className = 'community-img-lightbox'
@@ -133,7 +133,7 @@
             nextBtn.className = 'lightbox-chevron lightbox-chevron--next'
             nextBtn.innerHTML = '&#8250;'
 
-            const setImage = (i) => {
+            const setImage = (i: number) => {
                 idx = (i + srcs.length) % srcs.length
                 img.src = srcs[idx]
                 prevBtn.style.visibility = srcs.length > 1 ? 'visible' : 'hidden'
@@ -149,9 +149,9 @@
             setImage(idx)
 
             const close = () => { modal.remove(); document.removeEventListener('keydown', onKey) }
-            modal.addEventListener('click', (e) => { if (!e.target.closest('.lightbox-chevron')) close() })
+            modal.addEventListener('click', (e) => { if (!(e.target as Element)?.closest('.lightbox-chevron')) close() })
 
-            const onKey = (e) => {
+            const onKey = (e: KeyboardEvent) => {
                 if (e.key === 'Escape')     close()
                 if (e.key === 'ArrowLeft')  setImage(idx - 1)
                 if (e.key === 'ArrowRight') setImage(idx + 1)
@@ -163,11 +163,11 @@
         _lightboxCleanup = () => container.removeEventListener('click', handler)
     }
 
-    function initCarousel(container) {
+    function initCarousel(container: HTMLElement) {
         container.addEventListener('click', (e) => {
-            const album = e.target.closest('[data-carousel]')
+            const album = (e.target as Element)?.closest('[data-carousel]') as HTMLElement | null
             if (!album) return
-            const srcs    = JSON.parse(album.dataset.carousel)
+            const srcs    = JSON.parse(album.dataset.carousel!)
             let   current = 0
 
             const modal  = document.createElement('div')
@@ -186,14 +186,14 @@
                             <button class="community-carousel-next" ${current === srcs.length - 1 ? 'disabled' : ''} aria-label="Next">→</button>
                         </div>
                     </div>`
-                modal.querySelector('.community-carousel-close').addEventListener('click', close)
-                modal.querySelector('.community-carousel-prev').addEventListener('click', () => { if (current > 0) { current--; render() } })
-                modal.querySelector('.community-carousel-next').addEventListener('click', () => { if (current < srcs.length - 1) { current++; render() } })
+                modal.querySelector('.community-carousel-close')!.addEventListener('click', close)
+                modal.querySelector('.community-carousel-prev')!.addEventListener('click', () => { if (current > 0) { current--; render() } })
+                modal.querySelector('.community-carousel-next')!.addEventListener('click', () => { if (current < srcs.length - 1) { current++; render() } })
             }
 
             const close = () => { modal.remove(); document.removeEventListener('keydown', onKey) }
             modal.addEventListener('click', (e) => { if (e.target === modal) close() })
-            const onKey = (e) => {
+            const onKey = (e: KeyboardEvent) => {
                 if (e.key === 'Escape')      close()
                 if (e.key === 'ArrowLeft'  && current > 0)              { current--; render() }
                 if (e.key === 'ArrowRight' && current < srcs.length - 1) { current++; render() }
@@ -215,14 +215,14 @@
             const thread = await res.json()
 
             const existingIds = new Set(comments.map(c => c.id))
-            const newComments = (thread.comments ?? []).filter(c => !existingIds.has(c.id))
+            const newComments = ((thread.comments ?? []) as RedditComment[]).filter(c => !existingIds.has(c.id))
             if (newComments.length > 0) comments = [...comments, ...newComments]
 
             // Update scores for existing comments via DOM (avoids disturbing expand/collapse state)
             const allNew   = flattenComments(thread.comments ?? [])
             const scoreMap = new Map(allNew.map(c => [c.id, c.score]))
             containerEl?.querySelectorAll('.thread-comment[data-id]').forEach(el => {
-                const s = scoreMap.get(el.dataset.id)
+                const s = scoreMap.get((el as HTMLElement).dataset.id)
                 if (s == null) return
                 const scoreEl = el.querySelector('.thread-comment-score')
                 if (scoreEl) scoreEl.textContent = `▲ ${fmtScore(s)}`
@@ -273,9 +273,9 @@
             commentCount = countComments(comments)
             prefs        = await loadPrefs(appid)
         } catch (err) {
-            error = err.name === 'AbortError'
+            error = (err as Error).name === 'AbortError'
                 ? 'Thread took too long to load — the relay may be stuck.'
-                : err.message
+                : (err as Error).message
         } finally {
             loading = false
         }

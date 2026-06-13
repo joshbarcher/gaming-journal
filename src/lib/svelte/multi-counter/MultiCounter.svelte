@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+    import type { MultiCounterPage, Counter } from '../../types.js'
     import { api } from '../../js/api.js'
     import { confirmDialog } from '../../js/dialog.js'
     import { uuid } from '../../js/utils.js'
@@ -8,14 +9,14 @@
 
     let { page: pageProp } = $props()
 
-    let pd        = $state(JSON.parse(JSON.stringify(pageProp)))
-    let saveTimer = null
+    let pd        = $state<MultiCounterPage>(JSON.parse(JSON.stringify(pageProp)))
+    let saveTimer: ReturnType<typeof setTimeout> | null = null
 
-    let totalC    = $derived((pd.counters ?? []).reduce((s, c) => s + (c.current ?? 0), 0))
-    let totalT    = $derived((pd.counters ?? []).reduce((s, c) => s + (c.target  ?? 0), 0))
+    let totalC    = $derived((pd.counters ?? []).reduce((s: number, c: Counter) => s + (c.current ?? 0), 0))
+    let totalT    = $derived((pd.counters ?? []).reduce((s: number, c: Counter) => s + (c.target  ?? 0), 0))
     let globalPct = $derived(totalT > 0 ? Math.min(100, Math.round(totalC / totalT * 100)) : 0)
 
-    function rowPct(c) {
+    function rowPct(c: Counter) {
         const t = c.target ?? 0
         return t > 0 ? Math.min(100, Math.round((c.current ?? 0) / t * 100)) : 0
     }
@@ -27,40 +28,40 @@
         if (pd.appid) navigate(`journal/${pd.appid}`)
     }
 
-    async function onTitleBlur(e) {
-        const t = e.currentTarget.textContent.trim()
+    async function onTitleBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const t = (e.currentTarget.textContent ?? '').trim()
         if (!t || t === pd.title) { e.currentTarget.textContent = pd.title; return }
         pd.title = t
         const updated = await api.pages.update(pd.id, { title: t })
         if (updated) refreshSidebarItem(updated)
     }
 
-    async function onNameBlur(counterId, e) {
-        const c = (pd.counters ?? []).find(x => x.id === counterId)
+    async function onNameBlur(counterId: string, e: FocusEvent & { currentTarget: HTMLElement }) {
+        const c = (pd.counters ?? []).find((x: Counter) => x.id === counterId)
         if (!c) return
-        const v = e.currentTarget.textContent.trim()
+        const v = (e.currentTarget.textContent ?? '').trim()
         if (!v) { e.currentTarget.textContent = c.name ?? ''; return }
         c.name = v
         await save()
     }
 
-    async function onTargetBlur(counterId, e) {
-        const c = (pd.counters ?? []).find(x => x.id === counterId)
+    async function onTargetBlur(counterId: string, e: FocusEvent & { currentTarget: HTMLElement }) {
+        const c = (pd.counters ?? []).find((x: Counter) => x.id === counterId)
         if (!c) return
-        const val = parseInt(e.currentTarget.textContent.trim(), 10)
+        const val = parseInt((e.currentTarget.textContent ?? '').trim(), 10)
         if (!isNaN(val) && val >= 0) {
             c.target = val
             await save()
         } else {
-            e.currentTarget.textContent = c.target ?? '?'
+            e.currentTarget.textContent = String(c?.target ?? '?')
         }
     }
 
-    function adjustRow(counterId, delta) {
-        const c = (pd.counters ?? []).find(x => x.id === counterId)
+    function adjustRow(counterId: string, delta: number) {
+        const c = (pd.counters ?? []).find((x: Counter) => x.id === counterId)
         if (!c) return
         c.current = Math.max(0, (c.current ?? 0) + delta)
-        clearTimeout(saveTimer)
+        clearTimeout(saveTimer ?? undefined)
         saveTimer = setTimeout(save, 400)
     }
 
@@ -69,53 +70,54 @@
         pd.counters = [...(pd.counters ?? []), c]
         await save()
         requestAnimationFrame(() => {
-            document.querySelector(`.mcounter-row[data-id="${c.id}"] [data-role="name"]`)?.focus()
+            document.querySelector<HTMLElement>(`.mcounter-row[data-id="${c.id}"] [data-role="name"]`)?.focus()
         })
     }
 
-    async function deleteCounter(counterId) {
-        pd.counters = (pd.counters ?? []).filter(x => x.id !== counterId)
+    async function deleteCounter(counterId: string) {
+        pd.counters = (pd.counters ?? []).filter((x: Counter) => x.id !== counterId)
         await save()
     }
 
-    function barDragAction(wrapEl, counterId) {
-        const c = (pd.counters ?? []).find(x => x.id === counterId)
-        if (!c) return { destroy: () => {} }
+    function barDragAction(wrapEl: HTMLElement, counterId: string) {
+        const found = (pd.counters ?? []).find((x: Counter) => x.id === counterId)
+        if (!found) return { destroy: () => {} }
+        const c: Counter = found
 
-        function valueFromX(clientX) {
+        function valueFromX(clientX: number) {
             const rect = wrapEl.getBoundingClientRect()
             const p    = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
             return Math.round(p * (c.target ?? 0))
         }
 
-        function setLive(val) {
+        function setLive(val: number) {
             c.current = Math.max(0, Math.min(val, c.target ?? val))
         }
 
-        function onMousedown(e) {
+        function onMousedown(e: MouseEvent) {
             e.preventDefault()
             setLive(valueFromX(e.clientX))
 
-            const onMove = ev => setLive(valueFromX(ev.clientX))
+            const onMove = (ev: MouseEvent) => setLive(valueFromX(ev.clientX))
             const onUp   = () => {
                 window.removeEventListener('mousemove', onMove)
                 window.removeEventListener('mouseup', onUp)
-                clearTimeout(saveTimer)
+                clearTimeout(saveTimer ?? undefined)
                 saveTimer = setTimeout(save, 400)
             }
             window.addEventListener('mousemove', onMove)
             window.addEventListener('mouseup', onUp)
         }
 
-        function onTouchstart(e) {
+        function onTouchstart(e: TouchEvent) {
             e.preventDefault()
             setLive(valueFromX(e.touches[0].clientX))
 
-            const onMove = ev => { ev.preventDefault(); setLive(valueFromX(ev.touches[0].clientX)) }
+            const onMove = (ev: TouchEvent) => { ev.preventDefault(); setLive(valueFromX(ev.touches[0].clientX)) }
             const onEnd  = () => {
                 wrapEl.removeEventListener('touchmove', onMove)
                 wrapEl.removeEventListener('touchend', onEnd)
-                clearTimeout(saveTimer)
+                clearTimeout(saveTimer ?? undefined)
                 saveTimer = setTimeout(save, 400)
             }
             wrapEl.addEventListener('touchmove', onMove, { passive: false })

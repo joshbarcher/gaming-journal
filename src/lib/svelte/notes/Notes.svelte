@@ -1,16 +1,17 @@
-<script>
+<script lang="ts">
+    import type { NotesPage, NoteEntry } from '../../types.js'
     import { api } from '../../js/api.js'
     import { uuid } from '../../js/utils.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
 
     let { page: pageProp } = $props()
 
-    let pd          = $state(JSON.parse(JSON.stringify(pageProp)))
+    let pd          = $state<NotesPage>(JSON.parse(JSON.stringify(pageProp)))
     let input       = $state('')
-    let editingId   = $state(null)
+    let editingId   = $state<string | null>(null)
 
-    async function onTitleBlur(e) {
-        const t = e.currentTarget.textContent.trim()
+    async function onTitleBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const t = (e.currentTarget.textContent ?? '').trim()
         if (!t || t === pd.title) { e.currentTarget.textContent = pd.title; return }
         pd.title = t
         const updated = await api.pages.update(pd.id, { title: t })
@@ -26,10 +27,10 @@
         await save()
     }
 
-    async function onCardBlur(noteId, e) {
+    async function onCardBlur(noteId: string, e: FocusEvent & { currentTarget: HTMLElement }) {
         editingId = null
-        const newText = e.currentTarget.textContent.trim()
-        const note = (pd.notes ?? []).find(n => n.id === noteId)
+        const newText = (e.currentTarget.textContent ?? '').trim()
+        const note = (pd.notes ?? []).find((n: NoteEntry) => n.id === noteId)
         if (!note) return
         if (!newText) { e.currentTarget.textContent = note.text; return }
         if (newText === note.text) return
@@ -37,8 +38,8 @@
         await save()
     }
 
-    async function deleteNote(noteId) {
-        pd.notes = (pd.notes ?? []).filter(n => n.id !== noteId)
+    async function deleteNote(noteId: string) {
+        pd.notes = (pd.notes ?? []).filter((n: NoteEntry) => n.id !== noteId)
         await save()
     }
 

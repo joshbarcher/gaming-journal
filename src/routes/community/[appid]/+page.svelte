@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { page } from '$app/state'
     import CommunityPage from '$lib/svelte/community/CommunityPage.svelte'
 </script>

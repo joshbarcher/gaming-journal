@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { afterNavigate, beforeNavigate } from '$app/navigation'
     import Sidebar from '$lib/Sidebar.svelte'
@@ -20,23 +20,25 @@
     })
 
     // ── Paste handler ─────────────────────────────────────────────────────────
-    function onPaste(e) {
-        const target = e.target
+    function onPaste(e: ClipboardEvent) {
+        const target = e.target as HTMLElement | null
+        if (!target) return
         if (!target.isContentEditable && target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') return
         e.preventDefault()
-        const text = e.clipboardData.getData('text/plain')
+        const text = e.clipboardData?.getData('text/plain') ?? ''
         if (target.isContentEditable) {
             document.execCommand('insertText', false, text)
         } else {
-            const start = target.selectionStart
-            const end   = target.selectionEnd
-            target.value = target.value.slice(0, start) + text + target.value.slice(end)
-            target.selectionStart = target.selectionEnd = start + text.length
+            const inp   = target as HTMLInputElement
+            const start = inp.selectionStart ?? 0
+            const end   = inp.selectionEnd   ?? 0
+            inp.value = inp.value.slice(0, start) + text + inp.value.slice(end)
+            inp.selectionStart = inp.selectionEnd = start + text.length
         }
     }
 
     // ── Polling helpers ───────────────────────────────────────────────────────
-    function fmtElapsed(startIso) {
+    function fmtElapsed(startIso: string | null | undefined): string {
         if (!startIso) return ''
         const min = Math.max(1, Math.floor((Date.now() - new Date(startIso).getTime()) / 60_000))
         const h = Math.floor(min / 60)
@@ -76,7 +78,7 @@
             if (!flagsRes.ok) return
             const flags = await flagsRes.json()
             const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 }
-            for (const f of Object.values(flags)) {
+            for (const f of Object.values(flags) as any[]) {
                 if (f.favorite)   counts.favorites++
                 if (f.inProgress) counts.inProgress++
                 if (f.backlog)    counts.backlog++
@@ -101,10 +103,10 @@
             const res = await fetch('/relay/api/steam/playtime/last-played')
             if (!res.ok) return
             const map = await res.json()
-            const sorted = Object.entries(map)
+            const sorted = Object.entries(map as Record<string, any>)
                 .filter(([, v]) => v.lastPlayedAt)
-                .sort((a, b) => new Date(b[1].lastPlayedAt) - new Date(a[1].lastPlayedAt))
-            if (sorted.length) store.historyAppid = sorted[0][0]
+                .sort((a, b) => new Date(b[1].lastPlayedAt).getTime() - new Date(a[1].lastPlayedAt).getTime())
+            if (sorted.length) store.historyAppid = Number(sorted[0][0])
         } catch { /* silent */ }
     }
 

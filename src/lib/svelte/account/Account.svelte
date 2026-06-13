@@ -1,19 +1,20 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { AccountProfile, AccountSteam, AccountStats, SteamGame, SessionDay, GameSession, AccountGameRecord } from '../../types.js'
     import { localDateStr } from '../../js/utils.js'
     import { loadGameFilter } from '../../js/views/game-filter.js'
 
     let loading        = $state(true)
-    let error          = $state(null)
-    let profile        = $state(null)
-    let steam          = $state(null)
-    let stats          = $state(null)
-    let recentlyPlayed = $state([])
-    let mostPlayed     = $state([])
-    let sessionsByDay  = $state([])
-    let liveTimes      = $state({})   // startedAt → formatted duration
+    let error          = $state<string | null>(null)
+    let profile        = $state<AccountProfile | null>(null)
+    let steam          = $state<AccountSteam | null>(null)
+    let stats          = $state<AccountStats | null>(null)
+    let recentlyPlayed = $state<SteamGame[]>([])
+    let mostPlayed     = $state<SteamGame[]>([])
+    let sessionsByDay  = $state<SessionDay[]>([])
+    let liveTimes      = $state<Record<string, string>>({})
 
-    function fmtHrs(minutes) {
+    function fmtHrs(minutes: number | null | undefined) {
         if (minutes == null) return ''
         const h = Math.floor(minutes / 60)
         const m = minutes % 60
@@ -22,7 +23,7 @@
         return `${h}h ${m}m`
     }
 
-    function fmtMins(minutes) {
+    function fmtMins(minutes: number | null | undefined) {
         if (!minutes) return '0m'
         const h = Math.floor(minutes / 60)
         const m = minutes % 60
@@ -30,16 +31,16 @@
         return `${h}h ${m}m`
     }
 
-    function fmtDate(iso) {
+    function fmtDate(iso: string) {
         return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     }
 
-    function fmtDayLabel(dayStr) {
+    function fmtDayLabel(dayStr: string) {
         return new Date(dayStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
     }
 
-    function tickLive(liveSessions) {
-        const times = {}
+    function tickLive(liveSessions: GameSession[]) {
+        const times: Record<string, string> = {}
         for (const s of liveSessions) {
             const mins = Math.max(1, Math.floor(
                 (Date.now() - new Date(s.startedAt).getTime()) / 60_000
@@ -49,54 +50,59 @@
         liveTimes = times
     }
 
-    onMount(async () => {
-        let data, shouldShow
-        try {
-            const [res, filter] = await Promise.all([
-                fetch('/relay/api/account'),
-                loadGameFilter(),
-            ])
-            if (!res.ok) throw new Error(`HTTP ${res.status}`)
-            data      = await res.json()
-            shouldShow = filter
-        } catch (err) {
-            error   = err.message
+    onMount(() => {
+        let liveTimer: ReturnType<typeof setInterval> | undefined
+
+        ;(async () => {
+            let data, shouldShow
+            try {
+                const [res, filter] = await Promise.all([
+                    fetch('/relay/api/account'),
+                    loadGameFilter(),
+                ])
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                data      = await res.json()
+                shouldShow = filter
+            } catch (err) {
+                error   = (err as Error).message
+                loading = false
+                return
+            }
+
+            profile        = data.profile
+            steam          = data.steam
+            stats          = data.stats
+            recentlyPlayed = ((data.recentlyPlayed ?? []) as SteamGame[]).filter(g => shouldShow(g.appid))
+            mostPlayed     = ((data.mostPlayed     ?? []) as SteamGame[]).filter(g => shouldShow(g.appid))
+
+            const sessions = data.sessions ?? {}
+            const entries  = Object.entries(sessions as Record<string, AccountGameRecord>).filter(([appid]) => shouldShow(Number(appid)))
+            const flat: Array<GameSession & { name: string }> = []
+            for (const [, game] of entries) {
+                for (const s of game.sessions ?? []) flat.push({ name: game.name, ...s })
+            }
+            flat.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+
+            const byDay = new Map()
+            for (const s of flat) {
+                const day = localDateStr(s.startedAt)
+                if (!byDay.has(day)) byDay.set(day, [])
+                byDay.get(day)!.push(s)
+            }
+            sessionsByDay = [...byDay.entries()].map(([day, ss]) => ({
+                day, label: fmtDayLabel(day), sessions: ss,
+            }))
+
             loading = false
-            return
-        }
 
-        profile        = data.profile
-        steam          = data.steam
-        stats          = data.stats
-        recentlyPlayed = (data.recentlyPlayed ?? []).filter(g => shouldShow(g.appid))
-        mostPlayed     = (data.mostPlayed     ?? []).filter(g => shouldShow(g.appid))
+            const liveSessions = flat.filter(s => s.endedAt === null)
+            if (liveSessions.length) {
+                tickLive(liveSessions)
+                liveTimer = setInterval(() => tickLive(liveSessions), 30_000)
+            }
+        })()
 
-        const sessions = data.sessions ?? {}
-        const entries  = Object.entries(sessions).filter(([appid]) => shouldShow(Number(appid)))
-        const flat     = []
-        for (const [, game] of entries) {
-            for (const s of game.sessions ?? []) flat.push({ name: game.name, ...s })
-        }
-        flat.sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
-
-        const byDay = new Map()
-        for (const s of flat) {
-            const day = localDateStr(s.startedAt)
-            if (!byDay.has(day)) byDay.set(day, [])
-            byDay.get(day).push(s)
-        }
-        sessionsByDay = [...byDay.entries()].map(([day, ss]) => ({
-            day, label: fmtDayLabel(day), sessions: ss,
-        }))
-
-        loading = false
-
-        const liveSessions = flat.filter(s => s.endedAt === null)
-        if (liveSessions.length) {
-            tickLive(liveSessions)
-            const timer = setInterval(() => tickLive(liveSessions), 30_000)
-            return () => clearInterval(timer)
-        }
+        return () => { if (liveTimer) clearInterval(liveTimer) }
     })
 </script>
 
@@ -104,7 +110,7 @@
     <p class="page-loading">Loading account…</p>
 {:else if error}
     <p class="page-error">Failed to load account: {error}</p>
-{:else}
+{:else if profile && steam && stats}
     <!-- Hero -->
     <div class="acct-hero">
         {#if profile.avatar}
@@ -152,7 +158,7 @@
                         <div class="lib-card-img-wrap">
                             <img class="lib-card-img" src="/relay/images/steam/games/{g.appid}/header.jpg"
                                  alt={g.name} loading="lazy"
-                                 onerror={(e) => { e.currentTarget.style.display = 'none' }}>
+                                 onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}>
                         </div>
                         <div class="lib-card-info">
                             <span class="lib-card-name">{g.name}</span>
@@ -176,10 +182,10 @@
                         <span class="acct-mp-rank">{i + 1}</span>
                         <img class="acct-mp-img" src="/relay/images/steam/games/{g.appid}/header.jpg"
                              alt="" loading="lazy"
-                             onerror={(e) => { e.currentTarget.style.visibility = 'hidden' }}>
+                             onerror={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}>
                         <span class="acct-mp-name">{g.name}</span>
                         <div class="acct-mp-bar-wrap">
-                            <div class="acct-mp-bar" style="width:{Math.round((g.playtimeMin / maxMin) * 100)}%"></div>
+                            <div class="acct-mp-bar" style="width:{Math.round(((g.playtimeMin ?? 0) / (maxMin ?? 1)) * 100)}%"></div>
                         </div>
                         <span class="acct-mp-hrs">{fmtHrs(g.playtimeMin)}</span>
                     </a>

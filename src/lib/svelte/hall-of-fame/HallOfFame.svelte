@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame } from '../../types.js'
 
     const TIERS = [
         { key: 'legend',    minH: 100, symbol: '◆', label: 'Legend',    sublabel: '100h+', cls: 'hof-tier--legend',    featured: true  },
@@ -8,19 +9,19 @@
         { key: 'finished',  minH: 0,   symbol: '○', label: 'Finished',  sublabel: '<20h',  cls: 'hof-tier--finished',  featured: false },
     ]
 
-    let games   = $state([])
+    let games   = $state<SteamGame[]>([])
     let loading = $state(true)
-    let error   = $state(null)
+    let error   = $state<string | null>(null)
 
     let totalMin = $derived(games.reduce((s, g) => s + (g.playtime ?? 0), 0))
     let subtitle = $derived(`${games.length} game${games.length !== 1 ? 's' : ''} conquered · ${fmtHours(totalMin)} total`)
     let grouped  = $derived.by(() => {
-        const map = new Map(TIERS.map(t => [t.key, []]))
-        for (const g of games) map.get(tierFor(g.playtime).key).push(g)
+        const map = new Map<string, SteamGame[]>(TIERS.map(t => [t.key, []]))
+        for (const g of games) map.get(tierFor(g.playtime ?? 0).key)!.push(g)
         return map
     })
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number | null | undefined) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -28,7 +29,7 @@
         return `${Math.round(h)}h`
     }
 
-    function tierFor(playtimeMin) {
+    function tierFor(playtimeMin: number) {
         const h = playtimeMin / 60
         return TIERS.find(t => h >= t.minH) ?? TIERS[TIERS.length - 1]
     }
@@ -45,8 +46,8 @@
             const flags    = await flagsRes.json()
             const gamesRaw = await gamesRes.json()
             const owned    = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
-            const ownedMap = new Map(owned.map(g => [g.appid, g]))
-            const ids      = Object.entries(flags).filter(([, f]) => f.completed).map(([id]) => Number(id))
+            const ownedMap = new Map<number, SteamGame>(owned.map((g: SteamGame) => [g.appid, g]))
+            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.completed).map(([id]) => Number(id))
 
             if (!ids.length) { loading = false; return }
 
@@ -62,7 +63,7 @@
 
             games = results.sort((a, b) => b.playtime - a.playtime)
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -104,7 +105,7 @@
                                 <div class="hof-card-img-wrap">
                                     <img class="hof-card-img"
                                          src="/relay/images/steam/games/{g.appid}/header.jpg"
-                                         alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                         alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                                     <div class="hof-card-shine"></div>
                                     <div class="hof-card-overlay"></div>
                                     <span class="hof-card-tier {tier.cls}" title="{tier.label}">{tier.symbol}</span>

@@ -1,10 +1,16 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { SteamGame } from '../../types.js'
     import { fmtHours, releaseStatus } from '../../js/views/game-render.js'
 
-    let { game, hltb, onRefresh } = $props()
+    interface Props {
+        game:      SteamGame | null
+        hltb:      SteamGame['hltb'] | null | undefined
+        onRefresh: () => Promise<void>
+    }
+    let { game, hltb, onRefresh }: Props = $props()
 
-    let timer = null
+    let timer: ReturnType<typeof setInterval> | null = null
     let sessionElapsedMins = $state(0)
     let renderTime = Date.now()
     let basePlaytimeMin = $derived(game?.playtimeMinutes ?? 0)
@@ -29,7 +35,7 @@
         if (timer) clearInterval(timer)
     })
 
-    let status     = $derived(releaseStatus(game))
+    let status     = $derived(game ? releaseStatus(game) : 'unknown')
     let playerHours = $derived((basePlaytimeMin + sessionElapsedMins) / 60)
 
     let milestones = $derived(
@@ -37,16 +43,16 @@
             { label: 'Main',          h: hltb.gameplayMain          },
             { label: 'Main + Extras', h: hltb.gameplayMainExtra     },
             { label: 'Completionist', h: hltb.gameplayCompletionist },
-        ].filter(m => m.h != null && m.h > 0) : []
+        ].filter((m): m is { label: string; h: number } => m.h != null && m.h > 0) : []
     )
 
     let maxScale = $derived(
         milestones.length
-            ? Math.max(...[...milestones.map(m => m.h), playerHours > 0 ? playerHours : null].filter(Boolean)) * 1.08
+            ? Math.max(...milestones.map(m => m.h), ...(playerHours > 0 ? [playerHours] : [])) * 1.08
             : 1
     )
 
-    const pct = (h) => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
+    const pct = (h: number) => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
 
     let refreshing = $state(false)
 

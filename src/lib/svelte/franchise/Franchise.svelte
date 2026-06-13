@@ -1,36 +1,37 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
     import { api } from '../../js/api.js'
     import { showError, confirmDialog } from '../../js/dialog.js'
     import { navigate } from '../../js/router.js'
+    import type { Franchise, FranchiseEntry, SteamGame, FlagsStore } from '../../types.js'
 
     let { franchiseId } = $props()
 
     // ── State ──────────────────────────────────────────────────────────────────
 
-    let franchise   = $state(null)
-    let flagsRes    = $state({})
-    let ownedMap    = $state(new Map())
-    let wishlistMap = $state(new Map())
-    let entries     = $state([])
+    let franchise   = $state<Franchise | null>(null)
+    let flagsRes    = $state<FlagsStore>({})
+    let ownedMap    = $state<Map<number, SteamGame>>(new Map())
+    let wishlistMap = $state<Map<number, SteamGame>>(new Map())
+    let entries     = $state<FranchiseEntry[]>([])
     let loading     = $state(true)
-    let error       = $state(null)
+    let error       = $state<string | null>(null)
 
-    let bgAEl       = $state(null)
-    let bgBEl       = $state(null)
-    let entryListEl = $state(null)
+    let bgAEl       = $state<HTMLDivElement | null>(null)
+    let bgBEl       = $state<HTMLDivElement | null>(null)
+    let entryListEl = $state<HTMLDivElement | null>(null)
 
     let searchQuery   = $state('')
     let searchFocused = $state(false)
 
-    let _dragSrc    = null
-    let _renameTimer = null
+    let _dragSrc: HTMLElement | null = null
+    let _renameTimer: ReturnType<typeof setTimeout> | null = null
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    const capsuleUrl = (appid) => `/relay/images/steam/games/${appid}/header.jpg`
+    const capsuleUrl = (appid: number) => `/relay/images/steam/games/${appid}/header.jpg`
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number | null | undefined) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -52,7 +53,7 @@
         unplayed:    { pct:   0, cls: 'empty'       },
     }
 
-    function deriveStatus(appid) {
+    function deriveStatus(appid: number) {
         const flags   = flagsRes[appid]
         const owned   = ownedMap.get(appid)
         const wl      = wishlistMap.get(appid)
@@ -120,29 +121,30 @@
     // ── Background cycler ──────────────────────────────────────────────────────
 
     $effect(() => {
-        if (!bgAEl || !bgBEl || entries.length === 0) return
+        const a = bgAEl, b = bgBEl
+        if (!a || !b || entries.length === 0) return
 
         const urls = []
         for (const e of entries) {
             const shots = ownedMap.get(e.appid)?.media?.screenshots ?? []
-            if (shots.length > 0) urls.push(...shots.map(p => `/relay${p}`))
+            if (shots.length > 0) urls.push(...shots.map((p: string) => `/relay${p}`))
             else                   urls.push(capsuleUrl(e.appid))
         }
 
         const shuffled = [...urls].sort(() => Math.random() - 0.5)
         let idx = 0, active = 'a'
 
-        bgAEl.style.backgroundImage = `url('${shuffled[0]}')`
-        bgAEl.style.opacity = '1'
-        bgBEl.style.opacity = '0'
+        a.style.backgroundImage = `url('${shuffled[0]}')`
+        a.style.opacity = '1'
+        b.style.opacity = '0'
 
         if (shuffled.length < 2) return
 
         const timer = setInterval(() => {
             idx = (idx + 1) % shuffled.length
             const next     = active === 'a' ? 'b' : 'a'
-            const nextEl   = next    === 'a' ? bgAEl : bgBEl
-            const activeEl = active  === 'a' ? bgAEl : bgBEl
+            const nextEl   = next    === 'a' ? a : b
+            const activeEl = active  === 'a' ? a : b
             nextEl.style.backgroundImage = `url('${shuffled[idx]}')`
             nextEl.style.opacity  = '1'
             activeEl.style.opacity = '0'
@@ -154,13 +156,13 @@
 
     // ── Entry drag action ──────────────────────────────────────────────────────
 
-    function entryDrag(node) {
+    function entryDrag(node: HTMLElement) {
         node.draggable = true
 
-        function onDragstart(e) {
+        function onDragstart(e: DragEvent) {
             _dragSrc = node
             node.classList.add('frc-entry--dragging')
-            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer!.effectAllowed = 'move'
         }
         function onDragend() {
             node.classList.remove('frc-entry--dragging')
@@ -170,7 +172,7 @@
             _dragSrc = null
             persistOrder()
         }
-        function onDragover(e) {
+        function onDragover(e: DragEvent) {
             e.preventDefault()
             if (!_dragSrc || _dragSrc === node) return
             entryListEl?.querySelectorAll('.frc-entry--drag-over-before, .frc-entry--drag-over-after').forEach(el =>
@@ -179,12 +181,12 @@
             const mid = node.getBoundingClientRect().top + node.getBoundingClientRect().height / 2
             node.classList.toggle('frc-entry--drag-over-before', e.clientY < mid)
             node.classList.toggle('frc-entry--drag-over-after',  e.clientY >= mid)
-            e.dataTransfer.dropEffect = 'move'
+            e.dataTransfer!.dropEffect = 'move'
         }
         function onDragleave() {
             node.classList.remove('frc-entry--drag-over-before', 'frc-entry--drag-over-after')
         }
-        function onDrop(e) {
+        function onDrop(e: DragEvent) {
             e.preventDefault()
             if (!_dragSrc || _dragSrc === node) return
             node.classList.remove('frc-entry--drag-over-before', 'frc-entry--drag-over-after')
@@ -212,9 +214,9 @@
 
     async function persistOrder() {
         if (!entryListEl) return
-        const appids = [...entryListEl.querySelectorAll('.frc-entry')].map(el => Number(el.dataset.appid))
+        const appids = [...entryListEl.querySelectorAll('.frc-entry')].map(el => Number((el as HTMLElement).dataset.appid))
         const map    = new Map(entries.map(e => [e.appid, e]))
-        entries = appids.map(id => map.get(id)).filter(Boolean)
+        entries = appids.map(id => map.get(id)).filter((e): e is FranchiseEntry => !!e)
         try {
             await api.franchises.reorderEntries(franchiseId, appids)
         } catch (err) {
@@ -224,38 +226,38 @@
 
     // ── Mutations ──────────────────────────────────────────────────────────────
 
-    function onTitleInput(e) {
-        clearTimeout(_renameTimer)
-        const v = e.target.value.trim()
+    function onTitleInput(e: Event) {
+        clearTimeout(_renameTimer ?? undefined)
+        const v = (e.target as HTMLInputElement).value.trim()
         if (!v) return
         _renameTimer = setTimeout(async () => {
             try { await api.franchises.update(franchiseId, { name: v }) } catch { /* silent */ }
         }, 600)
     }
 
-    async function addEntry(game) {
+    async function addEntry(game: { appid: number; name: string }) {
         try {
             const updated = await api.franchises.addEntry(franchiseId, { appid: game.appid, name: game.name })
             entries = updated.entries
         } catch (err) {
-            showError(`Failed to add game: ${err.message}`)
+            showError(`Failed to add game: ${(err as Error).message}`)
         }
     }
 
-    async function removeEntry(appid, name) {
+    async function removeEntry(appid: number, name: string) {
         const ok = await confirmDialog(`Remove "${name}"?`, 'Remove this game from the franchise.', 'Remove')
         if (!ok) return
         try {
             const updated = await api.franchises.removeEntry(franchiseId, appid)
             entries = updated.entries
         } catch (err) {
-            showError(`Failed to remove: ${err.message}`)
+            showError(`Failed to remove: ${(err as Error).message}`)
         }
     }
 
     async function deleteFranchise() {
         const ok = await confirmDialog(
-            `Delete "${franchise.name}"?`,
+            `Delete "${franchise?.name ?? ''}"?`,
             'This will permanently remove this franchise and all its entries.',
             'Delete'
         )
@@ -264,7 +266,7 @@
             await api.franchises.delete(franchiseId)
             navigate('franchises')
         } catch (err) {
-            showError(`Failed to delete franchise: ${err.message}`)
+            showError(`Failed to delete franchise: ${(err as Error).message}`)
         }
     }
 
@@ -285,13 +287,13 @@
             wishlistMap = new Map(games.filter(g => g.source === 'wishlist' || g.source === 'both').map(g => [g.appid, g]))
             entries     = [...fr.entries]
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
     })
 
-    onDestroy(() => { clearTimeout(_renameTimer) })
+    onDestroy(() => { clearTimeout(_renameTimer ?? undefined) })
 </script>
 
 {#if loading}
@@ -349,7 +351,7 @@
                                     src={capsuleUrl(e.appid)}
                                     alt=""
                                     loading="lazy"
-                                    onerror={(ev) => { ev.currentTarget.style.opacity = '0' }}
+                                    onerror={(ev) => { (ev.currentTarget as HTMLImageElement).style.opacity = '0' }}
                                 >
                             </div>
                         </a>
@@ -390,7 +392,7 @@
                             class="frc-search-item"
                             onmousedown={(e) => { e.preventDefault(); addEntry(r) }}
                         >
-                            <img src={capsuleUrl(r.appid)} alt="" onerror={(e) => { e.currentTarget.style.display = 'none' }}>
+                            <img src={capsuleUrl(r.appid)} alt="" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}>
                             <span class="frc-search-item-name">{r.name}</span>
                             <span class="frc-search-item-tag {r.tag === 'owned' ? 'frc-search-item-tag--owned' : ''}">{r.tag}</span>
                         </div>
@@ -426,7 +428,7 @@
                     src={capsuleUrl(entry.appid)}
                     alt=""
                     loading="lazy"
-                    onerror={(e) => { e.currentTarget.style.visibility = 'hidden' }}
+                    onerror={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
                 >
                 <div class="frc-entry-info">
                     <span class="frc-entry-name" onclick={() => navigate(`game/${entry.appid}`)}>{entry.name}</span>

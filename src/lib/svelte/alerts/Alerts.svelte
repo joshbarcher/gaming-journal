@@ -1,10 +1,11 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { AlertResult } from '../../types.js'
 
     let loading  = $state(true)
-    let error    = $state(null)
-    let onSale   = $state([])
-    let watching = $state([])
+    let error    = $state<string | null>(null)
+    let onSale   = $state<AlertResult[]>([])
+    let watching = $state<AlertResult[]>([])
 
     onMount(async () => {
         try {
@@ -14,7 +15,7 @@
             onSale   = data.onSale   ?? []
             watching = data.watching ?? []
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         }
         loading = false
     })
@@ -57,7 +58,7 @@
                             <img class="alerts-card-img"
                                  src="/relay/images/steam/games/{game.appid}/header.jpg"
                                  alt=""
-                                 onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <span class="alerts-card-cut">-{cut}%</span>
                         </div>
                         <div class="alerts-card-body">
@@ -90,7 +91,7 @@
                         <img class="alerts-watch-img"
                              src="/relay/images/steam/games/{game.appid}/header.jpg"
                              alt=""
-                             onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                             onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                         <span class="alerts-watch-name">{game.name}</span>
                         <span class="alerts-watch-price">
                             {price != null ? `$${price.toFixed(2)}` : '—'}

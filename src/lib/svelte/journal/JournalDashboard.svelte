@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { SteamGame, LocalReview, Page, AchievementItem, JournalSession, SessionAchievement, NowPlayingSession } from '../../types.js'
     import { api } from '../../js/api.js'
     import { navigate } from '../../js/router.js'
     import { globalSegments, pagePct, percentToColor, percentToStateLabel } from '../../js/views/progress-helpers.js'
@@ -14,15 +15,15 @@
 
     // ── Core state ─────────────────────────────────────────────────────────────
 
-    let game         = $state(null)
-    let review       = $state(null)
-    let pages        = $state([])
-    let rawAchList   = $state([])
-    let gameSessions = $state([])
-    let achDuring    = $state([])
-    let activeSession = $state(null)
+    let game         = $state<SteamGame | null>(null)
+    let review       = $state<LocalReview | null>(null)
+    let pages        = $state<Page[]>([])
+    let rawAchList   = $state<AchievementItem[]>([])
+    let gameSessions = $state<JournalSession[]>([])
+    let achDuring    = $state<SessionAchievement[]>([])
+    let activeSession = $state<NowPlayingSession | null>(null)
     let loading      = $state(true)
-    let error        = $state(null)
+    let error        = $state<string | null>(null)
     let hltbRefreshing = $state(false)
 
     // HLTB pin live tracking
@@ -40,22 +41,22 @@
     let progressPages   = $derived(pages.filter(p => TRACKER_TYPES.includes(p.type)))
     let journalPages    = $derived(pages.filter(p => p.type === 'page' || p.type === 'notes'))
     let allNotes        = $derived(review?.notes ?? [])
-    let recentNotes     = $derived([...allNotes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 2))
-    let sortedJournalPages = $derived([...journalPages].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)))
+    let recentNotes     = $derived([...allNotes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 2))
+    let sortedJournalPages = $derived([...journalPages].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
 
     let closedSessions  = $derived(
         gameSessions.filter(s => s.endedAt && (s.durationMin ?? 0) >= 10)
-                    .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+                    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
     )
 
     let achTotal    = $derived(displayAchList.length)
     let achUnlocked = $derived(displayAchList.filter(a => a.achieved).length)
     let achPct      = $derived(achTotal > 0 ? Math.round(achUnlocked / achTotal * 100) : 0)
-    let recentAchs  = $derived([...displayAchList].filter(a => a.achieved).sort((a, b) => b.unlocktime - a.unlocktime).slice(0, 4))
+    let recentAchs  = $derived([...displayAchList].filter(a => a.achieved).sort((a, b) => (b.unlocktime ?? 0) - (a.unlocktime ?? 0)).slice(0, 4))
     let recentAchStripHtml = $derived(renderRecentAchStrip(recentAchs))
 
     let sessionAchMap = $derived.by(() => {
-        const m = {}
+        const m: Record<string, AchievementItem> = {}
         for (const a of displayAchList) m[a.apiname] = a
         return m
     })
@@ -69,17 +70,16 @@
             { label: 'Main',          h: hltb?.gameplayMain          },
             { label: 'Main + Extras', h: hltb?.gameplayMainExtra     },
             { label: 'Completionist', h: hltb?.gameplayCompletionist },
-        ].filter(m => m.h != null && m.h > 0)
+        ].filter((m): m is { label: string; h: number } => m.h != null && m.h > 0)
     })
 
     let hltbMaxScale = $derived.by(() => {
         if (!hltbMilestones.length) return 1
-        const allVals = [...hltbMilestones.map(m => m.h), playerHours > 0 ? playerHours : null].filter(Boolean)
-        return Math.max(...allVals) * 1.08
+        return Math.max(...hltbMilestones.map(m => m.h as number), ...(playerHours > 0 ? [playerHours] : [])) * 1.08
     })
 
     // Sqrt scale — prevents wide ranges from clustering left
-    function hltbPct(h) { return (Math.sqrt(h) / Math.sqrt(hltbMaxScale)) * 100 }
+    function hltbPct(h: number) { return (Math.sqrt(h) / Math.sqrt(hltbMaxScale)) * 100 }
 
     let hltbPinPct  = $derived(playerHours > 0 ? hltbPct(playerHours) : null)
     let hltbFillPct = $derived(hltbPinPct ?? (hltbMilestones.length ? hltbPct(hltbMilestones[0].h) : 0))
@@ -99,16 +99,16 @@
             fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null),
         ])
 
-        const g    = gameRes.value    ?? null
-        const np   = nowPlayingRes.value ?? null
+        const g    = (gameRes as PromiseFulfilledResult<any>).value    ?? null
+        const np   = (nowPlayingRes as PromiseFulfilledResult<any>).value ?? null
         const sess = np?.playing?.appid === Number(appid) ? np.playing : null
 
         game         = g
-        review       = reviewRes.value ?? null
-        pages        = pagesRes.value  ?? []
-        rawAchList   = achRes.value?.achievements ?? []
-        gameSessions = accountRes.value?.sessions?.[appid]?.sessions
-                    ?? accountRes.value?.sessions?.[String(appid)]?.sessions
+        review       = (reviewRes as PromiseFulfilledResult<any>).value ?? null
+        pages        = (pagesRes as PromiseFulfilledResult<any>).value  ?? []
+        rawAchList   = (achRes as PromiseFulfilledResult<any>).value?.achievements ?? []
+        gameSessions = (accountRes as PromiseFulfilledResult<any>).value?.sessions?.[appid]?.sessions
+                    ?? (accountRes as PromiseFulfilledResult<any>).value?.sessions?.[String(appid)]?.sessions
                     ?? []
         activeSession = sess
         achDuring    = sess?.achievementsDuring ?? []
@@ -121,17 +121,17 @@
 
     // ── Timers + polling ───────────────────────────────────────────────────────
 
-    let sessionTimer = null
-    let fastPollTimer = null
-    let slowPollTimer = null
-    let schemaTimer = null
+    let sessionTimer: ReturnType<typeof setInterval> | null = null
+    let fastPollTimer: ReturnType<typeof setInterval> | null = null
+    let slowPollTimer: ReturnType<typeof setInterval> | null = null
+    let schemaTimer: ReturnType<typeof setInterval> | null = null
 
     function startSessionTimer() {
         if (sessionTimer) clearInterval(sessionTimer)
         const update = () => {
             const startedAt = activeSession?.sessionStartedAt
             if (!startedAt) return
-            const totalMins = Math.floor((Date.now() - new Date(startedAt)) / 60_000)
+            const totalMins = Math.floor((Date.now() - new Date(startedAt).getTime()) / 60_000)
             const h = Math.floor(totalMins / 60)
             const m = totalMins % 60
             sessionElapsedText = h > 0 ? `${h}h ${m}m` : `${m}m`
@@ -151,12 +151,12 @@
                 const data = await fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null)
                 const achs = data?.achievements
                 if (achs?.length) {
-                    clearInterval(schemaTimer); schemaTimer = null
+                    clearInterval(schemaTimer ?? undefined); schemaTimer = null
                     rawAchList = achs
                     return
                 }
             } catch { /* retry */ }
-            if (tries >= MAX_TRIES) { clearInterval(schemaTimer); schemaTimer = null }
+            if (tries >= MAX_TRIES) { clearInterval(schemaTimer ?? undefined); schemaTimer = null }
         }, 15_000)
     }
 
@@ -170,7 +170,7 @@
 
                     if (!sess) {
                         // Session ended — reload all data so card flips to "Last Session"
-                        clearInterval(sessionTimer); sessionTimer = null
+                        clearInterval(sessionTimer ?? undefined); sessionTimer = null
                         await loadData()
                         stopPollers()
                         startPollers()
@@ -192,8 +192,8 @@
                     fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null),
                     fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
                 ])
-                const newRaw  = achRes.value?.achievements
-                const newGame = gameRes.value
+                const newRaw: AchievementItem[] | undefined = (achRes as PromiseFulfilledResult<any>).value?.achievements
+                const newGame = (gameRes as PromiseFulfilledResult<any>).value
 
                 if (newRaw) {
                     if (newRaw.length !== rawAchList.length) {
@@ -223,7 +223,7 @@
         const { openReviewModal } = await import('../../js/review-modal.js')
         const res = await fetch(`/api/local-reviews/${appid}`)
         const existing = res.ok ? await res.json() : null
-        await openReviewModal(appid, game.name, existing)
+        await openReviewModal(appid, game?.name ?? '', existing)
         review = await api.localReviews.get(appid).catch(() => null)
     }
 
@@ -238,9 +238,9 @@
 
     // ── Heatmap tooltip ────────────────────────────────────────────────────────
 
-    let tooltipEl = null
+    let tooltipEl: HTMLElement | null = null
 
-    function showTip(text, rect) {
+    function showTip(text: string, rect: DOMRect) {
         if (!tooltipEl) {
             tooltipEl = document.createElement('div')
             tooltipEl.className = 'gj-tooltip'
@@ -249,24 +249,25 @@
         tooltipEl.textContent = text
         tooltipEl.style.display = 'block'
         requestAnimationFrame(() => {
-            if (!tooltipEl) return
-            const tw = tooltipEl.offsetWidth, th = tooltipEl.offsetHeight, gap = 8
+            const el = tooltipEl
+            if (!el) return
+            const tw = el.offsetWidth, th = el.offsetHeight, gap = 8
             let x = rect.left + rect.width / 2 - tw / 2
             let y = rect.top - th - gap
             if (y < gap) y = rect.bottom + gap
-            tooltipEl.style.left = Math.max(gap, Math.min(x, window.innerWidth  - tw - gap)) + 'px'
-            tooltipEl.style.top  = Math.max(gap, Math.min(y, window.innerHeight - th - gap)) + 'px'
+            el.style.left = Math.max(gap, Math.min(x, window.innerWidth  - tw - gap)) + 'px'
+            el.style.top  = Math.max(gap, Math.min(y, window.innerHeight - th - gap)) + 'px'
         })
     }
 
     function hideTip() { if (tooltipEl) tooltipEl.style.display = 'none' }
 
-    let _lastHeatTip = null
-    function handleHeatOver(e) {
-        const cell = e.target.closest('.gj-heat-cell[data-tooltip]')
+    let _lastHeatTip: HTMLElement | null = null
+    function handleHeatOver(e: MouseEvent) {
+        const cell = (e.target as Element)?.closest<HTMLElement>('.gj-heat-cell[data-tooltip]') ?? null
         if (cell === _lastHeatTip) return
         _lastHeatTip = cell
-        if (cell) showTip(cell.dataset.tooltip, cell.getBoundingClientRect())
+        if (cell) showTip(cell.dataset.tooltip ?? '', cell.getBoundingClientRect())
         else hideTip()
     }
 
@@ -311,7 +312,7 @@
         <div class="gj-card gj-card--clickable" onclick={openReview} role="button" tabindex="0">
             <div class="gj-card-header">
                 <span class="gj-card-title">My Rating</span>
-                {#if review?.stars > 0}
+                {#if review && review.stars > 0}
                     <div class="gj-rating-header-stars">
                         <div class="gj-rating-stars-row">{@html starsHtml(review.stars)}</div>
                         <span class="gj-rating-label">{STAR_LABELS[review.stars] ?? ''}</span>
@@ -320,7 +321,7 @@
                     <span class="gj-no-data">No rating</span>
                 {/if}
             </div>
-            {#if ratedKeys.length > 0}
+            {#if review && ratedKeys.length > 0}
                 <div class="gj-rating-bars">
                     {#each ratedKeys as k}
                         <div class="gj-rating-bar-labeled">

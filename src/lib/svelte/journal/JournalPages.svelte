@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { Page } from '../../types.js'
     import { api } from '../../js/api.js'
     import { navigate } from '../../js/router.js'
     import { confirmDialog } from '../../js/dialog.js'
@@ -7,12 +8,12 @@
 
     let { appid } = $props()
 
-    let pages   = $state([])
+    let pages   = $state<Page[]>([])
     let loading = $state(true)
 
     async function load() {
         const res = await api.pages.listByGame(appid).catch(() => [])
-        pages = (res ?? []).filter(p => p.type === 'page' || p.type === 'notes')
+        pages = (res ?? []).filter((p: Page) => p.type === 'page' || p.type === 'notes')
     }
 
     async function newPage() {
@@ -20,7 +21,7 @@
         if (page) navigate(page.id)
     }
 
-    async function deletePage(p) {
+    async function deletePage(p: Page) {
         const ok = await confirmDialog(
             `Delete "${p.title}"?`,
             'This will permanently delete the page and all its content.',

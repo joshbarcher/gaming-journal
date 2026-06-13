@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { groupPagesByType } from '../../js/utils.js'
 
     let { pages } = $props()

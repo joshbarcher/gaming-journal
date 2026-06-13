@@ -1,18 +1,19 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { api } from '../../js/api.js'
     import { showError } from '../../js/dialog.js'
     import { navigate } from '../../js/router.js'
+    import type { Franchise, SteamGame } from '../../types.js'
 
-    let franchises       = $state([])
-    let flagsRes         = $state({})
-    let ownedMap         = $state(new Map())
+    let franchises       = $state<Franchise[]>([])
+    let flagsRes         = $state<Record<string, any>>({})
+    let ownedMap         = $state<Map<number, SteamGame>>(new Map())
     let loading          = $state(true)
-    let error            = $state(null)
+    let error            = $state<string | null>(null)
     let showCreateDialog = $state(false)
     let createName       = $state('')
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -20,7 +21,7 @@
         return `${Math.round(h)}h`
     }
 
-    function franchiseStats(franchise) {
+    function franchiseStats(franchise: Franchise) {
         const entries = franchise.entries ?? []
         let completed = 0, totalHours = 0
         for (const e of entries) {
@@ -34,14 +35,14 @@
     }
 
     // Spread N indices evenly across array of given length
-    function spreadIndices(len, n) {
+    function spreadIndices(len: number, n: number) {
         if (len === 0) return []
         if (len <= n)  return Array.from({ length: len }, (_, i) => i)
         return Array.from({ length: n }, (_, i) => Math.round(i * (len - 1) / (n - 1)))
     }
 
     // Svelte action: progressively load mosaic images with fallback
-    function mosaicCell(cellEl, candidates) {
+    function mosaicCell(cellEl: HTMLElement, candidates: number[]) {
         let idx = 0
         function tryNext() {
             while (idx < candidates.length) {
@@ -60,7 +61,7 @@
         return { destroy() {} }
     }
 
-    function mosaicSlots(entries) {
+    function mosaicSlots(entries: { appid: number }[]) {
         const SLOTS      = 4
         const spreadIdx  = spreadIndices(entries.length, SLOTS)
         const used       = new Set(spreadIdx.map(i => entries[i]?.appid).filter(Boolean))
@@ -71,7 +72,7 @@
         })
     }
 
-    function autoFocus(el) {
+    function autoFocus(el: HTMLElement) {
         requestAnimationFrame(() => el.focus())
         return { destroy() {} }
     }
@@ -86,7 +87,7 @@
             createName       = ''
             navigate(`franchise/${f.id}`)
         } catch (err) {
-            showError(`Failed to create franchise: ${err.message}`)
+            showError(`Failed to create franchise: ${(err as Error).message}`)
         }
     }
 
@@ -102,9 +103,9 @@
                 : []
             franchises = fList
             flagsRes   = flagsJson
-            ownedMap   = new Map(games.map(g => [g.appid, g]))
+            ownedMap   = new Map(games.map((g: SteamGame) => [g.appid, g]))
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         }
         loading = false
     })

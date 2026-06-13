@@ -1,29 +1,31 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy, tick } from 'svelte'
     import {
         localDateStr, localMidnight, splitAtMidnight,
         buildDayMap, buildReleaseMap, buildMonth, MONTHS,
     } from '../../js/views/calendar-render.js'
+    import type { DayEntry, ReleaseEntry } from '../../js/views/calendar-render.js'
+    import type { NowPlayingSession } from '../../types.js'
 
     let { mode = 'play' } = $props()
 
     // ── State ──────────────────────────────────────────────────────────────────
 
     let year       = $state(new Date().getFullYear())
-    let dayMap     = $state(new Map())
-    let releaseMap = $state(new Map())
+    let dayMap     = $state<Map<string, DayEntry[]>>(new Map())
+    let releaseMap = $state<Map<string, ReleaseEntry[]>>(new Map())
     let loading    = $state(true)
-    let error      = $state(null)
-    let calEl      = $state(null)
+    let error      = $state<string | null>(null)
+    let calEl      = $state<HTMLElement | null>(null)
 
     // Live session state
-    let liveSession        = $state(null)
+    let liveSession        = $state<NowPlayingSession | null>(null)
     let liveBase           = $state(0)
-    let liveEffectiveStart = $state(null)
-    let liveDate           = $state(null)
-    let liveTick           = $state(0)   // incremented each poll to force re-derive
+    let liveEffectiveStart = $state<string | null>(null)
+    let liveDate           = $state<string | null>(null)
+    let liveTick           = $state(0)
 
-    let _liveTimer = null
+    let _liveTimer: ReturnType<typeof setInterval> | null = null
 
     // ── Derived calendar HTML ──────────────────────────────────────────────────
 
@@ -40,17 +42,18 @@
     })
 
     function buildEffectiveDayMap() {
-        if (!liveSession || mode !== 'play') return dayMap
+        const session = liveSession
+        if (!session || mode !== 'play') return dayMap
 
         const todayStr   = localDateStr(new Date())
         const startMs    = liveEffectiveStart
             ? new Date(liveEffectiveStart).getTime()
-            : (liveSession.sessionStartedAt ? new Date(liveSession.sessionStartedAt).getTime() : Date.now())
+            : (session.sessionStartedAt ? new Date(session.sessionStartedAt).getTime() : Date.now())
         const liveMin    = Math.max(1, Math.floor((Date.now() - startMs) / 60_000))
         const totalMin   = liveBase + liveMin
 
         const baseEntries = dayMap.get(todayStr) ?? []
-        const existingIdx = baseEntries.findIndex(e => e.appid === liveSession.appid)
+        const existingIdx = baseEntries.findIndex(e => e.appid === session.appid)
         let todayEntries
 
         if (existingIdx >= 0) {
@@ -59,8 +62,8 @@
             )
         } else {
             todayEntries = [...baseEntries, {
-                appid:       liveSession.appid,
-                name:        liveSession.name,
+                appid:       session.appid,
+                name:        session.name ?? '',
                 durationMin: totalMin,
                 isLive:      true,
             }]
@@ -98,7 +101,7 @@
         liveDate           = null
     }
 
-    function commitToDay(dateStr, appid, name, durationMin) {
+    function commitToDay(dateStr: string, appid: number, name: string, durationMin: number) {
         const entries = [...(dayMap.get(dateStr) ?? [])]
         const idx     = entries.findIndex(e => e.appid === appid)
         if (idx >= 0) entries[idx] = { ...entries[idx], durationMin }
@@ -109,14 +112,15 @@
     }
 
     function freezeLiveSession() {
-        if (!liveSession) return
+        const session = liveSession
+        if (!session) return
         const todayStr = localDateStr(new Date())
         const startMs  = liveEffectiveStart
             ? new Date(liveEffectiveStart).getTime()
-            : (liveSession.sessionStartedAt ? new Date(liveSession.sessionStartedAt).getTime() : Date.now())
+            : (session.sessionStartedAt ? new Date(session.sessionStartedAt).getTime() : Date.now())
         const liveMin    = Math.max(1, Math.floor((Date.now() - startMs) / 60_000))
         const frozenMin  = liveBase + liveMin
-        commitToDay(todayStr, liveSession.appid, liveSession.name, frozenMin)
+        commitToDay(todayStr, session.appid, session.name ?? '', frozenMin)
     }
 
     async function pollLive() {
@@ -133,13 +137,14 @@
             const sessionChanged = (currAppid !== prevAppid) || (currStarted !== prevStarted)
 
             // Midnight rollover
-            if (!sessionChanged && liveSession && liveDate && liveDate !== todayStr) {
+            const activeSession = liveSession
+            if (!sessionChanged && activeSession && liveDate && liveDate !== todayStr) {
                 const midnight     = localMidnight(todayStr)
-                const prevEffStart = liveEffectiveStart ?? liveSession.sessionStartedAt
+                const prevEffStart = liveEffectiveStart ?? activeSession.sessionStartedAt ?? new Date().toISOString()
                 const prevDayMin   = Math.max(1, Math.floor((midnight - new Date(prevEffStart).getTime()) / 60_000))
-                commitToDay(liveDate, liveSession.appid, liveSession.name, prevDayMin)
+                commitToDay(liveDate, activeSession.appid, activeSession.name ?? '', prevDayMin)
                 liveEffectiveStart = new Date(midnight).toISOString()
-                liveBase = (dayMap.get(todayStr) ?? []).find(e => e.appid === liveSession.appid)?.durationMin ?? 0
+                liveBase = (dayMap.get(todayStr) ?? []).find(e => e.appid === activeSession.appid)?.durationMin ?? 0
             }
 
             if (sessionChanged) {
@@ -191,7 +196,7 @@
                 releaseMap = buildReleaseMap(data.releases ?? [])
             }
         } catch (err) {
-            error = `Failed to load ${mode === 'play' ? 'calendar' : 'releases'}: ${err.message}`
+            error = `Failed to load ${mode === 'play' ? 'calendar' : 'releases'}: ${(err as Error).message}`
         } finally {
             loading = false
         }

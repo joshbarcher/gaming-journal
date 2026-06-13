@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+    import type { CounterPage } from '../../types.js'
     import { api } from '../../js/api.js'
     import { confirmDialog } from '../../js/dialog.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
@@ -7,9 +8,9 @@
 
     let { page: pageProp } = $props()
 
-    let pd        = $state(JSON.parse(JSON.stringify(pageProp)))
-    let trackEl   = null
-    let saveTimer = null
+    let pd        = $state<CounterPage>(JSON.parse(JSON.stringify(pageProp)))
+    let trackEl: HTMLElement | null   = null
+    let saveTimer: ReturnType<typeof setTimeout> | null = null
 
     let pct   = $derived(pd.target > 0 ? Math.min(100, Math.round((pd.current ?? 0) / pd.target * 100)) : 0)
     let color = $derived(percentToColor(pct))
@@ -21,8 +22,8 @@
         if (pd.appid) navigate(`journal/${pd.appid}`)
     }
 
-    async function onTitleBlur(e) {
-        const t = e.currentTarget.textContent.trim()
+    async function onTitleBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const t = (e.currentTarget.textContent ?? '').trim()
         if (!t) { e.currentTarget.textContent = pd.title; return }
         if (t === pd.title) return
         pd.title = t
@@ -30,42 +31,42 @@
         if (updated) refreshSidebarItem(updated)
     }
 
-    async function onDescBlur(e) {
-        const d = e.currentTarget.textContent.trim()
+    async function onDescBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const d = (e.currentTarget.textContent ?? '').trim()
         if (d === (pd.description ?? '')) return
         pd.description = d
         await api.pages.update(pd.id, { description: d })
     }
 
-    async function onTargetBlur(e) {
-        const val = parseInt(e.currentTarget.textContent.trim(), 10)
+    async function onTargetBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const val = parseInt((e.currentTarget.textContent ?? '').trim(), 10)
         if (!isNaN(val) && val > 0) {
             pd.target = val
             await save()
         } else {
-            e.currentTarget.textContent = pd.target ?? '?'
+            e.currentTarget.textContent = String(pd.target ?? '?')
         }
     }
 
-    function adjust(delta) {
+    function adjust(delta: number) {
         pd.current = Math.max(0, (pd.current ?? 0) + delta)
-        clearTimeout(saveTimer)
+        clearTimeout(saveTimer ?? undefined)
         saveTimer = setTimeout(save, 400)
     }
 
-    function valueFromX(clientX) {
+    function valueFromX(clientX: number) {
         if (!trackEl) return 0
         const rect = trackEl.getBoundingClientRect()
         const p    = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
         return Math.round(p * (pd.target ?? 0))
     }
 
-    function onTrackMousedown(e) {
-        if (e.target.closest('[data-role="target"]')) return
+    function onTrackMousedown(e: MouseEvent) {
+        if ((e.target as Element)?.closest('[data-role="target"]')) return
         e.preventDefault()
         pd.current = Math.max(0, Math.min(valueFromX(e.clientX), pd.target ?? 0))
 
-        const onMove = ev => { pd.current = Math.max(0, Math.min(valueFromX(ev.clientX), pd.target ?? 0)) }
+        const onMove = (ev: MouseEvent) => { pd.current = Math.max(0, Math.min(valueFromX(ev.clientX), pd.target ?? 0)) }
         const onUp   = () => {
             window.removeEventListener('mousemove', onMove)
             window.removeEventListener('mouseup', onUp)
@@ -75,12 +76,12 @@
         window.addEventListener('mouseup', onUp)
     }
 
-    function onTrackTouchstart(e) {
-        if (e.target.closest('[data-role="target"]')) return
+    function onTrackTouchstart(e: TouchEvent) {
+        if ((e.target as Element)?.closest('[data-role="target"]')) return
         e.preventDefault()
         pd.current = Math.max(0, Math.min(valueFromX(e.touches[0].clientX), pd.target ?? 0))
 
-        const onMove = ev => { ev.preventDefault(); pd.current = Math.max(0, Math.min(valueFromX(ev.touches[0].clientX), pd.target ?? 0)) }
+        const onMove = (ev: TouchEvent) => { ev.preventDefault(); pd.current = Math.max(0, Math.min(valueFromX(ev.touches[0].clientX), pd.target ?? 0)) }
         const onEnd  = () => {
             trackEl?.removeEventListener('touchmove', onMove)
             trackEl?.removeEventListener('touchend', onEnd)

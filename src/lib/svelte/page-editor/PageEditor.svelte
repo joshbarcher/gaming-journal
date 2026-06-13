@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { api } from '../../js/api.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
@@ -20,18 +20,20 @@
 
     const FONT_FAMILIES = ['Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana']
 
+    import type { ContentPage } from '../../types.js'
+
     let { page: pageProp } = $props()
 
-    let pd        = $state(JSON.parse(JSON.stringify(pageProp)))
-    let editorEl  = null
-    let saveTimer = null
+    let pd        = $state<ContentPage>(JSON.parse(JSON.stringify(pageProp)))
+    let editorEl: HTMLElement | null  = null
+    let saveTimer: ReturnType<typeof setTimeout> | null = null
 
     let boldActive      = $state(false)
     let italicActive    = $state(false)
     let underlineActive = $state(false)
     let listActive      = $state(false)
 
-    function isActive(cmd) {
+    function isActive(cmd: string) {
         if (cmd === 'bold')      return boldActive
         if (cmd === 'italic')    return italicActive
         if (cmd === 'underline') return underlineActive
@@ -45,7 +47,7 @@
         listActive      = document.queryCommandState('insertUnorderedList')
     }
 
-    function execCmd(cmd) {
+    function execCmd(cmd: string) {
         document.execCommand(cmd, false)
         updateToolbarState()
     }
@@ -57,11 +59,11 @@
     }
 
     function onEditorInput() {
-        clearTimeout(saveTimer)
+        clearTimeout(saveTimer ?? undefined)
         saveTimer = setTimeout(save, 600)
     }
 
-    function onEditorKeydown(e) {
+    function onEditorKeydown(e: KeyboardEvent) {
         if (e.key === ' ') {
             const sel = window.getSelection()
             if (sel?.rangeCount) {
@@ -69,7 +71,7 @@
                 if (range.collapsed) {
                     const node = range.startContainer
                     if (node.nodeType === 3) {
-                        const textBefore = node.textContent.slice(0, range.startOffset)
+                        const textBefore = (node.textContent ?? '').slice(0, range.startOffset)
                         if (textBefore === '-' || textBefore === '*') {
                             e.preventDefault()
                             const r2 = document.createRange()
@@ -95,10 +97,10 @@
         }
     }
 
-    function containingList() {
+    function containingList(): Element | null {
         const sel = window.getSelection()
         if (!sel?.rangeCount) return null
-        let node = sel.getRangeAt(0).startContainer
+        let node: any = sel.getRangeAt(0).startContainer
         while (node && node !== editorEl) {
             if (node.tagName === 'UL' || node.tagName === 'OL') return node
             node = node.parentElement
@@ -106,25 +108,25 @@
         return null
     }
 
-    function handleListIndent(list, outdent) {
+    function handleListIndent(list: Element, outdent: boolean) {
         const sel = window.getSelection()
-        if (!sel.rangeCount) return
+        if (!sel || !sel.rangeCount) return
 
-        const range  = sel.getRangeAt(0)
+        const range  = sel!.getRangeAt(0)
         const allLis = Array.from(list.querySelectorAll('li'))
 
-        const liOf = node => {
+        const liOf = (node: any): Element | null => {
             const el = node.nodeType === 3 ? node.parentElement : node
-            return el.closest('li')
+            return el?.closest('li') ?? null
         }
 
-        const startIdx = allLis.indexOf(liOf(range.startContainer))
+        const startIdx = allLis.indexOf(liOf(range.startContainer) as HTMLLIElement)
         if (startIdx === -1) return
 
         let endIdx = startIdx
         if (!range.collapsed) {
             const endLi  = liOf(range.endContainer)
-            const endPos = allLis.indexOf(endLi)
+            const endPos = allLis.indexOf(endLi as HTMLLIElement)
             if (endPos > startIdx) endIdx = endPos
         }
 
@@ -144,12 +146,12 @@
             sel.addRange(r)
         }
 
-        clearTimeout(saveTimer)
+        clearTimeout(saveTimer ?? undefined)
         saveTimer = setTimeout(save, 600)
     }
 
-    async function onTitleBlur(e) {
-        const t = e.currentTarget.textContent.trim()
+    async function onTitleBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const t = (e.currentTarget.textContent ?? '').trim()
         if (!t || t === pd.title) { e.currentTarget.textContent = pd.title; return }
         pd.title = t
         const updated = await api.pages.update(pd.id, { title: t })
@@ -196,7 +198,7 @@
     <span class="rt-toolbar-label">Size</span>
     <select class="rt-select" title="Font size"
             onmousedown={(e) => e.stopPropagation()}
-            onchange={(e) => { document.execCommand('fontSize', false, e.target.value); editorEl?.focus() }}>
+            onchange={(e) => { document.execCommand('fontSize', false, (e.target as HTMLSelectElement).value); editorEl?.focus() }}>
         {#each FONT_SIZES as {label, value}}
             <option {value}>{label}</option>
         {/each}
@@ -205,7 +207,7 @@
     <span class="rt-toolbar-label">Font</span>
     <select class="rt-select rt-select--font" title="Font family"
             onmousedown={(e) => e.stopPropagation()}
-            onchange={(e) => { document.execCommand('fontName', false, e.target.value); editorEl?.focus() }}>
+            onchange={(e) => { document.execCommand('fontName', false, (e.target as HTMLSelectElement).value); editorEl?.focus() }}>
         {#each FONT_FAMILIES as font}
             <option value={font} style="font-family:{font}">{font}</option>
         {/each}

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import JournalDashboard from './JournalDashboard.svelte'
     import JournalAchievements from './JournalAchievements.svelte'
     import JournalNotes from './JournalNotes.svelte'

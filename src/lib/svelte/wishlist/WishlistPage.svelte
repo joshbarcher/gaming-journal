@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount }     from 'svelte'
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import { setWithTTL, getWithTTL } from '../../js/storage.js'
@@ -13,16 +13,17 @@
 
     let { scrollContainer = null } = $props()
 
-    let all             = $state([])
+    import type { SteamGame } from '../../types.js'
+    let all             = $state<SteamGame[]>([])
     let loading         = $state(true)
-    let error           = $state(null)
+    let error           = $state<string | null>(null)
     let query           = $state('')
     let sort            = $state('priority')
     let dir             = $state('asc')
     let page            = $state(1)
-    let letter          = $state(null)
+    let letter          = $state<string | null>(null)
     let hideUnavailable = $state(false)
-    let debounce        = null
+    let debounce: ReturnType<typeof setTimeout> | null = null
 
     let available = $derived.by(() => {
         const q   = query.toLowerCase()
@@ -42,7 +43,7 @@
         const src = hideUnavailable ? all.filter(g => !g.store?.unavailable) : all
         let res   = q ? src.filter(g => g.name.toLowerCase().includes(q)) : [...src]
         if      (letter === '#') res = res.filter(g => !/^[A-Za-z]/.test(g.name))
-        else if (letter)         res = res.filter(g => g.name.toUpperCase().startsWith(letter))
+        else if (letter)         res = res.filter(g => g.name.toUpperCase().startsWith(letter!))
 
         const flip = dir === 'asc' ? 1 : -1
         res.sort((a, b) => {
@@ -84,17 +85,17 @@
 
     // ── Event handlers ────────────────────────────────────────────────────────
 
-    function onSearchInput(e) {
-        clearTimeout(debounce)
+    function onSearchInput(e: Event) {
+        clearTimeout(debounce ?? undefined)
         debounce = setTimeout(() => {
-            query = e.target.value
+            query = (e.target as HTMLInputElement).value
             page  = 1
             localStorage.removeItem(STORAGE_SCROLL)
         }, 200)
     }
 
-    function onSortChange(e) {
-        sort = e.target.value
+    function onSortChange(e: Event) {
+        sort = (e.target as HTMLSelectElement).value
         dir  = (sort === 'discount' || sort === 'release') ? 'desc' : 'asc'
         page = 1
         localStorage.setItem(STORAGE_SORT, sort)
@@ -109,7 +110,7 @@
         localStorage.removeItem(STORAGE_SCROLL)
     }
 
-    function onLetterClick(ch) {
+    function onLetterClick(ch: string) {
         letter = ch === 'A-Z' ? null : ch
         page   = 1
         setWithTTL(STORAGE_LETTER, letter ?? '')
@@ -135,20 +136,20 @@
 
     $effect(() => {
         if (!scrollContainer) return
-        let timer = null
+        let timer: ReturnType<typeof setTimeout> | null = null
         function onScroll() {
-            clearTimeout(timer)
+            clearTimeout(timer ?? undefined)
             timer = setTimeout(() => { setWithTTL(STORAGE_SCROLL, String(Math.round(scrollContainer.scrollTop))) }, 150)
         }
         scrollContainer.addEventListener('scroll', onScroll, { passive: true })
-        return () => { clearTimeout(timer); scrollContainer.removeEventListener('scroll', onScroll) }
+        return () => { clearTimeout(timer ?? undefined); scrollContainer.removeEventListener('scroll', onScroll) }
     })
 
     // ── Load ──────────────────────────────────────────────────────────────────
 
     onMount(async () => {
-        const savedScroll = parseInt(getWithTTL(STORAGE_SCROLL) ?? '0', 10) || 0
-        const savedPage   = parseInt(getWithTTL(STORAGE_PAGE)   ?? '1', 10) || 1
+        const savedScroll = parseInt(String(getWithTTL(STORAGE_SCROLL) ?? '0'), 10) || 0
+        const savedPage   = parseInt(String(getWithTTL(STORAGE_PAGE)   ?? '1'), 10) || 1
 
         try {
             const [res, shouldShow, settingsRes] = await Promise.all([
@@ -160,16 +161,16 @@
             const raw      = await res.json()
             const settings = settingsRes.ok ? await settingsRes.json() : {}
             hideUnavailable = settings.hideUnavailable === true
-            all = raw.filter(g => shouldShow(g.appid))
+            all = (raw as SteamGame[]).filter(g => shouldShow(g.appid))
         } catch (err) {
-            error   = err.message
+            error   = (err as Error).message
             loading = false
             return
         }
 
         sort   = localStorage.getItem(STORAGE_SORT) ?? 'priority'
         dir    = localStorage.getItem(STORAGE_DIR)  ?? 'asc'
-        letter = getWithTTL(STORAGE_LETTER) || null
+        letter = (getWithTTL(STORAGE_LETTER) as string) || null
         // query intentionally not persisted — reset to '' each visit
         loading = false
 
@@ -261,7 +262,7 @@
                         {:else if g.store?.isFree}
                             <p class="wl-card-price-line"><span class="wl-card-price">Free</span></p>
                         {:else if retail}
-                            <p class="wl-card-price-line"><span class="wl-card-price wl-card-price--retail">{retail.formatted}</span></p>
+                            <p class="wl-card-price-line"><span class="wl-card-price wl-card-price--retail">{retail.final_formatted}</span></p>
                         {:else}
                             <p class="wl-card-price-line wl-card-price--none">No price data</p>
                         {/if}

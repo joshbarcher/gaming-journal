@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+    import type { ProgressBarsPage, Bar, Step, TaskState } from '../../types.js'
     import { onDestroy } from 'svelte'
     import { api } from '../../js/api.js'
     import { uuid } from '../../js/utils.js'
@@ -10,28 +11,28 @@
 
     let { page: initialPage } = $props()
 
-    const STATE_CYCLE = [null, 'started', 'working', 'done']
+    const STATE_CYCLE: (TaskState | null)[] = [null, 'started', 'working', 'done']
 
-    let page = $state(JSON.parse(JSON.stringify(initialPage)))
-    let barsListEl = $state(null)
-    let pendingFocusStepId = $state(null)
-    let _notesTimer = null
+    let page = $state<ProgressBarsPage>(JSON.parse(JSON.stringify(initialPage)))
+    let barsListEl = $state<HTMLElement | null>(null)
+    let pendingFocusStepId = $state<string | null>(null)
+    let _notesTimer: ReturnType<typeof setTimeout> | null = null
 
     // Module-level drag refs (not reactive — just identity tracking)
-    let _dragBarSrc  = null
-    let _dragChipSrc = null
+    let _dragBarSrc: HTMLElement | null  = null
+    let _dragChipSrc: HTMLElement | null = null
 
     // ── Derived ────────────────────────────────────────────────────────────────
 
     let segs = $derived(globalSegments(page))
 
-    function barRowClass(bar) {
+    function barRowClass(bar: Bar) {
         const pct = barProgressPercent(bar)
         if (bar.optional) return pct >= 100 ? 'pb-bar-row pb-bar-row--optional-done' : 'pb-bar-row pb-bar-row--optional'
         return 'pb-bar-row'
     }
 
-    function chipStyle(step) {
+    function chipStyle(step: Step) {
         return step.state
             ? `background:${segmentColor(step.state)};color:rgba(0,0,0,0.75)`
             : 'background:rgba(255,255,255,0.07);color:var(--clr-text-muted)'
@@ -41,15 +42,14 @@
 
     $effect(() => {
         if (!pendingFocusStepId || !barsListEl) return
-        const label = barsListEl.querySelector(`.pb-chip[data-step-id="${pendingFocusStepId}"] .pb-chip-label`)
+        const label = barsListEl.querySelector<HTMLElement>(`.pb-chip[data-step-id="${pendingFocusStepId}"] .pb-chip-label`)
         if (!label) return
         label.contentEditable = 'true'
         label.focus()
         const range = document.createRange()
         range.selectNodeContents(label)
         const sel = window.getSelection()
-        sel.removeAllRanges()
-        sel.addRange(range)
+        if (sel) { sel.removeAllRanges(); sel.addRange(range) }
         pendingFocusStepId = null
     })
 
@@ -62,9 +62,10 @@
 
     // ── Title ──────────────────────────────────────────────────────────────────
 
-    async function onTitleBlur(e) {
-        const t = e.target.textContent.trim()
-        if (!t || t === page.title) { e.target.textContent = page.title; return }
+    async function onTitleBlur(e: Event) {
+        const target = e.target as HTMLElement
+        const t = target.textContent?.trim() ?? ''
+        if (!t || t === page.title) { target.textContent = page.title; return }
         page.title = t
         const updated = await api.pages.update(page.id, { title: t })
         if (updated) refreshSidebarItem(updated)
@@ -72,9 +73,9 @@
 
     // ── Notes ──────────────────────────────────────────────────────────────────
 
-    function onNotesInput(e) {
-        page.notes = e.target.value
-        clearTimeout(_notesTimer)
+    function onNotesInput(e: Event) {
+        page.notes = (e.target as HTMLTextAreaElement).value
+        clearTimeout(_notesTimer ?? undefined)
         _notesTimer = setTimeout(save, 800)
     }
 
@@ -86,36 +87,36 @@
         await save()
     }
 
-    async function deleteBar(barId) {
-        page.bars = (page.bars ?? []).filter(b => b.id !== barId)
+    async function deleteBar(barId: string) {
+        page.bars = (page.bars ?? []).filter((b: Bar) => b.id !== barId)
         await save()
     }
 
-    async function copyBar(sourceBarId) {
-        const source = (page.bars ?? []).find(b => b.id === sourceBarId)
+    async function copyBar(sourceBarId: string) {
+        const source = (page.bars ?? []).find((b: Bar) => b.id === sourceBarId)
         if (!source) return
         const newBar = {
             id: uuid(),
             title: source.title,
             optional: source.optional,
-            steps: (source.steps ?? []).map(s => ({ id: uuid(), title: s.title, optional: s.optional, state: null })),
+            steps: (source.steps ?? []).map((s: Step) => ({ id: uuid(), title: s.title, optional: s.optional, state: null as null })),
         }
-        const srcIdx = page.bars.findIndex(b => b.id === sourceBarId)
+        const srcIdx = page.bars.findIndex((b: Bar) => b.id === sourceBarId)
         page.bars = [...page.bars.slice(0, srcIdx + 1), newBar, ...page.bars.slice(srcIdx + 1)]
         await save()
     }
 
-    async function toggleBarOptional(barId) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function toggleBarOptional(barId: string) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
         bar.optional = !bar.optional
         await save()
     }
 
-    async function onBarTitleBlur(barId, e) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function onBarTitleBlur(barId: string, e: Event) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
-        const newTitle = e.target.textContent.trim()
+        const newTitle = (e.target as HTMLElement).textContent?.trim() ?? ''
         if (bar.title === newTitle) return
         bar.title = newTitle
         await save()
@@ -123,8 +124,8 @@
 
     // ── Step actions ───────────────────────────────────────────────────────────
 
-    async function addStep(barId) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function addStep(barId: string) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
         const step = { id: uuid(), title: '', state: null }
         bar.steps = [...(bar.steps ?? []), step]
@@ -132,45 +133,45 @@
         await save()
     }
 
-    async function deleteStep(barId, stepId) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function deleteStep(barId: string, stepId: string) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
-        bar.steps = (bar.steps ?? []).filter(s => s.id !== stepId)
+        bar.steps = (bar.steps ?? []).filter((s: Step) => s.id !== stepId)
         await save()
     }
 
-    async function toggleStepOptional(barId, stepId) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function toggleStepOptional(barId: string, stepId: string) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
-        const step = (bar.steps ?? []).find(s => s.id === stepId)
+        const step = (bar.steps ?? []).find((s: Step) => s.id === stepId)
         if (!step) return
         step.optional = !step.optional
         await save()
     }
 
-    async function cycleStepState(barId, stepId, chipEl) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function cycleStepState(barId: string, stepId: string, chipEl: HTMLElement) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
-        const step = (bar.steps ?? []).find(s => s.id === stepId)
+        const step = (bar.steps ?? []).find((s: Step) => s.id === stepId)
         if (!step) return
         const prev = step.state
         const idx  = STATE_CYCLE.indexOf(step.state)
         step.state = STATE_CYCLE[(idx + 1) % STATE_CYCLE.length]
         if (step.state === 'done' && prev !== 'done') {
-            const required = (bar.steps ?? []).filter(s => !s.optional)
-            if (required.length > 0 && required.every(s => s.state === 'done')) {
+            const required = (bar.steps ?? []).filter((s: Step) => !s.optional)
+            if (required.length > 0 && required.every((s: Step) => s.state === 'done')) {
                 fireParticles(chipEl, bar.title)
             }
         }
         await save()
     }
 
-    async function onStepTitleBlur(barId, stepId, e) {
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+    async function onStepTitleBlur(barId: string, stepId: string, e: Event) {
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
-        const step = (bar.steps ?? []).find(s => s.id === stepId)
+        const step = (bar.steps ?? []).find((s: Step) => s.id === stepId)
         if (!step) return
-        const newTitle = e.target.textContent.trim()
+        const newTitle = (e.target as HTMLElement).textContent?.trim() ?? ''
         if (step.title === newTitle) return
         step.title = newTitle
         await save()
@@ -178,14 +179,14 @@
 
     // ── Bar drag action ────────────────────────────────────────────────────────
 
-    function barDrag(node, barId) {
+    function barDrag(node: HTMLElement, barId: string) {
         const handle = node.querySelector('.pb-bar-handle')
         handle?.addEventListener('mousedown', () => { node.draggable = true })
 
-        function onDragstart(e) {
+        function onDragstart(e: DragEvent) {
             _dragBarSrc = node
             node.classList.add('pb-bar-row--dragging')
-            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer!.effectAllowed = 'move'
         }
         function onDragend() {
             node.draggable = false
@@ -194,17 +195,17 @@
             _dragBarSrc = null
             persistBarOrder()
         }
-        function onDragover(e) {
+        function onDragover(e: DragEvent) {
             if (!_dragBarSrc || _dragBarSrc === node || _dragChipSrc) return
             e.preventDefault()
-            e.dataTransfer.dropEffect = 'move'
+            e.dataTransfer!.dropEffect = 'move'
             barsListEl?.querySelectorAll('.pb-bar-row--drag-over').forEach(x => x.classList.remove('pb-bar-row--drag-over'))
             node.classList.add('pb-bar-row--drag-over')
         }
-        function onDragleave(e) {
-            if (!node.contains(e.relatedTarget)) node.classList.remove('pb-bar-row--drag-over')
+        function onDragleave(e: DragEvent) {
+            if (!node.contains(e.relatedTarget as Node)) node.classList.remove('pb-bar-row--drag-over')
         }
-        function onDrop(e) {
+        function onDrop(e: DragEvent) {
             if (!_dragBarSrc || _dragBarSrc === node || _dragChipSrc) return
             e.preventDefault()
             node.classList.remove('pb-bar-row--drag-over')
@@ -231,22 +232,22 @@
 
     async function persistBarOrder() {
         if (!barsListEl) return
-        const ids = [...barsListEl.querySelectorAll('.pb-bar-row')].map(r => r.dataset.barId)
-        const map = new Map((page.bars ?? []).map(b => [b.id, b]))
-        page.bars = ids.map(id => map.get(id)).filter(Boolean)
+        const ids = [...barsListEl.querySelectorAll('.pb-bar-row')].map(r => (r as HTMLElement).dataset.barId)
+        const map = new Map((page.bars ?? []).map((b: Bar) => [b.id, b]))
+        page.bars = ids.map(id => map.get(id!)).filter((b): b is Bar => !!b)
         await save()
     }
 
     // ── Chip drag action ───────────────────────────────────────────────────────
 
-    function chipDrag(node, { barId }) {
+    function chipDrag(node: HTMLElement, { barId }: { barId: string; stepId?: string }) {
         node.draggable = true
 
-        function onDragstart(e) {
+        function onDragstart(e: DragEvent) {
             e.stopPropagation()
             _dragChipSrc = node
             node.classList.add('pb-chip--dragging')
-            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer!.effectAllowed = 'move'
         }
         function onDragend() {
             node.classList.remove('pb-chip--dragging')
@@ -254,22 +255,22 @@
             _dragChipSrc = null
             persistChipOrder(barId)
         }
-        function onDragover(e) {
+        function onDragover(e: DragEvent) {
             if (!_dragChipSrc || _dragChipSrc === node) return
             e.preventDefault()
             e.stopPropagation()
-            e.dataTransfer.dropEffect = 'move'
+            e.dataTransfer!.dropEffect = 'move'
             document.querySelectorAll('.pb-chip--drag-over').forEach(x => x.classList.remove('pb-chip--drag-over'))
             node.classList.add('pb-chip--drag-over')
         }
         function onDragleave() { node.classList.remove('pb-chip--drag-over') }
-        function onDrop(e) {
+        function onDrop(e: DragEvent) {
             if (!_dragChipSrc || _dragChipSrc === node) return
             e.preventDefault()
             e.stopPropagation()
             node.classList.remove('pb-chip--drag-over')
             if (_dragChipSrc.parentElement !== node.parentElement) return
-            const chips = [...node.parentElement.querySelectorAll('.pb-chip')]
+            const chips = [...node.parentElement!.querySelectorAll('.pb-chip')]
             if (chips.indexOf(_dragChipSrc) < chips.indexOf(node)) node.after(_dragChipSrc)
             else node.before(_dragChipSrc)
         }
@@ -290,18 +291,18 @@
         }
     }
 
-    async function persistChipOrder(barId) {
+    async function persistChipOrder(barId: string) {
         const row = barsListEl?.querySelector(`.pb-bar-row[data-bar-id="${barId}"]`)
         if (!row) return
-        const ids = [...row.querySelectorAll('.pb-chip')].map(c => c.dataset.stepId)
-        const bar = (page.bars ?? []).find(b => b.id === barId)
+        const ids = [...row.querySelectorAll('.pb-chip')].map(c => (c as HTMLElement).dataset.stepId)
+        const bar = (page.bars ?? []).find((b: Bar) => b.id === barId)
         if (!bar) return
-        const map = new Map((bar.steps ?? []).map(s => [s.id, s]))
-        bar.steps = ids.map(id => map.get(id)).filter(Boolean)
+        const map = new Map((bar.steps ?? []).map((s: Step) => [s.id, s]))
+        bar.steps = ids.map(id => map.get(id!)).filter((s): s is Step => !!s)
         await save()
     }
 
-    onDestroy(() => { clearTimeout(_notesTimer) })
+    onDestroy(() => { clearTimeout(_notesTimer ?? undefined) })
 </script>
 
 <div class="page-header">
@@ -312,7 +313,7 @@
     <h1
         class="page-title page-title--editable"
         contenteditable="true"
-        onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur() } }}
+        onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() } }}
         onblur={onTitleBlur}
     >{page.title}</h1>
     <p class="page-subtitle">Multi-Bar Progress Tracker</p>
@@ -344,7 +345,7 @@
                 data-bar-id={bar.id}
                 use:barDrag={bar.id}
                 oncontextmenu={(e) => {
-                    if (e.target.closest('.pb-chip')) return
+                    if ((e.target as Element)?.closest('.pb-chip')) return
                     e.preventDefault()
                     showContextMenu(e, [
                         { label: bar.optional ? 'Unmark Optional' : 'Mark Optional', action: () => toggleBarOptional(bar.id) },
@@ -355,14 +356,14 @@
                 }}
             >
                 <div class="pb-bar-handle" title="Drag to reorder">⠿</div>
-                <div class="pb-bar-num">{(page.bars ?? []).findIndex(b => b.id === bar.id) + 1}</div>
+                <div class="pb-bar-num">{(page.bars ?? []).findIndex((b: Bar) => b.id === bar.id) + 1}</div>
                 <div
                     class="pb-bar-title"
                     contenteditable="true"
                     aria-label="Bar title"
                     onmousedown={(e) => { if (e.button === 2) e.preventDefault() }}
                     onblur={(e) => onBarTitleBlur(bar.id, e)}
-                    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur() } }}
+                    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() } }}
                 >{bar.title}</div>
                 {#if bar.optional}
                     <span class="progress-optional-tag">OPTIONAL</span>
@@ -378,7 +379,7 @@
                             style={chipStyle(step)}
                             use:chipDrag={{ barId: bar.id, stepId: step.id }}
                             onclick={(e) => {
-                                if (e.target.closest('.pb-chip-label')) return
+                                if ((e.target as Element)?.closest('.pb-chip-label')) return
                                 cycleStepState(bar.id, step.id, e.currentTarget)
                             }}
                             oncontextmenu={(e) => {
@@ -403,8 +404,7 @@
                                         const range = document.createRange()
                                         range.selectNodeContents(label)
                                         const sel = window.getSelection()
-                                        sel.removeAllRanges()
-                                        sel.addRange(range)
+                                        if (sel) { sel.removeAllRanges(); sel.addRange(range) }
                                     }
                                 }}
                                 onblur={(e) => {
@@ -412,8 +412,8 @@
                                     onStepTitleBlur(bar.id, step.id, e)
                                 }}
                                 onkeydown={(e) => {
-                                    if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
-                                    if (e.key === 'Escape') e.target.blur()
+                                    if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).blur() }
+                                    if (e.key === 'Escape') (e.target as HTMLElement).blur()
                                 }}
                             >{step.title}</span>
                             <span class="pb-chip-state">{stateLabel(step.state)}</span>

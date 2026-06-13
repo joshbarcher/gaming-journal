@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
     import { navigate } from '../../js/router.js'
+    import type { LocalReview, SteamGame } from '../../types.js'
 
-    let allEntries = $state([])
-    let gamesMap   = $state({})
+    let allEntries = $state<[string, LocalReview][]>([])
+    let gamesMap   = $state<Record<string, SteamGame>>({})
     let loading    = $state(true)
-    let error      = $state(null)
+    let error      = $state<string | null>(null)
     let search     = $state('')
     let sortBy     = $state('stars')
 
@@ -33,7 +34,7 @@
 
     onMount(async () => {
         let reviews = {}
-        let gm = {}
+        let gm: Record<string, any> = {}
         try {
             const [reviewsRes, gamesRes] = await Promise.all([
                 fetch('/api/local-reviews'),
@@ -46,7 +47,7 @@
                 for (const g of arr) { if (g?.appid) gm[String(g.appid)] = g }
             }
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
             loading = false
             return
         }
@@ -103,7 +104,7 @@
                         <img class="mr-card-img{stars === 0 ? ' mr-card-img--unrated' : ''}"
                              src="/relay/images/steam/games/{appid}/header.jpg"
                              alt={name}
-                             onerror={(e) => { e.currentTarget.style.opacity = '0.3' }}>
+                             onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3' }}>
                         {#if stars > 0}
                             <div class="mr-card-stars">
                                 {#each Array.from({ length: Math.min(stars, 6) }, (_, i) => i + 1) as i}

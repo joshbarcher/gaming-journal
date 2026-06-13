@@ -1,8 +1,10 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { PlayerCounts } from '../../types.js'
     import { fmtPlayerCount } from '../../js/views/game-render.js'
+    const Chart: any = typeof globalThis !== 'undefined' ? (globalThis as any).Chart : undefined
 
-    let { data } = $props()
+    let { data }: { data: PlayerCounts | null } = $props()
 
     const GRANULARITIES = [
         { key: '24h', label: '24h',  windowMs: 24 * 60 * 60 * 1_000,       bucketMs: 30 * 60 * 1_000 },
@@ -12,12 +14,12 @@
     ]
 
     let activeKey = $state('7d')
-    let canvasEl  = $state(null)
-    let chart     = null
+    let canvasEl  = $state<HTMLCanvasElement | null>(null)
+    let chart: any = null
 
     const latest = $derived(data?.samples?.[data.samples.length - 1]?.[1] ?? 0)
 
-    function downsample(samples, windowMs, bucketMs) {
+    function downsample(samples: [number, number][], windowMs: number, bucketMs: number) {
         const cutoff  = Date.now() - windowMs
         const buckets = new Map()
         for (const [tSec, n] of samples) {
@@ -29,19 +31,20 @@
         return [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, n]) => ({ x: t, y: n }))
     }
 
-    function fmtLabel(tMs, key) {
+    function fmtLabel(tMs: number, key: string) {
         const d = new Date(tMs)
         if (key === '24h') return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
         if (key === '7d')  return d.toLocaleDateString(undefined, { weekday: 'short', hour: '2-digit' })
         return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     }
 
-    function buildDataset(key) {
-        const g = GRANULARITIES.find(x => x.key === key)
+    function buildDataset(key: string) {
+        if (!data) return []
+        const g = GRANULARITIES.find(x => x.key === key)!
         return downsample(data.samples, g.windowMs, g.bucketMs)
     }
 
-    function updateChart(key) {
+    function updateChart(key: string) {
         if (!chart) return
         const pts = buildDataset(key)
         chart.data.labels             = pts.map(p => fmtLabel(p.x, key))
@@ -63,10 +66,10 @@
             },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${fmtPlayerCount(ctx.parsed.y)} players` } } },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => ` ${fmtPlayerCount(ctx.parsed.y)} players` } } },
                 scales: {
                     x: { ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 }, maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.06)' } },
-                    y: { ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 }, callback: v => fmtPlayerCount(v) }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: false },
+                    y: { ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 }, callback: (v: any) => fmtPlayerCount(v) }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: false },
                 },
             },
         })
@@ -74,7 +77,7 @@
 
     onDestroy(() => { chart?.destroy(); chart = null })
 
-    function selectTab(key) {
+    function selectTab(key: string) {
         activeKey = key
         updateChart(key)
     }

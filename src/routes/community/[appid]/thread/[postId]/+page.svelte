@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { page } from '$app/state'
     import CommunityThread from '$lib/svelte/community/CommunityThread.svelte'
     const sub = $derived(page.url.searchParams.get('sub') ?? '')

@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+    import type { ProgressPage, Task, TaskState } from '../../types.js'
     import { api } from '../../js/api.js'
     import { uuid } from '../../js/utils.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
@@ -7,52 +8,52 @@
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { navigate } from '../../js/router.js'
 
-    const STATES       = ['started', 'working', 'done']
+    const STATES: TaskState[] = ['started', 'working', 'done']
     const STATE_LABELS = { started: 'STARTED', working: 'WORKING', done: 'DONE' }
 
     let { page: pageProp } = $props()
 
-    let pd           = $state(JSON.parse(JSON.stringify(pageProp)))
-    let draggedId    = $state(null)
-    let dropTargetId = $state(null)
-    let draggableId  = $state(null)
-    let notesTimer   = null
+    let pd           = $state<ProgressPage>(JSON.parse(JSON.stringify(pageProp)))
+    let draggedId    = $state<string | null>(null)
+    let dropTargetId = $state<string | null>(null)
+    let draggableId  = $state<string | null>(null)
+    let notesTimer: ReturnType<typeof setTimeout> | null = null
 
     let segs = $derived(globalSegments(pd))
 
-    async function onTitleBlur(e) {
-        const t = e.currentTarget.textContent.trim()
+    async function onTitleBlur(e: FocusEvent & { currentTarget: HTMLElement }) {
+        const t = (e.currentTarget.textContent ?? '').trim()
         if (!t || t === pd.title) { e.currentTarget.textContent = pd.title; return }
         pd.title = t
         const updated = await api.pages.update(pd.id, { title: t })
         if (updated) refreshSidebarItem(updated)
     }
 
-    async function onTaskTitleBlur(taskId, e) {
-        const newTitle = e.currentTarget.textContent.trim()
-        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+    async function onTaskTitleBlur(taskId: string, e: FocusEvent & { currentTarget: HTMLElement }) {
+        const newTitle = (e.currentTarget.textContent ?? '').trim()
+        const task = (pd.tasks ?? []).find((t: Task) => t.id === taskId)
         if (!task || task.title === newTitle) return
         task.title = newTitle
         await save()
     }
 
-    async function onStateClick(taskId, state, btnEl) {
-        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+    async function onStateClick(taskId: string, state: TaskState, btnEl: HTMLElement) {
+        const task = (pd.tasks ?? []).find((t: Task) => t.id === taskId)
         if (!task) return
         const prev = task.state
         task.state = task.state === state ? null : state
         if (task.state === 'done' && prev !== 'done') {
-            const required = (pd.tasks ?? []).filter(t => !t.optional)
-            if (required.length > 0 && required.every(t => t.state === 'done')) {
+            const required = (pd.tasks ?? []).filter((t: Task) => !t.optional)
+            if (required.length > 0 && required.every((t: Task) => t.state === 'done')) {
                 fireParticles(btnEl, pd.title)
             }
         }
         await save()
     }
 
-    function onNotesInput(e) {
-        pd.notes = e.target.value
-        clearTimeout(notesTimer)
+    function onNotesInput(e: Event) {
+        pd.notes = (e.target as HTMLTextAreaElement).value
+        clearTimeout(notesTimer ?? undefined)
         notesTimer = setTimeout(save, 800)
     }
 
@@ -61,24 +62,24 @@
         pd.tasks = [...(pd.tasks ?? []), task]
         await save()
         requestAnimationFrame(() => {
-            document.querySelector(`.progress-task[data-id="${task.id}"] .progress-task-title`)?.focus()
+            document.querySelector<HTMLElement>(`.progress-task[data-id="${task.id}"] .progress-task-title`)?.focus()
         })
     }
 
-    async function deleteTask(taskId) {
-        pd.tasks = (pd.tasks ?? []).filter(t => t.id !== taskId)
+    async function deleteTask(taskId: string) {
+        pd.tasks = (pd.tasks ?? []).filter((t: Task) => t.id !== taskId)
         await save()
     }
 
-    async function toggleTaskOptional(taskId) {
-        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+    async function toggleTaskOptional(taskId: string) {
+        const task = (pd.tasks ?? []).find((t: Task) => t.id === taskId)
         if (!task) return
         task.optional = !task.optional
         await save()
     }
 
-    function onContextMenu(e, taskId) {
-        const task = (pd.tasks ?? []).find(t => t.id === taskId)
+    function onContextMenu(e: MouseEvent, taskId: string) {
+        const task = (pd.tasks ?? []).find((t: Task) => t.id === taskId)
         if (!task) return
         showContextMenu(e, [
             { label: task.optional ? 'Unmark Optional' : 'Mark Optional', action: () => toggleTaskOptional(taskId) },
@@ -87,9 +88,9 @@
         ])
     }
 
-    function onDragStart(e, taskId) {
+    function onDragStart(e: DragEvent, taskId: string) {
         requestAnimationFrame(() => { draggedId = taskId })
-        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer!.effectAllowed = 'move'
     }
 
     function onDragEnd() {
@@ -98,24 +99,24 @@
         dropTargetId = null
     }
 
-    function onDragOver(e, taskId) {
+    function onDragOver(e: DragEvent, taskId: string) {
         if (!draggedId || draggedId === taskId) return
         e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
+        e.dataTransfer!.dropEffect = 'move'
         dropTargetId = taskId
     }
 
-    function onDragLeave(taskId) {
+    function onDragLeave(taskId: string) {
         if (dropTargetId === taskId) dropTargetId = null
     }
 
-    async function onDrop(e, taskId) {
+    async function onDrop(e: DragEvent, taskId: string) {
         if (!draggedId || draggedId === taskId) return
         e.preventDefault()
         dropTargetId = null
         const tasks   = pd.tasks ?? []
-        const fromIdx = tasks.findIndex(t => t.id === draggedId)
-        const toIdx   = tasks.findIndex(t => t.id === taskId)
+        const fromIdx = tasks.findIndex((t: Task) => t.id === draggedId)
+        const toIdx   = tasks.findIndex((t: Task) => t.id === taskId)
         if (fromIdx === -1 || toIdx === -1) return
         const next = [...tasks]
         const [moved] = next.splice(fromIdx, 1)
@@ -185,7 +186,7 @@
                             class:active={task.state === state}
                             data-state={state}
                             style="--state-color:{segmentColor(state)}"
-                            onclick={(e) => onStateClick(task.id, state, e.currentTarget)}>{STATE_LABELS[state]}</button>
+                            onclick={(e) => onStateClick(task.id, state, e.currentTarget)}>{(STATE_LABELS as Record<string, string>)[state]}</button>
                 {/each}
             </div>
         </div>

@@ -1,12 +1,13 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame } from '../../types.js'
 
-    let games           = $state([])
+    let games           = $state<SteamGame[]>([])
     let loading         = $state(true)
-    let error           = $state(null)
-    let draggedAppid    = $state(null)
-    let dropTargetAppid = $state(null)
-    let dropSide        = $state(null)   // 'before' | 'after'
+    let error           = $state<string | null>(null)
+    let draggedAppid    = $state<number | null>(null)
+    let dropTargetAppid = $state<number | null>(null)
+    let dropSide        = $state<string | null>(null)
 
     let queueGames = $derived(games.slice(0, 3))
     let restGames  = $derived(games.slice(3))
@@ -17,7 +18,7 @@
             : `${games.length} game${games.length !== 1 ? 's' : ''} paused`
     )
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number | null | undefined) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -25,16 +26,16 @@
         return `${Math.round(h)}h`
     }
 
-    function progressData(game) {
+    function progressData(game: SteamGame) {
         const hltb    = game.hltb
-        const playedH = game.playtime / 60
+        const playedH = (game.playtime ?? 0) / 60
         const main    = hltb?.gameplayMain          ?? null
         const extra   = hltb?.gameplayMainExtra     ?? null
         const comp    = hltb?.gameplayCompletionist ?? null
 
         if (!main && !extra && !comp) return null
 
-        const ceiling = comp ?? extra ?? main
+        const ceiling = (comp ?? extra ?? main)!
         const fillPct = Math.min((playedH / ceiling) * 100, 100)
 
         const ticks = []
@@ -42,7 +43,7 @@
         if (extra && extra < ceiling) ticks.push({ pct: (extra / ceiling) * 100, label: 'Extras' })
 
         let label = ''
-        const pct = n => Math.round((playedH / n) * 100)
+        const pct = (n: number) => Math.round((playedH / n) * 100)
         if      (main  && playedH < main)  label = `${pct(main)}% of Main Story`
         else if (extra && playedH < extra) label = `Main done · ${pct(extra)}% of Main+Extras`
         else if (comp  && playedH < comp)  label = `Extras done · ${pct(comp)}% completionist`
@@ -60,7 +61,7 @@
         } catch { return [] }
     }
 
-    function saveOrder(appids) {
+    function saveOrder(appids: number[]) {
         fetch('/api/order/in-progress', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appids),
         }).catch(() => {})
@@ -68,7 +69,7 @@
 
     // ── Drag handlers ─────────────────────────────────────────────────────────
 
-    function onDragStart(appid) {
+    function onDragStart(appid: number) {
         requestAnimationFrame(() => { draggedAppid = appid })
     }
 
@@ -78,7 +79,7 @@
         dropSide        = null
     }
 
-    function onDragOver(e, appid) {
+    function onDragOver(e: DragEvent & { currentTarget: HTMLElement }, appid: number) {
         e.preventDefault()
         if (draggedAppid === null || draggedAppid === appid) return
         const rect      = e.currentTarget.getBoundingClientRect()
@@ -86,14 +87,14 @@
         dropSide        = e.clientX < rect.left + rect.width / 2 ? 'before' : 'after'
     }
 
-    function onDragLeave(e) {
-        if (!e.currentTarget.contains(e.relatedTarget)) {
+    function onDragLeave(e: DragEvent & { currentTarget: HTMLElement }) {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
             dropTargetAppid = null
             dropSide        = null
         }
     }
 
-    function onDrop(e, targetAppid) {
+    function onDrop(e: DragEvent, targetAppid: number) {
         e.preventDefault()
         if (draggedAppid === null || draggedAppid === targetAppid) return
         const isBefore  = dropSide === 'before'
@@ -123,8 +124,8 @@
             const flags    = await flagsRes.json()
             const gamesRaw = await gamesRes.json()
             const owned    = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
-            const ownedMap = new Map(owned.map(g => [g.appid, g]))
-            const ids      = Object.entries(flags).filter(([, f]) => f.inProgress).map(([id]) => Number(id))
+            const ownedMap = new Map<number, SteamGame>(owned.map((g: SteamGame) => [g.appid, g]))
+            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.inProgress).map(([id]) => Number(id))
 
             if (!ids.length) { loading = false; return }
 
@@ -147,12 +148,12 @@
             const ordered = []
             const seen    = new Set()
             for (const appid of order) {
-                if (gameMap.has(appid)) { ordered.push(gameMap.get(appid)); seen.add(appid) }
+                if (gameMap.has(appid)) { ordered.push(gameMap.get(appid)!); seen.add(appid) }
             }
             for (const g of sorted) { if (!seen.has(g.appid)) ordered.push(g) }
             games = ordered
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -202,7 +203,7 @@
                         <div class="inprogress-card-img-wrap">
                             <img class="inprogress-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
-                                 alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <div class="inprogress-card-overlay"></div>
                             <span class="inprogress-card-num">{i + 1}</span>
                             {#if playedH}<span class="inprogress-card-time" title="Time played so far">{playedH}</span>{/if}
@@ -246,7 +247,7 @@
                         <div class="inprogress-card-img-wrap">
                             <img class="inprogress-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
-                                 alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <div class="inprogress-card-overlay"></div>
                             {#if playedH}<span class="inprogress-card-time" title="Time played so far">{playedH}</span>{/if}
                         </div>

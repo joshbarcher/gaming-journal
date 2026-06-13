@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import type { SteamGame, CommunitySource, LoadedPrefs, RedditSource, RedditData } from '../../types.js'
     import { loadPrefs, toggleFilter, toggleMute, toggleFavorite, toggleHighlight } from '../../js/community-user-prefs.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { fmtScore, fmtTime, thumbSrc, renderSubredditLoader } from '../../js/views/community-render.js'
@@ -10,24 +11,23 @@
 
     // ── State ──────────────────────────────────────────────────────────────────
 
-    let game        = $state(null)
-    let sources     = $state([])   // finalized sources from API
-    let prefs       = $state({ filtered: new Set(), muted: new Set(), favorited: new Set(), highlighted: new Set() })
+    let game        = $state<SteamGame | null>(null)
+    let sources     = $state<CommunitySource[]>([])
+    let prefs       = $state<LoadedPrefs>({ filtered: new Set<string>(), muted: new Set<string>(), favorited: new Set<string>(), highlighted: new Set<string>() })
     let loading     = $state(true)
-    let error       = $state(null)
+    let error       = $state<string | null>(null)
     let activeTab   = $state('__all__')
-    let shownCounts = $state({})   // { [sourceId]: number }
+    let shownCounts = $state<Record<string, number>>({})
 
-    // Pending subreddit being synced
-    let pendingSub  = $state(null) // { name, status, error, posts } | null
+    type PendingSub = { name: string; status: string; error: boolean }
+    let pendingSub  = $state<PendingSub | null>(null)
     let showModal   = $state(false)
 
-    // Manage modal form state
-    let modalInput     = $state('')
-    let modalStatus    = $state('')
+    let modalInput      = $state('')
+    let modalStatus     = $state('')
     let modalStatusType = $state('')
-    let modalValidName = $state(null)
-    let _debounce      = null
+    let modalValidName  = $state<string | null>(null)
+    let _debounce: ReturnType<typeof setTimeout> | null = null
 
     // ── Derived ────────────────────────────────────────────────────────────────
 
@@ -57,30 +57,30 @@
 
     // ── Infinite scroll action ─────────────────────────────────────────────────
 
-    function sentinel(node, onVisible) {
+    function sentinel(node: Element, onVisible: () => void) {
         const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) onVisible() }, { rootMargin: '300px' })
         obs.observe(node)
         return { destroy: () => obs.disconnect() }
     }
 
-    function loadMore(sourceId) {
+    function loadMore(sourceId: string) {
         shownCounts[sourceId] = (shownCounts[sourceId] ?? PAGE_SIZE) + PAGE_SIZE
     }
 
     // ── Prefs ──────────────────────────────────────────────────────────────────
 
-    function _setPref(key, username, value) {
+    function _setPref(key: keyof LoadedPrefs, username: string, value: boolean) {
         const s = new Set(prefs[key])
         value ? s.add(username) : s.delete(username)
-        prefs[key] = s
+        prefs = { ...prefs, [key]: s }
     }
 
     // ── Context menu ───────────────────────────────────────────────────────────
 
-    function handleContextMenu(e) {
-        const target = e.target.closest('[data-author]')
+    function handleContextMenu(e: MouseEvent) {
+        const target = (e.target as Element)?.closest('[data-author]')
         if (!target) return
-        const username = target.dataset.author
+        const username = (target as HTMLElement).dataset.author
         if (!username || username === '[deleted]') return
         e.preventDefault()
 
@@ -133,7 +133,7 @@
     }
 
     function handleModalInput() {
-        clearTimeout(_debounce)
+        clearTimeout(_debounce ?? undefined)
         modalValidName = null
         const val = modalInput.trim().replace(/^r\//i, '')
         if (!val) { modalStatus = ''; modalStatusType = ''; return }
@@ -168,21 +168,21 @@
     // Escape key for modal
     $effect(() => {
         if (!showModal) return
-        const onKey = (e) => { if (e.key === 'Escape') showModal = false }
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') showModal = false }
         document.addEventListener('keydown', onKey)
         return () => document.removeEventListener('keydown', onKey)
     })
 
     // ── Add subreddit flow (SSE) ───────────────────────────────────────────────
 
-    async function addSubreddit(name) {
+    async function addSubreddit(name: string) {
         await fetch(`/api/reddit-subreddits/${appid}`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ name }),
         }).catch(() => {})
 
-        pendingSub = { name, status: 'Starting sync…', error: false, posts: [] }
+        pendingSub = { name, status: 'Starting sync…', error: false }
         activeTab  = '__pending__'
 
         try {
@@ -190,17 +190,17 @@
             for (let attempt = 0; attempt < 15; attempt++) {
                 const r = await fetch(syncUrl, { method: 'POST' }).catch(() => null)
                 if (!r || r.status !== 409) break
-                pendingSub = { ...pendingSub, status: 'Waiting for another sync to finish…' }
+                pendingSub = { ...pendingSub!, status: 'Waiting for another sync to finish…' }
                 await new Promise(r => setTimeout(r, 4_000))
             }
 
-            await new Promise((resolve) => {
+            await new Promise<void>((resolve) => {
                 const es       = new EventSource(`/relay/api/reddit/${appid}/sync/progress`)
                 const fallback = setTimeout(() => { es.close(); resolve() }, 90_000)
                 es.onmessage = (e) => {
                     try {
                         const ev = JSON.parse(e.data)
-                        if (ev.type === 'status') pendingSub = { ...pendingSub, status: ev.message }
+                        if (ev.type === 'status') pendingSub = { ...pendingSub!, status: ev.message }
                         if (ev.type === 'done')   { clearTimeout(fallback); es.close(); resolve() }
                     } catch {}
                 }
@@ -208,8 +208,8 @@
             })
 
             const res    = await fetch(`/relay/api/reddit/${appid}`)
-            const data   = res.ok ? await res.json() : null
-            const source = data?.sources?.find(s => s.subreddit.toLowerCase() === name.toLowerCase()) ?? null
+            const data   = (res.ok ? await res.json() : null) as RedditData | null
+            const source = data?.sources?.find((s: RedditSource) => s.subreddit.toLowerCase() === name.toLowerCase()) ?? null
             const posts  = (source?.posts ?? []).map(p => ({ ...p, subreddit: p.subreddit ?? source?.subreddit ?? name }))
 
             const newSource = { id: source?.subreddit ?? name, label: `r/${source?.subreddit ?? name}`, posts }
@@ -218,7 +218,7 @@
             pendingSub = null
         } catch (err) {
             console.error('[community] add-sub failed:', err)
-            pendingSub = { ...pendingSub, error: true, status: 'Failed to fetch posts.' }
+            pendingSub = { ...pendingSub!, error: true, status: 'Failed to fetch posts.' }
         }
     }
 
@@ -239,13 +239,13 @@
             if (redditRes.ok) {
                 redditData = await redditRes.json()
             } else {
-                const r2 = await fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(game.name ?? '')}`)
+                const r2 = await fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(game?.name ?? '')}`)
                 redditData = r2.ok ? await r2.json() : null
             }
 
-            sources = (redditData?.sources ?? [])
-                .filter(s => s.posts?.length > 0)
-                .map(s => ({
+            sources = ((redditData as RedditData | null)?.sources ?? [])
+                .filter((s: RedditSource) => s.posts.length > 0)
+                .map((s: RedditSource) => ({
                     id:    s.subreddit,
                     label: `r/${s.subreddit}`,
                     posts: s.posts.map(p => ({ ...p, subreddit: p.subreddit ?? s.subreddit })),
@@ -253,7 +253,7 @@
 
             prefs = await loadPrefs(appid)
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -326,7 +326,7 @@
                                     <div class="community-post-img-wrap">
                                         {#if post.isVideo}<span class="community-post-play">▶</span>{/if}
                                         {#if post.isGallery && (post.galleryImages?.length ?? 0) > 1}
-                                            <span class="community-post-gallery-badge">⊞ {post.galleryImages.length}</span>
+                                            <span class="community-post-gallery-badge">⊞ {post.galleryImages?.length}</span>
                                         {/if}
                                         <img
                                             class="community-post-img"

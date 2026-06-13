@@ -1,13 +1,14 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte'
+    import type { SteamGame } from '../../types.js'
 
-    let games           = $state([])
+    let games           = $state<SteamGame[]>([])
     let loading         = $state(true)
-    let error           = $state(null)
-    let pickedAppid     = $state(null)
-    let draggedAppid    = $state(null)
-    let dropTargetAppid = $state(null)
-    let dropSide        = $state(null)   // 'before' | 'after'
+    let error           = $state<string | null>(null)
+    let pickedAppid     = $state<number | null>(null)
+    let draggedAppid    = $state<number | null>(null)
+    let dropTargetAppid = $state<number | null>(null)
+    let dropSide        = $state<string | null>(null)
 
     let queueGames = $derived(games.slice(0, 3))
     let restGames  = $derived(games.slice(3))
@@ -21,7 +22,7 @@
             : `${games.length} game${games.length !== 1 ? 's' : ''} waiting`
     )
 
-    function fmtHours(mins) {
+    function fmtHours(mins: number | null | undefined) {
         if (!mins) return null
         const h = mins / 60
         if (h < 1)  return `${Math.round(mins)}m`
@@ -29,10 +30,10 @@
         return `${Math.round(h)}h`
     }
 
-    function hltbLabel(hltb) {
+    function hltbLabel(hltb: SteamGame['hltb']) {
         const main = hltb?.gameplayMain ?? hltb?.mainStory ?? null
         if (main) return fmtHours(main * 60)
-        const comp = hltb?.gameplayCompletionist ?? hltb?.completionist ?? null
+        const comp = hltb?.gameplayCompletionist ?? null
         if (comp) return fmtHours(comp * 60)
         return null
     }
@@ -46,7 +47,7 @@
         } catch { return [] }
     }
 
-    function saveOrder(appids) {
+    function saveOrder(appids: number[]) {
         fetch('/api/order/backlog', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(appids),
         }).catch(() => {})
@@ -60,7 +61,7 @@
 
     // ── Drag handlers ─────────────────────────────────────────────────────────
 
-    function onDragStart(appid) {
+    function onDragStart(appid: number) {
         requestAnimationFrame(() => { draggedAppid = appid })
     }
 
@@ -70,7 +71,7 @@
         dropSide        = null
     }
 
-    function onDragOver(e, appid) {
+    function onDragOver(e: DragEvent & { currentTarget: HTMLElement }, appid: number) {
         e.preventDefault()
         if (draggedAppid === null || draggedAppid === appid) return
         const rect = e.currentTarget.getBoundingClientRect()
@@ -78,14 +79,14 @@
         dropSide        = e.clientX < rect.left + rect.width / 2 ? 'before' : 'after'
     }
 
-    function onDragLeave(e) {
-        if (!e.currentTarget.contains(e.relatedTarget)) {
+    function onDragLeave(e: DragEvent & { currentTarget: HTMLElement }) {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
             dropTargetAppid = null
             dropSide        = null
         }
     }
 
-    function onDrop(e, targetAppid) {
+    function onDrop(e: DragEvent, targetAppid: number) {
         e.preventDefault()
         if (draggedAppid === null || draggedAppid === targetAppid) return
         const isBefore = dropSide === 'before'
@@ -115,8 +116,8 @@
             const flags    = await flagsRes.json()
             const gamesRaw = await gamesRes.json()
             const owned    = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
-            const ownedMap = new Map(owned.map(g => [g.appid, g]))
-            const ids      = Object.entries(flags).filter(([, f]) => f.backlog).map(([id]) => Number(id))
+            const ownedMap = new Map<number, SteamGame>(owned.map((g: SteamGame) => [g.appid, g]))
+            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.backlog).map(([id]) => Number(id))
 
             if (!ids.length) { loading = false; return }
 
@@ -139,12 +140,12 @@
             const ordered = []
             const seen    = new Set()
             for (const appid of order) {
-                if (gameMap.has(appid)) { ordered.push(gameMap.get(appid)); seen.add(appid) }
+                if (gameMap.has(appid)) { ordered.push(gameMap.get(appid)!); seen.add(appid) }
             }
             for (const g of sorted) { if (!seen.has(g.appid)) ordered.push(g) }
             games = ordered
         } catch (err) {
-            error = err.message
+            error = (err as Error).message
         } finally {
             loading = false
         }
@@ -189,7 +190,7 @@
             <div class="backlog-queue-row">
                 {#each queueGames as g, i (g.appid)}
                     {@const est    = hltbLabel(g.hltb)}
-                    {@const ptH    = g.playtime > 0 ? fmtHours(g.playtime) : null}
+                    {@const ptH    = (g.playtime ?? 0) > 0 ? fmtHours(g.playtime) : null}
                     <a class="backlog-card backlog-card--up-next"
                        class:backlog-card--dragging={g.appid === draggedAppid}
                        class:backlog-card--drop-before={dropTargetAppid === g.appid && dropSide === 'before'}
@@ -204,7 +205,7 @@
                         <div class="backlog-card-img-wrap">
                             <img class="backlog-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
-                                 alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <div class="backlog-card-overlay"></div>
                             <span class="backlog-card-num">{i + 1}</span>
                             {#if est}
@@ -228,7 +229,7 @@
             <div class="backlog-grid">
                 {#each restGames as g (g.appid)}
                     {@const est = hltbLabel(g.hltb)}
-                    {@const ptH = g.playtime > 0 ? fmtHours(g.playtime) : null}
+                    {@const ptH = (g.playtime ?? 0) > 0 ? fmtHours(g.playtime) : null}
                     <a class="backlog-card"
                        class:backlog-card--dragging={g.appid === draggedAppid}
                        class:backlog-card--drop-before={dropTargetAppid === g.appid && dropSide === 'before'}
@@ -243,7 +244,7 @@
                         <div class="backlog-card-img-wrap">
                             <img class="backlog-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
-                                 alt="" loading="lazy" onerror={(e) => { e.currentTarget.style.opacity = '0' }}>
+                                 alt="" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                             <div class="backlog-card-overlay"></div>
                             {#if est}
                                 <span class="backlog-card-time backlog-card-time--hltb" title="HowLongToBeat estimate">{est}</span>
