@@ -177,6 +177,11 @@
     opacity: 0.6;
 }
 
+.alerts-watch-price-loading {
+    opacity: 0.35;
+    font-style: italic;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────────── */
 @media (max-width: 960px) {
     .alerts-section { padding: 0 20px 40px; }

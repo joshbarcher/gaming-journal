@@ -121,35 +121,47 @@
 
             if (!ids.length) { loading = false; return }
 
-            const results = await Promise.all(ids.map(async appid => {
-                const o        = ownedMap.get(appid)
-                let name       = o?.name ?? null
-                const playtime = o?.playtime_forever ?? 0
-                if (!name) {
-                    try { const r = await fetch(`/relay/api/games/${appid}`); if (r.ok) { const d = await r.json(); name = d?.name ?? null } } catch {}
-                }
-                return { appid, name: name ?? `App ${appid}`, playtime }
-            }))
-
-            games = results.sort((a, b) => b.playtime - a.playtime)
+            // Render immediately with library data; non-library names fill in via background
+            games = ids.map(appid => {
+                const o = ownedMap.get(appid)
+                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0 } as SteamGame
+            }).sort((a, b) => b.playtime - a.playtime)
 
             const heroIdx = Math.floor(Math.random() * games.length)
-            hero = games[heroIdx]
-            rest = games.filter((_, i) => i !== heroIdx)
+            hero    = games[heroIdx]
+            rest    = games.filter((_, i) => i !== heroIdx)
+            loading = false
 
-            const [reviewRes, flagRes, hltbRes, communityRes] = await Promise.all([
-                fetch(`/api/local-reviews/${hero.appid}`),
-                fetch(`/api/flags/${hero.appid}`),
-                fetch(`/relay/api/hltb/${hero.appid}`),
-                fetch(`/relay/api/steam/community-reviews/${hero.appid}`),
-            ])
-            heroReview    = reviewRes.ok    ? await reviewRes.json()    : null
-            heroFlags     = flagRes.ok      ? await flagRes.json()      : null
-            heroHltb      = hltbRes.ok      ? await hltbRes.json()      : null
-            heroCommunity = communityRes.ok ? await communityRes.json() : null
+            // Background: missing names for non-library games
+            for (const appid of ids) {
+                if (!ownedMap.has(appid)) {
+                    fetch(`/relay/api/games/${appid}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(d => {
+                            if (!d?.name) return
+                            const idx = games.findIndex(g => g.appid === appid)
+                            if (idx !== -1) games[idx] = { ...games[idx], name: d.name }
+                            if (hero?.appid === appid) hero = { ...hero!, name: d.name }
+                        })
+                        .catch(() => {})
+                }
+            }
+
+            // Background: hero detail (review, flags, HLTB, community reviews)
+            const heroAppid = hero.appid
+            Promise.all([
+                fetch(`/api/local-reviews/${heroAppid}`),
+                fetch(`/api/flags/${heroAppid}`),
+                fetch(`/relay/api/hltb/${heroAppid}`),
+                fetch(`/relay/api/steam/community-reviews/${heroAppid}`),
+            ]).then(async ([reviewRes, flagRes, hltbRes, communityRes]) => {
+                heroReview    = reviewRes.ok    ? await reviewRes.json()    : null
+                heroFlags     = flagRes.ok      ? await flagRes.json()      : null
+                heroHltb      = hltbRes.ok      ? await hltbRes.json()      : null
+                heroCommunity = communityRes.ok ? await communityRes.json() : null
+            }).catch(() => {})
         } catch (err) {
-            error = (err as Error).message
-        } finally {
+            error   = (err as Error).message
             loading = false
         }
     })

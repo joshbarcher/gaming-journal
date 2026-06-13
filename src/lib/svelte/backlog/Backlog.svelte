@@ -106,9 +106,10 @@
 
     onMount(async () => {
         try {
-            const [flagsRes, gamesRes] = await Promise.all([
+            const [flagsRes, gamesRes, order] = await Promise.all([
                 fetch('/api/flags'),
                 fetch('/relay/api/steam/games'),
+                loadOrder(),
             ])
             if (!flagsRes.ok) throw new Error(`Flags HTTP ${flagsRes.status}`)
             if (!gamesRes.ok) throw new Error(`Games HTTP ${gamesRes.status}`)
@@ -121,32 +122,46 @@
 
             if (!ids.length) { loading = false; return }
 
-            const results = await Promise.all(ids.map(async appid => {
-                const o       = ownedMap.get(appid)
-                let name      = o?.name ?? null
-                let playtime  = o?.playtime_forever ?? 0
-                let hltb      = null
-
-                try { const r = await fetch(`/relay/api/hltb/${appid}`);    if (r.ok) hltb = await r.json() } catch {}
-                if (!name) {
-                    try { const r = await fetch(`/relay/api/games/${appid}`); if (r.ok) { const d = await r.json(); name = d?.name ?? null } } catch {}
-                }
-                return { appid, name: name ?? `App ${appid}`, hltb, playtime }
-            }))
-
-            const sorted  = results.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-            const order   = await loadOrder()
+            // Render immediately with available data
+            const base    = ids.map(appid => {
+                const o = ownedMap.get(appid)
+                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0, hltb: null } as SteamGame
+            })
+            const sorted  = base.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
             const gameMap = new Map(sorted.map(g => [g.appid, g]))
-            const ordered = []
-            const seen    = new Set()
+            const ordered: SteamGame[] = []
+            const seen    = new Set<number>()
             for (const appid of order) {
                 if (gameMap.has(appid)) { ordered.push(gameMap.get(appid)!); seen.add(appid) }
             }
             for (const g of sorted) { if (!seen.has(g.appid)) ordered.push(g) }
-            games = ordered
+            games   = ordered
+            loading = false
+
+            // Background: fetch HLTB and missing names per game
+            for (const appid of ids) {
+                fetch(`/relay/api/hltb/${appid}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(hltb => {
+                        if (!hltb) return
+                        const idx = games.findIndex(g => g.appid === appid)
+                        if (idx !== -1) games[idx] = { ...games[idx], hltb }
+                    })
+                    .catch(() => {})
+
+                if (!ownedMap.has(appid)) {
+                    fetch(`/relay/api/games/${appid}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(d => {
+                            if (!d?.name) return
+                            const idx = games.findIndex(g => g.appid === appid)
+                            if (idx !== -1) games[idx] = { ...games[idx], name: d.name }
+                        })
+                        .catch(() => {})
+                }
+            }
         } catch (err) {
-            error = (err as Error).message
-        } finally {
+            error   = (err as Error).message
             loading = false
         }
     })

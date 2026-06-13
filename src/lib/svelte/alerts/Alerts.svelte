@@ -1,23 +1,86 @@
 <script lang="ts">
     import { onMount } from 'svelte'
-    import type { AlertResult } from '../../types.js'
+    import type { BestPrice, ItadHistoricalLow } from '../../types.js'
 
+    interface AlertGame {
+        appid:        number
+        name:         string
+        isLibrary:    boolean
+        priceLoaded:  boolean
+        bestPrice:    BestPrice | null
+        historicalLow: ItadHistoricalLow | null
+    }
+
+    let allGames = $state<AlertGame[]>([])
     let loading  = $state(true)
     let error    = $state<string | null>(null)
-    let onSale   = $state<AlertResult[]>([])
-    let watching = $state<AlertResult[]>([])
+
+    let nonLib  = $derived(allGames.filter(g => !g.isLibrary))
+    let onSale  = $derived(
+        nonLib
+            .filter(g => g.priceLoaded && (g.bestPrice?.cut ?? 0) > 0)
+            .sort((a, b) => (b.bestPrice?.cut ?? 0) - (a.bestPrice?.cut ?? 0))
+    )
+    let watching        = $derived(nonLib.filter(g => !g.priceLoaded || (g.bestPrice?.cut ?? 0) === 0))
+    let allPricesLoaded = $derived(nonLib.length > 0 && nonLib.every(g => g.priceLoaded))
 
     onMount(async () => {
         try {
-            const res = await fetch('/api/alerts')
-            if (!res.ok) throw new Error(`HTTP ${res.status}`)
-            const data  = await res.json()
-            onSale   = data.onSale   ?? []
-            watching = data.watching ?? []
+            const flagsRes = await fetch('/api/flags')
+            if (!flagsRes.ok) throw new Error(`HTTP ${flagsRes.status}`)
+            const flags = await flagsRes.json()
+
+            const alertAppids = Object.entries(flags as Record<string, any>)
+                .filter(([, f]) => f.alert)
+                .map(([id]) => Number(id))
+
+            if (!alertAppids.length) { loading = false; return }
+
+            // Fetch game names in parallel — relay cache hits, fast
+            const games = await Promise.all(alertAppids.map(async appid => {
+                try {
+                    const r = await fetch(`/relay/api/games/${appid}`)
+                    const d = r.ok ? await r.json() : null
+                    return {
+                        appid,
+                        name:         d?.name ?? `App ${appid}`,
+                        isLibrary:    d?.source === 'library' || d?.source === 'both',
+                        priceLoaded:  false,
+                        bestPrice:    null,
+                        historicalLow: null,
+                    } as AlertGame
+                } catch {
+                    return { appid, name: `App ${appid}`, isLibrary: false, priceLoaded: false, bestPrice: null, historicalLow: null } as AlertGame
+                }
+            }))
+
+            allGames = games
+            loading  = false
+
+            // Background: fetch ITAD prices per game
+            for (const appid of alertAppids) {
+                fetch(`/relay/api/itad/${appid}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(itad => {
+                        const deal = itad?.deals?.[0] ?? null
+                        const idx  = allGames.findIndex(g => g.appid === appid)
+                        if (idx === -1) return
+                        allGames[idx] = {
+                            ...allGames[idx],
+                            priceLoaded:  true,
+                            bestPrice:    deal ? { price: deal.price, cut: deal.cut, store: deal.store, url: deal.url ?? null } : null,
+                            historicalLow: itad?.historicalLow ?? null,
+                        }
+                    })
+                    .catch(() => {
+                        const idx = allGames.findIndex(g => g.appid === appid)
+                        if (idx !== -1) allGames[idx] = { ...allGames[idx], priceLoaded: true }
+                    })
+            }
         } catch (err) {
-            error = (err as Error).message
+            error   = (err as Error).message
+            loading = false
         }
-        loading = false
     })
 </script>
 
@@ -25,7 +88,7 @@
     <p class="page-loading">Loading alerts…</p>
 {:else if error}
     <p class="page-error">Failed to load alerts: {error}</p>
-{:else if onSale.length === 0 && watching.length === 0}
+{:else if !loading && nonLib.length === 0}
     <div class="page-header">
         <h1 class="page-title">Sale Alerts</h1>
     </div>
@@ -38,8 +101,10 @@
         <h1 class="page-title">Sale Alerts</h1>
         {#if onSale.length > 0}
             <p class="page-subtitle">{onSale.length} game{onSale.length !== 1 ? 's' : ''} on sale now</p>
-        {:else}
+        {:else if allPricesLoaded}
             <p class="page-subtitle">No watched games are on sale right now</p>
+        {:else}
+            <p class="page-subtitle">Checking prices…</p>
         {/if}
     </div>
 
@@ -94,8 +159,12 @@
                              onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
                         <span class="alerts-watch-name">{game.name}</span>
                         <span class="alerts-watch-price">
-                            {price != null ? `$${price.toFixed(2)}` : '—'}
-                            {#if store}<span class="alerts-watch-store">· {store}</span>{/if}
+                            {#if !game.priceLoaded}
+                                <span class="alerts-watch-price-loading">…</span>
+                            {:else}
+                                {price != null ? `$${price.toFixed(2)}` : '—'}
+                                {#if store}<span class="alerts-watch-store">· {store}</span>{/if}
+                            {/if}
                         </span>
                     </a>
                 {/each}

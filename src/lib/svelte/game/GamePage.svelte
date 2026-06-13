@@ -21,6 +21,7 @@
     import ItadPrices from './sections/ItadPrices.svelte'
     import ProtonDB from './sections/ProtonDB.svelte'
     import PCGW from './sections/PCGW.svelte'
+    import SubredditLoader from '../community/SubredditLoader.svelte'
 
     let { appid } = $props()
 
@@ -34,6 +35,7 @@
     let trailers         = $state<Trailer[]>([])
     let localWishlisted  = $state(false)
     let loading          = $state(true)
+    let lastStep         = $state('Starting…')
     let error            = $state<string | null>(null)
 
     // ── Phase 2 state (background loads) ─────────────────────────────────────
@@ -44,11 +46,23 @@
     let pcgwData    = $state<PcgwData | null | undefined>(undefined)
     let newsData    = $state<NewsData | null | undefined>(undefined)
     let bgPending   = $state(0)
+    let hltbNeeded  = $state(false)
+    let itadNeeded  = $state(false)
+    let pcgwNeeded  = $state(false)
 
-    // Effective HLTB: prefer background load, fall back to phase-1 game data
-    let effectiveHltb = $derived(hltbData !== undefined ? hltbData : game?.hltb)
-    // Effective ITAD: undefined until background resolves, then the object (or {})
-    let effectiveItad = $derived(itadData !== undefined ? itadData : game?.itad)
+    // Effective HLTB: prefer background load; return undefined (show spinner) while Phase 2
+    // is actively fetching and Phase 1 had no matched result to fall back to.
+    let effectiveHltb = $derived(
+        hltbData !== undefined ? hltbData :
+        (hltbNeeded && !game?.hltb?.matched) ? undefined :
+        game?.hltb
+    )
+    // Effective ITAD: undefined → spinner while Phase 2 fetching and no Phase 1 fallback
+    let effectiveItad = $derived(
+        itadData !== undefined ? itadData :
+        (itadNeeded && !game?.itad) ? undefined :
+        game?.itad
+    )
 
     // ── Screenshot modal ──────────────────────────────────────────────────────
     let _modalEl: HTMLElement | null = null, _modalSrcs: string[] = [], _modalIdx = 0
@@ -148,18 +162,22 @@
         }
     }
 
+    function tracked(p: Promise<Response>, label: string): Promise<Response> {
+        return p.then(r => { lastStep = label; return r })
+    }
+
     // ── Phase 1: fast data fetch ──────────────────────────────────────────────
     onMount(async () => {
         try {
             const [gameRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
-                fetch(`/relay/api/games/${appid}`),
-                fetch(`/relay/api/steam/community-reviews/${appid}`),
-                fetch(`/relay/api/steam/reviews/${appid}`),
-                fetch(`/relay/api/player-counts/${appid}`),
-                fetch(`/api/flags/${appid}`),
-                fetch(`/api/local-reviews/${appid}`),
-                fetch(`/relay/api/videos/${appid}`),
-                fetch(`/api/local-wishlist/${appid}`),
+                tracked(fetch(`/relay/api/games/${appid}`),                       'Game data'),
+                tracked(fetch(`/relay/api/steam/community-reviews/${appid}`),     'Community reviews'),
+                tracked(fetch(`/relay/api/steam/reviews/${appid}`),               'Steam reviews'),
+                tracked(fetch(`/relay/api/player-counts/${appid}`),               'Player counts'),
+                tracked(fetch(`/api/flags/${appid}`),                             'Flags'),
+                tracked(fetch(`/api/local-reviews/${appid}`),                     'Local review'),
+                tracked(fetch(`/relay/api/videos/${appid}`),                      'Trailers'),
+                tracked(fetch(`/api/local-wishlist/${appid}`),                    'Wishlist'),
             ])
             if (!gameRes.ok) throw new Error(gameRes.status === 404 ? 'Game not found' : `HTTP ${gameRes.status}`)
 
@@ -198,6 +216,10 @@
         if (hasAbout)        pending++
         if (!needsCommunitySync) pending-- // reddit + community sync: community-sync only if needed
         bgPending = pending
+
+        hltbNeeded = hasHltb
+        itadNeeded = hasItad
+        pcgwNeeded = hasPcgw
 
         const dec = () => { bgPending = Math.max(0, bgPending - 1) }
 
@@ -314,7 +336,9 @@
 
 <div bind:this={containerEl}>
     {#if loading}
-        <p class="page-loading">Loading…</p>
+        <div class="game-p1-loader">
+            <SubredditLoader status={lastStep} />
+        </div>
     {:else if error}
         <p class="page-error">Failed to load: {escapeHtml(error)}</p>
     {:else if game}
@@ -351,6 +375,11 @@
             <!-- How Long To Beat -->
             {#if effectiveHltb !== undefined}
                 <HltbSection {game} hltb={effectiveHltb} onRefresh={refreshHltb} />
+            {:else if hltbNeeded}
+                <section class="game-section" id="game-sec-hltb">
+                    <h2 class="game-section-title">How Long To Beat</h2>
+                    <div class="game-sec-pending"><div class="community-loader"></div></div>
+                </section>
             {/if}
 
             <!-- Player Count -->
@@ -385,6 +414,11 @@
             <!-- ITAD Prices (background-loaded) -->
             {#if effectiveItad !== undefined}
                 <ItadPrices itad={effectiveItad} {game} onRefresh={refreshItad} />
+            {:else if itadNeeded}
+                <section class="game-section" id="game-sec-itad">
+                    <h2 class="game-section-title">Prices</h2>
+                    <div class="game-sec-pending"><div class="community-loader"></div></div>
+                </section>
             {/if}
 
             <!-- ProtonDB (background-loaded) -->
@@ -395,6 +429,11 @@
             <!-- PCGamingWiki (background-loaded) -->
             {#if pcgwData !== undefined}
                 <PCGW {pcgwData} {game} onRefresh={refreshPcgw} />
+            {:else if pcgwNeeded}
+                <section class="game-section" id="game-sec-pcgw">
+                    <h2 class="game-section-title">PCGamingWiki</h2>
+                    <div class="game-sec-pending"><div class="community-loader"></div></div>
+                </section>
             {/if}
         </div>
 

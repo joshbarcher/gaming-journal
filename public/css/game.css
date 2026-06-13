@@ -1,3 +1,22 @@
+/* ── Page-level Phase 1 loader ───────────────────────────────────────────────── */
+.game-p1-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+}
+
+.game-p1-loader .community-sync-wrap {
+    min-height: auto;
+}
+
+/* ── Section-level pending spinner ───────────────────────────────────────────── */
+.game-sec-pending {
+    display: flex;
+    justify-content: center;
+    padding: 32px 0;
+}
+
 /* ── Hero section ────────────────────────────────────────────────────────────── */
 .game-hero {
     position: relative;

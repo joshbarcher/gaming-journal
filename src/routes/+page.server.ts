@@ -15,12 +15,12 @@ interface RelayHomeData {
 }
 
 export interface HomeData {
-    resume:     HomeResume  | null
-    release:    HomeRelease | null
-    libPosters: HomePoster[]
-    wlPosters:  HomePoster[]
+    resume:      HomeResume  | null
+    release:     HomeRelease | null
+    libPosters:  HomePoster[]
+    wlPosters:   HomePoster[]
     discPosters: { header: string }[]
-    saleGame:   AlertResult | null
+    saleGame:    Promise<AlertResult | null>
 }
 
 function relayUrl(): string {
@@ -62,20 +62,21 @@ function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (app
 export async function load(): Promise<HomeData> {
     const base = relayUrl()
 
-    const [homeData, discoverData, alerts, flags, settings] = await Promise.all([
+    const [homeData, discoverData, flags, settings] = await Promise.all([
         fetchJson<RelayHomeData>(`${base}/api/home`),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
-        getAlerts().catch(() => ({ onSale: [], watching: [] })),
         getAllFlags().catch(() => ({} as FlagsStore)),
         getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false } as Settings)),
     ])
 
     const shouldShow = makeShouldShow(flags, settings)
 
-    const onSale = alerts.onSale ?? []
-    const saleGame = onSale.length
-        ? onSale[Math.floor(Math.random() * onSale.length)]
-        : null
+    const saleGame: Promise<AlertResult | null> = getAlerts()
+        .then(alerts => {
+            const onSale = alerts.onSale ?? []
+            return onSale.length ? onSale[Math.floor(Math.random() * onSale.length)] : null
+        })
+        .catch(() => null)
 
     return {
         resume:      homeData?.resume     ?? null,

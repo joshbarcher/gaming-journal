@@ -46,23 +46,37 @@
 
             if (!ids.length) { loading = false; return }
 
-            const results = await Promise.all(ids.map(async appid => {
-                const o       = ownedMap.get(appid)
-                let name      = o?.name ?? null
-                let playtime  = o?.playtime_forever ?? 0
-                let hltb      = null
+            // Render immediately with available data
+            games   = ids.map(appid => {
+                const o = ownedMap.get(appid)
+                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0, hltb: null } as SteamGame
+            }).sort((a, b) => b.playtime - a.playtime)
+            loading = false
 
-                try { const r = await fetch(`/relay/api/hltb/${appid}`);    if (r.ok) hltb = await r.json() } catch {}
-                if (!name) {
-                    try { const r = await fetch(`/relay/api/games/${appid}`); if (r.ok) { const d = await r.json(); name = d?.name ?? null } } catch {}
+            // Background: fetch HLTB and missing names per game
+            for (const appid of ids) {
+                fetch(`/relay/api/hltb/${appid}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(hltb => {
+                        if (!hltb) return
+                        const idx = games.findIndex(g => g.appid === appid)
+                        if (idx !== -1) games[idx] = { ...games[idx], hltb }
+                    })
+                    .catch(() => {})
+
+                if (!ownedMap.has(appid)) {
+                    fetch(`/relay/api/games/${appid}`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(d => {
+                            if (!d?.name) return
+                            const idx = games.findIndex(g => g.appid === appid)
+                            if (idx !== -1) games[idx] = { ...games[idx], name: d.name }
+                        })
+                        .catch(() => {})
                 }
-                return { appid, name: name ?? `App ${appid}`, playtime, hltb }
-            }))
-
-            games = results.sort((a, b) => b.playtime - a.playtime)
+            }
         } catch (err) {
-            error = (err as Error).message
-        } finally {
+            error   = (err as Error).message
             loading = false
         }
     })
