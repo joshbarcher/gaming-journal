@@ -82,6 +82,10 @@
     box-sizing: border-box;
 }
 
+.gj-sub-wrap {
+    padding: 40px;
+}
+
 .gj-dash > .gj-header {
     flex-shrink: 0;
     margin-bottom: 14px;

@@ -23,13 +23,21 @@
 </script>
 
 {#if sub === 'achievements'}
-    <JournalAchievements {appid} {gameName} />
+    <div class="gj-sub-wrap">
+        <JournalAchievements {appid} {gameName} />
+    </div>
 {:else if sub === 'notes'}
-    <JournalNotes {appid} {gameName} />
+    <div class="gj-sub-wrap">
+        <JournalNotes {appid} {gameName} />
+    </div>
 {:else if sub === 'progress'}
-    <JournalProgress {appid} {gameName} />
+    <div class="gj-sub-wrap">
+        <JournalProgress {appid} {gameName} />
+    </div>
 {:else if sub === 'pages'}
-    <JournalPages {appid} {gameName} />
+    <div class="gj-sub-wrap">
+        <JournalPages {appid} {gameName} />
+    </div>
 {:else}
     <JournalDashboard {appid} />
 {/if}
