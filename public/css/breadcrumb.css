@@ -4,9 +4,13 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 16px;
+    margin-bottom: 0;
     flex-wrap: wrap;
 }
+
+/* Space below breadcrumb before the page title — only where a title directly follows */
+.gj-header .bc-trail         { margin-bottom: 14px; }
+.community-header-body .bc-trail { margin-bottom: 12px; }
 
 .bc-crumb {
     display: inline-flex;
