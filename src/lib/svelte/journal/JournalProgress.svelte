@@ -6,8 +6,9 @@
     import { confirmDialog } from '../../js/dialog.js'
     import { globalSegments } from '../../js/views/progress-helpers.js'
     import { IC, TRACKER_TYPES, TRACKER_META, fmtDate } from '../../js/views/journal-render.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
-    let { appid } = $props()
+    let { appid, gameName = '' } = $props()
 
     let pages   = $state<Page[]>([])
     let loading = $state(true)
@@ -43,8 +44,12 @@
     <p class="page-loading">Loading…</p>
 {:else}
 <div class="gj-sub-header">
-    <a href="/journal/{appid}" class="gj-sub-back">&#8592; Journal</a>
-    <span class="gj-sub-title">Progress Trackers</span>
+    <Breadcrumb crumbs={[
+        { label: 'Home', href: '/' },
+        { label: gameName || '…', href: `/game/${appid}` },
+        { label: 'Journal', href: `/journal/${appid}` },
+        { label: 'Progress Trackers' },
+    ]} />
     <div class="gj-sub-actions">
         <button class="gj-btn" onclick={() => newTracker('progress', 'New Tracker')}>+ Progress</button>
         <button class="gj-btn" onclick={() => newTracker('progress-bars', 'New Multi-Bar')}>+ Multi-Bar</button>

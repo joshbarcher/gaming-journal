@@ -5,6 +5,7 @@
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { fmtScore, fmtTime, imgSrc, videoSrc, flattenComments, countComments } from '../../js/views/community-render.js'
     import Comment from './Comment.svelte'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     let { appid, postId, sub = '' } = $props()
 
@@ -283,7 +284,12 @@
 {:else if post}
 <div class="community-page" bind:this={containerEl} oncontextmenu={handleContextMenu}>
     <div class="community-thread-nav">
-        <a class="community-back" href="/community/{appid}">← Community</a>
+        <Breadcrumb crumbs={[
+            { label: 'Home', href: '/' },
+            { label: game?.name ?? '…', href: `/game/${appid}` },
+            { label: 'Community', href: `/community/${appid}` },
+            { label: 'Thread' },
+        ]} />
     </div>
 
     <!-- Full post card -->

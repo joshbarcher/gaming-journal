@@ -3,8 +3,9 @@
     import type { AchievementItem as AchievementItemType } from '../../types.js'
     import { mergeSessionAchievements } from '../../js/views/journal-render.js'
     import AchievementItem from './AchievementItem.svelte'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
-    let { appid } = $props()
+    let { appid, gameName = '' } = $props()
 
     let achList    = $state<AchievementItemType[]>([])
     let loading    = $state(true)
@@ -68,8 +69,12 @@
     <p class="page-loading">Loading…</p>
 {:else}
 <div class="gj-sub-header" onmouseover={handleOver} onmouseleave={() => { _lastTip = null; hideTip() }}>
-    <a href="/journal/{appid}" class="gj-sub-back">&#8592; Journal</a>
-    <span class="gj-sub-title">Achievements</span>
+    <Breadcrumb crumbs={[
+        { label: 'Home', href: '/' },
+        { label: gameName || '…', href: `/game/${appid}` },
+        { label: 'Journal', href: `/journal/${appid}` },
+        { label: 'Achievements' },
+    ]} />
     {#if lockedHidden.length > 0}
         <div class="gj-sub-actions">
             <label class="gj-ach-toggle">

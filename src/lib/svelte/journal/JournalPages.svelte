@@ -5,8 +5,9 @@
     import { navigate } from '../../js/router.js'
     import { confirmDialog } from '../../js/dialog.js'
     import { IC, fmtDate } from '../../js/views/journal-render.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
-    let { appid } = $props()
+    let { appid, gameName = '' } = $props()
 
     let pages   = $state<Page[]>([])
     let loading = $state(true)
@@ -42,8 +43,12 @@
     <p class="page-loading">Loading…</p>
 {:else}
 <div class="gj-sub-header">
-    <a href="/journal/{appid}" class="gj-sub-back">&#8592; Journal</a>
-    <span class="gj-sub-title">Journal Pages</span>
+    <Breadcrumb crumbs={[
+        { label: 'Home', href: '/' },
+        { label: gameName || '…', href: `/game/${appid}` },
+        { label: 'Journal', href: `/journal/${appid}` },
+        { label: 'Pages' },
+    ]} />
     <div class="gj-sub-actions">
         <button class="gj-btn" onclick={newPage}>+ New Page</button>
     </div>

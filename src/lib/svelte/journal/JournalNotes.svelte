@@ -3,8 +3,9 @@
     import type { ReviewNote } from '../../types.js'
     import { api } from '../../js/api.js'
     import { IC, fmtDate } from '../../js/views/journal-render.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
-    let { appid } = $props()
+    let { appid, gameName = '' } = $props()
 
     let notes   = $state<ReviewNote[]>([])
     let loading = $state(true)
@@ -55,8 +56,12 @@
     <p class="page-loading">Loading…</p>
 {:else}
 <div class="gj-sub-header">
-    <a href="/journal/{appid}" class="gj-sub-back">&#8592; Journal</a>
-    <span class="gj-sub-title">Notes</span>
+    <Breadcrumb crumbs={[
+        { label: 'Home', href: '/' },
+        { label: gameName || '…', href: `/game/${appid}` },
+        { label: 'Journal', href: `/journal/${appid}` },
+        { label: 'Notes' },
+    ]} />
 </div>
 
 <div class="gj-add-note" style="margin-bottom:20px">

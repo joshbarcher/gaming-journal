@@ -13,6 +13,7 @@
     import SessionAchievements from './SessionAchievements.svelte'
     import LastSessionCard from './LastSessionCard.svelte'
     import SessionHistoryRail from './SessionHistoryRail.svelte'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     let { appid } = $props()
 
@@ -300,7 +301,11 @@
 {:else if game}
 <div class="gj-dash">
     <div class="gj-header">
-        <a href="/game/{appid}" class="gj-back">&#8592; {game.name}</a>
+        <Breadcrumb crumbs={[
+            { label: 'Home', href: '/' },
+            { label: game.name, href: `/game/${appid}` },
+            { label: 'Journal' },
+        ]} />
         <span class="gj-header-title">Journal</span>
     </div>
 

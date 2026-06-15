@@ -2,10 +2,10 @@
     import { onMount, onDestroy } from 'svelte'
     import type { SteamGame, CommunityReviews, ProtonData, ItadData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
-    import { gameBackLabel, gameBackPath } from '../../js/router.js'
     import { fmtHours } from '../../js/views/game-render.js'
     import ScoreChip from './sections/ScoreChip.svelte'
     import GdpPrices from './sections/GdpPrices.svelte'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     interface Props {
         game:             SteamGame | null
@@ -121,7 +121,10 @@
     <div class="game-hero-bg game-hero-bg--a" bind:this={bgAEl} style={initBg ? `background-image:url('${initBg}')` : ''}></div>
     <div class="game-hero-bg game-hero-bg--b" bind:this={bgBEl}></div>
     <nav class="game-hero-nav">
-        <a href={gameBackPath()} class="game-back-link">&#8592; {gameBackLabel()}</a>
+        <Breadcrumb crumbs={[
+            { label: 'Home', href: '/' },
+            { label: game?.name ?? '' },
+        ]} />
     </nav>
     <div class="game-hero-body">
         <div class="game-hero-left">

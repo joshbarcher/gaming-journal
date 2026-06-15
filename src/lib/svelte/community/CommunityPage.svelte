@@ -5,6 +5,7 @@
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { fmtScore, fmtTime, thumbSrc } from '../../js/views/community-render.js'
     import SubredditLoader from './SubredditLoader.svelte'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     let { appid } = $props()
 
@@ -269,8 +270,11 @@
 <div class="community-page" oncontextmenu={handleContextMenu}>
     <div class="community-header">
         <div class="community-header-body">
-            <a class="community-back" href="/game/{appid}">← {game.name ?? 'Game'}</a>
-            <p class="community-eyebrow">Community</p>
+            <Breadcrumb crumbs={[
+                { label: 'Home', href: '/' },
+                { label: game.name ?? 'Game', href: `/game/${appid}` },
+                { label: 'Community' },
+            ]} />
             <h1 class="community-title">{game.name ?? ''}</h1>
             <p class="community-subtitle">{totalPosts} post{totalPosts !== 1 ? 's' : ''} from Reddit</p>
         </div>
