@@ -75,9 +75,11 @@
 .gj-dash {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 96px);   /* 96px = 48px top + 48px bottom padding on #main-content */
+    height: calc(100vh - 80px);   /* 80px = 40px top + 40px bottom padding */
     overflow: hidden;
     min-height: 0;
+    padding: 40px;
+    box-sizing: border-box;
 }
 
 .gj-dash > .gj-header {
