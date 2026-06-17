@@ -212,6 +212,23 @@
     min-width: 0;
 }
 
+.gdp-steam-score-btn {
+    all: unset;
+    flex: 1;
+    display: flex;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.gdp-steam-score-btn .gdp-score-chip {
+    flex: 1;
+    transition: opacity 0.15s ease;
+}
+
+.gdp-steam-score-btn:hover .gdp-score-chip {
+    opacity: 0.75;
+}
+
 .gdp-score-chip--missing {
     opacity: 0.32;
     border-style: dashed;

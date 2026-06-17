@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { ProgressPage, Task, TaskState } from '../../types.js'
+    import { onMount } from 'svelte'
     import { api } from '../../js/api.js'
     import { uuid } from '../../js/utils.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
@@ -7,6 +8,7 @@
     import { fireParticles } from '../../js/particles.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { navigate } from '../../js/router.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     const STATES: TaskState[] = ['started', 'working', 'done']
     const STATE_LABELS = { started: 'STARTED', working: 'WORKING', done: 'DONE' }
@@ -129,13 +131,30 @@
         const updated = await api.pages.update(pd.id, { tasks: pd.tasks, notes: pd.notes })
         if (updated) refreshSidebarItem(updated)
     }
+
+    let gameName = $state('')
+    onMount(async () => {
+        if (!pd.appid) return
+        try {
+            const res = await fetch(`/relay/api/games/${pd.appid}`)
+            if (res.ok) gameName = (await res.json())?.name ?? ''
+        } catch { /* silent */ }
+    })
 </script>
 
+{#if pd.appid}
+<div class="gj-sub-header">
+    <Breadcrumb crumbs={[
+        { label: 'Home', href: '/' },
+        { label: gameName || '…', href: `/game/${pd.appid}` },
+        { label: 'Journal', href: `/journal/${pd.appid}` },
+        { label: 'Progress Trackers', href: `/journal/${pd.appid}/progress` },
+        { label: pd.title },
+    ]} />
+</div>
+{/if}
+
 <div class="page-header">
-    {#if pd.appid}
-        <a class="gj-sub-back" href="/journal/{pd.appid}"
-           onclick={(e) => { e.preventDefault(); navigate(`journal/${pd.appid}`) }}>← Journal</a>
-    {/if}
     <h1 class="page-title page-title--editable" contenteditable="true"
         onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}
         onblur={onTitleBlur}>{pd.title}</h1>
@@ -151,7 +170,7 @@
                  style="background:{seg.color}"
                  title={seg.label || `Task ${seg.num}`}
                  data-num={seg.num}>
-                <span class="progress-seg-num">{seg.num}</span>
+                <span class="progress-seg-label">{seg.label || String(seg.num)}</span>
                 {#if seg.stateLabel}<span class="progress-seg-state">{seg.stateLabel}</span>{/if}
             </div>
         {/each}

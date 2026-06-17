@@ -1,60 +1,51 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
-    import type { ReviewNote } from '../../types.js'
+    import { onMount, onDestroy } from 'svelte'
     import { api } from '../../js/api.js'
-    import { IC, fmtDate } from '../../js/views/journal-render.js'
     import Breadcrumb from '../Breadcrumb.svelte'
 
     let { appid, gameName = '' } = $props()
 
-    let notes   = $state<ReviewNote[]>([])
-    let loading = $state(true)
-    let pinning = $state(false)
-    let noteInput = $state('')
+    let mountEl: HTMLElement
+    let wall: any = null
+    let noteCount = $state(0)
 
-    let sorted = $derived.by(() => {
-        const pinned  = notes.filter(n => n.pinned)
-        const regular = notes.filter(n => !n.pinned)
-        return [...pinned, ...regular]
-    })
-
-    async function refresh() {
-        const r = await api.localReviews.get(appid).catch(() => null)
-        notes = r?.notes ?? []
-    }
-
-    async function addNote() {
-        const text = noteInput.trim()
-        if (!text) return
-        noteInput = ''
-        const note = await api.localReviews.addNote(appid, text)
-        if (pinning && note?.id) await api.localReviews.updateNote(appid, note.id, { pinned: true })
-        await refresh()
-    }
-
-    async function togglePin(n: ReviewNote) {
-        await api.localReviews.updateNote(appid, n.id, { pinned: !n.pinned })
-        await refresh()
-    }
-
-    async function deleteNote(n: ReviewNote) {
-        await api.localReviews.deleteNote(appid, n.id)
-        await refresh()
-    }
-
-    function handleKeydown(e: KeyboardEvent) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote() }
+    function openAdd() {
+        mountEl?.querySelector<HTMLButtonElement>('.sw-add__toggle')?.click()
     }
 
     onMount(async () => {
-        await refresh()
-        loading = false
+        const [{ StickyWall }, notes] = await Promise.all([
+            import('../../js/vendor/stickywall.js'),
+            api.journalNotes.get(appid).catch(() => []),
+        ])
+
+        noteCount = Array.isArray(notes) ? notes.length : 0
+
+        wall = new StickyWall(mountEl, {
+            notes,
+            editable:  true,
+            draggable: true,
+            tape:      true,
+            addForm:   'modal',
+        })
+
+        wall
+            .on('sw:add',     () => { _save(); noteCount = wall.serialize().length })
+            .on('sw:update',  () => _save())
+            .on('sw:remove',  () => { _save(); noteCount = wall.serialize().length })
+            .on('sw:reorder', () => _save())
     })
+
+    onDestroy(() => {
+        wall?.destroy()
+        wall = null
+    })
+
+    async function _save() {
+        await api.journalNotes.set(appid, wall.serialize())
+    }
 </script>
 
-{#if loading}
-    <p class="page-loading">Loading…</p>
-{:else}
 <div class="gj-sub-header">
     <Breadcrumb crumbs={[
         { label: 'Home', href: '/' },
@@ -62,32 +53,36 @@
         { label: 'Journal', href: `/journal/${appid}` },
         { label: 'Notes' },
     ]} />
-</div>
-
-<div class="gj-add-note" style="margin-bottom:20px">
-    <input class="gj-add-note-input" placeholder="New note…" bind:value={noteInput} onkeydown={handleKeydown}>
-    <button class="gj-pin-toggle" class:active={pinning} title="Pin note" onclick={() => pinning = !pinning}>
-        {@html IC.pin}
-    </button>
-    <button class="gj-btn gj-btn--accent" onclick={addNote}>Add</button>
-</div>
-
-{#if sorted.length > 0}
-    <div class="gj-notes-full-grid">
-        {#each sorted as n (n.id)}
-            <div class="gj-note-full-card" class:gj-note-full-card--pinned={n.pinned}>
-                {n.text}
-                <div class="gj-note-full-btns">
-                    <button class="gj-note-btn" title={n.pinned ? 'Unpin' : 'Pin'} onclick={() => togglePin(n)}>
-                        {@html IC.pin}
-                    </button>
-                    <button class="gj-note-btn gj-note-btn--del" title="Delete" onclick={() => deleteNote(n)}>&times;</button>
-                </div>
-                <div class="gj-note-date">{fmtDate(n.createdAt)}</div>
-            </div>
-        {/each}
+    <div class="gj-sub-actions">
+        <button class="gj-btn gj-btn--accent gj-notes-add-btn" onclick={openAdd}>
+            + Add Note
+            {#if noteCount > 0}<span class="gj-notes-count">{noteCount}</span>{/if}
+        </button>
     </div>
-{:else}
-    <p class="gj-no-data">No notes yet.</p>
-{/if}
-{/if}
+</div>
+
+<div class="gj-notes-wall-wrap">
+    <div bind:this={mountEl}></div>
+</div>
+
+<style>
+    /* suppress StickyWall's own add button — ours lives in the header */
+    :global(.gj-notes-wall-wrap .sw-add) {
+        display: none;
+    }
+
+    .gj-notes-add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .gj-notes-count {
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        background: rgba(201, 168, 76, 0.2);
+        border-radius: 999px;
+        padding: 2px 6px;
+    }
+</style>

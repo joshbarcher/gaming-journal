@@ -125,7 +125,7 @@
             games = ids.map(appid => {
                 const o = ownedMap.get(appid)
                 return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0 } as SteamGame
-            }).sort((a, b) => b.playtime - a.playtime)
+            }).sort((a, b) => (b.playtime ?? 0) - (a.playtime ?? 0))
 
             const heroIdx = Math.floor(Math.random() * games.length)
             hero    = games[heroIdx]

@@ -163,7 +163,10 @@
 
                 <!-- Score row -->
                 <div class="gdp-score-row">
-                    <ScoreChip source="Steam" score={steamRatio} display={steamRatio != null ? Math.round(steamRatio) + '%' : ''} id="gdp-steam-chip" />
+                    <button class="gdp-steam-score-btn"
+                            onclick={() => document.getElementById('game-sec-community-reviews')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                        <ScoreChip source="Steam" score={steamRatio} display={steamRatio != null ? Math.round(steamRatio) + '%' : ''} id="gdp-steam-chip" />
+                    </button>
                     <ScoreChip source="OpenCritic" score={null} display="" />
                     <ScoreChip source="Metacritic" score={mcScore} display={mcScore != null ? String(mcScore) : ''} />
                 </div>

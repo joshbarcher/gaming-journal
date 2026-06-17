@@ -53,7 +53,7 @@
             fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null).catch(() => null),
             fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null).catch(() => null),
         ])
-        const raw: AchievementItem[] = (achRes as PromiseFulfilledResult<any>).value?.achievements ?? []
+        const raw: AchievementItemType[] = (achRes as PromiseFulfilledResult<any>).value?.achievements ?? []
         const np     = (npRes as PromiseFulfilledResult<any>).value ?? null
         const sess   = np?.playing?.appid === Number(appid) ? np.playing : null
         achList = mergeSessionAchievements(raw, sess?.achievementsDuring)

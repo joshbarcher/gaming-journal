@@ -30,7 +30,9 @@
 </script>
 
 {#if Component}
-    <Component page={pageData} />
+    <div class="gj-sub-wrap">
+        <Component page={pageData} />
+    </div>
 {:else if notFound}
     <p class="page-error">Page not found.</p>
 {:else}

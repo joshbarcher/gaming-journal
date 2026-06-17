@@ -73,7 +73,10 @@
                 <div class="gj-prog-segs gj-prog-segs--full">
                     {#if segs.length > 0}
                         {#each segs as s}
-                            <div class="gj-prog-seg" style="background:{s.color}" title={s.label ?? ''}></div>
+                            <div class="gj-prog-seg" style="background:{s.color}" title={s.label ?? ''}>
+                                <span class="gj-prog-seg-label">{s.label || ''}</span>
+                                {#if s.stateLabel}<span class="gj-prog-seg-state">{s.stateLabel}</span>{/if}
+                            </div>
                         {/each}
                     {:else}
                         <div class="gj-prog-seg" style="background:rgba(255,255,255,0.07);flex:1"></div>

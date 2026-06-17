@@ -31,6 +31,10 @@ export const api = {
         updateNote: (appid: string | number, noteId: string, body: unknown) => request('PATCH', `/local-reviews/${appid}/notes/${noteId}`, body),
         deleteNote: (appid: string | number, noteId: string)           => request('DELETE', `/local-reviews/${appid}/notes/${noteId}`),
     },
+    journalNotes: {
+        get: (appid: string | number)                    => request('GET', `/journal-notes/${appid}`),
+        set: (appid: string | number, notes: unknown[])  => request('PUT', `/journal-notes/${appid}`, notes),
+    },
     franchises: {
         list:           ()                                   => request('GET',    '/franchises'),
         get:            (id: string)                         => request('GET',    `/franchises/${id}`),

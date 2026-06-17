@@ -21,10 +21,12 @@
     const FONT_FAMILIES = ['Arial', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana']
 
     import type { ContentPage } from '../../types.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     let { page: pageProp } = $props()
 
     let pd        = $state<ContentPage>(JSON.parse(JSON.stringify(pageProp)))
+    let gameName  = $state('')
     let editorEl: HTMLElement | null  = null
     let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -166,17 +168,30 @@
         await api.pages.update(pd.id, { content })
     }
 
-    onMount(() => {
+    onMount(async () => {
         if (editorEl) editorEl.innerHTML = pd.content || '<p><br></p>'
         document.addEventListener('selectionchange', onSelectionChange)
+        if (pd.appid) {
+            try {
+                const res = await fetch(`/relay/api/games/${pd.appid}`)
+                if (res.ok) gameName = (await res.json())?.name ?? ''
+            } catch { /* silent */ }
+        }
         return () => document.removeEventListener('selectionchange', onSelectionChange)
     })
 </script>
 
-{#if pd.appid}
-    <a class="gj-sub-back" href="/journal/{pd.appid}/pages"
-       onclick={(e) => { e.preventDefault(); navigate(`journal/${pd.appid}/pages`) }}>← Journal Pages</a>
-{/if}
+<div class="gj-sub-header">
+    {#if pd.appid}
+        <Breadcrumb crumbs={[
+            { label: 'Home', href: '/' },
+            { label: gameName || '…', href: `/game/${pd.appid}` },
+            { label: 'Journal', href: `/journal/${pd.appid}` },
+            { label: 'Pages', href: `/journal/${pd.appid}/pages` },
+            { label: pd.title },
+        ]} />
+    {/if}
+</div>
 
 <div class="page-header">
     <h1 class="page-title page-title--editable" contenteditable="true"

@@ -133,9 +133,9 @@
             // Render immediately with available data
             const base    = ids.map(appid => {
                 const o = ownedMap.get(appid)
-                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0, hltb: null } as SteamGame
+                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0 } as SteamGame
             })
-            const sorted  = base.sort((a, b) => b.playtime - a.playtime)
+            const sorted  = base.sort((a, b) => (b.playtime ?? 0) - (a.playtime ?? 0))
             const gameMap = new Map(sorted.map(g => [g.appid, g]))
             const ordered: SteamGame[] = []
             const seen    = new Set<number>()

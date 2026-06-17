@@ -2,10 +2,10 @@
     import { scoreColor } from '../../../js/views/game-render.js'
 
     interface Props {
-        source:   string
-        score?:   number | null
-        display:  string
-        id?:      string
+        source:  string
+        score?:  number | null
+        display: string
+        id?:     string
     }
     let { source, score, display, id }: Props = $props()
 

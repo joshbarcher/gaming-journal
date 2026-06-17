@@ -26,10 +26,16 @@
     transform: scaleY(1.08);
 }
 
-.progress-seg-num {
-    font-size: 12px;
+.progress-seg-label {
+    font-size: 11px;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.2;
+    max-width: 100%;
+    padding: 0 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
 }
 
 .progress-seg-state {

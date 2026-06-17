@@ -1,10 +1,12 @@
 <script lang="ts">
     import type { CounterPage } from '../../types.js'
+    import { onMount } from 'svelte'
     import { api } from '../../js/api.js'
     import { confirmDialog } from '../../js/dialog.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
     import { navigate } from '../../js/router.js'
     import { percentToColor } from '../../js/views/progress-helpers.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     let { page: pageProp } = $props()
 
@@ -95,17 +97,30 @@
         const updated = await api.pages.update(pd.id, { current: pd.current, target: pd.target })
         if (updated) refreshSidebarItem(updated)
     }
+
+    let gameName = $state('')
+    onMount(async () => {
+        if (!pd.appid) return
+        try {
+            const res = await fetch(`/relay/api/games/${pd.appid}`)
+            if (res.ok) gameName = (await res.json())?.name ?? ''
+        } catch { /* silent */ }
+    })
 </script>
 
-<div class="page-header">
-    <div style="display:flex;align-items:center;margin-bottom:8px">
-        {#if pd.appid}
-            <a class="gj-sub-back" href="/journal/{pd.appid}"
-               onclick={(e) => { e.preventDefault(); navigate(`journal/${pd.appid}`) }}>← Journal</a>
-        {/if}
-        <button class="gj-btn gj-btn--danger" style="margin-left:auto" onclick={deletePage}>Delete</button>
+<div class="gj-sub-header">
+    {#if pd.appid}
+        <Breadcrumb crumbs={[
+            { label: 'Home', href: '/' },
+            { label: gameName || '…', href: `/game/${pd.appid}` },
+            { label: 'Journal', href: `/journal/${pd.appid}` },
+            { label: 'Progress Trackers', href: `/journal/${pd.appid}/progress` },
+            { label: pd.title },
+        ]} />
+    {/if}
+    <div class="gj-sub-actions">
+        <button class="gj-btn gj-btn--danger" onclick={deletePage}>Delete</button>
     </div>
-    <p class="page-subtitle">Counter</p>
 </div>
 
 <div class="counter-wrap">

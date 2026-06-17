@@ -6,7 +6,7 @@ import { applyIndent, renderListItems, parseListItems } from '../lib/js/views/pa
 
 function makeUl(innerHtml: string) {
     const dom = new JSDOM(`<body><ul>${innerHtml}</ul></body>`)
-    return dom.window.document.querySelector('ul')
+    return dom.window.document.querySelector('ul')!
 }
 
 describe('parseListItems', () => {
@@ -58,7 +58,7 @@ describe('parseListItems', () => {
 
     it('handles ol nested inside li', () => {
         const dom = new JSDOM('<body><ul><li>Item<ol><li>Ordered</li></ol></li></ul></body>')
-        const ul  = dom.window.document.querySelector('ul')
+        const ul  = dom.window.document.querySelector('ul')!
         const result = parseListItems(ul)
         expect(result.length).toBe(2)
         expect(result[1].depth).toBe(1)
@@ -70,7 +70,7 @@ describe('parseListItems', () => {
 
 describe('applyIndent — indent', () => {
     it('increases depth for items in range', () => {
-        const items = [{ depth: 0 }, { depth: 0 }, { depth: 0 }]
+        const items = [{ depth: 0, html: '' }, { depth: 0, html: '' }, { depth: 0, html: '' }]
         const result = applyIndent(items, 0, 1, false)
         expect(result[0].depth).toBe(1)
         expect(result[1].depth).toBe(1)
@@ -78,13 +78,13 @@ describe('applyIndent — indent', () => {
     })
 
     it('does not mutate the original array', () => {
-        const items = [{ depth: 0 }, { depth: 0 }]
+        const items = [{ depth: 0, html: '' }, { depth: 0, html: '' }]
         applyIndent(items, 0, 1, false)
         expect(items[0].depth).toBe(0)
     })
 
     it('clamps endIdx to the last item', () => {
-        const items = [{ depth: 0 }, { depth: 0 }]
+        const items = [{ depth: 0, html: '' }, { depth: 0, html: '' }]
         const result = applyIndent(items, 0, 99, false)
         expect(result[0].depth).toBe(1)
         expect(result[1].depth).toBe(1)
@@ -93,7 +93,7 @@ describe('applyIndent — indent', () => {
 
 describe('applyIndent — outdent', () => {
     it('decreases depth for items in range', () => {
-        const items = [{ depth: 2 }, { depth: 1 }, { depth: 2 }]
+        const items = [{ depth: 2, html: '' }, { depth: 1, html: '' }, { depth: 2, html: '' }]
         const result = applyIndent(items, 0, 1, true)
         expect(result[0].depth).toBe(1)
         expect(result[1].depth).toBe(0)
@@ -101,7 +101,7 @@ describe('applyIndent — outdent', () => {
     })
 
     it('floors depth at 0 when already at root', () => {
-        const items = [{ depth: 0 }, { depth: 0 }]
+        const items = [{ depth: 0, html: '' }, { depth: 0, html: '' }]
         const result = applyIndent(items, 0, 1, true)
         expect(result[0].depth).toBe(0)
         expect(result[1].depth).toBe(0)
@@ -110,13 +110,13 @@ describe('applyIndent — outdent', () => {
 
 describe('applyIndent — out-of-bounds startIdx', () => {
     it('returns items unchanged when startIdx is negative', () => {
-        const items = [{ depth: 0 }]
+        const items = [{ depth: 0, html: '' }]
         const result = applyIndent(items, -1, 0, false)
         expect(result[0].depth).toBe(0)
     })
 
     it('returns items unchanged when startIdx is at or past items length', () => {
-        const items = [{ depth: 0 }]
+        const items = [{ depth: 0, html: '' }]
         const result = applyIndent(items, 1, 2, false)
         expect(result[0].depth).toBe(0)
     })

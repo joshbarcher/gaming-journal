@@ -125,7 +125,7 @@
             // Render immediately with available data
             const base    = ids.map(appid => {
                 const o = ownedMap.get(appid)
-                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0, hltb: null } as SteamGame
+                return { appid, name: o?.name ?? `App ${appid}`, playtime: o?.playtime_forever ?? 0 } as SteamGame
             })
             const sorted  = base.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
             const gameMap = new Map(sorted.map(g => [g.appid, g]))

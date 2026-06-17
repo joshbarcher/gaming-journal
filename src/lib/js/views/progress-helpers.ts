@@ -1,4 +1,22 @@
-import type { Page, Bar, Segment } from '$lib/types.js'
+import type { Segment } from '$lib/types.js'
+
+type AnyStep    = { state?: string | null; optional?: boolean }
+type AnyTask    = { state?: string | null; optional?: boolean; title?: string }
+type AnyBar     = { title?: string; steps?: AnyStep[]; optional?: boolean }
+type AnyItem    = { title?: string; done?: boolean }
+type AnyCounter = { name?: string; target?: number; current?: number }
+type PageLike   = {
+    type:      string
+    id?:       string
+    title?:    string
+    tasks?:    AnyTask[]
+    bars?:     AnyBar[]
+    items?:    AnyItem[]
+    counters?: AnyCounter[]
+    target?:   number
+    current?:  number
+}
+type BarLike = { steps?: AnyStep[] }
 
 export const STATE_COLORS: Record<string, string> = {
     done:    '#4ecdc4',
@@ -8,11 +26,11 @@ export const STATE_COLORS: Record<string, string> = {
 
 const DIM = 'rgba(255,255,255,0.10)'
 
-export function segmentColor(state: string | null): string {
+export function segmentColor(state: string | null | undefined): string {
     return (state ? STATE_COLORS[state] : null) ?? DIM
 }
 
-export function barProgressPercent(bar: Bar): number {
+export function barProgressPercent(bar: BarLike): number {
     const steps = (bar.steps ?? []).filter(s => !s.optional)
     if (!steps.length) return 0
     const done = steps.filter(s => s.state === 'done').length
@@ -28,7 +46,7 @@ export function percentToColor(pct: number): string {
 
 const STATE_DISPLAY: Record<string, string> = { started: 'Started', working: 'Working', done: 'Done' }
 
-export function stateLabel(state: string | null): string {
+export function stateLabel(state: string | null | undefined): string {
     return (state ? STATE_DISPLAY[state] : null) ?? ''
 }
 
@@ -39,18 +57,18 @@ export function percentToStateLabel(pct: number): string {
     return ''
 }
 
-export function heatmapRows(pages: Page[]): { id: string; title: string; cells: Segment[] }[] {
+export function heatmapRows(pages: PageLike[]): { id: string; title: string; cells: Segment[] }[] {
     return pages
         .filter(p => p.type === 'progress' || p.type === 'progress-bars' || p.type === 'list')
-        .map(p => ({ id: p.id, title: p.title, cells: globalSegments(p) }))
+        .map(p => ({ id: p.id ?? '', title: p.title ?? '', cells: globalSegments(p) }))
 }
 
-export function globalSegments(page: Page): Segment[] {
+export function globalSegments(page: PageLike): Segment[] {
     if (page.type === 'progress') {
         return (page.tasks ?? []).map((t, i) => ({
             num:        i + 1,
             color:      segmentColor(t.state),
-            label:      t.title,
+            label:      t.title ?? '',
             stateLabel: stateLabel(t.state),
             optional:   !!t.optional,
             done:       t.state === 'done',
@@ -62,7 +80,7 @@ export function globalSegments(page: Page): Segment[] {
             return {
                 num:        i + 1,
                 color:      percentToColor(pct),
-                label:      b.title,
+                label:      b.title ?? '',
                 stateLabel: percentToStateLabel(pct),
                 optional:   !!b.optional,
                 done:       pct >= 100,
@@ -73,7 +91,7 @@ export function globalSegments(page: Page): Segment[] {
         return (page.items ?? []).map((item, i) => ({
             num:        i + 1,
             color:      item.done ? STATE_COLORS.done : DIM,
-            label:      item.title,
+            label:      item.title ?? '',
             stateLabel: item.done ? 'Done' : '',
             optional:   false,
             done:       !!item.done,
@@ -86,7 +104,7 @@ export function globalSegments(page: Page): Segment[] {
         return [{
             num:        1,
             color:      percentToColor(pct),
-            label:      page.title,
+            label:      page.title ?? '',
             stateLabel: percentToStateLabel(pct),
             optional:   false,
             done:       pct >= 100,
@@ -110,7 +128,7 @@ export function globalSegments(page: Page): Segment[] {
     return []
 }
 
-export function pagePct(page: Page): number {
+export function pagePct(page: PageLike): number {
     if (page.type === 'progress') {
         const tasks = page.tasks ?? []
         if (!tasks.length) return 0

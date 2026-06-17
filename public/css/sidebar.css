@@ -448,6 +448,18 @@
     to   { transform: rotate(360deg); }
 }
 
+.now-playing-wrap--last .now-playing-card,
+.now-playing-wrap--last .now-playing-card:hover {
+    animation: none;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+    opacity: 0.55;
+}
+
+.now-playing-wrap--last .now-playing-eyebrow {
+    color: var(--clr-muted, #888);
+}
+
 .sidebar-bottom-sep {
     height: 1px;
     background: var(--clr-border);

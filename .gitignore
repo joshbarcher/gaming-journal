@@ -1,5 +1,4 @@
 node_modules/
-.claude
-build/
+.claude/
 .svelte-kit/
-dist/
+build/

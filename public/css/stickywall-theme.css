@@ -1,0 +1,37 @@
+/* Bridge the app's --clr-* design tokens to the generic names StickyWall expects */
+:root {
+    --bg:         var(--clr-bg);
+    --bg-input:   var(--clr-bg-raised);
+    --border:     var(--clr-border);
+    --text:       var(--clr-text);
+    --text-muted: var(--clr-text-muted);
+    --accent:     var(--clr-accent);
+    --danger:     #e05252;
+
+    /* StickyWall-specific */
+    --sw-title:         var(--clr-text);
+    --sw-shadow:        rgba(0, 0, 0, 0.55);
+    --sw-shadow-hover:  rgba(0, 0, 0, 0.75);
+
+    --sw-yellow:  #3b3808;
+    --sw-green:   #0d3020;
+    --sw-pink:    #3a1030;
+    --sw-blue:    #0e2040;
+    --sw-purple:  #1e1042;
+    --sw-red:     #3a1010;
+
+    --sw-note-text: #d8d4c8;
+    --sw-note-from: #9a9478;
+    --sw-empty:     var(--clr-text-muted);
+
+    --sw-modal-overlay: rgba(0, 0, 0, 0.65);
+    --sw-modal-bg:      var(--clr-bg-raised);
+    --sw-modal-border:  var(--clr-border-hi);
+
+    --sw-tape-bg:     rgba(200, 190, 150, 0.18);
+    --sw-tape-border: rgba(200, 190, 150, 0.12);
+}
+
+.sw-note__msg {
+    white-space: pre-wrap;
+}

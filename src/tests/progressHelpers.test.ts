@@ -365,46 +365,46 @@ describe('heatmapRows', () => {
     })
 
     it('includes progress pages', () => {
-        const pages = [{ id: 1, title: 'P', type: 'progress', tasks: [] }]
+        const pages = [{ id: '1', title: 'P', type: 'progress', tasks: [] }]
         const rows  = heatmapRows(pages)
         expect(rows.length).toBe(1)
-        expect(rows[0].id).toBe(1)
+        expect(rows[0].id).toBe('1')
         expect(rows[0].title).toBe('P')
     })
 
     it('includes progress-bars pages', () => {
-        const pages = [{ id: 2, title: 'Bars', type: 'progress-bars', bars: [] }]
+        const pages = [{ id: '2', title: 'Bars', type: 'progress-bars', bars: [] }]
         expect(heatmapRows(pages).length).toBe(1)
     })
 
     it('includes list pages', () => {
-        const pages = [{ id: 3, title: 'List', type: 'list', items: [] }]
+        const pages = [{ id: '3', title: 'List', type: 'list', items: [] }]
         expect(heatmapRows(pages).length).toBe(1)
     })
 
     it('excludes pages with other types', () => {
         const pages = [
-            { id: 1, title: 'Note',    type: 'notes' },
-            { id: 2, title: 'Counter', type: 'counter' },
+            { id: '1', title: 'Note',    type: 'notes' },
+            { id: '2', title: 'Counter', type: 'counter' },
         ]
         expect(heatmapRows(pages).length).toBe(0)
     })
 
     it('filters and keeps only the allowed types from a mixed list', () => {
         const pages = [
-            { id: 1, title: 'A', type: 'progress',      tasks: [] },
-            { id: 2, title: 'B', type: 'notes' },
-            { id: 3, title: 'C', type: 'progress-bars', bars: [] },
-            { id: 4, title: 'D', type: 'list',          items: [] },
+            { id: '1', title: 'A', type: 'progress',      tasks: [] },
+            { id: '2', title: 'B', type: 'notes' },
+            { id: '3', title: 'C', type: 'progress-bars', bars: [] },
+            { id: '4', title: 'D', type: 'list',          items: [] },
         ]
         const rows = heatmapRows(pages)
         expect(rows.length).toBe(3)
-        expect(rows.map(r => r.id)).toEqual([1, 3, 4])
+        expect(rows.map(r => r.id)).toEqual(['1', '3', '4'])
     })
 
     it('cells field is the result of globalSegments for each page', () => {
         const pages = [{
-            id: 1, title: 'T', type: 'progress',
+            id: '1', title: 'T', type: 'progress',
             tasks: [{ title: 'X', state: 'done' }],
         }]
         const rows = heatmapRows(pages)

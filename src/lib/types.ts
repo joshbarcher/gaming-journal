@@ -86,15 +86,22 @@ export interface ProgressBarsPage extends PageBase {
     notes: string
 }
 
-export interface NoteEntry {
-    id:        string
-    text:      string
-    createdAt: string
+export type NoteSize  = 'sm' | 'md' | 'lg'
+export type NoteColor = 'yellow' | 'green' | 'pink' | 'blue' | 'purple' | 'red'
+
+export interface StickyNote {
+    id:       string
+    label:    string
+    message:  string
+    from:     string
+    size:     NoteSize
+    color:    NoteColor
+    rotation: number
 }
 
 export interface NotesPage extends PageBase {
     type:  'notes'
-    notes: NoteEntry[]
+    notes: StickyNote[]
 }
 
 export interface ContentPage extends PageBase {

@@ -13,7 +13,7 @@ function makeTmpDir() {
 function wait(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
 function makeFile(tmpDir: string, overrides: Record<string, any> = {}) {
-    return new ManagedFile({
+    return new ManagedFile<{ items: unknown[] }>({
         filePath:     path.join(tmpDir, 'data.json'),
         name:         'test',
         defaultValue: () => ({ items: [] }),
@@ -26,15 +26,15 @@ function makeFile(tmpDir: string, overrides: Record<string, any> = {}) {
 
 describe('ManagedFile — constructor', () => {
     it('throws when filePath is missing', () => {
-        expect(() => new ManagedFile({ name: 'x', defaultValue: () => ({}) })).toThrow(/filePath/)
+        expect(() => new ManagedFile({ name: 'x', defaultValue: () => ({}) } as any)).toThrow(/filePath/)
     })
 
     it('throws when name is missing', () => {
-        expect(() => new ManagedFile({ filePath: '/tmp/x.json', defaultValue: () => ({}) })).toThrow(/name/)
+        expect(() => new ManagedFile({ filePath: '/tmp/x.json', defaultValue: () => ({}) } as any)).toThrow(/name/)
     })
 
     it('throws when defaultValue is not a function', () => {
-        expect(() => new ManagedFile({ filePath: '/tmp/x.json', name: 'x', defaultValue: {} })).toThrow(/defaultValue/)
+        expect(() => new ManagedFile({ filePath: '/tmp/x.json', name: 'x', defaultValue: {} as any })).toThrow(/defaultValue/)
     })
 })
 

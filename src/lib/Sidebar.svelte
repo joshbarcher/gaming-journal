@@ -57,7 +57,7 @@
 </script>
 
 <nav bind:this={navEl}>
-    <!-- Now Playing -->
+    <!-- Now Playing / Last Session -->
     {#if store.nowPlaying}
         {@const np = store.nowPlaying}
         <div class="now-playing-wrap">
@@ -71,6 +71,18 @@
                 </div>
             </a>
             <div class="now-playing-orbit"><div class="now-playing-particle"></div></div>
+        </div>
+    {:else if store.lastPlayed}
+        {@const lp = store.lastPlayed}
+        <div class="now-playing-wrap now-playing-wrap--last">
+            <a class="now-playing-card" href="/game/{lp.appid}">
+                <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/{lp.appid}/header.jpg')"></div>
+                <div class="now-playing-scrim"></div>
+                <div class="now-playing-body">
+                    <span class="now-playing-eyebrow">Last Session</span>
+                    <span class="now-playing-title">{lp.name}</span>
+                </div>
+            </a>
         </div>
     {/if}
 

@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { ProgressBarsPage, Bar, Step, TaskState } from '../../types.js'
-    import { onDestroy } from 'svelte'
+    import { onMount, onDestroy } from 'svelte'
     import { api } from '../../js/api.js'
     import { uuid } from '../../js/utils.js'
     import { refreshSidebarItem } from '../../js/sidebar.js'
@@ -8,6 +8,7 @@
     import { fireParticles } from '../../js/particles.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { navigate } from '../../js/router.js'
+    import Breadcrumb from '../Breadcrumb.svelte'
 
     let { page: initialPage } = $props()
 
@@ -303,13 +304,30 @@
     }
 
     onDestroy(() => { clearTimeout(_notesTimer ?? undefined) })
+
+    let gameName = $state('')
+    onMount(async () => {
+        if (!page.appid) return
+        try {
+            const res = await fetch(`/relay/api/games/${page.appid}`)
+            if (res.ok) gameName = (await res.json())?.name ?? ''
+        } catch { /* silent */ }
+    })
 </script>
 
+{#if page.appid}
+<div class="gj-sub-header">
+    <Breadcrumb crumbs={[
+        { label: 'Home', href: '/' },
+        { label: gameName || '…', href: `/game/${page.appid}` },
+        { label: 'Journal', href: `/journal/${page.appid}` },
+        { label: 'Progress Trackers', href: `/journal/${page.appid}/progress` },
+        { label: page.title },
+    ]} />
+</div>
+{/if}
+
 <div class="page-header">
-    {#if page.appid}
-        <a class="gj-sub-back" href="/journal/{page.appid}"
-            onclick={(e) => { e.preventDefault(); navigate(`journal/${page.appid}`) }}>← Journal</a>
-    {/if}
     <h1
         class="page-title page-title--editable"
         contenteditable="true"

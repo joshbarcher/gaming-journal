@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte'
-    import type { SteamGame, LocalReview, Page, AchievementItem, JournalSession, SessionAchievement, NowPlayingSession } from '../../types.js'
+    import { onMount, onDestroy, tick } from 'svelte'
+    import type { SteamGame, LocalReview, Page, AchievementItem, JournalSession, SessionAchievement, NowPlayingSession, StickyNote } from '../../types.js'
     import { api } from '../../js/api.js'
     import { navigate } from '../../js/router.js'
     import { globalSegments, pagePct, percentToColor, percentToStateLabel } from '../../js/views/progress-helpers.js'
@@ -19,15 +19,16 @@
 
     // ── Core state ─────────────────────────────────────────────────────────────
 
-    let game         = $state<SteamGame | null>(null)
-    let review       = $state<LocalReview | null>(null)
-    let pages        = $state<Page[]>([])
-    let rawAchList   = $state<AchievementItem[]>([])
-    let gameSessions = $state<JournalSession[]>([])
-    let achDuring    = $state<SessionAchievement[]>([])
+    let game          = $state<SteamGame | null>(null)
+    let review        = $state<LocalReview | null>(null)
+    let pages         = $state<Page[]>([])
+    let journalNotes  = $state<StickyNote[]>([])
+    let rawAchList    = $state<AchievementItem[]>([])
+    let gameSessions  = $state<JournalSession[]>([])
+    let achDuring     = $state<SessionAchievement[]>([])
     let activeSession = $state<NowPlayingSession | null>(null)
-    let loading      = $state(true)
-    let error        = $state<string | null>(null)
+    let loading       = $state(true)
+    let error         = $state<string | null>(null)
     let hltbRefreshing = $state(false)
 
     // HLTB pin live tracking
@@ -43,9 +44,7 @@
     let playerHours     = $derived(effectivePlaytimeMin / 60)
 
     let progressPages   = $derived(pages.filter(p => TRACKER_TYPES.includes(p.type)))
-    let journalPages    = $derived(pages.filter(p => p.type === 'page' || p.type === 'notes'))
-    let allNotes        = $derived(review?.notes ?? [])
-    let recentNotes     = $derived([...allNotes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 2))
+    let journalPages    = $derived(pages.filter(p => p.type === 'page'))
     let sortedJournalPages = $derived([...journalPages].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
 
     let closedSessions  = $derived(
@@ -62,6 +61,10 @@
         for (const a of displayAchList) m[a.apiname] = a
         return m
     })
+
+    function stripHtml(html: string): string {
+        return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    }
 
     let ratedKeys = $derived(RATING_KEYS.filter(k => review?.ratings?.[k] != null))
 
@@ -89,10 +92,11 @@
     // ── Data loading ───────────────────────────────────────────────────────────
 
     async function loadData() {
-        const [gameRes, reviewRes, pagesRes, achRes, accountRes, nowPlayingRes] = await Promise.allSettled([
+        const [gameRes, reviewRes, pagesRes, journalNotesRes, achRes, accountRes, nowPlayingRes] = await Promise.allSettled([
             fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
             api.localReviews.get(appid).catch(() => null),
             api.pages.listByGame(appid).catch(() => []),
+            api.journalNotes.get(appid).catch(() => []),
             fetch(`/relay/api/steam/achievements/${appid}`).then(r => r.ok ? r.json() : null),
             fetch('/relay/api/account').then(r => r.ok ? r.json() : null),
             fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null),
@@ -105,6 +109,7 @@
         game         = g
         review       = (reviewRes as PromiseFulfilledResult<any>).value ?? null
         pages        = (pagesRes as PromiseFulfilledResult<any>).value  ?? []
+        journalNotes = (journalNotesRes as PromiseFulfilledResult<any>).value ?? []
         rawAchList   = (achRes as PromiseFulfilledResult<any>).value?.achievements ?? []
         gameSessions = (accountRes as PromiseFulfilledResult<any>).value?.sessions?.[appid]?.sessions
                     ?? (accountRes as PromiseFulfilledResult<any>).value?.sessions?.[String(appid)]?.sessions
@@ -235,6 +240,11 @@
         hltbRefreshing = false
     }
 
+    // ── Notes wall ─────────────────────────────────────────────────────────────
+
+    let notesWallEl: HTMLElement
+    let notesWall: any = null
+
     // ── Heatmap tooltip ────────────────────────────────────────────────────────
 
     let tooltipEl: HTMLElement | null = null
@@ -283,6 +293,19 @@
             loading = false
         }
 
+        await tick()
+
+        if (notesWallEl && journalNotes.length > 0) {
+            const { StickyWall } = await import('../../js/vendor/stickywall.js')
+            notesWall = new StickyWall(notesWallEl, {
+                notes:     journalNotes,
+                editable:  false,
+                draggable: false,
+                tape:      true,
+                addForm:   false,
+            })
+        }
+
         if (activeSession) startSessionTimer()
         startPollers()
     })
@@ -291,6 +314,8 @@
         if (sessionTimer) clearInterval(sessionTimer)
         stopPollers()
         if (tooltipEl) { tooltipEl.remove(); tooltipEl = null }
+        notesWall?.destroy()
+        notesWall = null
     })
 </script>
 
@@ -337,15 +362,17 @@
             {:else}
                 <p class="gj-no-data">Click to add a review</p>
             {/if}
+            {#if review?.review}
+                <p class="gj-review-preview">{review.review}</p>
+            {/if}
         </div>
 
         <!-- Achievement card -->
-        <div class="gj-card">
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="gj-card gj-card--clickable" role="button" tabindex="0"
+             onclick={() => navigate(`journal/${appid}/achievements`)}>
             <div class="gj-card-header">
                 <span class="gj-card-title">Achievements</span>
-                {#if achTotal > 0}
-                    <a href="/journal/{appid}/achievements" class="gj-view-all">View All →</a>
-                {/if}
             </div>
             {#if achTotal > 0}
                 <div class="gj-ach-summary">
@@ -359,7 +386,7 @@
                 </div>
                 {#if recentAchs.length > 0}
                     <p class="gj-ach-recent-label">Recent</p>
-                    <div class="gj-ach-strip"><AchievementStrip achievements={recentAchs} /></div>
+                    <AchievementStrip achievements={recentAchs} />
                 {/if}
             {:else}
                 <p class="gj-no-data">No achievement data</p>
@@ -433,10 +460,11 @@
         {/if}
 
         <!-- Progress trackers card -->
-        <div class="gj-card {progressPages.length > 0 ? 'gj-card--fill' : ''}">
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="gj-card gj-card--clickable {progressPages.length > 0 ? 'gj-card--fill' : ''}" role="button" tabindex="0"
+             onclick={(e) => { if ((e.target as Element)?.closest('.gj-heat-cell')) return; navigate(`journal/${appid}/progress`) }}>
             <div class="gj-card-header">
                 <span class="gj-card-title">Progress Trackers</span>
-                <a href="/journal/{appid}/progress" class="gj-view-all">Manage →</a>
             </div>
             {#if progressPages.length > 0}
                 <div class="gj-heat-grid" onmouseover={handleHeatOver} onmouseleave={() => { _lastHeatTip = null; hideTip() }}>
@@ -445,7 +473,10 @@
                         {@const color = percentToColor(pct)}
                         {@const state = percentToStateLabel(pct)}
                         {@const tip = state ? `${p.title} · ${state} (${pct}%)` : `${p.title} · ${pct}%`}
-                        <a class="gj-heat-cell" href="/{p.id}" data-tooltip={tip} style="background:{color}"></a>
+                        <a class="gj-heat-cell{pct === 0 ? ' gj-heat-cell--empty' : ''}" href="/{p.id}" data-tooltip={tip} style="background:{color}">
+                            <span class="gj-heat-cell-title">{p.title}</span>
+                            <span class="gj-heat-cell-pct">{pct}%</span>
+                        </a>
                     {/each}
                 </div>
             {:else}
@@ -456,37 +487,34 @@
         <!-- Notes + Pages card -->
         <div class="gj-card gj-card--span2 gj-card--compact-np">
             <div class="gj-cnp-body">
-                <div class="gj-cnp-section">
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="gj-cnp-section gj-cnp-section--clickable"
+                     onclick={(e) => { if ((e.target as Element)?.closest('.sw-note')) return; navigate(`journal/${appid}/notes`) }}>
                     <div class="gj-card-header">
-                        <span class="gj-card-title">Recent Notes</span>
-                        <a href="/journal/{appid}/notes" class="gj-view-all">All ({allNotes.length}) →</a>
+                        <span class="gj-card-title">Notes</span>
                     </div>
-                    <div class="gj-recent-notes">
-                        {#if recentNotes.length > 0}
-                            {#each recentNotes as n (n.id)}
-                                <div class="gj-note-card gj-note-card--recent">
-                                    <p class="gj-note-card-text">{n.text}</p>
-                                    <div class="gj-note-date">{fmtDate(n.createdAt)}</div>
-                                </div>
-                            {/each}
-                        {:else}
-                            <p class="gj-no-data">No notes yet</p>
-                        {/if}
-                    </div>
+                    {#if journalNotes.length > 0}
+                        <div class="gj-dash-notes-wall" bind:this={notesWallEl}></div>
+                    {:else}
+                        <p class="gj-no-data">No notes yet</p>
+                    {/if}
                 </div>
                 <div class="gj-cnp-sep"></div>
-                <div class="gj-cnp-section">
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="gj-cnp-section gj-cnp-section--clickable"
+                     onclick={(e) => { if ((e.target as Element)?.closest('.gj-page-card')) return; navigate(`journal/${appid}/pages`) }}>
                     <div class="gj-card-header">
                         <span class="gj-card-title">Journal Pages</span>
-                        <a href="/journal/{appid}/pages" class="gj-view-all">All ({journalPages.length}) →</a>
                     </div>
                     {#if sortedJournalPages.length > 0}
-                        <div class="gj-pages-list">
+                        <div class="gj-pages-cards">
                             {#each sortedJournalPages.slice(0, 3) as p (p.id)}
-                                <a class="gj-page-item" href="/{p.id}">
-                                    <span class="gj-page-icon">{@html p.type === 'notes' ? IC.notes : IC.file}</span>
-                                    <span class="gj-page-name">{p.title}</span>
-                                    <span class="gj-page-date">{fmtDate(p.updatedAt)}</span>
+                                {@const preview = stripHtml(p.content ?? '')}
+                                <a class="gj-page-card" href="/{p.id}">
+                                    <span class="gj-page-card-icon">{@html IC.file}</span>
+                                    <span class="gj-page-card-name">{p.title}</span>
+                                    <span class="gj-page-card-date">Edited {fmtDate(p.updatedAt)}</span>
+                                    <span class="gj-page-card-preview">{preview || 'No content yet'}</span>
                                 </a>
                             {/each}
                         </div>

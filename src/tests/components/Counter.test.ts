@@ -70,11 +70,6 @@ describe('Counter component', () => {
         expect(getByText('0')).toBeTruthy()
     })
 
-    it('renders the Counter subtitle', () => {
-        const { getByText } = render(Counter, { props: { page: makePage() } })
-        expect(getByText('Counter')).toBeTruthy()
-    })
-
     it('renders a Delete button', () => {
         const { getByText } = render(Counter, { props: { page: makePage() } })
         expect(getByText('Delete')).toBeTruthy()

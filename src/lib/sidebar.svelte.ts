@@ -18,9 +18,15 @@ export interface NowPlayingInfo {
     sessionStartedAt?: string | null
 }
 
+export interface LastPlayedInfo {
+    appid: number
+    name:  string
+}
+
 class SidebarStore {
     pages        = $state<Page[]>([])
     nowPlaying   = $state<NowPlayingInfo | null>(null)
+    lastPlayed   = $state<LastPlayedInfo | null>(null)
     alertsCount  = $state(0)
     historyAppid = $state<number | null>(null)
     counts       = $state<SidebarCounts>({ library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, franchises: 0 })

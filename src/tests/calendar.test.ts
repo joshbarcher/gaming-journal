@@ -45,7 +45,7 @@ describe('_buildDayMap — basic', () => {
         const d = new Date('2026-05-17T12:00:00.000Z')
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
         expect(map.has(key)).toBe(true)
-        expect(map.get(key)[0].durationMin).toBe(60)
+        expect(map.get(key)![0].durationMin).toBe(60)
     })
 
     it('sums two sessions for the same game on the same day', () => {
@@ -61,7 +61,7 @@ describe('_buildDayMap — basic', () => {
         const map = _buildDayMap(sessions)
         const d = new Date('2026-05-17T10:00:00.000Z')
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-        const entry = map.get(key).find((e: any) => e.appid === 570)
+        const entry = map.get(key)!.find((e: any) => e.appid === 570)!
         expect(entry.durationMin).toBe(75)
     })
 
@@ -119,10 +119,10 @@ describe('_splitAtMidnight', () => {
         const totalMin = parts.reduce((s: number, p: any) => s + p.durationMin, 0)
         expect(Math.abs(totalMin - 180)).toBeLessThanOrEqual(1)
 
-        expect(_localDateStr(parts[0].startedAt)).toBe(_localDateStr(new Date(startMs)))
-        expect(_localDateStr(parts[0].endedAt)).toBe(_localDateStr(new Date(midnightMs)))
-        expect(_localDateStr(parts[1].startedAt)).toBe(_localDateStr(new Date(midnightMs)))
-        expect(_localDateStr(parts[1].endedAt)).toBe(_localDateStr(new Date(endMs)))
+        expect(_localDateStr(parts[0].startedAt!)).toBe(_localDateStr(new Date(startMs)))
+        expect(_localDateStr(parts[0].endedAt!)).toBe(_localDateStr(new Date(midnightMs)))
+        expect(_localDateStr(parts[1].startedAt!)).toBe(_localDateStr(new Date(midnightMs)))
+        expect(_localDateStr(parts[1].endedAt!)).toBe(_localDateStr(new Date(endMs)))
     })
 })
 
@@ -151,8 +151,8 @@ describe('_buildDayMap — cross-midnight', () => {
 
         expect(day17).not.toBe(day18)
 
-        const e17 = (map.get(day17) ?? []).find((e: any) => e.appid === 400)
-        const e18 = (map.get(day18) ?? []).find((e: any) => e.appid === 400)
+        const e17 = (map.get(day17) ?? []).find((e: any) => e.appid === 400)!
+        const e18 = (map.get(day18) ?? []).find((e: any) => e.appid === 400)!
 
         expect(e17).toBeTruthy()
         expect(e18).toBeTruthy()
@@ -175,8 +175,8 @@ describe('_buildDayMap — cross-midnight', () => {
         const day17 = _localDateStr('2026-05-17T20:00:00.000Z')
         const day18 = _localDateStr('2026-05-18T12:00:00.000Z')
 
-        const e17 = (map.get(day17) ?? []).find((e: any) => e.appid === 400)
-        const e18 = (map.get(day18) ?? []).find((e: any) => e.appid === 400)
+        const e17 = (map.get(day17) ?? []).find((e: any) => e.appid === 400)!
+        const e18 = (map.get(day18) ?? []).find((e: any) => e.appid === 400)!
 
         expect(e17).toBeTruthy()
         expect(e18).toBeTruthy()
@@ -218,9 +218,9 @@ describe('buildReleaseMap', () => {
             { releaseDateIso: '2026-05-18', appid: 400, name: 'Portal 2' },
         ])
         expect(map.size).toBe(2)
-        expect(map.get('2026-05-17').length).toBe(2)
-        expect(map.get('2026-05-18').length).toBe(1)
-        expect(map.get('2026-05-18')[0]).toEqual({ appid: 400, name: 'Portal 2' })
+        expect(map.get('2026-05-17')!.length).toBe(2)
+        expect(map.get('2026-05-18')!.length).toBe(1)
+        expect(map.get('2026-05-18')![0]).toEqual({ appid: 400, name: 'Portal 2' })
     })
 
     it('skips entries without a releaseDateIso', () => {

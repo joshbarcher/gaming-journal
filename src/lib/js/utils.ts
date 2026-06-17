@@ -1,4 +1,13 @@
-import type { Page } from '$lib/types.js'
+type AnyStep  = { optional?: boolean; state?: string | null }
+type AnyTask  = { optional?: boolean; state?: string | null }
+type AnyBar   = { optional?: boolean; steps?: AnyStep[] }
+type AnyItem  = { done?: boolean }
+type PageLike = {
+    type:   string
+    tasks?: AnyTask[]
+    bars?:  AnyBar[]
+    items?: AnyItem[]
+}
 
 export function uuid(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -23,7 +32,7 @@ export function escapeHtml(str: unknown): string {
         .replace(/"/g, '&quot;')
 }
 
-export function progressPercent(page: Page): number {
+export function progressPercent(page: PageLike): number {
     if (page.type === 'progress') {
         const required = (page.tasks ?? []).filter(t => !t.optional)
         if (!required.length) return 0
@@ -46,7 +55,7 @@ export function progressPercent(page: Page): number {
     return 0
 }
 
-export function isSuperComplete(page: Page): boolean {
+export function isSuperComplete(page: PageLike): boolean {
     if (page.type === 'progress') {
         const optional = (page.tasks ?? []).filter(t => t.optional)
         return optional.length > 0 && optional.every(t => t.state === 'done')
@@ -74,13 +83,13 @@ export const TYPE_LABELS: Record<string, string> = {
     page:             'Pages',
 }
 
-export function groupPagesByType(pages: Page[]): { type: string; label: string; pages: Page[] }[] {
-    const map: Record<string, Page[]> = {}
+export function groupPagesByType<T extends { type: string }>(pages: T[]): { type: string; label: string; pages: T[] }[] {
+    const map: Record<string, T[]> = {}
     for (const page of pages) {
         if (!map[page.type]) map[page.type] = []
         map[page.type].push(page)
     }
     return TYPE_ORDER
         .filter(type => map[type]?.length)
-        .map(type => ({ type, label: TYPE_LABELS[type] ?? type, pages: map[type] }))
+        .map(type => ({ type, label: TYPE_LABELS[type] ?? type, pages: map[type]! }))
 }

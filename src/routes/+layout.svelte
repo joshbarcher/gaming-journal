@@ -53,7 +53,13 @@
             const res = await fetch('/relay/api/steam/now-playing')
             if (!res.ok) return
             const { playing } = await res.json()
-            if (!playing) { store.nowPlaying = null; return }
+            if (!playing) {
+                if (store.nowPlaying) {
+                    store.lastPlayed = { appid: store.nowPlaying.appid, name: store.nowPlaying.name }
+                }
+                store.nowPlaying = null
+                return
+            }
             store.nowPlaying = { ...playing, elapsed: fmtElapsed(playing.sessionStartedAt ?? null) }
             store.historyAppid = playing.appid
         } catch { /* silent */ }
@@ -106,7 +112,16 @@
             const sorted = Object.entries(map as Record<string, any>)
                 .filter(([, v]) => v.lastPlayedAt)
                 .sort((a, b) => new Date(b[1].lastPlayedAt).getTime() - new Date(a[1].lastPlayedAt).getTime())
-            if (sorted.length) store.historyAppid = Number(sorted[0][0])
+            if (!sorted.length) return
+            const appid = Number(sorted[0][0])
+            store.historyAppid = appid
+            if (!store.nowPlaying && !store.lastPlayed) {
+                const gameRes = await fetch(`/relay/api/games/${appid}`)
+                if (gameRes.ok) {
+                    const game = await gameRes.json()
+                    if (game?.name) store.lastPlayed = { appid, name: game.name }
+                }
+            }
         } catch { /* silent */ }
     }
 

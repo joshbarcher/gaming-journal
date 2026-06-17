@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import fsp from 'node:fs/promises'
 import { JournalService } from '../lib/server/services/journalService.js'
+import type { ListPage, ProgressPage, NotesPage, ContentPage } from '../lib/types.js'
 
 function tmpPath() {
     return path.join(os.tmpdir(), `journal-test-${Date.now()}-${Math.random().toString(36).slice(2)}.json`)
@@ -48,23 +49,23 @@ describe('JournalService', () => {
         })
 
         it('applies type defaults for list', async () => {
-            const page = await service.create({ type: 'list', title: 'Topics' })
+            const page = await service.create({ type: 'list', title: 'Topics' }) as ListPage
             expect(page.ordered).toBe(true)
             expect(page.items).toEqual([])
         })
 
         it('applies type defaults for progress', async () => {
-            const page = await service.create({ type: 'progress', title: 'Goals' })
+            const page = await service.create({ type: 'progress', title: 'Goals' }) as ProgressPage
             expect(page.tasks).toEqual([])
         })
 
         it('applies type defaults for notes', async () => {
-            const page = await service.create({ type: 'notes', title: 'Things' })
+            const page = await service.create({ type: 'notes', title: 'Things' }) as NotesPage
             expect(page.notes).toEqual([])
         })
 
         it('applies type defaults for page', async () => {
-            const page = await service.create({ type: 'page', title: 'Journal' })
+            const page = await service.create({ type: 'page', title: 'Journal' }) as ContentPage
             expect(page.content).toBe('')
         })
 
@@ -81,7 +82,7 @@ describe('JournalService', () => {
         })
 
         it('allows extra fields on create', async () => {
-            const page = await service.create({ type: 'list', title: 'T', ordered: false })
+            const page = await service.create({ type: 'list', title: 'T', ordered: false }) as ListPage
             expect(page.ordered).toBe(false)
         })
     })
@@ -90,7 +91,7 @@ describe('JournalService', () => {
         it('finds a page by id', async () => {
             const created = await service.create({ type: 'notes', title: 'Find me' })
             const found = service.getById(created.id)
-            expect(found.title).toBe('Find me')
+            expect(found!.title).toBe('Find me')
         })
 
         it('returns null for unknown id', () => {
@@ -102,32 +103,32 @@ describe('JournalService', () => {
         it('updates allowed fields', async () => {
             const page = await service.create({ type: 'notes', title: 'Original' })
             const updated = await service.update(page.id, { title: 'Updated' })
-            expect(updated.title).toBe('Updated')
+            expect(updated!.title).toBe('Updated')
         })
 
         it('refreshes updatedAt', async () => {
             const page = await service.create({ type: 'notes', title: 'X' })
             await new Promise(r => setTimeout(r, 5))
             const updated = await service.update(page.id, { title: 'Y' })
-            expect(updated.updatedAt >= page.updatedAt).toBe(true)
+            expect(updated!.updatedAt >= page.updatedAt).toBe(true)
         })
 
         it('does not change type even if sent', async () => {
             const page = await service.create({ type: 'notes', title: 'X' })
             const updated = await service.update(page.id, { type: 'page', title: 'Y' })
-            expect(updated.type).toBe('notes')
+            expect(updated!.type).toBe('notes')
         })
 
         it('does not change id even if sent', async () => {
             const page = await service.create({ type: 'notes', title: 'X' })
             const updated = await service.update(page.id, { id: 'hacked', title: 'Y' })
-            expect(updated.id).toBe(page.id)
+            expect(updated!.id).toBe(page.id)
         })
 
         it('does not change createdAt even if sent', async () => {
             const page = await service.create({ type: 'notes', title: 'X' })
             const updated = await service.update(page.id, { createdAt: '1970-01-01T00:00:00.000Z' })
-            expect(updated.createdAt).toBe(page.createdAt)
+            expect(updated!.createdAt).toBe(page.createdAt)
         })
 
         it('returns null for unknown id', async () => {
@@ -167,7 +168,7 @@ describe('JournalService', () => {
             await service2.load()
             const found = service2.getById(page.id)
             expect(found).toBeTruthy()
-            expect(found.title).toBe('Persisted')
+            expect(found!.title).toBe('Persisted')
             await service2.close()
         })
     })
