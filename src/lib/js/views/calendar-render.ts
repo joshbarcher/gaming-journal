@@ -97,7 +97,9 @@ export function buildDayMap(
 
 export function buildLastPlayedOverlay(
     games: Array<{ appid: number; name: string; rtime_last_played?: number }>,
-    dayMap: Map<string, DayEntry[]>
+    dayMap: Map<string, DayEntry[]>,
+    flags: Record<string, Flags> = {},
+    settings: Partial<Settings> = {}
 ): Map<string, DayEntry[]> {
     const appsWithSessions = new Set<number>()
     for (const entries of dayMap.values())
@@ -106,6 +108,10 @@ export function buildLastPlayedOverlay(
     const result = new Map(dayMap)
     for (const game of games) {
         if (!game.rtime_last_played || appsWithSessions.has(game.appid)) continue
+        const f = flags[game.appid] ?? flags[String(game.appid)] ?? {}
+        if (f.software)                               continue
+        if (f.childLock && !settings.showChildLocked) continue
+        if (f.filtered  && !settings.showFiltered)    continue
         const dateStr = localDateStr(new Date(game.rtime_last_played * 1000))
         const existing = result.get(dateStr) ?? []
         result.set(dateStr, [...existing, { appid: game.appid, name: game.name, durationMin: 0, lastPlayed: true }])

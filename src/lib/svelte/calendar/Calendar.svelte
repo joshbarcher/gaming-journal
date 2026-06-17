@@ -202,7 +202,7 @@
                     setWithTTL(LP_CACHE_KEY, games, LP_CACHE_TTL)
                 }
 
-                dayMap = buildLastPlayedOverlay(games, base)
+                dayMap = buildLastPlayedOverlay(games, base, flags, settings)
                 startLivePoller()
             } else {
                 const res = await fetch('/relay/api/steam/releases')
