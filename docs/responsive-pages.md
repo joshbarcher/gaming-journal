@@ -44,14 +44,20 @@ See [pages.md](pages.md) for the full page inventory with per-breakpoint status 
 - Rest grids: `repeat(2, 1fr)` at phone portrait (minmax won't fit 2 cols at 328px)
 - Badges/extras: hidden on compact 2-col cards to save space
 
-## Phase 2 — Library & collections ← next
+## ✅ Phase 2 — Library & collections (complete)
 
-9. Steam Library (`/library`)
-10. Wishlist (`/wishlist`)
-11. Franchises (`/franchises`)
-12. Franchise Detail (`/franchise/[id]`)
+9. ✅ Steam Library (`/library`) — 3-col at ≤ 1279px, 2-col at ≤ 479px; controls restructured into 3 rows (search+sort / pager / alpha); top pager hidden at phone portrait (bottom pager stays); back-to-top hidden at phone portrait; alpha bar horizontal-scroll single row with separator; sort direction folded into sort dropdown (separate ↑↓ button removed from both Library and Wishlist)
+10. ✅ Wishlist (`/wishlist`) — shares all `lib-*` classes; same responsive behaviour as Library; sort dropdown expanded to 12 named options covering all 6 sort fields × 2 directions
+11. ✅ Franchises (`/franchises`) — header padding steps down, stacks to column at ≤ 479px; grid single-col at ≤ 479px (auto-fill 2-col at tablet); mosaic cards get `min-height: 160px` at phone portrait for better image proportion; section spacing tightened at ≤ 799px and ≤ 479px
+12. ✅ Franchise Detail (`/franchise/[id]`) — side padding steps down across all 3 breakpoints; hero shrinks to 220px at ≤ 479px; timeline restructured to paired image+bar elements (`frc-tl-pair`) so they wrap as units — 5-per-row at ≤ 799px, 4-per-row at ≤ 479px; arrow indicators hidden at ≤ 799px; separators added between Progress / Add Game / Entries / Delete sections; delete button redesigned in franchise amber (no red), fixed width via wrapper div to prevent parent padding override; section vertical spacing stepped down at mobile breakpoints
 
-## Phase 3 — Discovery & tools
+**Additional patterns established in Phase 2:**
+- Responsive blocks must appear at the END of each CSS file — base styles first, media queries last (cascade order bug found and fixed in `franchises.css`)
+- Sort direction should be folded into the sort dropdown, not a separate button
+- Full-width flex children in a `flex-direction: column` parent need `align-self: flex-start` to size to content
+- Elements that are direct children of a padded container need a wrapper div if they have their own internal padding
+
+## Phase 3 — Discovery & tools ← next
 
 13. Discover (`/discover`)
 14. Recommend (`/recommend`)

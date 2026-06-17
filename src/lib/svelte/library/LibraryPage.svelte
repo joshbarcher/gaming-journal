@@ -53,8 +53,8 @@
     let pageSlice  = $derived(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
     let subtitle   = $derived(
         query
-            ? `${filtered.length} of ${all.length} games — page ${page} of ${totalPages}`
-            : `${all.length} games — page ${page} of ${totalPages}`
+            ? `${filtered.length} of ${all.length} games`
+            : `${all.length} games`
     )
 
     function fmtPlaytime(minutes: number) {
@@ -76,18 +76,13 @@
     }
 
     function onSortChange(e: Event) {
-        sort  = (e.target as HTMLSelectElement).value
-        dir   = sort === 'name' ? 'asc' : 'desc'
+        const val  = (e.target as HTMLSelectElement).value
+        const dash = val.lastIndexOf('-')
+        sort  = val.slice(0, dash)
+        dir   = val.slice(dash + 1)
         page  = 1
         localStorage.setItem(STORAGE_SORT, sort)
         localStorage.setItem(STORAGE_DIR,  dir)
-        setWithTTL(STORAGE_PAGE, 1)
-    }
-
-    function toggleDir() {
-        dir  = dir === 'asc' ? 'desc' : 'asc'
-        page = 1
-        localStorage.setItem(STORAGE_DIR, dir)
         setWithTTL(STORAGE_PAGE, 1)
     }
 
@@ -189,14 +184,14 @@
     <div class="lib-controls">
         <input class="lib-search" type="search" placeholder="Search games…"
                value={query} autocomplete="off" oninput={onSearchInput}>
-        <select class="lib-sort" value={sort} onchange={onSortChange}>
-            <option value="name">A – Z</option>
-            <option value="playtime">Most Played</option>
-            <option value="recent">Recently Played</option>
+        <select class="lib-sort" value={`${sort}-${dir}`} onchange={onSortChange}>
+            <option value="name-asc">Name A → Z</option>
+            <option value="name-desc">Name Z → A</option>
+            <option value="playtime-desc">Most Played</option>
+            <option value="playtime-asc">Least Played</option>
+            <option value="recent-desc">Recently Played</option>
+            <option value="recent-asc">Least Recently</option>
         </select>
-        <button class="lib-dir-btn" title={dir === 'asc' ? 'Ascending' : 'Descending'} onclick={toggleDir}>
-            {dir === 'asc' ? '↑' : '↓'}
-        </button>
         <div class="lib-pager">
             {#if totalPages > 1}
                 <button class="lib-pager-btn" disabled={page <= 1} onclick={prevPage}>← Prev</button>

@@ -61,23 +61,6 @@
     border-color: var(--clr-border-hi);
 }
 
-.lib-dir-btn {
-    padding: 9px 13px;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius);
-    color: var(--clr-text);
-    font-size: 14px;
-    font-family: var(--font-ui);
-    cursor: pointer;
-    transition: border-color var(--transition), color var(--transition);
-    line-height: 1;
-}
-
-.lib-dir-btn:hover {
-    border-color: var(--clr-border-hi);
-}
-
 /* ── Alpha filter bar ────────────────────────────────────────────────────────── */
 .lib-alpha {
     display: flex;
@@ -265,19 +248,69 @@
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────────── */
-@media (max-width: 1200px) {
-    .lib-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+
+/* Tablet + phone landscape (≤ 1279px) */
+@media (max-width: 1279px) {
+    .page-header:has(.lib-title) { padding: 28px 24px 24px; margin-bottom: 20px; }
+    .lib-controls   { padding: 0 24px; }
+    .lib-alpha      { padding: 0 24px; }
+    .lib-grid       { grid-template-columns: repeat(3, 1fr); padding: 0 24px 32px; }
+    .lib-bottom-row { padding: 0 24px; }
 }
 
-@media (max-width: 768px) {
-    .lib-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-    }
+/* Phone (≤ 799px): S25 landscape (780px) */
+@media (max-width: 799px) {
+    .page-header:has(.lib-title) { padding: 24px 20px 20px; margin-bottom: 16px; }
+    .lib-controls   { padding: 0 20px; }
+    .lib-alpha      { padding: 0 20px; }
+    .lib-grid       { padding: 0 20px 28px; }
+    .lib-bottom-row { padding: 0 20px; }
+}
 
-    .lib-search {
-        max-width: none;
+/* Phone portrait (≤ 479px): #main-content provides 16px side padding */
+@media (max-width: 479px) {
+    .page-header:has(.lib-title) { padding: 16px 0; margin-bottom: 12px; }
+
+    /* Row 1: search stretches, sort follows on same line */
+    .lib-controls   { padding: 0; gap: 8px; row-gap: 0; margin-bottom: 0; }
+    .lib-search     { flex: 1; max-width: none; min-width: 0; }
+    .lib-sort       { flex-shrink: 0; }
+
+    /* Row 2: top pager hidden — bottom pager is enough on phone */
+    .lib-controls .lib-pager { display: none; }
+
+    /* Row 3: letter filters — separator above and below */
+    .lib-alpha {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin-top: 12px;
+        padding: 12px 0;
+        margin-bottom: 0;
+        border-top: 1px solid var(--clr-border);
+        border-bottom: 1px solid var(--clr-border);
+    }
+    .lib-alpha::-webkit-scrollbar { display: none; }
+    .lib-alpha-btn  { flex-shrink: 0; min-width: 28px; padding: 4px 6px; font-size: 11px; }
+
+    /* Game grid */
+    .lib-grid       { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px 0 24px; margin-bottom: 0; }
+
+    /* Bottom row: separator + full-width pager, back-to-top hidden */
+    .lib-back-top { display: none; }
+    .lib-bottom-row {
+        padding: 12px 0 0;
+        margin: 0;
+        border-top: 1px solid var(--clr-border);
+    }
+    .lib-bottom-row .lib-pager {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+    }
+    .lib-bottom-row .lib-pager-info {
+        flex: 1;
+        text-align: center;
+        min-width: 0;
     }
 }

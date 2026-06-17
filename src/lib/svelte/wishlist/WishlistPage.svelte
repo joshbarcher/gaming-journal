@@ -79,8 +79,8 @@
     let pageSlice  = $derived(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
     let subtitle   = $derived(
         query
-            ? `${filtered.length} of ${all.length} games — page ${page} of ${totalPages}`
-            : `${all.length} games — page ${page} of ${totalPages}`
+            ? `${filtered.length} of ${all.length} games`
+            : `${all.length} games`
     )
 
     // ── Event handlers ────────────────────────────────────────────────────────
@@ -95,18 +95,13 @@
     }
 
     function onSortChange(e: Event) {
-        sort = (e.target as HTMLSelectElement).value
-        dir  = (sort === 'discount' || sort === 'release') ? 'desc' : 'asc'
+        const val  = (e.target as HTMLSelectElement).value
+        const dash = val.lastIndexOf('-')
+        sort = val.slice(0, dash)
+        dir  = val.slice(dash + 1)
         page = 1
         localStorage.setItem(STORAGE_SORT, sort)
         localStorage.setItem(STORAGE_DIR,  dir)
-        localStorage.removeItem(STORAGE_SCROLL)
-    }
-
-    function toggleDir() {
-        dir  = dir === 'asc' ? 'desc' : 'asc'
-        page = 1
-        localStorage.setItem(STORAGE_DIR, dir)
         localStorage.removeItem(STORAGE_SCROLL)
     }
 
@@ -207,17 +202,20 @@
     <div class="lib-controls">
         <input class="lib-search" type="search" placeholder="Search wishlist…"
                value={query} autocomplete="off" oninput={onSearchInput}>
-        <select class="lib-sort" value={sort} onchange={onSortChange}>
-            <option value="priority">Priority</option>
-            <option value="name">A – Z</option>
-            <option value="price">Price</option>
-            <option value="discount">Discount</option>
-            <option value="added">Date Added</option>
-            <option value="release">Release Date</option>
+        <select class="lib-sort" value={`${sort}-${dir}`} onchange={onSortChange}>
+            <option value="priority-asc">Priority</option>
+            <option value="priority-desc">Priority (Low First)</option>
+            <option value="name-asc">Name A → Z</option>
+            <option value="name-desc">Name Z → A</option>
+            <option value="price-asc">Price Low → High</option>
+            <option value="price-desc">Price High → Low</option>
+            <option value="discount-desc">Biggest Discount</option>
+            <option value="discount-asc">Smallest Discount</option>
+            <option value="added-desc">Newest Added</option>
+            <option value="added-asc">Oldest Added</option>
+            <option value="release-desc">Latest Release</option>
+            <option value="release-asc">Earliest Release</option>
         </select>
-        <button class="lib-dir-btn" title={dir === 'asc' ? 'Ascending' : 'Descending'} onclick={toggleDir}>
-            {dir === 'asc' ? '↑' : '↓'}
-        </button>
         <div class="lib-pager">
             {#if totalPages > 1}
                 <button class="lib-pager-btn" disabled={page <= 1} onclick={prevPage}>← Prev</button>

@@ -23,8 +23,8 @@ Tracks every visitable page in the app, how to reach it, and its responsive poli
 | Page | Route | Tablet L | Tablet P | Phone L | Phone P |
 |------|-------|----------|----------|---------|---------|
 | Home | `/` | ✅ | ✅ | ✅ | ✅ |
-| Steam Library | `/library` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Wishlist | `/wishlist` | 🔲 | 🔲 | 🔲 | 🔲 |
+| Steam Library | `/library` | ✅ | ✅ | ✅ | ✅ |
+| Wishlist | `/wishlist` | ✅ | ✅ | ✅ | ✅ |
 | Discover | `/discover` | 🔲 | 🔲 | 🔲 | 🔲 |
 | Recommend | `/recommend` | 🔲 | 🔲 | 🔲 | 🔲 |
 | Sale Alerts | `/alerts` | 🔲 | 🔲 | 🔲 | 🔲 |
@@ -41,7 +41,7 @@ Tracks every visitable page in the app, how to reach it, and its responsive poli
 | Favorites | `/favorites` | ✅ | ✅ | ✅ | ✅ |
 | Abandoned | `/abandoned` | ✅ | ✅ | ✅ | ✅ |
 | Completed | `/hall-of-fame` | ✅ | ✅ | ✅ | ✅ |
-| Franchises | `/franchises` | 🔲 | 🔲 | 🔲 | 🔲 |
+| Franchises | `/franchises` | ✅ | ✅ | ✅ | ✅ |
 
 ### Account / Meta
 
@@ -67,7 +67,7 @@ Reached by navigating from list pages, not direct sidebar links.
 | Journal – Pages | `/journal/[appid]/pages` | 🔲 | 🔲 | 🔲 | 🔲 |
 | Community | `/community/[appid]` | 🔲 | 🔲 | 🔲 | 🔲 |
 | Community Thread | `/community/[appid]/thread/[postId]` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Franchise Detail | `/franchise/[id]` | 🔲 | 🔲 | 🔲 | 🔲 |
+| Franchise Detail | `/franchise/[id]` | ✅ | ✅ | ✅ | ✅ |
 
 ---
 

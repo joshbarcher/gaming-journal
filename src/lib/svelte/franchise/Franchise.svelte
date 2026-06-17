@@ -338,29 +338,27 @@
         <div class="frc-progress-label">Progress</div>
         {#if timelineEntries.length > 0}
             <div class="frc-timeline">
-                <div class="frc-tl-images">
+                <div class="frc-tl-pairs">
                     {#each timelineEntries as e}
-                        <a
-                            class="frc-tl-img-wrap frc-tl-cell--{e.status}"
-                            href="/game/{e.appid}"
-                            title="{e.name} · {e.statusLabel}"
-                        >
-                            <div class="frc-tl-img-box">
-                                <img
-                                    class="frc-tl-img"
-                                    src={capsuleUrl(e.appid)}
-                                    alt=""
-                                    loading="lazy"
-                                    onerror={(ev) => { (ev.currentTarget as HTMLImageElement).style.opacity = '0' }}
-                                >
+                        <div class="frc-tl-pair frc-tl-cell--{e.status}">
+                            <a
+                                class="frc-tl-img-wrap"
+                                href="/game/{e.appid}"
+                                title="{e.name} · {e.statusLabel}"
+                            >
+                                <div class="frc-tl-img-box">
+                                    <img
+                                        class="frc-tl-img"
+                                        src={capsuleUrl(e.appid)}
+                                        alt=""
+                                        loading="lazy"
+                                        onerror={(ev) => { (ev.currentTarget as HTMLImageElement).style.opacity = '0' }}
+                                    >
+                                </div>
+                            </a>
+                            <div class="frc-tl-seg" title="{e.name} · {e.statusLabel}">
+                                <div class="frc-tl-fill frc-tl-fill--{e.fill.cls}" style="width:{e.fill.pct}%"></div>
                             </div>
-                        </a>
-                    {/each}
-                </div>
-                <div class="frc-tl-bar">
-                    {#each timelineEntries as e}
-                        <div class="frc-tl-seg" title="{e.name} · {e.statusLabel}">
-                            <div class="frc-tl-fill frc-tl-fill--{e.fill.cls}" style="width:{e.fill.pct}%"></div>
                         </div>
                     {/each}
                 </div>
@@ -443,6 +441,7 @@
     </div>
 
     <!-- Delete -->
+    <div class="frc-delete-wrap">
     <button class="frc-delete-btn" onclick={deleteFranchise}>
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/>
@@ -452,6 +451,7 @@
         </svg>
         Delete Franchise
     </button>
+    </div>
 
 </div>
 {/if}
