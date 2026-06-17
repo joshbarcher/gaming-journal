@@ -264,3 +264,45 @@
     font-size: 10.5px;
     color: var(--clr-text-muted);
 }
+
+/* ── Tablet portrait + phone landscape: tighter padding ─────────────────────────
+   < 1280px: Tab S9 portrait (800px), S25 landscape (780px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .history-header    { padding: 28px 24px 24px; margin-bottom: 24px; }
+    .history-recent    { padding: 0 24px 24px; }
+    .history-rest-sep  { padding: 0 24px 16px; }
+    .history-grid      { padding: 0 24px 32px; }
+}
+
+/* ── Phone: tighter still ────────────────────────────────────────────────────────
+   < 800px: S25 landscape (780px) and portrait (360px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 799px) {
+    .history-header    { padding: 24px 20px 20px; margin-bottom: 20px; }
+    .history-recent    { padding: 0 20px 20px; }
+    .history-rest-sep  { padding: 0 20px 14px; }
+    .history-grid      { padding: 0 20px 28px; }
+    .history-title     { font-size: 1.9rem; }
+}
+
+/* ── Phone portrait: single column, no extra side padding ───────────────────────
+   ≤ 479px: S25 portrait = 360px. #main-content already provides 16px side padding.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .history-header    { padding: 16px 0; margin-bottom: 16px; }
+    .history-recent    { padding: 0 0 16px; }
+    .history-rest-sep  { padding: 0 0 12px; }
+    .history-grid      { padding: 0 0 24px; gap: 10px; }
+    .history-title     { font-size: 1.6rem; }
+
+    /* Featured top-3 row: stack to single column */
+    .history-recent-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* Earlier grid: 2 columns fits naturally at 328px with minmax(140px) */
+    .history-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

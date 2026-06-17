@@ -212,3 +212,62 @@
     font-style: normal;
     font-size: 11px;
 }
+
+/* ── Tablet portrait + phone landscape: tighter spacing ─────────────────────────
+   < 1280px covers Tab S9 portrait (800px) and S25 landscape (780px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .home-wrap {
+        padding: 24px;
+        gap: 24px;
+    }
+
+    .home-row {
+        gap: 24px;
+    }
+}
+
+/* ── Phone: auto height so content scrolls rather than clips ─────────────────────
+   < 800px covers S25 landscape (780px) and S25 portrait (360px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 799px) {
+    .home-wrap {
+        height: auto;
+        overflow: visible;
+        padding: 20px;
+        gap: 16px;
+    }
+
+    .home-row {
+        gap: 16px;
+    }
+
+    .home-card {
+        min-height: 180px;
+    }
+}
+
+/* ── Phone portrait: single column ──────────────────────────────────────────────
+   ≤ 479px — S25 portrait = 360px CSS px
+   Uses !important to override the inline grid-template-columns on .home-row
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .home-wrap {
+        padding: 0 0 16px;
+        gap: 12px;
+        grid-template-rows: auto;
+    }
+
+    .home-row {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+
+    .home-card {
+        min-height: 200px;
+    }
+
+    .home-card-title {
+        font-size: 18px;
+    }
+}

@@ -415,10 +415,43 @@
     overflow: hidden;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
+/* ── Tablet portrait + phone landscape: tighter padding ─────────────────────────
+   < 1280px: Tab S9 portrait (800px), S25 landscape (780px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .fav-header { padding: 28px 24px 24px; margin-bottom: 24px; }
+    .fav-grid   { padding: 0 24px 32px; }
+}
 
-@media (max-width: 960px) {
-    .fav-header    { padding: 24px 20px 20px; }
-    .fav-hero-name { font-size: 1.05rem; }
-    .fav-grid      { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+/* ── Phone: tighter still ────────────────────────────────────────────────────────
+   < 800px: S25 landscape (780px) and portrait (360px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 799px) {
+    .fav-header { padding: 24px 20px 20px; margin-bottom: 20px; }
+    .fav-grid   { padding: 0 20px 28px; }
+    .fav-title  { font-size: 1.9rem; }
+}
+
+/* ── Phone portrait: two-column grid, hero pinned full-width ─────────────────────
+   ≤ 479px: S25 portrait = 360px. #main-content already provides 16px side padding.
+   auto-fill minmax(160px) collapses to 1 col at 328px — force 2 cols explicitly
+   so regular cards stay compact; hero uses 1/-1 to span the full width.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .fav-header { padding: 16px 0; margin-bottom: 16px; }
+    .fav-title  { font-size: 1.6rem; }
+
+    .fav-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 0 0 24px;
+    }
+
+    /* Hero: full width, single row, art gets a fixed min-height */
+    .fav-hero          { grid-column: 1 / -1; grid-row: span 1; }
+    .fav-hero-art      { min-height: 180px; }
+    .fav-hero-name     { font-size: 1.05rem; }
+
+    /* Hours badge not worth the space on compact cards */
+    .fav-card-hours    { display: none; }
 }

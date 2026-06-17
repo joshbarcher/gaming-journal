@@ -58,7 +58,7 @@
     }
 </script>
 
-<nav bind:this={navEl}>
+<nav id="sidebar-nav" bind:this={navEl}>
     <!-- Now Playing / Last Session -->
     {#if store.nowPlaying}
         {@const np = store.nowPlaying}

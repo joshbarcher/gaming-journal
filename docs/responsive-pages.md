@@ -2,12 +2,15 @@
 
 Make every page in the app look great on desktop (already done), tablet portrait/landscape, and phone portrait/landscape.
 
-**Breakpoints:**
-- Desktop: 1024px+ (baseline — already done)
-- Tablet landscape: ~768px–1023px
-- Tablet portrait: ~600px–767px
-- Phone landscape: ~480px–599px
-- Phone portrait: <480px
+**Breakpoints (based on Samsung Galaxy S25 + Galaxy Tab S9):**
+- Desktop / Tab landscape: ≥ 1280px (baseline — already done; Tab S9 landscape = 1280px CSS px)
+- Phone landscape + Tab portrait: 480px–1279px (S25 landscape = 780px, Tab S9 portrait = 800px)
+- Phone portrait: ≤ 479px (S25 portrait = 360px CSS px)
+
+**Sidebar behavior per group:**
+- ≥ 1280px: always visible
+- 480px–1279px: hamburger, slides in at 300px
+- ≤ 479px: hamburger, full-screen
 
 **Status legend:** ✅ Done · 🔲 Not started · 🚧 In progress
 
@@ -23,18 +26,25 @@ See [pages.md](pages.md) for the full page inventory with per-breakpoint status 
 
 ---
 
-## Phase 1 — Shared chrome & simple lists
+## ✅ Phase 1 — Shared chrome & simple lists (complete)
 
-1. Sidebar / layout shell (`+layout.svelte`)
-2. Home (`/`)
-3. History (`/history`)
-4. In Progress (`/in-progress`)
-5. Backlog (`/backlog`)
-6. Favorites (`/favorites`)
-7. Abandoned (`/abandoned`)
-8. Completed (`/hall-of-fame`)
+1. ✅ Sidebar / layout shell (`+layout.svelte`) — hamburger at < 1280px, full-screen drawer at ≤ 479px
+2. ✅ Home (`/`) — single column at phone portrait, auto-height scrollable
+3. ✅ History (`/history`) — 1-col featured row, 2-col rest grid at phone portrait
+4. ✅ In Progress (`/in-progress`) — 1-col queue, 2-col rest grid, time/bar hidden on compact cards
+5. ✅ Backlog (`/backlog`) — 1-col queue, 2-col rest grid, time hidden on compact cards, random button stacks
+6. ✅ Favorites (`/favorites`) — hero full-width with min-height, 2-col cards below
+7. ✅ Abandoned (`/abandoned`) — 2-col grid, invested badge hidden on compact cards
+8. ✅ Completed (`/hall-of-fame`) — Legend tier 1-col, standard tiers 2-col, hours hidden on compact cards
 
-## Phase 2 — Library & collections
+**Patterns established for all remaining pages:**
+- Side padding: 40px → 24px → 20px → 0 (inherits 16px from `#main-content`)
+- Title: 2.4rem → 1.9rem → 1.6rem
+- Separator: `gap: 14px`, `color: var(--clr-text-muted)` on container, no opacity on label
+- Rest grids: `repeat(2, 1fr)` at phone portrait (minmax won't fit 2 cols at 328px)
+- Badges/extras: hidden on compact 2-col cards to save space
+
+## Phase 2 — Library & collections ← next
 
 9. Steam Library (`/library`)
 10. Wishlist (`/wishlist`)

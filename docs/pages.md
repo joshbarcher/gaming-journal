@@ -2,12 +2,15 @@
 
 Tracks every visitable page in the app, how to reach it, and its responsive polish status across breakpoints.
 
-**Breakpoints:**
-- Desktop: 1024px+ (baseline — already done)
-- Tablet landscape: ~768px–1023px
-- Tablet portrait: ~600px–767px
-- Phone landscape: ~480px–599px
-- Phone portrait: <480px
+**Breakpoints (based on Samsung Galaxy S25 + Galaxy Tab S9):**
+- Desktop / Tab landscape: ≥ 1280px (baseline — already done; Tab S9 landscape = 1280px CSS px)
+- Phone landscape + Tab portrait: 480px–1279px (S25 landscape = 780px, Tab S9 portrait = 800px)
+- Phone portrait: ≤ 479px (S25 portrait = 360px CSS px)
+
+**Sidebar behavior per group:**
+- ≥ 1280px: always visible
+- 480px–1279px: hamburger, slides in at 300px
+- ≤ 479px: hamburger, full-screen
 
 **Status legend:** ✅ Done · 🔲 Not started · 🚧 In progress
 
@@ -19,7 +22,7 @@ Tracks every visitable page in the app, how to reach it, and its responsive poli
 
 | Page | Route | Tablet L | Tablet P | Phone L | Phone P |
 |------|-------|----------|----------|---------|---------|
-| Home | `/` | 🔲 | 🔲 | 🔲 | 🔲 |
+| Home | `/` | ✅ | ✅ | ✅ | ✅ |
 | Steam Library | `/library` | 🔲 | 🔲 | 🔲 | 🔲 |
 | Wishlist | `/wishlist` | 🔲 | 🔲 | 🔲 | 🔲 |
 | Discover | `/discover` | 🔲 | 🔲 | 🔲 | 🔲 |
@@ -32,12 +35,12 @@ Tracks every visitable page in the app, how to reach it, and its responsive poli
 
 | Page | Route | Tablet L | Tablet P | Phone L | Phone P |
 |------|-------|----------|----------|---------|---------|
-| History | `/history` | 🔲 | 🔲 | 🔲 | 🔲 |
-| In Progress | `/in-progress` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Backlog | `/backlog` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Favorites | `/favorites` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Abandoned | `/abandoned` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Completed | `/hall-of-fame` | 🔲 | 🔲 | 🔲 | 🔲 |
+| History | `/history` | ✅ | ✅ | ✅ | ✅ |
+| In Progress | `/in-progress` | ✅ | ✅ | ✅ | ✅ |
+| Backlog | `/backlog` | ✅ | ✅ | ✅ | ✅ |
+| Favorites | `/favorites` | ✅ | ✅ | ✅ | ✅ |
+| Abandoned | `/abandoned` | ✅ | ✅ | ✅ | ✅ |
+| Completed | `/hall-of-fame` | ✅ | ✅ | ✅ | ✅ |
 | Franchises | `/franchises` | 🔲 | 🔲 | 🔲 | 🔲 |
 
 ### Account / Meta

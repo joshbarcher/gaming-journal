@@ -308,11 +308,40 @@
 .hof-card-label.hof-tier--completed { color: #60a882; }
 .hof-card-label.hof-tier--finished  { color: var(--clr-text-muted); opacity: 0.5; }
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
+/* ── Tablet portrait + phone landscape: tighter padding ─────────────────────────
+   < 1280px: Tab S9 portrait (800px), S25 landscape (780px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .hof-header          { padding: 28px 24px 24px; margin-bottom: 24px; }
+    .hof-section-heading { padding: 0 24px 16px; }
+    .hof-featured-grid   { padding: 0 24px 8px; }
+    .hof-grid            { padding: 0 24px 8px; }
+}
 
-@media (max-width: 960px) {
-    .hof-header         { padding: 24px 20px 20px; }
+/* ── Phone: tighter still ────────────────────────────────────────────────────────
+   < 800px: S25 landscape (780px) and portrait (360px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 799px) {
+    .hof-header          { padding: 24px 20px 20px; margin-bottom: 20px; }
     .hof-section-heading { padding: 0 20px 14px; }
-    .hof-featured-grid  { grid-template-columns: 1fr; padding: 0 20px 8px; }
-    .hof-grid           { padding: 0 20px 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .hof-featured-grid   { padding: 0 20px 8px; }
+    .hof-grid            { padding: 0 20px 8px; }
+    .hof-title           { font-size: 1.9rem; }
+}
+
+/* ── Phone portrait: single column for Legend, two columns for the rest ──────────
+   ≤ 479px: S25 portrait = 360px. #main-content already provides 16px side padding.
+   minmax(180px) collapses to 1 col at 328px — force 2 cols for standard tiers.
+   Legend (featured) stays 1 col so marquee games get full-width prominence.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .hof-header          { padding: 16px 0; margin-bottom: 16px; }
+    .hof-title           { font-size: 1.6rem; }
+    .hof-section         { margin-bottom: 32px; }
+    .hof-section-heading { padding: 0 0 12px; }
+    .hof-featured-grid   { padding: 0 0 8px; gap: 10px; grid-template-columns: 1fr; }
+    .hof-grid            { padding: 0 0 8px; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+
+    /* Hide hours on compact 2-col standard cards; keep on full-width Legend cards */
+    .hof-grid .hof-card-hours { display: none; }
 }

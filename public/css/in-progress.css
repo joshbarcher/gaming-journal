@@ -155,7 +155,8 @@
     padding: 0 40px 20px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
+    color: var(--clr-text-muted);
 }
 
 .inprogress-rest-sep::before,
@@ -169,10 +170,8 @@
 .inprogress-rest-sep-label {
     font-size: 0.65rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--clr-text-muted);
-    opacity: 0.6;
     white-space: nowrap;
 }
 
@@ -370,12 +369,44 @@
     outline-offset: 2px;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
+/* ── Tablet portrait + phone landscape: tighter padding ─────────────────────────
+   < 1280px: Tab S9 portrait (800px), S25 landscape (780px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .inprogress-header   { padding: 28px 24px 24px; margin-bottom: 24px; }
+    .inprogress-queue    { padding: 0 24px 24px; }
+    .inprogress-rest-sep { padding: 0 24px 16px; }
+    .inprogress-grid     { padding: 0 24px 32px; }
+}
 
-@media (max-width: 960px) {
-    .inprogress-header    { padding: 24px 20px 20px; flex-direction: column; align-items: flex-start; }
-    .inprogress-queue     { padding: 0 20px 24px; }
-    .inprogress-queue-row { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-    .inprogress-rest-sep  { padding: 0 20px 16px; }
-    .inprogress-grid      { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+/* ── Phone: tighter still ────────────────────────────────────────────────────────
+   < 800px: S25 landscape (780px) and portrait (360px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 799px) {
+    .inprogress-header   { padding: 24px 20px 20px; margin-bottom: 20px; }
+    .inprogress-queue    { padding: 0 20px 20px; }
+    .inprogress-rest-sep { padding: 0 20px 14px; }
+    .inprogress-grid     { padding: 0 20px 28px; }
+    .inprogress-title    { font-size: 1.9rem; }
+}
+
+/* ── Phone portrait: single column, no extra side padding ───────────────────────
+   ≤ 479px: S25 portrait = 360px. #main-content already provides 16px side padding.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .inprogress-header     { padding: 16px 0; margin-bottom: 16px; }
+    .inprogress-queue      { padding: 0 0 16px; }
+    .inprogress-rest-sep   { padding: 0 0 12px; }
+    .inprogress-grid       { padding: 0 0 24px; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+    .inprogress-title      { font-size: 1.6rem; }
+
+    /* Not useful on touch */
+    .inprogress-queue-hint { display: none; }
+
+    /* Up Next queue: stack to single column */
+    .inprogress-queue-row  { grid-template-columns: 1fr; }
+
+    /* Rest grid cards: hide time badge and progress bar to save space */
+    .inprogress-grid .inprogress-card-time { display: none; }
+    .inprogress-grid .inprogress-bar-wrap  { display: none; }
 }

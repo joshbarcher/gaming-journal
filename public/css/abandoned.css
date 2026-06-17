@@ -202,9 +202,32 @@
     font-weight: 600;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
+/* ── Tablet portrait + phone landscape: tighter padding ─────────────────────────
+   < 1280px: Tab S9 portrait (800px), S25 landscape (780px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .ab-header { padding: 28px 24px 24px; margin-bottom: 24px; }
+    .ab-grid   { padding: 0 24px 32px; }
+}
 
-@media (max-width: 960px) {
-    .ab-header { padding: 24px 20px 20px; }
-    .ab-grid   { padding: 0 20px 40px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+/* ── Phone: tighter still ────────────────────────────────────────────────────────
+   < 800px: S25 landscape (780px) and portrait (360px)
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 799px) {
+    .ab-header { padding: 24px 20px 20px; margin-bottom: 20px; }
+    .ab-grid   { padding: 0 20px 28px; }
+    .ab-title  { font-size: 1.9rem; }
+}
+
+/* ── Phone portrait: two columns, no extra side padding ─────────────────────────
+   ≤ 479px: S25 portrait = 360px. #main-content already provides 16px side padding.
+   minmax(200px) collapses to 1 col at 328px — force 2 cols explicitly.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .ab-header         { padding: 16px 0; margin-bottom: 16px; }
+    .ab-title          { font-size: 1.6rem; }
+    .ab-grid           { padding: 0 0 24px; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+
+    /* Hide invested badge — too cramped on 2-col cards */
+    .ab-card-invested  { display: none; }
 }

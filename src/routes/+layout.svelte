@@ -150,8 +150,20 @@
 
 <svelte:window onpaste={onPaste} />
 
-<button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle sidebar"
-        onclick={() => sidebarOpen = !sidebarOpen}>&#9776;</button>
+<button id="sidebar-toggle" class="sidebar-toggle"
+        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={sidebarOpen}
+        onclick={() => sidebarOpen = !sidebarOpen}>
+    {#if sidebarOpen}
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+    {:else}
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+    {/if}
+</button>
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div id="sidebar-overlay" class="sidebar-overlay"
      class:visible={sidebarOpen}
