@@ -7,6 +7,9 @@
     let settings   = $state<Partial<Settings>>({})
     let flagCounts = $state({ childLocked: 0, filtered: 0 })
 
+    let showBlocklist = $state(false)
+    let newTerm       = $state('')
+
     onMount(async () => {
         try {
             const [settingsRes, flagsRes] = await Promise.all([
@@ -41,6 +44,33 @@
         } catch {
             settings[key] = prev
         }
+    }
+
+    async function saveBlocklist(list: string[]) {
+        const prev = settings.titleBlocklist
+        settings.titleBlocklist = list
+        try {
+            const res = await fetch('/api/settings', {
+                method:  'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ titleBlocklist: list }),
+            })
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            try { localStorage.setItem('disc-title-blocklist', JSON.stringify(list)) } catch {}
+        } catch {
+            settings.titleBlocklist = prev
+        }
+    }
+
+    async function addTerm() {
+        const term = newTerm.trim().toLowerCase()
+        if (!term) return
+        await saveBlocklist([...(settings.titleBlocklist ?? []), term])
+        newTerm = ''
+    }
+
+    async function removeTerm(i: number) {
+        await saveBlocklist((settings.titleBlocklist ?? []).filter((_, idx) => idx !== i))
     }
 </script>
 
@@ -93,6 +123,47 @@
                     <span class="settings-toggle-track"></span>
                 </div>
             </label>
+
+            <div class="settings-blocklist-row">
+                <div class="settings-toggle-text">
+                    <span class="settings-toggle-label">
+                        Discovery Title Filter
+                        {#if (settings.titleBlocklist?.length ?? 0) > 0}
+                            <span class="settings-filter-count">{settings.titleBlocklist!.length} term{settings.titleBlocklist!.length === 1 ? '' : 's'}</span>
+                        {/if}
+                    </span>
+                    <span class="settings-toggle-desc">Hide games whose titles contain any of these words or phrases from Discovery and the home page mosaic.</span>
+                </div>
+                <button class="settings-reveal-btn" onclick={() => showBlocklist = !showBlocklist}>
+                    {showBlocklist ? 'Hide' : 'Manage'}
+                </button>
+            </div>
+            {#if showBlocklist}
+            <div class="settings-blocklist-panel">
+                {#if settings.titleBlocklist?.length}
+                    <div class="settings-blocklist-tags">
+                        {#each settings.titleBlocklist as term, i}
+                            <span class="settings-blocklist-tag">
+                                {term}
+                                <button class="settings-blocklist-tag-remove" onclick={() => removeTerm(i)} aria-label="Remove {term}">×</button>
+                            </span>
+                        {/each}
+                    </div>
+                {:else}
+                    <p class="settings-blocklist-empty">No terms yet. Add one below.</p>
+                {/if}
+                <div class="settings-blocklist-add-row">
+                    <input
+                        class="settings-blocklist-input"
+                        type="text"
+                        placeholder="Add a word or phrase…"
+                        bind:value={newTerm}
+                        onkeydown={(e) => { if (e.key === 'Enter') addTerm() }}
+                    >
+                    <button class="settings-blocklist-add-btn" onclick={addTerm}>Add</button>
+                </div>
+            </div>
+            {/if}
         </section>
 
         <section class="settings-section">

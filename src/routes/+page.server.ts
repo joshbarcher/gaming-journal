@@ -46,8 +46,16 @@ function makeShouldShow(flags: FlagsStore, settings: Settings) {
     }
 }
 
-function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean): { header: string }[] {
-    const items = sections.flatMap(s => s.items ?? []).filter(item => shouldShow(item.appid))
+function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean, titleBlocklist: string[] = []): { header: string }[] {
+    const blocked = titleBlocklist.map(t => t.toLowerCase())
+    const items = sections.flatMap(s => s.items ?? []).filter(item => {
+        if (!shouldShow(item.appid)) return false
+        if (blocked.length) {
+            const lower = item.name.toLowerCase()
+            if (blocked.some(t => lower.includes(t))) return false
+        }
+        return true
+    })
     if (!items.length) return []
     const copy = [...items]
     for (let i = copy.length - 1; i > 0; i--) {
@@ -66,7 +74,7 @@ export async function load(): Promise<HomeData> {
         fetchJson<RelayHomeData>(`${base}/api/home`),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
         getAllFlags().catch(() => ({} as FlagsStore)),
-        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false } as Settings)),
+        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [] } as Settings)),
     ])
 
     const shouldShow = makeShouldShow(flags, settings)
@@ -83,7 +91,7 @@ export async function load(): Promise<HomeData> {
         release:     homeData?.release    ?? null,
         libPosters:  (homeData?.libPosters ?? []).filter(p => shouldShow(p.appid)),
         wlPosters:   (homeData?.wlPosters  ?? []).filter(p => shouldShow(p.appid)),
-        discPosters: sampleDiscover(discoverData ?? [], 6, shouldShow),
+        discPosters: sampleDiscover(discoverData ?? [], 6, shouldShow, settings.titleBlocklist ?? []),
         saleGame,
     }
 }

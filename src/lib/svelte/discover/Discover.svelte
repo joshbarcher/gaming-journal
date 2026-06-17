@@ -10,6 +10,7 @@
         { id: 'specials',     label: 'On Sale'       },
     ]
     const STORAGE_KEY      = 'disc-state'
+    const BLOCKLIST_KEY    = 'disc-title-blocklist'
     const SEARCH_PAGE_SIZE = 40
     const TTL_24H          = 24 * 60 * 60 * 1000
 
@@ -33,6 +34,8 @@
     // Featured loading
     let featuredLoading = $state(false)
     let featuredError   = $state<string | null>(null)
+
+    let titleBlocklist = $state<string[]>([])
 
     // Non-reactive
     let _searchCache: Map<number, DiscoverItem[]> = new Map()
@@ -143,6 +146,22 @@
 
     let activeSection = $derived(featuredData?.find(s => s.id === featuredTab) ?? null)
 
+    let visibleBrowseItems = $derived(
+        (activeSection?.items ?? []).filter(item => {
+            if (!titleBlocklist.length) return true
+            const lower = item.name.toLowerCase()
+            return !titleBlocklist.some(t => lower.includes(t))
+        })
+    )
+
+    let visibleSearchResults = $derived(
+        searchResults.filter(item => {
+            if (!titleBlocklist.length) return true
+            const lower = item.name.toLowerCase()
+            return !titleBlocklist.some(t => lower.includes(t))
+        })
+    )
+
     // ── Search ────────────────────────────────────────────────────────────────
 
     function onSearchInput() {
@@ -250,6 +269,20 @@
         restoreState()
         loadOwnership()
 
+        try {
+            const cached = localStorage.getItem(BLOCKLIST_KEY)
+            if (cached) titleBlocklist = JSON.parse(cached)
+        } catch {}
+
+        fetch('/api/settings')
+            .then(res => res.ok ? res.json() : null)
+            .then(s => {
+                if (!s) return
+                titleBlocklist = s.titleBlocklist ?? []
+                try { localStorage.setItem(BLOCKLIST_KEY, JSON.stringify(titleBlocklist)) } catch {}
+            })
+            .catch(() => {})
+
         if (mode === 'search' && _lastResults !== null) {
             _searchCache = new Map([[searchPage, _lastResults]])
             searchResults = _lastResults
@@ -304,10 +337,10 @@
                 <div class="disc-loading">Loading…</div>
             {:else if featuredError}
                 <div class="disc-empty disc-error">{featuredError}</div>
-            {:else if !activeSection || !activeSection.items?.length}
+            {:else if !activeSection || !visibleBrowseItems.length}
                 <div class="disc-empty">No results yet — check back soon.</div>
             {:else}
-                {#each activeSection.items as item}
+                {#each visibleBrowseItems as item}
                     {@const badge = owned.has(item.appid) ? 'owned' : wishlist.has(item.appid) ? 'wish' : null}
                     <div
                         class="lib-card disc-card"
@@ -379,10 +412,10 @@
                 <div class="disc-loading">Searching…</div>
             {:else if searchError}
                 <div class="disc-empty disc-error">{searchError}</div>
-            {:else if searchResults.length === 0 && searchQuery.trim()}
+            {:else if visibleSearchResults.length === 0 && searchQuery.trim()}
                 <div class="disc-empty">No results for "{searchQuery}".</div>
             {:else}
-                {#each searchResults as item}
+                {#each visibleSearchResults as item}
                     {@const badge = owned.has(item.appid) ? 'owned' : wishlist.has(item.appid) ? 'wish' : null}
                     <div
                         class="lib-card disc-card"

@@ -21,7 +21,6 @@
     import ItadPrices from './sections/ItadPrices.svelte'
     import ProtonDB from './sections/ProtonDB.svelte'
     import PCGW from './sections/PCGW.svelte'
-    import SubredditLoader from '../community/SubredditLoader.svelte'
 
     let { appid } = $props()
 
@@ -35,7 +34,16 @@
     let trailers         = $state<Trailer[]>([])
     let localWishlisted  = $state(false)
     let loading          = $state(true)
-    let lastStep         = $state('Starting…')
+    let phase1Sections   = $state([
+        { label: 'Game',      done: false },
+        { label: 'Community', done: false },
+        { label: 'Reviews',   done: false },
+        { label: 'Players',   done: false },
+        { label: 'Flags',     done: false },
+        { label: 'Journal',   done: false },
+        { label: 'Trailers',  done: false },
+        { label: 'Wishlist',  done: false },
+    ])
     let error            = $state<string | null>(null)
 
     // ── Phase 2 state (background loads) ─────────────────────────────────────
@@ -45,10 +53,22 @@
     let protonData  = $state<ProtonData | null | undefined>(undefined)
     let pcgwData    = $state<PcgwData | null | undefined>(undefined)
     let newsData    = $state<NewsData | null | undefined>(undefined)
-    let bgPending   = $state(0)
-    let hltbNeeded  = $state(false)
-    let itadNeeded  = $state(false)
-    let pcgwNeeded  = $state(false)
+    let bgPending    = $state(0)
+    let hltbNeeded   = $state(false)
+    let itadNeeded   = $state(false)
+    let pcgwNeeded   = $state(false)
+    let phase2Active = $state(false)
+
+    interface Section { label: string; done: boolean }
+    let phase2Sections = $derived<Section[]>(
+        !phase2Active ? [] : [
+            ...(hltbNeeded ? [{ label: 'HLTB',   done: hltbData   !== undefined }] : []),
+            ...(itadNeeded ? [{ label: 'ITAD',   done: itadData   !== undefined }] : []),
+            ...(pcgwNeeded ? [{ label: 'PCGW',   done: pcgwData   !== undefined }] : []),
+            { label: 'Proton', done: protonData !== undefined },
+            { label: 'News',   done: newsData   !== undefined },
+        ]
+    )
 
     // Effective HLTB: prefer background load; return undefined (show spinner) while Phase 2
     // is actively fetching and Phase 1 had no matched result to fall back to.
@@ -163,19 +183,23 @@
     }
 
     function tracked(p: Promise<Response>, label: string): Promise<Response> {
-        return p.then(r => { lastStep = label; return r })
+        return p.then(r => {
+            const idx = phase1Sections.findIndex(s => s.label === label)
+            if (idx !== -1) phase1Sections[idx] = { ...phase1Sections[idx], done: true }
+            return r
+        })
     }
 
     // ── Phase 1: fast data fetch ──────────────────────────────────────────────
     onMount(async () => {
         try {
             const [gameRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
-                tracked(fetch(`/relay/api/games/${appid}`),                       'Game data'),
-                tracked(fetch(`/relay/api/steam/community-reviews/${appid}`),     'Community reviews'),
-                tracked(fetch(`/relay/api/steam/reviews/${appid}`),               'Steam reviews'),
-                tracked(fetch(`/relay/api/player-counts/${appid}`),               'Player counts'),
+                tracked(fetch(`/relay/api/games/${appid}`),                       'Game'),
+                tracked(fetch(`/relay/api/steam/community-reviews/${appid}`),     'Community'),
+                tracked(fetch(`/relay/api/steam/reviews/${appid}`),               'Reviews'),
+                tracked(fetch(`/relay/api/player-counts/${appid}`),               'Players'),
                 tracked(fetch(`/api/flags/${appid}`),                             'Flags'),
-                tracked(fetch(`/api/local-reviews/${appid}`),                     'Local review'),
+                tracked(fetch(`/api/local-reviews/${appid}`),                     'Journal'),
                 tracked(fetch(`/relay/api/videos/${appid}`),                      'Trailers'),
                 tracked(fetch(`/api/local-wishlist/${appid}`),                    'Wishlist'),
             ])
@@ -217,9 +241,10 @@
         if (!needsCommunitySync) pending-- // reddit + community sync: community-sync only if needed
         bgPending = pending
 
-        hltbNeeded = hasHltb
-        itadNeeded = hasItad
-        pcgwNeeded = hasPcgw
+        hltbNeeded   = hasHltb
+        itadNeeded   = hasItad
+        pcgwNeeded   = hasPcgw
+        phase2Active = true
 
         const dec = () => { bgPending = Math.max(0, bgPending - 1) }
 
@@ -337,7 +362,12 @@
 <div bind:this={containerEl}>
     {#if loading}
         <div class="game-p1-loader">
-            <SubredditLoader status={lastStep} />
+            <div class="community-loader"></div>
+            <div class="game-p1-cells">
+                {#each phase1Sections as s (s.label)}
+                    <div class="game-p1-cell" class:game-p1-cell--done={s.done}>{s.label}</div>
+                {/each}
+            </div>
         </div>
     {:else if error}
         <p class="page-error">Failed to load: {escapeHtml(error)}</p>
@@ -348,7 +378,7 @@
             protonData={protonData ?? null}
             itad={effectiveItad}
             hltb={effectiveHltb}
-            {bgPending}
+            sections={phase2Sections}
         />
 
         {#if game.store?.unavailable}

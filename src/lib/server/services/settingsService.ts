@@ -2,7 +2,7 @@ import path from 'node:path'
 import { ManagedFile } from '../shared/managed-file.js'
 import type { Settings } from '../../types.js'
 
-const DEFAULTS: Settings = { showChildLocked: false, showFiltered: false, hideUnavailable: false }
+const DEFAULTS: Settings = { showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [] }
 
 function makeFile(): ManagedFile<Settings> {
     const dataDir = process.env.DATA_DIR
@@ -25,13 +25,17 @@ export async function getSettings(): Promise<Settings> {
 export async function patchSettings(patch: Partial<Settings>): Promise<Settings> {
     const file = makeFile()
     await file.load()
-    const data = file.get()
+    const data: Settings = { ...DEFAULTS, ...file.get() }
     for (const [k, v] of Object.entries(patch)) {
         const key = k as keyof Settings
-        if (key in DEFAULTS && typeof v === 'boolean') data[key] = v
+        if (key === 'titleBlocklist') {
+            if (Array.isArray(v) && v.every(t => typeof t === 'string')) data.titleBlocklist = v
+        } else if (key in DEFAULTS && typeof v === 'boolean') {
+            (data as Record<string, unknown>)[key] = v
+        }
     }
     await file.set(data)
     await file.flush()
     await file.close()
-    return { ...DEFAULTS, ...data }
+    return data
 }

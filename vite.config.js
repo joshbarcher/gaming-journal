@@ -13,8 +13,22 @@ export default defineConfig(({ mode }) => {
 
     const isTest = !!process.env.VITEST
 
+    // Vite's dev server uses Node's http.Server with a 5s keepAliveTimeout
+    // default — same stale-connection problem as production. Fix it via plugin.
+    const keepAlivePlugin = {
+        name: 'configure-server-keep-alive',
+        configureServer(server) {
+            server.httpServer?.once('listening', () => {
+                if (server.httpServer) {
+                    server.httpServer.keepAliveTimeout = 10 * 60 * 1_000
+                    server.httpServer.headersTimeout   = 10 * 60 * 1_000 + 1_000
+                }
+            })
+        },
+    }
+
     return {
-        plugins: [isTest ? svelte() : sveltekit()],
+        plugins: [isTest ? svelte() : sveltekit(), keepAlivePlugin],
         resolve:  isTest ? { conditions: ['browser'] } : undefined,
         server:   { port: parseInt(env.PORT) || 5173 },
         test: {

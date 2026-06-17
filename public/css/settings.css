@@ -125,3 +125,119 @@
     transform: translateX(18px);
     background: #fff;
 }
+
+/* Blocklist row */
+.settings-blocklist-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.settings-reveal-btn {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--clr-text-muted);
+    background: var(--clr-bg-hover, rgba(255,255,255,0.06));
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+    margin-top: 2px;
+    transition: color var(--transition), border-color var(--transition);
+}
+
+.settings-reveal-btn:hover {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+}
+
+/* Blocklist panel */
+.settings-blocklist-panel {
+    padding: 14px 0 4px;
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.settings-blocklist-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.settings-blocklist-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--clr-text-muted);
+    background: var(--clr-bg-hover, rgba(255,255,255,0.06));
+    border: 1px solid var(--clr-border);
+    border-radius: 20px;
+    padding: 3px 10px 3px 12px;
+}
+
+.settings-blocklist-tag-remove {
+    font-size: 0.85rem;
+    line-height: 1;
+    color: var(--clr-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.6;
+    transition: opacity var(--transition);
+}
+
+.settings-blocklist-tag-remove:hover {
+    opacity: 1;
+    color: var(--clr-text);
+}
+
+.settings-blocklist-empty {
+    font-size: 0.78rem;
+    color: var(--clr-text-muted);
+    margin: 0 0 14px;
+}
+
+.settings-blocklist-add-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.settings-blocklist-input {
+    flex: 1;
+    font-size: 0.82rem;
+    color: var(--clr-text);
+    background: var(--clr-bg-hover, rgba(255,255,255,0.04));
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.settings-blocklist-input:focus {
+    border-color: var(--clr-border-hi);
+}
+
+.settings-blocklist-add-btn {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--clr-text);
+    background: var(--clr-bg-hover, rgba(255,255,255,0.06));
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+
+.settings-blocklist-add-btn:hover {
+    border-color: var(--clr-border-hi);
+}

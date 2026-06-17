@@ -7,15 +7,34 @@
     import GdpPrices from './sections/GdpPrices.svelte'
     import Breadcrumb from '../Breadcrumb.svelte'
 
+    interface Section { label: string; done: boolean }
     interface Props {
         game:             SteamGame | null
         communityReviews: CommunityReviews | null
         protonData:       ProtonData | null
         itad:             ItadData | null | undefined
         hltb:             SteamGame['hltb'] | null | undefined
-        bgPending?:       number
+        sections?:        Section[]
     }
-    let { game, communityReviews, protonData, itad, hltb, bgPending = 0 }: Props = $props()
+    let { game, communityReviews, protonData, itad, hltb, sections = [] }: Props = $props()
+
+    let badgeVisible = $state(false)
+    let badgeGone    = $state(false)
+    let _fadeTimer: ReturnType<typeof setTimeout> | null = null
+
+    $effect(() => {
+        const pending = sections.some(s => !s.done)
+        if (pending) {
+            badgeVisible = true
+            badgeGone    = false
+            if (_fadeTimer) { clearTimeout(_fadeTimer); _fadeTimer = null }
+        } else if (badgeVisible && !badgeGone) {
+            _fadeTimer = setTimeout(() => {
+                badgeGone = true
+                _fadeTimer = setTimeout(() => { badgeVisible = false }, 400)
+            }, 1200)
+        }
+    })
 
     const SVG_AWARD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`
     const SVG_SYNC  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`
@@ -145,11 +164,14 @@
         <div class="game-hero-right">
             <div class="game-data-panel">
                 <div class="game-panel-badges">
-                    {#if bgPending > 0}
-                        <div class="update-badge">
-                            <span class="update-badge-count">{bgPending}</span>
-                            <span class="update-badge-icon">{@html SVG_SYNC}</span>
-                            <span class="update-badge-sub">Updating</span>
+                    {#if badgeVisible && sections.length > 0}
+                        <div class="update-badge update-badge--cells" class:update-badge--gone={badgeGone}>
+                            {#each sections as s (s.label)}
+                                <div class="update-cell" class:update-cell--done={s.done}>
+                                    <span class="update-cell-dot"></span>
+                                    <span class="update-cell-label">{s.label}</span>
+                                </div>
+                            {/each}
                         </div>
                     {/if}
                     {#if protonTier}

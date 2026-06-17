@@ -144,9 +144,10 @@ export type FlagsStore = Record<string, Flags>
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface Settings {
-    showChildLocked: boolean
-    showFiltered:    boolean
-    hideUnavailable: boolean
+    showChildLocked:  boolean
+    showFiltered:     boolean
+    hideUnavailable:  boolean
+    titleBlocklist:   string[]
 }
 
 // ── Local review ──────────────────────────────────────────────────────────────
