@@ -82,6 +82,9 @@
     color: var(--clr-accent);
 }
 
+/* Short label hidden by default; toggled at phone portrait */
+.disc-tab-short { display: none; }
+
 /* ── Search meta bar (result count + top pagination) ─────────────────────────── */
 .disc-search-meta {
     display: flex;
@@ -233,22 +236,98 @@
     color: #e87070;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────────── */
-@media (max-width: 1200px) {
+/* ── Responsive ──────────────────────────────────────────────────────────────
+   ≤ 1279px  Tablet portrait + phone landscape
+   ≤  799px  Phone (both orientations)
+   ≤  479px  Phone portrait (S25 = 360px; #main-content provides 16px side padding)
+──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1279px) {
+    .disc-wrap {
+        padding: 24px 24px 0;
+    }
+
     .disc-grid,
     .disc-subgrid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 799px) {
+    .disc-wrap {
+        padding: 20px 20px 0;
+    }
+
+    .disc-grid,
+    .disc-subgrid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+}
+
+@media (max-width: 479px) {
+    .disc-wrap {
+        padding: 16px 0 0;
+    }
+
+    .disc-title {
+        font-size: 1.6rem;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--clr-border);
+        margin-bottom: 14px;
+    }
+
+    /* ── Section separators ── */
+    .disc-search-wrap {
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--clr-border);
+        margin-bottom: 14px;
+    }
+
+    .disc-tabs-bar {
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--clr-border);
+        margin-bottom: 14px;
+    }
+
+    .disc-search-meta {
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--clr-border);
+        margin-bottom: 14px;
+    }
+
+    .disc-pagination {
+        border-top: 1px solid var(--clr-border);
+        padding-top: 14px;
+        margin-top: 6px;
+    }
+
+    /* ── Tabs: single row, equal width, short labels ── */
+    .disc-tabs {
+        flex-wrap: nowrap;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .disc-tab {
+        flex: 1;
+        text-align: center;
+        padding: 8px 4px;
+        font-size: 11.5px;
+    }
+
+    .disc-tab-full  { display: none;   }
+    .disc-tab-short { display: inline; }
+
+    /* Top pagination is redundant — bottom pager stays */
+    .disc-top-pagination {
+        display: none;
+    }
+
+    /* 2-col fits at 328px (explicit columns; minmax won't) */
     .disc-grid,
     .disc-subgrid {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
-    }
-
-    .disc-genre-wrap {
-        margin-left: 0;
     }
 }

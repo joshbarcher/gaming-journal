@@ -263,16 +263,19 @@
 
 <div class="cal-page">
     <div class="cal-nav">
-        <div class="cal-nav-left">
-            <span class="cal-nav-title">Calendar</span>
-            <span class="cal-nav-year">{year}</span>
-            <div class="cal-mode-toggle">
-                <button class="cal-mode-btn" class:cal-mode-btn--active={localMode === 'play'}
-                    onclick={() => setMode('play')}>Play</button>
-                <button class="cal-mode-btn" class:cal-mode-btn--active={localMode === 'releases'}
-                    onclick={() => setMode('releases')}>Releases</button>
-            </div>
+        <span class="cal-nav-title">Calendar</span>
+        <span class="cal-nav-year">{year}</span>
+        <div class="cal-mode-toggle">
+            <button class="cal-mode-btn" class:cal-mode-btn--active={localMode === 'play'}
+                onclick={() => setMode('play')}>Play</button>
+            <button class="cal-mode-btn" class:cal-mode-btn--active={localMode === 'releases'}
+                onclick={() => setMode('releases')}>Releases</button>
         </div>
+        <div class="cal-nav-right">
+            <button class="cal-nav-btn" onclick={() => year--}>← {year - 1}</button>
+            <button class="cal-nav-btn" onclick={() => year++}>{year + 1} →</button>
+        </div>
+        <div class="cal-nav-sep"></div>
         <div class="cal-month-tabs">
             {#each MONTHS as name, m}
                 <button
@@ -281,10 +284,6 @@
                     onclick={() => monthIdx = m}
                 >{name.slice(0, 3)}</button>
             {/each}
-        </div>
-        <div class="cal-nav-right">
-            <button class="cal-nav-btn" onclick={() => year--}>← {year - 1}</button>
-            <button class="cal-nav-btn" onclick={() => year++}>{year + 1} →</button>
         </div>
     </div>
     <div class="cal-grid">

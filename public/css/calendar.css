@@ -18,14 +18,6 @@
     background: var(--clr-bg);
 }
 
-.cal-nav-left {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    min-width: 0;
-    flex: 0 0 auto;
-}
-
 .cal-nav-title {
     font-family: 'Cinzel', serif;
     font-size: 0.85rem;
@@ -300,6 +292,195 @@
     display: flex;
     align-items: center;
     gap: 3px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────
+   ≤ 1279px  Tablet portrait + phone landscape
+   ≤  799px  Phone (both orientations)
+   ≤  479px  Phone portrait (S25 = 360px)
+──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1279px) {
+    .cal-nav {
+        padding: 6px 16px;
+    }
+}
+
+@media (max-width: 799px) {
+    .cal-nav {
+        padding: 6px 12px;
+    }
+
+    .cal-month-tab {
+        padding: 4px 8px;
+    }
+}
+
+@media (max-width: 479px) {
+    /* ── Nav: 2-row CSS grid, 3 named columns ───────────────────────────────
+       Row 1 — year (left) | mode toggle (centre) | year-nav (right)
+       Row 2 — month tabs, full-width, horizontal scroll
+    ──────────────────────────────────────────────────────────────────────── */
+    .cal-nav {
+        flex-wrap: wrap;
+        padding: 0;
+        gap: 0;
+        border-bottom: 1px solid var(--clr-border);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .cal-nav-title   { display: none; }
+    .cal-nav-year    { display: none; }
+    .cal-mode-toggle { margin: 10px 0; }
+    .cal-nav-right   { margin: 10px 0 10px auto; gap: 8px; }
+
+    .cal-nav-sep {
+        flex: 0 0 100%;
+        height: 1px;
+        background: var(--clr-border);
+    }
+
+    .cal-month-tabs {
+        flex: 0 0 100%;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        gap: 2px;
+        padding: 8px 0 10px;
+    }
+
+    .cal-month-tabs::-webkit-scrollbar { display: none; }
+
+    .cal-month-tab {
+        flex-shrink: 0;
+        padding: 4px 9px;
+    }
+
+    .cal-grid {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 0;
+    }
+
+    /* ── Day list ─────────────────────────────────────────────────────────── */
+
+    .cal-daylist {
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 24px;
+    }
+
+    .cal-daylist-card {
+        border-bottom: 1px solid var(--clr-border);
+    }
+
+    .cal-daylist-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px 6px;
+    }
+
+    .cal-daylist-num {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--clr-text-muted);
+        min-width: 20px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+    }
+
+    /* Today: accent circle around the day number */
+    .cal-daylist-card--today .cal-daylist-num {
+        min-width: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--clr-accent);
+        color: #1a1208;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+    }
+
+    .cal-daylist-dow {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--clr-text-muted);
+    }
+
+    .cal-daylist-card--today .cal-daylist-dow {
+        color: var(--clr-accent);
+    }
+
+    .cal-daylist-today-label {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--clr-accent);
+        opacity: 0.75;
+    }
+
+    /* Empty day: header + small breathing room, no artwork */
+    .cal-daylist-empty-space {
+        height: 18px;
+    }
+
+    /* Entries grid within a day card */
+    .cal-daylist-entries {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 3px;
+        padding: 0 12px 10px;
+    }
+
+    .cal-daylist-entries--two {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .cal-daylist-entries--quad {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .cal-daylist-entry {
+        position: relative;
+        display: block;
+        overflow: hidden;
+        border-radius: 4px;
+        text-decoration: none;
+        aspect-ratio: 460 / 215;
+        background: var(--clr-bg-raised);
+    }
+
+    /* 3–4 games per day: square cells fit more art */
+    .cal-daylist-entries--quad .cal-daylist-entry {
+        aspect-ratio: 1;
+    }
+
+    .cal-daylist-entry--last-played .cal-daylist-img {
+        filter: grayscale(0.6) brightness(0.7);
+        opacity: 0.75;
+    }
+
+    .cal-daylist-entry--last-played .cal-entry-overlay {
+        background: linear-gradient(to top left, rgba(10,15,30,0.8) 0%, transparent 60%);
+    }
+
+    .cal-daylist-img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center center;
+    }
 }
 
 /* Pulsing dot for live sessions */

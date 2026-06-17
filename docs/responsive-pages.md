@@ -57,15 +57,15 @@ See [pages.md](pages.md) for the full page inventory with per-breakpoint status 
 - Full-width flex children in a `flex-direction: column` parent need `align-self: flex-start` to size to content
 - Elements that are direct children of a padded container need a wrapper div if they have their own internal padding
 
-## Phase 3 — Discovery & tools ← next
+## ✅ Phase 3 — Discovery & tools (complete)
 
-13. Discover (`/discover`)
-14. Recommend (`/recommend`)
-15. Sale Alerts (`/alerts`)
-16. Calendar (`/calendar`)
-17. Top Games (`/top-games`)
+13. ✅ Discover (`/discover`) — padding steps down; grid 4→3→2 cols; tabs full-width equal-width at ≤479px with short labels; top pagination hidden at ≤479px
+14. ✅ Recommend (`/recommend`) — topbar compacts at ≤479px; start card padding reduced; at ≤479px graph replaced with stacked box layout: question card + staggered option buttons + single-column game results, all animated with spring entrance
+15. ✅ Sale Alerts (`/alerts`) — padding steps down across all 3 breakpoints; on-sale grid 2-col at ≤799px, 1-col at ≤479px (image+pricing cards too rich for 2-col at phone)
+16. ✅ Calendar (`/calendar`) — nav wraps at ≤479px; year label hidden; day view replaced with vertical card list on phone with game art grids; auto-scrolls to today
+17. ✅ Top Games (`/top-games`) — padding steps down; at ≤799px hides 24h Peak/7d Peak/All-Time/sparkline columns, grid narrows to 4 cols, mute button hidden; at ≤479px columns compress further; title swaps to "Top Games" short form
 
-## Phase 4 — Game detail & journal
+## Phase 4 — Game detail & journal ← next
 
 18. Game Detail (`/game/[appid]`)
 19. Journal Dashboard (`/journal/[appid]`)

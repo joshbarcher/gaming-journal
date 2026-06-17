@@ -2,3 +2,4 @@ node_modules/
 .claude/
 .svelte-kit/
 build/
+dist/

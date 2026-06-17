@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { onMount } from 'svelte'
     import RecommendGraph from '$lib/svelte/recommend/RecommendGraph.svelte'
     import type { RecommendQuestion, RecommendGame } from '$lib/svelte/recommend/RecommendGraph.svelte'
 
@@ -7,6 +8,7 @@
 
     // ── State ─────────────────────────────────────────────────────────────────
     let depth     = $state<Depth>('normal')
+    let isPhone   = $state(false)
     let phase     = $state<PagePhase>('start')
     let loading   = $state(false)
     let error     = $state<string | null>(null)
@@ -87,6 +89,13 @@
         stepIndex = next.length
         await callRecommend(next)
     }
+
+    onMount(() => {
+        const check = () => { isPhone = window.innerWidth <= 479 }
+        check()
+        window.addEventListener('resize', check)
+        return () => window.removeEventListener('resize', check)
+    })
 </script>
 
 <div class="recommend-page">
@@ -99,7 +108,7 @@
                     <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
                 </svg>
             </span>
-            What should I play?
+            Recommendations
         </div>
 
         <div class="recommend-controls">
@@ -181,8 +190,57 @@
                     <button class="start-btn" onclick={start}>Start exploring</button>
                 </div>
             </div>
+        {:else if isPhone}
+            <!-- Mobile portrait: stacked layout -->
+            <div class="rec-mobile-stack">
+                {#if error}
+                    <div class="rec-m-banner rec-m-banner--error">{error}</div>
+                {/if}
+                {#if relaxed}
+                    <div class="rec-m-banner rec-m-banner--relaxed">One filter was loosened to find enough results.</div>
+                {/if}
+                {#if loading}
+                    <div class="rec-m-loading">Thinking…</div>
+                {:else if phase === 'playing' && question}
+                    {#key stepIndex}
+                        <div class="rec-m-question">
+                            <span class="rec-m-q-type">{question.type}</span>
+                            <p class="rec-m-q-label">{question.label}</p>
+                        </div>
+                        <div class="rec-m-options">
+                            {#each question.options as opt, i}
+                                <button
+                                    class="rec-m-option"
+                                    style="--i:{i}"
+                                    onclick={() => handleChoice(question!.type, opt.value)}
+                                >
+                                    <span class="rec-m-opt-label">{opt.label}</span>
+                                    {#if opt.count > 0}
+                                        <span class="rec-m-opt-count">{opt.count}</span>
+                                    {/if}
+                                </button>
+                            {/each}
+                        </div>
+                    {/key}
+                {:else if phase === 'results' && games}
+                    {#key games}
+                        <p class="rec-m-result-hd">Here's what to play</p>
+                        <div class="rec-m-results">
+                            {#each games as game, i}
+                                <a class="rec-m-game" href="/game/{game.appid}" style="--i:{i}">
+                                    <img class="rec-m-game-img"
+                                         src="/relay/images/steam/games/{game.appid}/header.jpg"
+                                         alt=""
+                                         onerror={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}>
+                                    <span class="rec-m-game-name">{game.name}</span>
+                                </a>
+                            {/each}
+                        </div>
+                    {/key}
+                {/if}
+            </div>
         {:else}
-            <!-- Graph -->
+            <!-- Desktop/tablet: graph -->
             {#if error}
                 <div class="error-banner">{error}</div>
             {/if}
@@ -440,5 +498,168 @@
         background: var(--clr-accent-bg);
         border: 1px solid rgba(201,168,76,0.3);
         color: var(--clr-accent);
+    }
+
+    /* ── Mobile topbar compaction (≤479px) ───────────────────────────────────── */
+    @media (max-width: 479px) {
+        .recommend-topbar   { padding: 10px 16px; gap: 8px; }
+        .recommend-title    { font-size: 14px; gap: 8px; }
+        .recommend-title-icon { width: 16px; height: 16px; }
+        .recommend-controls { gap: 8px; }
+        .depth-btn          { padding: 5px 8px; font-size: 11px; }
+        .depth-badge        { font-size: 11px; padding: 3px 8px; }
+        .skip-btn, .reset-btn { padding: 5px 8px; font-size: 11px; }
+        .skip-btn svg, .reset-btn svg { width: 12px; height: 12px; }
+
+        .start-card { padding: 28px 20px; max-width: calc(100% - 32px); gap: 16px; }
+        .start-icon { width: 36px; height: 36px; }
+        .start-card h2 { font-size: 18px; }
+        .depth-toggle--lg .depth-btn { padding: 10px 12px; }
+    }
+
+    /* ── Mobile stack layout ─────────────────────────────────────────────────── */
+    @keyframes rec-m-enter {
+        from { opacity: 0; transform: translateY(14px) scale(0.97); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .rec-mobile-stack {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .rec-m-banner {
+        padding: 10px 14px;
+        border-radius: var(--radius);
+        font-size: 13px;
+        text-align: center;
+    }
+    .rec-m-banner--error {
+        background: rgba(239,68,68,0.12);
+        border: 1px solid rgba(239,68,68,0.25);
+        color: #fca5a5;
+    }
+    .rec-m-banner--relaxed {
+        background: var(--clr-accent-bg);
+        border: 1px solid rgba(201,168,76,0.3);
+        color: var(--clr-accent);
+    }
+
+    .rec-m-loading {
+        padding: 32px 0;
+        text-align: center;
+        color: var(--clr-text-muted);
+        font-size: 14px;
+        animation: rec-m-enter 0.3s ease both;
+    }
+
+    .rec-m-question {
+        background: var(--clr-bg-raised);
+        border: 1px solid var(--clr-border);
+        border-radius: 10px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        animation: rec-m-enter 0.3s ease both;
+    }
+    .rec-m-q-type {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--clr-accent);
+    }
+    .rec-m-q-label {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--clr-text);
+        line-height: 1.3;
+        font-family: var(--font-title);
+    }
+
+    .rec-m-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .rec-m-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 13px 16px;
+        background: var(--clr-bg-raised);
+        border: 1px solid var(--clr-border);
+        border-radius: 8px;
+        color: var(--clr-text);
+        font-size: 14px;
+        cursor: pointer;
+        text-align: left;
+        transition: border-color var(--transition), background var(--transition);
+        animation: rec-m-enter 0.35s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+        animation-delay: calc(var(--i) * 65ms + 120ms);
+    }
+    .rec-m-option:hover {
+        border-color: var(--clr-accent);
+        background: color-mix(in srgb, var(--clr-accent) 8%, var(--clr-bg-raised));
+    }
+    .rec-m-opt-label { font-weight: 500; }
+    .rec-m-opt-count {
+        font-size: 12px;
+        color: var(--clr-text-muted);
+        flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .rec-m-result-hd {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--clr-text-muted);
+        animation: rec-m-enter 0.3s ease both;
+    }
+    .rec-m-results {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .rec-m-game {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: var(--clr-bg-raised);
+        border: 1px solid var(--clr-border);
+        border-radius: 8px;
+        text-decoration: none;
+        color: var(--clr-text);
+        transition: border-color var(--transition), background var(--transition);
+        animation: rec-m-enter 0.35s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+        animation-delay: calc(var(--i) * 65ms + 80ms);
+    }
+    .rec-m-game:hover {
+        border-color: var(--clr-border-hi);
+        background: var(--clr-bg-hover);
+    }
+    .rec-m-game-img {
+        width: 72px;
+        height: 34px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
+    }
+    .rec-m-game-name {
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.3;
     }
 </style>

@@ -4,10 +4,10 @@
     import type { DiscoverItem, DiscoverSection } from '../../types.js'
 
     const FEATURED_TABS = [
-        { id: 'new_releases', label: 'New Releases' },
-        { id: 'top_sellers',  label: 'Top Sellers'  },
-        { id: 'coming_soon',  label: 'Coming Soon'  },
-        { id: 'specials',     label: 'On Sale'       },
+        { id: 'new_releases', label: 'New Releases', short: 'New'  },
+        { id: 'top_sellers',  label: 'Top Sellers',  short: 'Top'  },
+        { id: 'coming_soon',  label: 'Coming Soon',  short: 'Soon' },
+        { id: 'specials',     label: 'On Sale',       short: 'Sale' },
     ]
     const STORAGE_KEY      = 'disc-state'
     const BLOCKLIST_KEY    = 'disc-title-blocklist'
@@ -339,7 +339,10 @@
                         class="disc-tab"
                         class:disc-tab--active={featuredTab === t.id}
                         onclick={() => switchTab(t.id)}
-                    >{t.label}</button>
+                    >
+                        <span class="disc-tab-full">{t.label}</span>
+                        <span class="disc-tab-short">{t.short}</span>
+                    </button>
                 {/each}
             </div>
             {#if activeSection && activeSection.pages > 1}

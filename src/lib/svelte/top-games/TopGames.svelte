@@ -114,7 +114,10 @@
     <div class="page-header">
         <div class="tg-page-top">
             <div>
-                <h1 class="page-title tg-title">Top Games by Players</h1>
+                <h1 class="page-title tg-title">
+                    <span class="tg-title-full">Top Games by Players</span>
+                    <span class="tg-title-short">Top Games</span>
+                </h1>
                 <p class="page-subtitle">Live Steam data · updated {updatedAt} · refreshes every 30 min</p>
             </div>
             {#if filtered.length > 0}
