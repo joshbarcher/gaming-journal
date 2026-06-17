@@ -112,6 +112,21 @@
         scrollContainer?.scrollTo(0, 0)
     }
 
+    // ── Keyboard navigation ───────────────────────────────────────────────────
+
+    $effect(() => {
+        function onKeydown(e: KeyboardEvent) {
+            const tag = (e.target as HTMLElement).tagName
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+            if (e.key === 'ArrowLeft'  && page > 1)          { prevPage(); return }
+            if (e.key === 'ArrowRight' && page < totalPages)  { nextPage(); return }
+            if (e.key === 'ArrowDown') { e.preventDefault(); scrollContainer?.scrollBy({ top:  window.innerHeight, behavior: 'smooth' }) }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); scrollContainer?.scrollBy({ top: -window.innerHeight, behavior: 'smooth' }) }
+        }
+        window.addEventListener('keydown', onKeydown)
+        return () => window.removeEventListener('keydown', onKeydown)
+    })
+
     // ── Scroll persistence ────────────────────────────────────────────────────
 
     $effect(() => {

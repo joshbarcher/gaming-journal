@@ -263,6 +263,27 @@
         else img.style.visibility = 'hidden'
     }
 
+    // ── Keyboard navigation ───────────────────────────────────────────────────
+
+    $effect(() => {
+        function onKeydown(e: KeyboardEvent) {
+            const tag = (e.target as HTMLElement).tagName
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+            if (mode === 'browse' && activeSection) {
+                if (e.key === 'ArrowLeft'  && activeSection.page > 1)                   { loadFeaturedPage(featuredTab, activeSection.page - 1); return }
+                if (e.key === 'ArrowRight' && activeSection.page < activeSection.pages) { loadFeaturedPage(featuredTab, activeSection.page + 1); return }
+            } else if (mode === 'search') {
+                if (e.key === 'ArrowLeft'  && searchPage > 1)           { goSearchPage(-1); return }
+                if (e.key === 'ArrowRight' && searchPage < searchPages)  { goSearchPage(1);  return }
+            }
+            const scroller = document.getElementById('main-content')
+            if (e.key === 'ArrowDown') { e.preventDefault(); scroller?.scrollBy({ top:  window.innerHeight, behavior: 'smooth' }) }
+            if (e.key === 'ArrowUp')   { e.preventDefault(); scroller?.scrollBy({ top: -window.innerHeight, behavior: 'smooth' }) }
+        }
+        window.addEventListener('keydown', onKeydown)
+        return () => window.removeEventListener('keydown', onKeydown)
+    })
+
     // ── Mount ─────────────────────────────────────────────────────────────────
 
     onMount(() => {

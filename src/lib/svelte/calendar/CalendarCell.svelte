@@ -8,6 +8,7 @@
         isRelease:    boolean
         durationMin?: number
         isLive?:      boolean
+        lastPlayed?:  boolean
     }
 
     interface Props {
@@ -20,10 +21,12 @@
     let { day, isToday, entries, releases }: Props = $props()
 
     let display  = $derived.by(() => {
-        const sorted = [...entries].sort((a, b) => b.durationMin - a.durationMin)
+        const real       = entries.filter(e => !e.lastPlayed).sort((a, b) => b.durationMin - a.durationMin)
+        const historical = entries.filter(e =>  e.lastPlayed).sort((a, b) => a.name.localeCompare(b.name))
         const all: CellEntry[] = [
             ...releases.map(r => ({ ...r, isRelease: true })),
-            ...sorted.map(e => ({ ...e, isRelease: false })),
+            ...real.map(e => ({ ...e, isRelease: false })),
+            ...historical.map(e => ({ ...e, isRelease: false })),
         ]
         return { items: all.slice(0, 3), overflow: all.length - Math.min(all.length, 3) }
     })
@@ -32,19 +35,22 @@
 <div
     class="cal-cell"
     class:cal-cell--today={isToday}
-    class:cal-cell--played={entries.length > 0}
+    class:cal-cell--played={entries.some(e => !e.lastPlayed)}
     class:cal-cell--release-day={releases.length > 0}
 >
     <span class="cal-day-num">{day}</span>
-    <div class="cal-entries">
+    <div class="cal-entries" class:cal-entries--grid={display.items.length >= 3}>
         {#each display.items as e, i}
             {@const timeLabel = fmt(e.durationMin ?? 0)}
             {@const title = e.isRelease
                 ? `${e.name} — Release day`
+                : e.lastPlayed && !e.isLive
+                ? `${e.name} — last played`
                 : `${e.name} — ${timeLabel}${e.isLive ? ' (live)' : ''}`}
             <a
                 class="cal-entry"
                 class:cal-entry--release={e.isRelease}
+                class:cal-entry--last-played={e.lastPlayed && !e.isLive}
                 href="/game/{e.appid}"
                 {title}
             >
@@ -65,9 +71,9 @@
                 />
                 {#if !e.isRelease}
                     <div class="cal-entry-overlay">
-                        <span class="cal-entry-tag" class:cal-entry-tag--live={e.isLive}>
+                        <span class="cal-entry-tag" class:cal-entry-tag--live={e.isLive} class:cal-entry-tag--last-played={e.lastPlayed && !e.isLive}>
                             {#if e.isLive}<span class="cal-live-dot"></span>{/if}
-                            {timeLabel}
+                            {e.lastPlayed && !e.isLive ? 'last played' : timeLabel}
                         </span>
                     </div>
                 {/if}

@@ -412,6 +412,11 @@
     margin-bottom: 44px;
 }
 
+.game-section + .game-section {
+    border-top: 1px solid var(--clr-border);
+    padding-top: 44px;
+}
+
 .game-section-title {
     font-family: var(--font-title);
     font-size: 11px;

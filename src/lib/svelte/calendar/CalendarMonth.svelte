@@ -18,15 +18,17 @@
     let firstDow    = $derived(new Date(year, monthIdx, 1).getDay())
     let daysInMonth = $derived(new Date(year, monthIdx + 1, 0).getDate())
     let isCurrent   = $derived(today.startsWith(`${year}-${String(monthIdx + 1).padStart(2, '0')}`))
+    let weekRows    = $derived(Math.ceil((firstDow + daysInMonth) / 7))
+    let gridRows    = $derived(`auto ${Array(weekRows).fill('1fr').join(' ')}`)
 
     function dateStr(d: number) {
         return `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
     }
 </script>
 
-<div class="cal-month" id={isCurrent ? 'cal-month-current' : undefined}>
+<div class="cal-month">
     <div class="cal-month-name">{name}</div>
-    <div class="cal-month-grid">
+    <div class="cal-month-grid" style="grid-template-rows: {gridRows}">
         {#each DOW as d}
             <div class="cal-dow">{d}</div>
         {/each}

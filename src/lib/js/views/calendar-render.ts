@@ -22,6 +22,7 @@ export interface DayEntry {
     name:        string
     durationMin: number
     isLive?:     boolean
+    lastPlayed?: boolean
 }
 
 export interface ReleaseEntry {
@@ -91,6 +92,24 @@ export function buildDayMap(
     }
     const result = new Map<string, DayEntry[]>()
     for (const [day, appidMap] of raw) result.set(day, [...appidMap.values()])
+    return result
+}
+
+export function buildLastPlayedOverlay(
+    games: Array<{ appid: number; name: string; rtime_last_played?: number }>,
+    dayMap: Map<string, DayEntry[]>
+): Map<string, DayEntry[]> {
+    const appsWithSessions = new Set<number>()
+    for (const entries of dayMap.values())
+        for (const e of entries) appsWithSessions.add(e.appid)
+
+    const result = new Map(dayMap)
+    for (const game of games) {
+        if (!game.rtime_last_played || appsWithSessions.has(game.appid)) continue
+        const dateStr = localDateStr(new Date(game.rtime_last_played * 1000))
+        const existing = result.get(dateStr) ?? []
+        result.set(dateStr, [...existing, { appid: game.appid, name: game.name, durationMin: 0, lastPlayed: true }])
+    }
     return result
 }
 

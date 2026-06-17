@@ -1,23 +1,29 @@
 <script lang="ts">
-    import { onMount, onDestroy, tick } from 'svelte'
+    import { onMount, onDestroy } from 'svelte'
     import {
         localDateStr, localMidnight, splitAtMidnight,
-        buildDayMap, buildReleaseMap, MONTHS,
+        buildDayMap, buildLastPlayedOverlay, buildReleaseMap, MONTHS,
     } from '../../js/views/calendar-render.js'
     import type { DayEntry, ReleaseEntry } from '../../js/views/calendar-render.js'
     import type { NowPlayingSession } from '../../types.js'
+    import { getWithTTL, setWithTTL } from '../../js/storage.js'
     import CalendarMonth from './CalendarMonth.svelte'
+
+    type SlimGame = { appid: number; name: string; rtime_last_played?: number }
+    const LP_CACHE_KEY = 'cal-lp-games'
+    const LP_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
 
     let { mode = 'play' } = $props()
 
     // ── State ──────────────────────────────────────────────────────────────────
 
+    let localMode  = $state(mode)
     let year       = $state(new Date().getFullYear())
+    let monthIdx   = $state(new Date().getMonth())
     let dayMap     = $state<Map<string, DayEntry[]>>(new Map())
     let releaseMap = $state<Map<string, ReleaseEntry[]>>(new Map())
     let loading    = $state(true)
     let error      = $state<string | null>(null)
-    let calEl      = $state<HTMLElement | null>(null)
     let today      = $state(localDateStr(new Date()))
 
     // Live session state
@@ -36,7 +42,7 @@
 
     function buildEffectiveDayMap() {
         const session = liveSession
-        if (!session || mode !== 'play') return dayMap
+        if (!session || localMode !== 'play') return dayMap
 
         const todayStr   = localDateStr(new Date())
         const startMs    = liveEffectiveStart
@@ -66,17 +72,6 @@
         m.set(todayStr, todayEntries)
         return m
     }
-
-    // ── Scroll to current month ────────────────────────────────────────────────
-
-    $effect(() => {
-        year; effectiveDayMap; releaseMap // track changes
-        tick().then(() => {
-            if (year === new Date().getFullYear()) {
-                calEl?.querySelector('#cal-month-current')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }
-        })
-    })
 
     // ── Live session poller (play mode only) ──────────────────────────────────
 
@@ -169,19 +164,45 @@
 
     // ── Load ───────────────────────────────────────────────────────────────────
 
-    onMount(async () => {
+    async function loadData(m: string) {
+        loading = true
+        error   = null
+        dayMap     = new Map()
+        releaseMap = new Map()
         try {
-            if (mode === 'play') {
-                const [accountRes, flagsRes, settingsRes] = await Promise.all([
+            if (m === 'play') {
+                const cachedGames = getWithTTL<SlimGame[]>(LP_CACHE_KEY)
+                const fetches: Promise<Response>[] = [
                     fetch('/relay/api/account'),
                     fetch('/api/flags'),
                     fetch('/api/settings'),
-                ])
+                ]
+                if (!cachedGames) fetches.push(fetch('/relay/api/steam/games'))
+                const responses  = await Promise.all(fetches)
+                const [accountRes, flagsRes, settingsRes] = responses
+
                 if (!accountRes.ok) throw new Error(`HTTP ${accountRes.status}`)
                 const data     = await accountRes.json()
                 const flags    = flagsRes.ok    ? await flagsRes.json()    : {}
                 const settings = settingsRes.ok ? await settingsRes.json() : {}
-                dayMap = buildDayMap(data.sessions ?? {}, flags, settings)
+                const base     = buildDayMap(data.sessions ?? {}, flags, settings)
+
+                let games: SlimGame[]
+                if (cachedGames) {
+                    games = cachedGames
+                } else {
+                    const gamesRes  = responses[3]
+                    const gamesJson = gamesRes?.ok ? await gamesRes.json() : []
+                    const raw: any[] = Array.isArray(gamesJson)                                       ? gamesJson
+                                     : Array.isArray(gamesJson.games)                                ? gamesJson.games
+                                     : Array.isArray(gamesJson.data)                                 ? gamesJson.data
+                                     : gamesJson.response && Array.isArray(gamesJson.response.games) ? gamesJson.response.games
+                                     : []
+                    games = raw.map(g => ({ appid: g.appid, name: g.name, rtime_last_played: g.rtime_last_played }))
+                    setWithTTL(LP_CACHE_KEY, games, LP_CACHE_TTL)
+                }
+
+                dayMap = buildLastPlayedOverlay(games, base)
                 startLivePoller()
             } else {
                 const res = await fetch('/relay/api/steam/releases')
@@ -190,39 +211,97 @@
                 releaseMap = buildReleaseMap(data.releases ?? [])
             }
         } catch (err) {
-            error = `Failed to load ${mode === 'play' ? 'calendar' : 'releases'}: ${(err as Error).message}`
+            error = `Failed to load ${m === 'play' ? 'calendar' : 'releases'}: ${(err as Error).message}`
         } finally {
             loading = false
         }
+    }
+
+    function setMode(m: string) {
+        if (m === localMode) return
+        stopLivePoller()
+        localMode = m
+        const url = new URL(window.location.href)
+        if (m === 'play') url.searchParams.delete('mode')
+        else              url.searchParams.set('mode', m)
+        history.replaceState({}, '', url.toString())
+        loadData(m)
+    }
+
+    // ── Keyboard navigation ───────────────────────────────────────────────────
+
+    $effect(() => {
+        function onKeydown(e: KeyboardEvent) {
+            const tag = (e.target as HTMLElement).tagName
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault()
+                if (monthIdx === 0) { monthIdx = 11; year-- }
+                else monthIdx--
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                if (monthIdx === 11) { monthIdx = 0; year++ }
+                else monthIdx++
+            }
+        }
+        window.addEventListener('keydown', onKeydown)
+        return () => window.removeEventListener('keydown', onKeydown)
     })
 
-    onDestroy(stopLivePoller)
+    onMount(async () => {
+        const mainEl = document.getElementById('main-content')
+        if (mainEl) mainEl.style.overflow = 'hidden'
+        await loadData(localMode)
+    })
+
+    onDestroy(() => {
+        stopLivePoller()
+        const mainEl = document.getElementById('main-content')
+        if (mainEl) mainEl.style.overflow = ''
+    })
 </script>
 
-{#if loading}
-    <p class="page-loading">Loading {mode === 'play' ? 'calendar' : 'releases'}…</p>
-{:else if error}
-    <p class="page-error">{error}</p>
-{:else}
-    <div class="page-header">
-        <h1 class="page-title">{mode === 'play' ? 'Play Calendar' : 'Release Calendar'}</h1>
-    </div>
+<div class="cal-page">
     <div class="cal-nav">
-        <button class="cal-nav-btn" onclick={() => year--}>← {year - 1}</button>
-        <span class="cal-nav-year">{year}</span>
-        <button class="cal-nav-btn" onclick={() => year++}>{year + 1} →</button>
+        <div class="cal-nav-left">
+            <span class="cal-nav-title">Calendar</span>
+            <span class="cal-nav-year">{year}</span>
+            <div class="cal-mode-toggle">
+                <button class="cal-mode-btn" class:cal-mode-btn--active={localMode === 'play'}
+                    onclick={() => setMode('play')}>Play</button>
+                <button class="cal-mode-btn" class:cal-mode-btn--active={localMode === 'releases'}
+                    onclick={() => setMode('releases')}>Releases</button>
+            </div>
+        </div>
+        <div class="cal-month-tabs">
+            {#each MONTHS as name, m}
+                <button
+                    class="cal-month-tab"
+                    class:cal-month-tab--active={m === monthIdx}
+                    onclick={() => monthIdx = m}
+                >{name.slice(0, 3)}</button>
+            {/each}
+        </div>
+        <div class="cal-nav-right">
+            <button class="cal-nav-btn" onclick={() => year--}>← {year - 1}</button>
+            <button class="cal-nav-btn" onclick={() => year++}>{year + 1} →</button>
+        </div>
     </div>
-    <div class="cal-grid" bind:this={calEl}>
-        {#each MONTHS as name, m}
+    <div class="cal-grid">
+        {#if loading}
+            <div class="cal-loading"><div class="community-loader"></div></div>
+        {:else if error}
+            <p class="page-error">{error}</p>
+        {:else}
             <CalendarMonth
                 {year}
-                monthIdx={m}
-                {name}
+                monthIdx={monthIdx}
+                name={MONTHS[monthIdx]}
                 {today}
                 dayMap={effectiveDayMap}
                 {releaseMap}
-                {mode}
+                mode={localMode}
             />
-        {/each}
+        {/if}
     </div>
-{/if}
+</div>

@@ -25,6 +25,7 @@
         topGames:   ICO(`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`),
         discover:   ICO(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`),
         releases:   ICO(`<path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>`),
+        recommend:  ICO(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`),
         settings:   ICO(`<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`),
         alerts:     ICO(`<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>`),
     }
@@ -36,6 +37,7 @@
         if (!seg) return 'home'
         if (seg === 'game') return 'library'
         if (seg === 'franchise') return 'franchises'
+        if (seg === 'recommend') return 'recommend'
         if (seg === 'journal' || seg === 'community') return null
         return seg
     }
@@ -109,6 +111,11 @@
        onkeydown={arrowNav}>
         {@html ICONS.discover} Discover
     </a>
+    <a class="sidebar-nav-btn sidebar-recommend-btn" href="/recommend"
+       data-id="recommend" class:active={activeId === 'recommend'}
+       onkeydown={arrowNav}>
+        {@html ICONS.recommend} Recommend
+    </a>
     <a class="sidebar-nav-btn sidebar-alerts-btn" href="/alerts"
        data-id="alerts" class:active={activeId === 'alerts'}
        onkeydown={arrowNav}>
@@ -116,14 +123,9 @@
         {#if store.alertsCount > 0}<span class="sidebar-alerts-badge">{store.alertsCount}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-calendar-btn" href="/calendar"
-       data-id="calendar" class:active={activeId === 'calendar'}
+       data-id="calendar" class:active={activeId === 'calendar' || activeId === 'releases'}
        onkeydown={arrowNav}>
-        {@html ICONS.calendar} Play Calendar
-    </a>
-    <a class="sidebar-nav-btn sidebar-releases-btn" href="/releases"
-       data-id="releases" class:active={activeId === 'releases'}
-       onkeydown={arrowNav}>
-        {@html ICONS.releases} Release Calendar
+        {@html ICONS.calendar} Calendar
     </a>
     <a class="sidebar-nav-btn sidebar-top-games-btn" href="/top-games"
        data-id="top-games" class:active={activeId === 'top-games'}
