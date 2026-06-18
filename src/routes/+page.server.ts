@@ -63,15 +63,17 @@ function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (app
         [copy[i], copy[j]] = [copy[j], copy[i]]
     }
     return copy.slice(0, n).map(item => ({
-        header: item.headerImage ?? item.posterImage ?? '',
+        header: item.posterImage ?? item.headerImage ?? '',
     }))
 }
 
 export async function load(): Promise<HomeData> {
     const base = relayUrl()
 
-    const [homeData, discoverData, flags, settings] = await Promise.all([
+    const [homeData, libPosters, wlPosters, discoverData, flags, settings] = await Promise.all([
         fetchJson<RelayHomeData>(`${base}/api/home`),
+        fetchJson<HomePoster[]>(`${base}/api/games/posters?source=library&n=50`),
+        fetchJson<HomePoster[]>(`${base}/api/games/posters?source=wishlist&n=50`),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
         getAllFlags().catch(() => ({} as FlagsStore)),
         getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [] } as Settings)),
@@ -87,12 +89,11 @@ export async function load(): Promise<HomeData> {
         .catch(() => null)
 
     return {
-        resume:      homeData?.resume     ?? null,
-        release:     homeData?.release    ?? null,
-        libPosters:  (homeData?.libPosters ?? []).filter(p => shouldShow(p.appid)),
-        wlPosters:   (homeData?.wlPosters  ?? []).filter(p => shouldShow(p.appid)),
-        discPosters: sampleDiscover(discoverData ?? [], 6, shouldShow, settings.titleBlocklist ?? []),
+        resume:      homeData?.resume  ?? null,
+        release:     homeData?.release ?? null,
+        libPosters:  (libPosters  ?? []).filter(p => shouldShow(p.appid)),
+        wlPosters:   (wlPosters   ?? []).filter(p => shouldShow(p.appid)),
+        discPosters: sampleDiscover(discoverData ?? [], 50, shouldShow, settings.titleBlocklist ?? []),
         saleGame,
     }
 }
-

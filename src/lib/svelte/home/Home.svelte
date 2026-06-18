@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { HomeData } from '../../../routes/+page.server.js'
-    import type { AlertResult } from '../../types.js'
+    import HomeMosaic from './HomeMosaic.svelte'
 
     let { data }: { data: HomeData } = $props()
 
@@ -93,20 +93,12 @@
 
     <div class="home-row" style="grid-template-columns: 1fr 1fr 1fr">
         {#each [
-            { href: '/library',  label: 'View Library',   posters: libPosters  },
-            { href: '/wishlist', label: 'View Wishlist',  posters: wlPosters   },
-            { href: '/discover', label: 'Discover Games', posters: discPosters },
+            { href: '/library',  label: 'View Library',   posters: libPosters.map(p => p.header)  },
+            { href: '/wishlist', label: 'View Wishlist',  posters: wlPosters.map(p => p.header)   },
+            { href: '/discover', label: 'Discover Games', posters: discPosters.map(p => p.header) },
         ] as card}
             <a class="home-card home-card--anchor" href={card.href}>
-                <div class="home-mosaic">
-                    {#each card.posters as poster}
-                        <img class="home-mosaic-img"
-                             src={poster.header}
-                             alt=""
-                             loading="lazy"
-                             onerror={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}>
-                    {/each}
-                </div>
+                <HomeMosaic posters={card.posters} />
                 <div class="home-card-body">
                     <span class="home-anchor-label">{card.label}</span>
                 </div>
