@@ -65,6 +65,13 @@
         } catch { /* silent */ }
     }
 
+    async function fetchPin() {
+        try {
+            const res = await fetch('/relay/api/pin')
+            store.pin = res.status === 204 ? null : (res.ok ? await res.json() : store.pin)
+        } catch { /* silent */ }
+    }
+
     async function fetchAlertsBadge() {
         try {
             const res = await fetch('/api/alerts')
@@ -133,7 +140,8 @@
             .catch(() => {})
 
         fetchNowPlaying()
-        const nowPlayingTimer = setInterval(fetchNowPlaying, 60_000)
+        fetchPin()
+        const nowPlayingTimer = setInterval(() => { fetchNowPlaying(); fetchPin() }, 60_000)
 
         fetchAlertsBadge()
         const alertsTimer = setInterval(fetchAlertsBadge, 15 * 60_000)

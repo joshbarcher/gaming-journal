@@ -9,7 +9,7 @@
     }
     let { comment, threadUrl, depth = 0 }: Props = $props()
 
-    let collapsed = $state(false)
+    let collapsed = $state(true)
 
     let usedDepth = $derived(comment.depth ?? depth)
     let author    = $derived(comment.author ?? '')

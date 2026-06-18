@@ -1,7 +1,8 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
-    import type { SteamGame, CommunitySource, LoadedPrefs, RedditSource, RedditData } from '../../types.js'
+    import type { SteamGame, CommunitySource, LoadedPrefs, RedditSource, RedditData, PinState } from '../../types.js'
     import { loadPrefs, toggleFilter, toggleMute, toggleFavorite, toggleHighlight } from '../../js/community-user-prefs.js'
+    import { getPin, pinGame, unpinGame, fmtExpiry } from '../../js/pin.js'
     import { showContextMenu } from '../../js/views/context-menu.js'
     import { fmtScore, fmtTime, thumbSrc } from '../../js/views/community-render.js'
     import SubredditLoader from './SubredditLoader.svelte'
@@ -9,7 +10,8 @@
 
     let { appid } = $props()
 
-    const PAGE_SIZE = 25
+    const PAGE_SIZE       = 25
+    const PIN_POLL_MS     = 60_000   // how often we check for content updates
 
     // ── State ──────────────────────────────────────────────────────────────────
 
@@ -20,6 +22,12 @@
     let error       = $state<string | null>(null)
     let activeTab   = $state('__all__')
     let shownCounts = $state<Record<string, number>>({})
+
+    // Pin state
+    let pin          = $state<PinState | null>(null)
+    let hasUpdate    = $state(false)
+    let loadedMergedAt: string | null = null
+    let _pollTimer: ReturnType<typeof setInterval> | null = null
 
     type PendingSub = { name: string; status: string; error: boolean }
     let pendingSub  = $state<PendingSub | null>(null)
@@ -56,6 +64,40 @@
     )
 
     let totalPosts = $derived(sources.reduce((n, s) => n + s.posts.length, 0))
+
+    // Pin derived — is this game the one that's pinned?
+    let isPinned    = $derived(pin !== null && pin.appid === Number(appid))
+    let isLive      = $derived(isPinned && pin?.reason === 'playing' && pin?.sessionEndedAt === null)
+    let isGrace     = $derived(isPinned && pin?.reason === 'playing' && pin?.sessionEndedAt !== null)
+
+    // ── Pin actions ────────────────────────────────────────────────────────────
+
+    async function handlePin() {
+        if (!game) return
+        if (isPinned) {
+            await unpinGame()
+            pin = null
+        } else {
+            pin = await pinGame(Number(appid), game.name ?? '')
+        }
+    }
+
+    // ── Pin + content poll ─────────────────────────────────────────────────────
+
+    async function _poll() {
+        try {
+            pin = await getPin()
+        } catch { /* silent */ }
+
+        if (!isPinned) return
+        try {
+            const r = await fetch(`/relay/api/reddit/${appid}`)
+            if (!r.ok) return
+            const data = await r.json()
+            const freshMergedAt = data.mergedAt ?? null
+            if (freshMergedAt && freshMergedAt !== loadedMergedAt) hasUpdate = true
+        } catch { /* silent */ }
+    }
 
     // ── Infinite scroll action ─────────────────────────────────────────────────
 
@@ -127,6 +169,7 @@
     // ── Manage modal ───────────────────────────────────────────────────────────
 
     function openModal() {
+        console.log('[modal] opened')
         modalInput = ''
         modalStatus = ''
         modalStatusType = ''
@@ -134,17 +177,24 @@
         showModal = true
     }
 
-    function handleModalInput() {
+    function handleModalInput(e?: Event) {
+        const raw = (e?.target as HTMLInputElement | null)?.value ?? modalInput
+        console.log('[modal] handleModalInput fired', { e: e?.type, raw, modalInput })
         clearTimeout(_debounce ?? undefined)
         modalValidName = null
-        const val = modalInput.trim().replace(/^r\//i, '')
+        const val = raw.trim().replace(/^r\//i, '')
         if (!val) { modalStatus = ''; modalStatusType = ''; return }
         modalStatus = '…'
         modalStatusType = 'loading'
+        console.log('[modal] debounce queued for', val)
         _debounce = setTimeout(async () => {
+            const url = `/relay/api/reddit/validate-subreddit?name=${encodeURIComponent(val)}`
+            console.log('[modal] fetching', url)
             try {
-                const res  = await fetch(`/relay/api/reddit/validate-subreddit?name=${encodeURIComponent(val)}`)
+                const res  = await fetch(url)
+                console.log('[modal] response status', res.status)
                 const data = await res.json()
+                console.log('[modal] response data', data)
                 if (data.valid) {
                     modalValidName  = data.name
                     modalStatus     = `✓ ${data.name} · ${(data.subscribers ?? 0).toLocaleString()} members`
@@ -153,7 +203,8 @@
                     modalStatus     = '✗ Not found'
                     modalStatusType = 'invalid'
                 }
-            } catch {
+            } catch (err) {
+                console.error('[modal] fetch error', err)
                 modalStatus     = '✗ Check failed'
                 modalStatusType = 'invalid'
             }
@@ -228,22 +279,25 @@
 
     onMount(async () => {
         try {
-            const [gameRes, redditRes, userSubsRes] = await Promise.all([
+            const [gameRes, redditRes, userSubsRes, pinRes] = await Promise.all([
                 fetch(`/relay/api/games/${appid}`),
                 fetch(`/relay/api/reddit/${appid}`),
                 fetch(`/api/reddit-subreddits/${appid}`),
+                getPin(),
             ])
             if (!gameRes.ok) throw new Error(`Game HTTP ${gameRes.status}`)
             game = await gameRes.json()
-            const userSubs = userSubsRes.ok ? await userSubsRes.json() : []
+            pin  = pinRes
 
-            let redditData
+            let redditData: (RedditData & { mergedAt?: string }) | null
             if (redditRes.ok) {
                 redditData = await redditRes.json()
             } else {
                 const r2 = await fetch(`/relay/api/reddit/${appid}?name=${encodeURIComponent(game?.name ?? '')}`)
                 redditData = r2.ok ? await r2.json() : null
             }
+
+            loadedMergedAt = redditData?.mergedAt ?? null
 
             sources = ((redditData as RedditData | null)?.sources ?? [])
                 .filter((s: RedditSource) => s.posts.length > 0)
@@ -259,6 +313,12 @@
         } finally {
             loading = false
         }
+
+        _pollTimer = setInterval(_poll, PIN_POLL_MS)
+    })
+
+    onDestroy(() => {
+        if (_pollTimer) clearInterval(_pollTimer)
     })
 </script>
 
@@ -277,6 +337,33 @@
             ]} />
             <h1 class="community-title">{game.name ?? ''}</h1>
             <p class="community-subtitle">{totalPosts} post{totalPosts !== 1 ? 's' : ''} from Reddit</p>
+        </div>
+
+        <!-- Pin indicator -->
+        <div class="community-pin">
+            {#if isLive}
+                <div class="community-pin-badge community-pin-badge--live">
+                    <span class="community-pin-dot"></span>
+                    <span class="community-pin-label">Live</span>
+                </div>
+            {:else if isGrace}
+                <div class="community-pin-badge community-pin-badge--grace">
+                    <span class="community-pin-icon">📌</span>
+                    <span class="community-pin-label">Pinned · {fmtExpiry(pin!.expiresAt)}</span>
+                    <button class="community-pin-unpin" onclick={handlePin} title="Unpin">×</button>
+                </div>
+            {:else if isPinned}
+                <div class="community-pin-badge community-pin-badge--manual">
+                    <span class="community-pin-icon">📌</span>
+                    <span class="community-pin-label">Pinned · {fmtExpiry(pin!.expiresAt)}</span>
+                    <button class="community-pin-unpin" onclick={handlePin} title="Unpin">×</button>
+                </div>
+            {:else}
+                <button class="community-pin-btn" onclick={handlePin} title="Pin this game for live community updates">
+                    <span class="community-pin-icon community-pin-icon--muted">📌</span>
+                    <span>Pin</span>
+                </button>
+            {/if}
         </div>
     </div>
 
@@ -379,6 +466,14 @@
             </div>
         {/if}
     </div>
+
+    {#if hasUpdate}
+        <div class="community-update-banner">
+            <span>New community posts available</span>
+            <button class="community-update-refresh" onclick={() => location.reload()}>Refresh</button>
+            <button class="community-update-dismiss" onclick={() => hasUpdate = false} title="Dismiss">×</button>
+        </div>
+    {/if}
 </div>
 
 <!-- Manage subreddits modal -->
@@ -398,9 +493,9 @@
                     autocomplete="off"
                     spellcheck="false"
                     autofocus
-                    bind:value={modalInput}
-                    oninput={handleModalInput}
-                    onpaste={() => setTimeout(handleModalInput, 0)}
+                    value={modalInput}
+                    oninput={(e) => { modalInput = (e.target as HTMLInputElement).value; handleModalInput(e) }}
+                    onpaste={(e) => { const el = e.target as HTMLInputElement; setTimeout(() => { modalInput = el.value; handleModalInput() }, 0) }}
                     onkeydown={(e) => { if (e.key === 'Enter' && modalValidName) doAddSub() }}
                 >
                 <button class="community-manage-add-btn" disabled={!modalValidName} onclick={doAddSub}>Add</button>

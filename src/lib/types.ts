@@ -497,6 +497,17 @@ export interface CommunitySource {
     posts: RedditPost[]
 }
 
+export interface PinState {
+    appid:            number
+    name:             string
+    pinnedAt:         string
+    reason:           'playing' | 'manual'
+    sessionEndedAt:   string | null
+    postsAccumulated: number
+    lastRefreshedAt:  string | null
+    expiresAt:        string
+}
+
 // ── Community prefs (runtime, Set-based — distinct from stored CommunityPrefs) ─
 
 export interface LoadedPrefs {

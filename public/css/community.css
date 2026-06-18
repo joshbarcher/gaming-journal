@@ -902,6 +902,34 @@
     background: rgba(91, 155, 213, 0.22);
 }
 
+.game-pin-btn {
+    color: var(--clr-text-muted);
+    background: var(--clr-bg-raised);
+    border-color: var(--clr-border);
+}
+
+.game-pin-btn:hover:not(:disabled) {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.08);
+}
+
+.game-pin-btn--active {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.08);
+    border-color: rgba(52, 211, 153, 0.35);
+}
+
+.game-pin-btn--active:hover:not(:disabled) {
+    background: rgba(52, 211, 153, 0.15);
+    border-color: rgba(52, 211, 153, 0.55);
+}
+
+.game-pin-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 /* ── Tabs bar (tabs row + manage toggle on the right) ────────────────────── */
 
 .community-tabs-bar {
@@ -1126,6 +1154,176 @@
     0%   { transform: translateX(-150%); }
     100% { transform: translateX(400%); }
 }
+
+/* ── Pin indicator ───────────────────────────────────────────────────────── */
+
+.community-pin {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 4px;
+}
+
+.community-pin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 99px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid transparent;
+}
+
+.community-pin-badge--live {
+    background: rgba(52, 211, 153, 0.12);
+    border-color: rgba(52, 211, 153, 0.35);
+    color: #34d399;
+}
+
+.community-pin-badge--manual,
+.community-pin-badge--grace {
+    background: var(--community-accent-lo);
+    border-color: var(--community-accent-bd);
+    color: var(--community-accent);
+}
+
+.community-pin-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pin-pulse 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+@keyframes pin-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
+.community-pin-label {
+    white-space: nowrap;
+}
+
+.community-pin-icon {
+    font-style: normal;
+    font-size: 0.82em;
+    line-height: 1;
+}
+
+.community-pin-icon--muted {
+    opacity: 0.45;
+}
+
+.community-pin-unpin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    background: none;
+    border: none;
+    color: currentColor;
+    opacity: 0.6;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: opacity var(--transition);
+    flex-shrink: 0;
+}
+
+.community-pin-unpin:hover { opacity: 1; }
+
+.community-pin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 99px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--clr-text-muted);
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+    white-space: nowrap;
+}
+
+.community-pin-btn:hover {
+    color: var(--community-accent);
+    border-color: var(--community-accent-bd);
+    background: var(--community-accent-lo);
+}
+
+.community-pin-btn:hover .community-pin-icon--muted {
+    opacity: 1;
+}
+
+/* ── Update banner ───────────────────────────────────────────────────────── */
+
+.community-update-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    margin: 24px 0 0;
+    background: rgba(52, 211, 153, 0.08);
+    border: 1px solid rgba(52, 211, 153, 0.28);
+    border-radius: var(--radius);
+    font-size: 0.82rem;
+    color: #34d399;
+}
+
+.community-update-banner > span {
+    flex: 1;
+}
+
+.community-update-refresh {
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background var(--transition);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.community-update-refresh:hover {
+    background: rgba(52, 211, 153, 0.22);
+}
+
+.community-update-dismiss {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    color: currentColor;
+    opacity: 0.55;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: opacity var(--transition);
+    flex-shrink: 0;
+}
+
+.community-update-dismiss:hover { opacity: 1; }
 
 /* ── Page loader ─────────────────────────────────────────────────────────── */
 

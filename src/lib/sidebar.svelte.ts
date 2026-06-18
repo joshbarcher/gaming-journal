@@ -1,4 +1,4 @@
-import type { Page } from './types.js'
+import type { Page, PinState } from './types.js'
 
 interface SidebarCounts {
     library:    number
@@ -30,6 +30,7 @@ class SidebarStore {
     alertsCount  = $state(0)
     historyAppid = $state<number | null>(null)
     counts       = $state<SidebarCounts>({ library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, franchises: 0 })
+    pin          = $state<PinState | null>(null)
 }
 
 export const store = new SidebarStore()
