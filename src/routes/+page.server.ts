@@ -3,7 +3,7 @@ import { getAllFlags } from '$lib/server/services/flagsService.js'
 import { getSettings } from '$lib/server/services/settingsService.js'
 import type { AlertResult, DiscoverSection, FlagsStore, Settings } from '$lib/types.js'
 
-interface HomePoster  { appid: number; header: string }
+interface HomePoster  { appid: number; poster: string; header: string }
 interface HomeResume  { appid: number; name: string; header: string; hours: number; daysAgo: number }
 interface HomeRelease { appid: number; name: string; header: string }
 
@@ -19,7 +19,7 @@ export interface HomeData {
     release:     HomeRelease | null
     libPosters:  HomePoster[]
     wlPosters:   HomePoster[]
-    discPosters: { header: string }[]
+    discPosters: { poster: string; header: string }[]
     saleGame:    Promise<AlertResult | null>
 }
 
@@ -62,9 +62,10 @@ function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (app
         const j = Math.floor(Math.random() * (i + 1));
         [copy[i], copy[j]] = [copy[j], copy[i]]
     }
-    return copy.slice(0, n).map(item => ({
-        header: item.posterImage ?? item.headerImage ?? '',
-    }))
+    return copy.slice(0, n).map(item => {
+        const url = item.posterImage ?? ''
+        return { poster: url, header: url }
+    })
 }
 
 export async function load(): Promise<HomeData> {

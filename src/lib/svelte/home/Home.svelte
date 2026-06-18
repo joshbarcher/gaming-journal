@@ -93,9 +93,9 @@
 
     <div class="home-row" style="grid-template-columns: 1fr 1fr 1fr">
         {#each [
-            { href: '/library',  label: 'View Library',   posters: libPosters.map(p => p.header)  },
-            { href: '/wishlist', label: 'View Wishlist',  posters: wlPosters.map(p => p.header)   },
-            { href: '/discover', label: 'Discover Games', posters: discPosters.map(p => p.header) },
+            { href: '/library',  label: 'View Library',   posters: libPosters  },
+            { href: '/wishlist', label: 'View Wishlist',  posters: wlPosters   },
+            { href: '/discover', label: 'Discover Games', posters: discPosters },
         ] as card}
             <a class="home-card home-card--anchor" href={card.href}>
                 <HomeMosaic posters={card.posters} />
