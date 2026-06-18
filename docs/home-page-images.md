@@ -1,207 +1,148 @@
-# Home Page Images — Architecture & Known Issues
+# Home Page Mosaic — Architecture & Implementation
 
 ## Overview
 
-The home page mosaic cards (Library, Wishlist, Discover Games) each display a 3×2 grid of game
-poster images that animate with a 3D card-flip effect every 4 seconds. Each mosaic is fed a pool
-of 50 images so the animation has variety without repeating.
-
-This document covers how images are sourced, how they flow from the relay server to the browser,
-what is currently broken, and what needs to be fixed.
+The home page has three mosaic cards (Library, Wishlist, Discover Games). Each shows a grid of
+game images that animate with a 3D card-flip effect. Every 8 seconds a new set of images flips in.
+Clicking an individual tile navigates to that game's page. Clicking the central label button
+navigates to the section page (library / wishlist / discover).
 
 ---
 
-## Image pipeline by game type
+## Mosaic layout
 
-### Library and wishlist games
+| Card     | Grid        | Image type | Aspect ratio |
+|----------|-------------|------------|--------------|
+| Library  | 3 col × 2 row | poster.jpg | Portrait (2:3) |
+| Wishlist | 3 col × 2 row | poster.jpg | Portrait (2:3) |
+| Discover | 2 col × 3 row | header.jpg | Landscape (16:9) |
 
-Games with `source = 'library' | 'wishlist' | 'both'` in the games service use **local relay paths**
-constructed by `mediaUrls()` in `relay-server/src/services/games/games.service.js`:
-
-```
-/relay/images/steam/games/{appid}/poster.jpg
-/relay/images/steam/games/{appid}/header.jpg
-/relay/images/steam/games/{appid}/capsule.jpg
-/relay/images/steam/games/{appid}/hero.jpg
-/relay/images/steam/games/{appid}/background.jpg
-/relay/images/steam/games/{appid}/logo.png
-```
-
-These are **relative URLs** designed to be used in the browser. They resolve through the gaming
-journal's `/relay/[...path]` proxy route (`src/routes/relay/[...path]/+server.ts`), which forwards
-requests to the relay server over a persistent connection pool. The relay server then serves the
-files from the NAS via Express static middleware:
-
-```
-DATA_DIR/relay/steam/images/games/{appid}/{type}
-```
-
-Images are downloaded from the Steam CDN by `syncGameImages()` in
-`relay-server/src/services/steam/images.service.js`. This sync reads `games.json` (library) and
-`wishlist.json` (wishlist-only games) and downloads all six image types for every game. It tries
-multiple CDN URLs per type (`cdn.akamai.steamstatic.com` and `shared.akamai.steamstatic.com`) and
-records which URL succeeded in `sources.json` to skip re-downloads.
-
-**The relay server does NOT embed these `/relay/images/...` paths in the game objects until the
-relay itself is called through the gaming journal proxy.** The paths are constructed once in
-`games.service.js` and are always local-relay-relative.
-
-### Discovered games
-
-Games with `source = 'discovered'` (games appearing in the Discover section that are not owned or
-wishlisted) use `mediaUrlsDiscovered()` instead:
-
-```js
-{
-  header:  store?.header_image ?? `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`,
-  capsule: store?.capsule_image ?? null,
-  poster:  null,         // no local poster for discovered games
-  hero:    null,
-  background: store?.background_raw ?? store?.background ?? null,
-  logo:    null,
-}
-```
-
-All image URLs here are **raw Steam CDN URLs** — there is no local cache for discovered games.
-
-The `/api/discover/featured` endpoint returns featured Steam store items with:
-- `headerImage` — CDN URL (`cdn.akamai.steamstatic.com` or `shared.akamai.steamstatic.com`)
-- `posterImage` — CDN URL (`shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appid}/library_600x900_2x.jpg`)
-
-Neither has a local cached copy.
+Discover uses header images because only ~14.5% of discovered games have a poster.jpg cached,
+versus 99.9% for header.jpg.
 
 ---
 
-## NAS image coverage
+## Image pipeline
 
-Scanned `\\192.168.86.74\app-data\relay\steam\images\games` on 2026-06-18.
+### Library and wishlist
 
-| Image type   | Folders present | Coverage |
-|--------------|-----------------|----------|
-| header.jpg   | 2,985 / 2,989   | 99.9%    |
-| capsule.jpg  | 2,985 / 2,989   | 99.9%    |
-| background   | 2,979 / 2,989   | 99.7%    |
-| hero.jpg     | 2,719 / 2,989   | 91.0%    |
-| **poster.jpg** | **2,680 / 2,989** | **89.7%** |
-| logo.png     | 2,653 / 2,989   | 88.8%    |
-
-**Total folders: 2,989** — these represent library + wishlist games that have been through
-`syncGameImages`. Wishlist-only games added after the last sync run will not have a folder yet.
-
-`header.jpg` and `capsule.jpg` are by far the most reliable fallbacks at 99.9%. `poster.jpg` is
-missing for ~309 games, which directly causes blank mosaic tiles.
-
----
-
-## How the mosaic gets its images
-
-### Library and wishlist mosaics
-
-The gaming journal's `+page.server.ts` calls the relay at startup (SSR):
+The relay server pre-builds a queued pool of 50-game batches using `poster-pool.service.js`.
+Only games confirmed to have `poster.jpg` on disk are included. On startup the pool loads from
+`poster-index.json` (persistent, never expires for confirmed-present games). Missing entries are
+re-checked every 24 hours.
 
 ```
 GET /api/games/posters?source=library&n=50
 GET /api/games/posters?source=wishlist&n=50
+→ [{ appid, poster: "/relay/images/steam/games/{appid}/poster.jpg" }]
 ```
 
-This hits `handleGetPosters` in
-`relay-server/src/controllers/games/games.controller.js`. It reads from the in-memory games cache
-(no disk I/O), filters by source, Fisher-Yates shuffles, and returns the first 50 as:
+### Discover
 
-```json
-[{ "appid": 12345, "header": "/relay/images/steam/games/12345/poster.jpg" }]
+The relay's `/api/discover/featured` endpoint returns featured Steam store items. The discover
+controller (`discover.controller.js`) rewrites each item's image URLs to local relay paths
+before responding. It uses `hasPoster(appid)` from `poster-pool.service.js` to pick:
+
+- `poster.jpg` if confirmed on disk
+- `header.jpg` otherwise (99.9% coverage)
+
+The `+page.server.ts` `sampleDiscover()` function picks the `headerImage` field (always the
+landscape header relay path) and returns `{ appid, poster }` for the discover mosaic.
+
+### Image caching (discovered games)
+
+Images for discovered games are downloaded to the NAS by `ensureDiscoveryImages()` in
+`images.service.js` using 8 concurrent workers with EAGAIN retry/backoff. This runs:
+
+- On server startup: background warm of all 2000+ items in featured history
+- After each hourly poll: synchronously downloads new items before poll completes
+- Fire-and-forget after each `/api/discover/featured` request for any new items
+
+The `poster-index.json` at `DATA_DIR/relay/steam/poster-index.json` tracks which appids have
+`poster.jpg` confirmed. The migration tool backfills it:
+
+```
+node --env-file=.env src/tools/sync-discovery-images.js
 ```
 
-**Current bug**: the `header` field always contains the `poster.jpg` path (which is missing for
-~10% of games). There is no server-side fallback. When `poster.jpg` 404s, the client `onerror`
-handler just hides the image — it does not try `header.jpg`.
-
-**Fix needed**: `handleGetPosters` should return both `poster` and `header` (or `capsule`) so the
-component can try poster first and fall back to header on error. Alternatively, return `appid` and
-let the component construct fallback URLs itself.
-
-### Discover mosaic
-
-`+page.server.ts` calls:
-
-```
-GET /api/discover/featured
-```
-
-The response contains featured Steam store items. `sampleDiscover()` currently extracts
-`posterImage` (CDN URL) as the image source, falling back to `headerImage` (also CDN URL).
-
-**Current bug**: both URLs are raw Steam CDN URLs (`shared.akamai.steamstatic.com`). The browser
-blocks these with `OpaqueResponseBlocking` (CORS). No images load for the Discover mosaic.
-
-**Fix needed**: for each discover item, construct a local relay path
-`/relay/images/steam/games/{appid}/poster.jpg` instead of using the CDN URL. Discover games that
-happen to be in the user's library or wishlist (and are therefore cached on the NAS) will load
-correctly. Discover-only games that are not cached will produce blank tiles — this is acceptable
-and silent (no CORS errors, `onerror` hides).
-
-The proper long-term solution is an on-demand image proxy in the relay: when a game image is
-requested and not found locally, fetch it from CDN, cache it, and serve it. This would give 100%
-coverage for discover games after first load.
+Results after initial migration (2026-06-18):
+- poster.jpg: 291 / 2001 (14.5%)
+- header.jpg: 1999 / 2001 (99.9%)
 
 ---
 
-## Known issues summary
+## NAS image coverage (library + wishlist, 2026-06-18)
 
-| # | Issue | Affected mosaic | Root cause | Fix |
-|---|-------|----------------|------------|-----|
-| 1 | ~10% of tiles blank | Library, Wishlist | `poster.jpg` missing for ~309 games; no client fallback | Return both `poster` + `header` from endpoint; use `onerror` fallback chain |
-| 2 | All tiles blank (CORS) | Discover | `sampleDiscover` returns raw CDN URLs | Construct local relay path from `appid` instead |
-| 3 | Wishlist fully blank at times | Wishlist | Wishlist-only games added after last `syncGameImages` run have no NAS folder | Re-run `POST /api/steam/images/games/sync`; or run on-demand per game |
-| 4 | Duplicate tiles at animation start | All | First tick fires before available pool is larger than 6 slots | Guard: only start interval if `posters.length > 12` |
+| Image type    | Coverage  |
+|---------------|-----------|
+| header.jpg    | 99.9%     |
+| capsule.jpg   | 99.9%     |
+| background    | 99.7%     |
+| hero.jpg      | 91.0%     |
+| poster.jpg    | 89.7%     |
+| logo.png      | 88.8%     |
 
----
-
-## Data flow diagram
-
-```
-Browser
-  │
-  ├─ <img src="/relay/images/steam/games/{appid}/poster.jpg">
-  │       │
-  │       ▼
-  │   Gaming Journal (SvelteKit)
-  │   /relay/[...path] proxy
-  │       │
-  │       ▼
-  │   Relay Server (Express)
-  │   app.use('/images/steam', express.static(imagesRoot))
-  │       │
-  │       ▼
-  │   NAS: \\192.168.86.74\app-data\relay\steam\images\games\{appid}\poster.jpg
-  │
-  └─ <img src="https://shared.akamai.steamstatic.com/..."> ← BROKEN (CORS)
-```
+Total: ~2,989 game folders on NAS.
 
 ---
 
-## Files involved
+## Mosaic animation
+
+`HomeMosaic.svelte` maintains 6 visible slots and an available pool. Every 8 seconds `tick()`
+picks 6 new images (excluding current fronts to prevent visible duplicates), triggers flip
+animations with random stagger delays (0–450ms), and returns old fronts to the pool in
+`onFlipEnd()` once each animation completes.
+
+**Preloading**: On mount, the first 12 available images are preloaded immediately. After each
+tick, 12 more candidates are preloaded via `new Image()` 2 seconds into the 8-second interval
+(well before the next flip). A `Set` prevents duplicate preload requests.
+
+**Clickability**: Each mosaic cell is an `<a href="/game/{appid}">` pointing to the game
+currently showing on its front face. The href updates automatically when a flip completes. The
+central label is a separate `<a>` navigating to the section page.
+
+---
+
+## Key files
+
+### Gaming journal (`c:\dev\gaming-journal`)
 
 | File | Role |
 |------|------|
-| `gaming-journal/src/routes/+page.server.ts` | Fetches 50 posters per category at SSR time |
-| `gaming-journal/src/lib/svelte/home/Home.svelte` | Renders home layout, passes posters to HomeMosaic |
-| `gaming-journal/src/lib/svelte/home/HomeMosaic.svelte` | 3×2 grid with CSS animation flip; `onerror` hides broken images |
-| `gaming-journal/src/routes/relay/[...path]/+server.ts` | Proxy: gaming journal → relay server |
-| `gaming-journal/public/css/home.css` | Mosaic grid layout and flip keyframe animations |
-| `relay-server/src/controllers/games/games.controller.js` | `handleGetPosters` — returns 50 shuffled poster URLs |
-| `relay-server/src/routers/games/games.router.js` | Registers `GET /api/games/posters` |
-| `relay-server/src/services/games/games.service.js` | `mediaUrls()` / `mediaUrlsDiscovered()` — constructs image paths |
-| `relay-server/src/services/steam/images.service.js` | `syncGameImages()` — downloads images from CDN to NAS |
-| `relay-server/src/services/home/home.service.js` | Builds mosaic tile sets for `GET /api/home` (6 tiles, used for resume/release; NOT for animation pool) |
-| `relay-server/src/server.js` | Mounts `/images/steam` as static file server from NAS |
+| `src/routes/+page.server.ts` | SSR: fetches poster batches and discover items; `sampleDiscover()` picks 50 header images |
+| `src/lib/svelte/home/Home.svelte` | Card layout; passes `cols` prop to differentiate discover mosaic |
+| `src/lib/svelte/home/HomeMosaic.svelte` | Flip animation, pool management, preloading, per-tile `<a>` links |
+| `public/css/home.css` | Grid layout, flip keyframes, per-tile hover, landscape modifier |
+
+### Relay server (`c:\dev\relay-server`)
+
+| File | Role |
+|------|------|
+| `src/services/games/poster-pool.service.js` | Pre-built batches; persistent `poster-index.json`; `hasPoster()` |
+| `src/services/games/games.service.js` | Triggers `refreshPosterPool()` after cache rebuild |
+| `src/services/steam/images.service.js` | `ensureDiscoveryImages()` — downloads poster+header with 8 workers, EAGAIN retry |
+| `src/services/steam/featured-history.service.js` | `getAllItems()` — flattens all discovery history for bulk warm |
+| `src/services/steam/featured-poller.js` | Startup warm + hourly poll; awaits image downloads before completing |
+| `src/controllers/games/games.controller.js` | `handleGetPosters` — returns pre-built batch from pool |
+| `src/controllers/steam/discover.controller.js` | `rewriteItems()` picks single best URL per game; fire-and-forget image caching |
+| `src/tools/sync-discovery-images.js` | One-time migration: downloads all history images, writes `poster-index.json` |
 
 ---
 
-## Pending work
+## EAGAIN / NAS concurrency
 
-- [ ] Fix `handleGetPosters` to return a fallback image URL alongside the poster URL
-- [ ] Fix `HomeMosaic.svelte` `onerror` to try header/capsule before hiding
-- [ ] Fix `sampleDiscover` to use local relay paths instead of CDN URLs
-- [ ] (Long-term) Add on-demand image proxy to relay for discovered games
-- [ ] Investigate if wishlist-only games consistently have a lower NAS coverage rate than library games
+The NAS mount (NFS/SMB at `/mnt/data-dir`) returns `EAGAIN` under heavy concurrent `stat()`
+load. Both paths that do bulk file checks use a `statRetry()` helper (up to 4 retries with
+linear backoff: 200ms, 400ms, 600ms, 800ms) and are capped at 8 concurrent workers.
+
+---
+
+## Pending improvements
+
+- **Page state on back-navigation**: clicking a tile and returning replays the SSR state from
+  scratch (new random shuffle, animations restart). Ideal fix: persist mosaic state in
+  `sessionStorage` and restore it on mount so the user sees the same layout they left.
+
+- **Stable game selection across refreshes**: the 50-game pool is re-shuffled on every page
+  load (SSR). Ideal fix: derive the selection from a daily seed (e.g. `Date.now() / 86400000 | 0`)
+  so the same games show for the day and only change periodically.

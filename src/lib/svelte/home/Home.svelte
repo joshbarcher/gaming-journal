@@ -93,16 +93,16 @@
 
     <div class="home-row" style="grid-template-columns: 1fr 1fr 1fr">
         {#each [
-            { href: '/library',  label: 'View Library',   posters: libPosters  },
-            { href: '/wishlist', label: 'View Wishlist',  posters: wlPosters   },
-            { href: '/discover', label: 'Discover Games', posters: discPosters },
+            { href: '/library',  label: 'View Library',   posters: libPosters,  cols: 3 as const },
+            { href: '/wishlist', label: 'View Wishlist',  posters: wlPosters,   cols: 3 as const },
+            { href: '/discover', label: 'Discover Games', posters: discPosters, cols: 2 as const },
         ] as card}
-            <a class="home-card home-card--anchor" href={card.href}>
-                <HomeMosaic posters={card.posters} />
+            <div class="home-card home-card--anchor">
+                <HomeMosaic posters={card.posters} cols={card.cols} />
                 <div class="home-card-body">
-                    <span class="home-anchor-label">{card.label}</span>
+                    <a class="home-anchor-label" href={card.href}>{card.label}</a>
                 </div>
-            </a>
+            </div>
         {/each}
     </div>
 </div>

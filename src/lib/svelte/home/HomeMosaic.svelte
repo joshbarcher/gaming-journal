@@ -1,7 +1,7 @@
 <script lang="ts">
-    interface Poster { poster: string; header: string }
+    interface Poster { appid: number; poster: string }
 
-    let { posters }: { posters: Poster[] } = $props()
+    let { posters, cols = 3 }: { posters: Poster[]; cols?: 2 | 3 } = $props()
 
     interface Slot {
         front:     Poster
@@ -11,8 +11,22 @@
         delay:     number   // animation-delay in ms for the stagger effect
     }
 
+    const INTERVAL   = 8000
+    const PRELOAD_AT = 2000  // ms after a flip to preload the next batch
+
     let slots     = $state<Slot[]>([])
     let available: Poster[] = []
+
+    const preloaded = new Set<string>()
+
+    function preload(posters: Poster[]) {
+        for (const p of posters) {
+            if (preloaded.has(p.poster)) continue
+            preloaded.add(p.poster)
+            const img = new Image()
+            img.src = p.poster
+        }
+    }
 
     $effect(() => {
         const all = posters
@@ -27,7 +41,10 @@
         slots     = copy.slice(0, 6).map(p => ({ front: p, back: p, flipClass: '' as const, axis: 'Y' as const, delay: 0 }))
         available = copy.slice(6)
 
-        const interval = setInterval(tick, 4000)
+        // Preload the initial available pool right away so first flip is instant.
+        preload(available.slice(0, 12))
+
+        const interval = setInterval(tick, INTERVAL)
         return () => clearInterval(interval)
     })
 
@@ -58,6 +75,9 @@
             const delay = Math.floor(Math.random() * 450)
             return { front: slot.front, back: picked[i], flipClass: axis === 'X' ? 'flip-x' : 'flip-y', axis, delay }
         })
+
+        // Preload the next likely batch while the current flip animation plays.
+        setTimeout(() => preload(available.slice(0, 12)), PRELOAD_AT)
     }
 
     function onFlipEnd(i: number) {
@@ -67,37 +87,24 @@
         slots[i] = { front: back, back, flipClass: '', axis, delay: 0 }
     }
 
-    function onImgError(e: Event) {
-        const img = e.currentTarget as HTMLImageElement
-        const fb  = img.dataset.fallback
-        if (fb && img.src !== fb) {
-            img.src = fb
-        } else {
-            img.style.visibility = 'hidden'
-        }
-    }
 </script>
 
-<div class="home-mosaic">
+<div class="home-mosaic" class:home-mosaic--landscape={cols === 2} style:grid-template-columns="repeat({cols}, 1fr)" style:grid-template-rows="repeat({cols === 2 ? 3 : 2}, 1fr)">
     {#each slots as slot, i (i)}
-        <div class="mosaic-cell">
+        <a class="mosaic-cell" href="/game/{slot.front.appid}">
             <div class="mosaic-cell-inner {slot.flipClass}"
                  style:animation-delay="{slot.delay}ms"
                  onanimationend={() => onFlipEnd(i)}>
                 <img class="mosaic-face mosaic-face--front"
                      src={slot.front.poster}
-                     data-fallback={slot.front.header}
                      alt=""
-                     loading={i < 3 ? 'eager' : 'lazy'}
-                     onerror={onImgError}>
+                     loading={i < 3 ? 'eager' : 'lazy'}>
                 <img class="mosaic-face mosaic-face--back"
                      src={slot.back.poster}
-                     data-fallback={slot.back.header}
                      alt=""
-                     loading="lazy"
-                     style:transform={`rotate${slot.axis}(180deg)`}
-                     onerror={onImgError}>
+                     loading="eager"
+                     style:transform={`rotate${slot.axis}(180deg)`}>
             </div>
-        </div>
+        </a>
     {/each}
 </div>

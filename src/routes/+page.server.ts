@@ -3,7 +3,7 @@ import { getAllFlags } from '$lib/server/services/flagsService.js'
 import { getSettings } from '$lib/server/services/settingsService.js'
 import type { AlertResult, DiscoverSection, FlagsStore, Settings } from '$lib/types.js'
 
-interface HomePoster  { appid: number; poster: string; header: string }
+interface HomePoster  { appid: number; poster: string }
 interface HomeResume  { appid: number; name: string; header: string; hours: number; daysAgo: number }
 interface HomeRelease { appid: number; name: string; header: string }
 
@@ -19,7 +19,7 @@ export interface HomeData {
     release:     HomeRelease | null
     libPosters:  HomePoster[]
     wlPosters:   HomePoster[]
-    discPosters: { poster: string; header: string }[]
+    discPosters: { appid: number; poster: string }[]
     saleGame:    Promise<AlertResult | null>
 }
 
@@ -46,7 +46,7 @@ function makeShouldShow(flags: FlagsStore, settings: Settings) {
     }
 }
 
-function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean, titleBlocklist: string[] = []): { header: string }[] {
+function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean, titleBlocklist: string[] = []): { appid: number; poster: string }[] {
     const blocked = titleBlocklist.map(t => t.toLowerCase())
     const items = sections.flatMap(s => s.items ?? []).filter(item => {
         if (!shouldShow(item.appid)) return false
@@ -62,10 +62,7 @@ function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (app
         const j = Math.floor(Math.random() * (i + 1));
         [copy[i], copy[j]] = [copy[j], copy[i]]
     }
-    return copy.slice(0, n).map(item => {
-        const url = item.posterImage ?? ''
-        return { poster: url, header: url }
-    })
+    return copy.slice(0, n).map(item => ({ appid: item.appid, poster: item.headerImage ?? '' }))
 }
 
 export async function load(): Promise<HomeData> {
