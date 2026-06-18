@@ -727,7 +727,7 @@
 
 .itad-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-top: 12px;
 }
@@ -2543,6 +2543,9 @@
         gap: 8px;
         width: 100%;
     }
+
+    /* ITAD: 2 columns at tablet and below */
+    .itad-cards { grid-template-columns: repeat(2, 1fr); }
 
     /* PCGamingWiki: controller card — drop 3-col grid to single column, allow full width */
     .pcgw-rows-multicol  { grid-template-columns: 1fr; }

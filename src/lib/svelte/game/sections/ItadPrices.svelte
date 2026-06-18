@@ -68,7 +68,7 @@
                 {@const iconSrc = storeIconSrc(d.store)}
                 <a class="itad-card" class:itad-card--best={i === 0} href={d.url} target="_blank" rel="noopener noreferrer">
                     <div class="itad-card-logo">
-                        {#if iconSrc}<img class="itad-store-icon" src={iconSrc} alt="">{/if}
+                        {#if iconSrc}<img class="itad-store-icon" src={iconSrc} alt="" data-store={d.store.toLowerCase()}>{/if}
                     </div>
                     <span class="itad-card-name">{d.store}</span>
                     <span class="itad-card-price">{d.price === 0 ? 'Free' : `$${d.price.toFixed(2)}`}</span>
