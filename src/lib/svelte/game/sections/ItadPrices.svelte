@@ -56,9 +56,11 @@
             <div class="itad-historic">
                 {@html SVG_CLOCK}
                 <span class="itad-historic-label">All-time low</span>
-                <span class="itad-historic-price">${hl.price.toFixed(2)}</span>
-                <span class="itad-historic-cut">-{hl.cut}%</span>
-                <span class="itad-historic-meta">{hl.store}{hl.date ? ` · ${hl.date.slice(0, 4)}` : ''}</span>
+                <div class="itad-historic-values">
+                    <span class="itad-historic-price">${hl.price.toFixed(2)}</span>
+                    <span class="itad-historic-cut">-{hl.cut}%</span>
+                    <span class="itad-historic-meta">{hl.store}{hl.date ? ` · ${hl.date.slice(0, 4)}` : ''}</span>
+                </div>
             </div>
         {/if}
         <div class="itad-cards">

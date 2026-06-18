@@ -82,7 +82,7 @@
 }
 
 .game-hero-nav {
-    padding: 40px 40px 0;
+    display: none;
 }
 
 .game-hero-body {
@@ -224,6 +224,8 @@
     margin-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
+
+.hero-mobile-score-strip { display: none; }
 
 .gdp-score-chip {
     flex: 1;
@@ -620,6 +622,62 @@
     user-select: none;
 }
 
+/* ── HLTB mini-bars (≤479px substitute for the horizontal track) ────────────── */
+.hltb-mini { display: none; }
+
+.hltb-mini-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.hltb-mini-label {
+    width: 90px;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: rgba(237, 233, 223, 0.45);
+}
+
+.hltb-mini-track {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.hltb-mini-fill {
+    height: 100%;
+    background: linear-gradient(to right, var(--clr-accent), rgba(201, 168, 76, 0.40));
+    border-radius: 3px;
+    max-width: 100%;
+    transition: width 0.4s ease;
+}
+
+.hltb-mini-fill--done {
+    background: var(--clr-accent);
+    opacity: 0.85;
+}
+
+.hltb-mini-value {
+    width: 36px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(237, 233, 223, 0.65);
+    font-variant-numeric: tabular-nums;
+}
+
+.hltb-mini-played {
+    margin: 4px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--clr-accent);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ── ITAD Prices ─────────────────────────────────────────────────────────────── */
 .itad-historic {
     display: inline-flex;
@@ -644,6 +702,10 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--clr-text-muted);
+}
+
+.itad-historic-values {
+    display: contents;
 }
 
 .itad-historic-price {
@@ -882,6 +944,20 @@
     height: 520px;
 }
 
+.news-select {
+    display: none;
+    width: 100%;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius);
+    color: var(--clr-text);
+    font-size: 13px;
+    font-family: var(--font-ui);
+    padding: 10px 12px;
+    cursor: pointer;
+    outline: none;
+}
+
 .news-list {
     display: flex;
     flex-direction: column;
@@ -1051,19 +1127,6 @@
 .news-panel-body summary { cursor: pointer; color: var(--clr-text); }
 .news-panel-body hr { border: none; border-top: 1px solid var(--clr-border); margin: 12px 0; }
 
-@media (max-width: 640px) {
-    .trailers-layout {
-        grid-template-columns: 1fr;
-    }
-    .trailers-list {
-        flex-direction: row;
-        overflow-x: auto;
-        overflow-y: hidden;
-    }
-    .trailers-thumb {
-        width: 180px;
-    }
-}
 
 /* ── Screenshots grid ────────────────────────────────────────────────────────── */
 .game-shots-grid {
@@ -1183,39 +1246,6 @@
     border-color: rgba(255, 255, 255, 0.30);
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────────── */
-@media (max-width: 960px) {
-    .game-hero-body {
-        grid-template-columns: 1fr;
-        align-items: start;
-    }
-
-    .game-hero-right {
-        align-items: flex-start;
-    }
-
-    .game-data-panel {
-        max-width: 400px;
-    }
-}
-
-@media (max-width: 768px) {
-    .game-hero {
-        margin: -64px -20px 0;
-    }
-
-    .game-hero-nav {
-        padding: 16px 20px 0;
-    }
-
-    .game-hero-body {
-        padding: 16px 20px 28px;
-    }
-
-    .game-flags-bar {
-        padding: 0 20px;
-    }
-}
 
 /* ── PCGamingWiki ─────────────────────────────────────────────────────────────── */
 .pcgw-wiki-link {
@@ -1311,6 +1341,10 @@
     grid-template-columns: repeat(3, auto);
     column-gap: 20px;
 }
+
+/* Controller overflow — transparent to grid at desktop, collapsible at ≤479px */
+.pcgw-ctrl-extra  { display: contents; }
+.pcgw-ctrl-toggle { display: none; }
 
 .pcgw-input-card,
 .pcgw-path-card {
@@ -1650,7 +1684,7 @@
 /* Review list */
 .rev-list {
     display: grid;
-    grid-template-rows: repeat(2, 240px);
+    grid-template-rows: 240px;
     grid-auto-flow: column;
     grid-auto-columns: 300px;
     gap: 12px;
@@ -1675,7 +1709,6 @@
 }
 
 .rev-card--mine {
-    grid-row: 1 / -1;
     border-color: var(--clr-accent);
     background: color-mix(in srgb, var(--clr-accent) 6%, var(--clr-bg-raised));
 }
@@ -2460,9 +2493,187 @@
 .reddit-post-score   { color: var(--clr-text); font-weight: 600; }
 .reddit-post-sub     { color: var(--clr-accent); opacity: 0.8; }
 
-/* Hide on screens too narrow for the left gutter to exist */
-@media (max-width: 960px) {
-    .game-nav-rail {
-        display: none;
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1279px) {
+    /* Nav rail: hidden — no gutter reserved at tablet/phone */
+    .game-nav-rail { display: none; }
+
+    /* Section separators: tighten vertical rhythm */
+    .game-section              { margin-bottom: 28px; }
+    .game-section + .game-section { padding-top: 28px; }
+    .game-section-title        { margin-bottom: 14px; }
+
+    /* Hero: collapse to 1-col, step padding down, kill spacer dead-space */
+    .game-hero-body {
+        grid-template-columns: 1fr;
+        align-items: start;
+        padding: 16px 24px 32px;
     }
+    .game-hero-right { align-items: flex-start; }
+    .game-hero-spacer { flex: 0; min-height: 0; }
+    .game-hero-title { font-size: 22px; }
+
+    /* Badges strip: remove absolute positioning — floats off-screen at 1-col */
+    .game-panel-badges {
+        position: static;
+        flex-direction: row;
+        align-items: flex-start;
+        margin-bottom: 10px;
+    }
+    .game-data-panel { max-width: 400px; }
+
+    /* Flags bar: remove nav-rail left indent */
+    .game-flags-bar {
+        margin-left: 0;
+        padding: 0 24px;
+    }
+
+    /* Game body: remove nav-rail left indent */
+    .game-body { padding: 32px 24px 0; }
+
+    /* Screenshots: force 2-col so auto-fill doesn't collapse at narrower tablet widths */
+    .game-shots-grid { grid-template-columns: repeat(2, 1fr); }
+
+    /* ITAD: historic low — wrap price/cut/meta below icon+label on phone portrait */
+    .itad-historic { flex-wrap: wrap; gap: 4px 8px; }
+    .itad-historic-values {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        width: 100%;
+    }
+
+    /* PCGamingWiki: controller card — drop 3-col grid to single column, allow full width */
+    .pcgw-rows-multicol  { grid-template-columns: 1fr; }
+    .pcgw-input-card--fit { width: 100%; justify-self: auto; }
+
+    /* ProtonDB: wrap bar to its own row; stats stack icon-above-text and share space */
+    .protondb-row { flex-wrap: wrap; }
+    .protondb-col--stat {
+        flex: 1;
+        flex-direction: column;
+        padding: 12px 8px;
+        gap: 6px;
+    }
+    .protondb-col-text { align-items: center; }
+    .protondb-col-value { font-size: 14px; }
+    .protondb-col--bar { min-width: 0; flex: 1 1 100%; }
+
+    /* News: swap sidebar list for a dropdown, collapse to 1-col */
+    .news-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .news-list   { display: none; }
+    .news-select { display: block; }
+    .news-panel  { max-height: 480px; }
+
+    /* Trailers: stack player above horizontal thumb strip */
+    .trailers-single { max-width: 640px; }
+    .trailers-layout { grid-template-columns: 1fr; }
+    .trailers-list {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    .trailers-thumb { width: 180px; }
+}
+
+@media (max-width: 479px) {
+    /* Section separators: tighten further at phone portrait */
+    .game-section              { margin-bottom: 20px; }
+    .game-section + .game-section { padding-top: 20px; }
+    .game-section-title        { margin-bottom: 10px; }
+
+    /* Phase 1 loader: uncap fixed width */
+    .game-p1-cells { width: 100%; }
+
+    /* Hero: bleed to viewport edges, tighten padding, let content drive height */
+    .game-hero { margin: 0 -16px; min-height: 0; }
+    .game-hero-body { padding: 40px 16px 24px; gap: 10px; }
+    .game-hero-title { font-size: 19px; }
+    .game-hero-logo { max-width: min(240px, 70%); }
+    .game-data-panel { max-width: 100%; }
+
+    /* Flags bar: clip overflow so it doesn't cause page-level horizontal scroll */
+    .game-flags-bar { padding: 0; overflow: hidden; }
+    .game-flags-inner { overflow-x: auto; scrollbar-width: none; }
+    .game-flags-inner::-webkit-scrollbar { display: none; }
+
+    /* Game body: let parent 16px handle side spacing */
+    .game-body { padding: 24px 0 0; }
+
+    /* Trailers */
+    .trailers-single { max-width: 100%; }
+    .trailers-thumb { width: 140px; }
+
+    /* ProtonDB: shrink badge, hide stat icons, compress text to fit ~215px across 3 cells */
+    .protondb-col--badge { flex: 0 0 80px; padding: 12px 8px; }
+    .protondb-badge-icon svg { width: 24px; height: 24px; }
+    .protondb-badge-name { font-size: 11px; }
+    .protondb-col--stat { padding: 8px 6px; gap: 2px; }
+    .protondb-col-icon { display: none; }
+    .protondb-col-value { font-size: 11px; }
+    .protondb-col-label { font-size: 8px; }
+
+    /* PCGW controller card: collapse rows beyond 5 */
+    .pcgw-ctrl-extra { display: none; }
+    .pcgw-ctrl-extra--open { display: block; }
+    .pcgw-ctrl-toggle {
+        display: inline-block;
+        margin-top: 8px;
+        font-size: 0.72rem;
+        color: var(--clr-accent);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+    }
+
+    /* HLTB: swap horizontal track for stacked mini-bars */
+    .hltb-bar-wrap { display: none; }
+    .hltb-mini     { display: block; }
+
+    /* Screenshots: horizontal scroll strip instead of a stacked grid */
+    .game-shots-grid {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        gap: 8px;
+    }
+    .game-shots-grid::-webkit-scrollbar { display: none; }
+    .game-shot-item {
+        flex: 0 0 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        scroll-snap-align: start;
+    }
+    .game-shot-item:hover { transform: none; }
+
+    /* Hero mobile score strip: show after tag pills, hide originals in right panel */
+    .hero-mobile-score-strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+    }
+    .hero-mobile-score-strip .proton-badge {
+        flex-direction: row;
+        align-items: center;
+        width: auto;
+        padding: 5px 10px;
+        gap: 6px;
+        min-height: 0;
+    }
+    .hero-mobile-score-strip .proton-badge-icon svg { width: 14px; height: 14px; }
+    .hero-mobile-score-strip .proton-badge-tier    { font-size: 11px; }
+    .hero-mobile-score-strip .proton-badge-sub     { font-size: 10px; }
+    .game-hero-right .game-panel-badges { display: none; }
+    .hero-mobile-score-strip .update-badge { display: none; }
 }

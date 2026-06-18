@@ -192,6 +192,7 @@
 
     // ── Phase 1: fast data fetch ──────────────────────────────────────────────
     onMount(async () => {
+        document.getElementById('main-content')?.classList.add('has-game-hero')
         try {
             const [gameRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
                 tracked(fetch(`/relay/api/games/${appid}`),                       'Game'),
@@ -345,7 +346,10 @@
         }
     })
 
-    onDestroy(() => { _modalEl?.remove() })
+    onDestroy(() => {
+        _modalEl?.remove()
+        document.getElementById('main-content')?.classList.remove('has-game-hero')
+    })
 
     // ── HLTB refresh handler (passed to HltbSection) ──────────────────────────
     async function refreshHltb() {

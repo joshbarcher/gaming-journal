@@ -65,10 +65,10 @@ See [pages.md](pages.md) for the full page inventory with per-breakpoint status 
 16. ✅ Calendar (`/calendar`) — nav wraps at ≤479px; year label hidden; day view replaced with vertical card list on phone with game art grids; auto-scrolls to today
 17. ✅ Top Games (`/top-games`) — padding steps down; at ≤799px hides 24h Peak/7d Peak/All-Time/sparkline columns, grid narrows to 4 cols, mute button hidden; at ≤479px columns compress further; title swaps to "Top Games" short form
 
-## Phase 4 — Game detail & journal ← next
+## ✅ Phase 4 — Game detail & journal (in progress)
 
-18. Game Detail (`/game/[appid]`)
-19. Journal Dashboard (`/journal/[appid]`)
+18. ✅ Game Detail (`/game/[appid]`) — breadcrumbs hidden; hero flush to top on mobile (JS `has-game-hero` class zeros `#main-content` padding-top at ≤1279px); hamburger clears hero content via 40px body padding-top at ≤479px; hero collapses to 1-col at ≤1279px with badges going static, spacer collapsed, data panel full-width; ProtonDB badge + loading strip relocated to left column below tag pills at ≤479px (right panel originals hidden); score chips (Steam/OpenCritic/Metacritic) stay in right panel at all widths; flags bar scrolls horizontally with hidden scrollbar at ≤479px; HLTB bar swapped for 3 stacked mini-bars at ≤479px; news sidebar replaced with `<select>` dropdown at ≤1279px; screenshots become horizontal swipe carousel with snap at ≤479px; ProtonDB section flex-wraps bar col at ≤1279px and compresses badge/stat text at ≤479px; PCGW controller card single-col at ≤1279px, first 5 rows visible with expand toggle at ≤479px; ITAD historic prices wrap to two lines at ≤479px via `display:contents` wrapper; section separators tightened from 44px → 28px (≤1279px) → 20px (≤479px); community reviews single-row horizontal scroll (was 2-row); local review bars redesigned to dashboard overlay style (2-col grid, label+value overlaid on fill); local review text collapses to 3-line clamp with expand toggle at ≤479px; all legacy breakpoints (640px, 768px, 960px, 600px) replaced with the two standard breakpoints
+19. 🔲 Journal Dashboard (`/journal/[appid]`)
 20. Journal – Achievements (`/journal/[appid]/achievements`)
 21. Journal – Notes (`/journal/[appid]/notes`)
 22. Journal – Progress (`/journal/[appid]/progress`)

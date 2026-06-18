@@ -32,6 +32,11 @@
                     </button>
                 {/each}
             </div>
+            <select class="news-select" bind:value={activeIdx}>
+                {#each items as item, i}
+                    <option value={i}>{item.feedlabel} — {item.title}</option>
+                {/each}
+            </select>
             {#if activeItem}
                 <div class="news-panel">
                     <div class="news-panel-meta">

@@ -64,7 +64,8 @@
     }
     let { pcgwData, game, onRefresh }: Props = $props()
 
-    let refreshing = $state(false)
+    let refreshing    = $state(false)
+    let ctrlExpanded  = $state(false)
 
     async function refresh() {
         if (!onRefresh || refreshing) return
@@ -143,11 +144,23 @@
                         <div class="pcgw-input-card pcgw-input-card--fit">
                             <div class="pcgw-card-title">{@html PI.gamepad}Controller</div>
                             <div class="pcgw-rows-multicol">
-                                {#each ctrlRows as [k, label]}
+                                {#each ctrlRows.slice(0, 5) as [k, label]}
                                     {@const src = inp.controller?.[k] ?? inp.platform?.[k]}
                                     {@const b = badge(src)}
                                     {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
                                 {/each}
+                                {#if ctrlRows.length > 5}
+                                    <div class="pcgw-ctrl-extra" class:pcgw-ctrl-extra--open={ctrlExpanded}>
+                                        {#each ctrlRows.slice(5) as [k, label]}
+                                            {@const src = inp.controller?.[k] ?? inp.platform?.[k]}
+                                            {@const b = badge(src)}
+                                            {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
+                                        {/each}
+                                    </div>
+                                    <button class="pcgw-ctrl-toggle" onclick={() => ctrlExpanded = !ctrlExpanded}>
+                                        {ctrlExpanded ? 'Show less ↑' : `${ctrlRows.length - 5} more ↓`}
+                                    </button>
+                                {/if}
                             </div>
                         </div>
                     {/if}

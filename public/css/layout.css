@@ -119,3 +119,10 @@
         padding: 64px 16px 32px;
     }
 }
+
+/* ── Game page: hero flush with top edge ───────────────────────────────────── */
+@media (max-width: 1279px) {
+    #main-content.has-game-hero {
+        padding-top: 0;
+    }
+}

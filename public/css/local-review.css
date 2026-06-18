@@ -426,7 +426,7 @@
     margin-bottom: 16px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 479px) {
     .rev-local-body {
         grid-template-columns: 1fr;
     }
@@ -438,49 +438,48 @@
     gap: 12px;
 }
 
-/* Characteristic bars */
+/* Characteristic bars — dashboard overlay style */
 .rev-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
 }
 
-.rev-bar-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.rev-bar-label {
-    width: 110px;
-    flex-shrink: 0;
-    color: var(--clr-text-muted, #888899);
-    font-size: 0.72rem;
-}
-
-.rev-bar-track {
-    flex: 1;
-    height: 6px;
-    background: var(--clr-border, #2e2e3a);
+.rev-bar-labeled {
+    position: relative;
+    height: 22px;
     border-radius: 3px;
     overflow: hidden;
+    background: rgba(255, 255, 255, 0.07);
 }
 
 .rev-bar-fill {
+    position: absolute;
+    left: 0; top: 0;
     height: 100%;
-    background: var(--rev-accent);
+    background: linear-gradient(to right, var(--rev-accent), color-mix(in srgb, var(--rev-accent) 50%, transparent));
     border-radius: 3px;
-    transition: width 0.4s ease;
+    transition: width 0.3s ease;
 }
 
+.rev-bar-lbl,
 .rev-bar-val {
-    width: 24px;
-    text-align: right;
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--clr-text-muted, #888899);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+    z-index: 1;
 }
+.rev-bar-lbl { left: 8px; }
+.rev-bar-val { right: 8px; letter-spacing: 0; }
 
 /* Tags row */
 .rev-tags-row {
@@ -509,6 +508,33 @@
     color: var(--clr-text-muted, #888899);
     white-space: pre-wrap;
     margin: 0;
+}
+
+.rev-review-toggle {
+    display: none;
+}
+
+@media (max-width: 479px) {
+    .rev-review-wrap .rev-review-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .rev-review-wrap--expanded .rev-review-text {
+        display: block;
+        overflow: visible;
+    }
+    .rev-review-toggle {
+        display: inline-block;
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: var(--rev-accent);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+    }
 }
 
 /* ── Review badges (card display) ─────────────────────────────────────────── */

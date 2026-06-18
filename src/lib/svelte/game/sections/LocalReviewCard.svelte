@@ -11,6 +11,8 @@
     let activeBars    = $derived(SLIDER_KEYS.filter(({ key }) => (ratings[key] ?? 0) > 0))
     let activeBadges  = $derived(BADGES.filter(b => review.badges?.[b.id]))
     let hasColumns    = $derived(!!(activeBars.length || review.tags?.length || activeBadges.length))
+
+    let textExpanded = $state(false)
 </script>
 
 <div class="rev-local-card">
@@ -31,11 +33,9 @@
                 <div class="rev-bars">
                     {#each activeBars as { key, label }}
                         {@const val = ratings[key] as number}
-                        <div class="rev-bar-row">
-                            <span class="rev-bar-label">{label}</span>
-                            <div class="rev-bar-track">
-                                <div class="rev-bar-fill" style="width:{(val / 10) * 100}%"></div>
-                            </div>
+                        <div class="rev-bar-labeled">
+                            <div class="rev-bar-fill" style="width:{(val / 10) * 100}%"></div>
+                            <span class="rev-bar-lbl">{label}</span>
                             <span class="rev-bar-val">{val}</span>
                         </div>
                     {/each}
@@ -71,6 +71,11 @@
     {/if}
 
     {#if review.review}
-        <p class="rev-review-text">{review.review}</p>
+        <div class="rev-review-wrap" class:rev-review-wrap--expanded={textExpanded}>
+            <p class="rev-review-text">{review.review}</p>
+            <button class="rev-review-toggle" onclick={() => textExpanded = !textExpanded}>
+                {textExpanded ? 'Show less ↑' : 'Read review ↓'}
+            </button>
+        </div>
     {/if}
 </div>

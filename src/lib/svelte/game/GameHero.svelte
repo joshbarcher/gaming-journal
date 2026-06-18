@@ -160,6 +160,26 @@
                     {/each}
                 </div>
             {/if}
+            <!-- Mobile portrait only: ProtonDB badge + loading status above the data panel -->
+            <div class="hero-mobile-score-strip">
+                {#if badgeVisible && sections.length > 0}
+                    <div class="update-badge update-badge--cells" class:update-badge--gone={badgeGone}>
+                        {#each sections as s (s.label)}
+                            <div class="update-cell" class:update-cell--done={s.done}>
+                                <span class="update-cell-dot"></span>
+                                <span class="update-cell-label">{s.label}</span>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+                {#if protonTier}
+                    <a class="proton-badge proton-badge--{protonTier}" href="https://www.protondb.com/app/{game?.appid}" target="_blank" rel="noopener noreferrer" title="ProtonDB — {protonCap(protonTier)}">
+                        <span class="proton-badge-tier">{protonCap(protonTier)}</span>
+                        <span class="proton-badge-icon">{@html SVG_AWARD}</span>
+                        <span class="proton-badge-sub">Linux / Proton</span>
+                    </a>
+                {/if}
+            </div>
         </div>
         <div class="game-hero-right">
             <div class="game-data-panel">
