@@ -6,7 +6,6 @@
         era:        '#a8956a',   // muted amber
         popularity: '#7db5d8',   // dusty blue
         status:     '#c17aad',   // muted mauve
-        developer:  '#8fc47a',   // sage green
         metacritic: '#d4904a',   // burnt amber
         center:     '#ede9df',   // warm white
     }

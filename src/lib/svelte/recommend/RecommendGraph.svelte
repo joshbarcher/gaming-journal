@@ -131,7 +131,6 @@
         era:        '#a8956a',
         popularity: '#7db5d8',
         status:     '#c17aad',
-        developer:  '#8fc47a',
         metacritic: '#d4904a',
     }
 
