@@ -11,8 +11,8 @@
 
     let { x, y, appid, name, header, phase = 'idle', delay = 0 }: Props = $props()
 
-    const W = 110
-    const H = 52
+    const W = 150
+    const H = 70
 
     const imgUrl = $derived(header ?? `/relay/images/steam/games/${appid}/header.jpg`)
 
@@ -76,9 +76,9 @@
             />
 
             <!-- Game title below poster -->
-            <text x="0" y={H / 2 + 12} text-anchor="middle" dominant-baseline="middle" class="game-title">{line1}</text>
+            <text x="0" y={H / 2 + 11} text-anchor="middle" dominant-baseline="middle" class="game-title">{line1}</text>
             {#if line2}
-                <text x="0" y={H / 2 + 23} text-anchor="middle" dominant-baseline="middle" class="game-title game-title--2">{line2}</text>
+                <text x="0" y={H / 2 + 21} text-anchor="middle" dominant-baseline="middle" class="game-title game-title--2">{line2}</text>
             {/if}
         </a>
     </g>

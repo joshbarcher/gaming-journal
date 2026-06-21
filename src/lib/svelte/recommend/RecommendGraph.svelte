@@ -30,7 +30,7 @@
 
     // ── Canvas dimensions ─────────────────────────────────────────────────────
     const VW = 1000
-    const VH = 680
+    const VH = 640
     const CX = VW / 2    // center x
     const CY = VH / 2    // center y
 
