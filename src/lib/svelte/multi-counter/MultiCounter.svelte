@@ -183,7 +183,7 @@
     {#each (pd.counters ?? []) as c (c.id)}
         {@const pct = rowPct(c)}
         <div class="mcounter-row" data-id={c.id}
-             oncontextmenu={(e) => { e.preventDefault(); if (confirm(`Delete "${c.name ?? 'this counter'}"?`)) deleteCounter(c.id) }}>
+             oncontextmenu={async (e) => { e.preventDefault(); if (await confirmDialog(`Delete "${c.name ?? 'this counter'}"?`, '', 'Delete')) deleteCounter(c.id) }}>
             <div class="mcounter-row-body">
                 <span class="mcounter-name" contenteditable="true" spellcheck="false" data-role="name"
                       onblur={(e) => onNameBlur(c.id, e)}

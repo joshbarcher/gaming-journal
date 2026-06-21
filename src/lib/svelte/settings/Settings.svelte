@@ -124,6 +124,18 @@
                 </div>
             </label>
 
+            <label class="settings-toggle-row">
+                <div class="settings-toggle-text">
+                    <span class="settings-toggle-label">Enable Discovery Filters</span>
+                    <span class="settings-toggle-desc">Apply the title blocklist to the Discovery page and home page mosaic. Turn off to see all results unfiltered.</span>
+                </div>
+                <div class="settings-toggle-switch">
+                    <input type="checkbox" checked={settings.discoverFiltersEnabled}
+                           onchange={(e) => onToggle('discoverFiltersEnabled', e.currentTarget.checked)}>
+                    <span class="settings-toggle-track"></span>
+                </div>
+            </label>
+
             <div class="settings-blocklist-row">
                 <div class="settings-toggle-text">
                     <span class="settings-toggle-label">

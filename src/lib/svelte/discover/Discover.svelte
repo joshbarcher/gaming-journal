@@ -35,7 +35,8 @@
     let featuredLoading = $state(false)
     let featuredError   = $state<string | null>(null)
 
-    let titleBlocklist = $state<string[]>([])
+    let titleBlocklist         = $state<string[]>([])
+    let discoverFiltersEnabled = $state(true)
 
     // Non-reactive
     let _searchCache: Map<number, DiscoverItem[]> = new Map()
@@ -148,7 +149,7 @@
 
     let visibleBrowseItems = $derived(
         (activeSection?.items ?? []).filter(item => {
-            if (!titleBlocklist.length) return true
+            if (!discoverFiltersEnabled || !titleBlocklist.length) return true
             const lower = item.name.toLowerCase()
             return !titleBlocklist.some(t => lower.includes(t))
         })
@@ -156,7 +157,7 @@
 
     let visibleSearchResults = $derived(
         searchResults.filter(item => {
-            if (!titleBlocklist.length) return true
+            if (!discoverFiltersEnabled || !titleBlocklist.length) return true
             const lower = item.name.toLowerCase()
             return !titleBlocklist.some(t => lower.includes(t))
         })
@@ -299,7 +300,8 @@
             .then(res => res.ok ? res.json() : null)
             .then(s => {
                 if (!s) return
-                titleBlocklist = s.titleBlocklist ?? []
+                titleBlocklist         = s.titleBlocklist ?? []
+                discoverFiltersEnabled = s.discoverFiltersEnabled ?? true
                 try { localStorage.setItem(BLOCKLIST_KEY, JSON.stringify(titleBlocklist)) } catch {}
             })
             .catch(() => {})

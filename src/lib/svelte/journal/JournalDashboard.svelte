@@ -298,7 +298,7 @@
         if (notesWallEl && journalNotes.length > 0) {
             const { StickyWall } = await import('../../js/vendor/stickywall.js')
             notesWall = new StickyWall(notesWallEl, {
-                notes:     journalNotes,
+                notes:     journalNotes.slice(0, 2),
                 editable:  false,
                 draggable: false,
                 tape:      true,
