@@ -2,4 +2,6 @@
     import { page } from '$app/state'
     import CommunityPage from '$lib/svelte/community/CommunityPage.svelte'
 </script>
-<CommunityPage appid={page.params.appid} />
+{#key page.params.appid}
+    <CommunityPage appid={page.params.appid} />
+{/key}

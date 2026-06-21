@@ -2,4 +2,6 @@
     import { page } from '$app/state'
     import GamePage from '$lib/svelte/game/GamePage.svelte'
 </script>
-<GamePage appid={page.params.appid} />
+{#key page.params.appid}
+    <GamePage appid={page.params.appid} />
+{/key}
