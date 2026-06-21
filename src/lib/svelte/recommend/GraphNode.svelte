@@ -32,9 +32,9 @@
     const radius = $derived(isCenter ? 68 : 50)
 
     function splitLabel(text: string, maxLen = 16): [string, string] {
-        if (text.length <= maxLen) return [text, '']
         const parenIdx = text.indexOf('(')
         if (parenIdx > 1) return [text.slice(0, parenIdx).trim(), text.slice(parenIdx)]
+        if (text.length <= maxLen) return [text, '']
         const idx = text.lastIndexOf(' ', maxLen)
         if (idx < 1) return [text.slice(0, maxLen), text.slice(maxLen).trim()]
         return [text.slice(0, idx), text.slice(idx + 1)]
