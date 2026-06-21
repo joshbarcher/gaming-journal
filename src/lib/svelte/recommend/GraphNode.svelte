@@ -33,12 +33,14 @@
 
     function splitLabel(text: string, maxLen = 16): [string, string] {
         if (text.length <= maxLen) return [text, '']
+        const parenIdx = text.indexOf('(')
+        if (parenIdx > 1) return [text.slice(0, parenIdx).trim(), text.slice(parenIdx)]
         const idx = text.lastIndexOf(' ', maxLen)
         if (idx < 1) return [text.slice(0, maxLen), text.slice(maxLen).trim()]
         return [text.slice(0, idx), text.slice(idx + 1)]
     }
 
-    const [line1, line2] = $derived(splitLabel(label, isCenter ? 22 : 14))
+    const [line1, line2] = $derived(splitLabel(label, isCenter ? 14 : 14))
 </script>
 
 <!-- Outer g: positioning only, never animated -->
