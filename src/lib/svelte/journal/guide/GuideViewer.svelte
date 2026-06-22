@@ -4,9 +4,10 @@
     import Breadcrumb from '../../Breadcrumb.svelte'
     import GuideBlockRenderer from './GuideBlockRenderer.svelte'
 
-    let { appid, source, section }: {
+    let { appid, source, guideId, section }: {
         appid: string
         source: string
+        guideId: string
         section: string | null
     } = $props()
 
@@ -82,7 +83,7 @@
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     function navTo(slug: string) {
-        goto(`/journal/${appid}/guides/${source}/${encodeURIComponent(slug)}`)
+        goto(`/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}`)
     }
 
     function isActive(slug: string): boolean {
@@ -93,7 +94,7 @@
 
     async function loadMeta() {
         const [metaRes, gameRes] = await Promise.allSettled([
-            fetch(`/relay/api/guides/${appid}/${source}/meta`).then(r => r.ok ? r.json() : null),
+            fetch(`/relay/api/guides/${appid}/${source}/${guideId}/meta`).then(r => r.ok ? r.json() : null),
             fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
         ])
         meta     = (metaRes as PromiseFulfilledResult<any>).value
@@ -104,7 +105,7 @@
     async function loadSection(slug: string) {
         loadingSection = true
         try {
-            const data = await fetch(`/relay/api/guides/${appid}/${source}/${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : null)
+            const data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : null)
             blocks = data ?? []
             currentSlug = slug
         } finally {
@@ -159,11 +160,17 @@
         return pages.find((p: any) => p.slug === currentSlug)?.label ?? currentSlug
     })
 
+    let firstSlugHref = $derived.by(() => {
+        const slug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
+        return slug ? `/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}` : null
+    })
+
     let crumbs = $derived([
         { label: 'Home',    href: '/' },
         { label: gameName || appid, href: `/game/${appid}` },
         { label: 'Journal', href: `/journal/${appid}` },
-        { label: meta?.title ?? source, href: `/journal/${appid}/guides/${source}` },
+        { label: 'Guides',  href: `/journal/${appid}/guides` },
+        { label: meta?.title ?? source, href: firstSlugHref ?? undefined },
         ...(sectionLabel && sectionLabel !== (meta?.title ?? source) ? [{ label: sectionLabel }] : []),
     ])
 </script>
@@ -208,6 +215,7 @@
                     {blocks}
                     steamId={appid}
                     {source}
+                    {guideId}
                     section={currentSlug ?? ''}
                     onImageClick={openImageModal}
                 />
@@ -229,15 +237,27 @@
                                     onclick={() => navTo(item.slug)}
                                 >{item.label}</button>
                             {:else if item.type === 'group'}
+                                {@const groupOpen = openGroups.has(item.label)
+                                    || isActive(item.slug)
+                                    || item.children.some((c: any) => isActive(c.slug))}
                                 <div class="gv-toc-group">
-                                    <button
-                                        class="gv-toc-group-hd"
-                                        onclick={() => toggleGroup(item.label)}
-                                    >
-                                        <span class="gv-toc-chevron">{openGroups.has(item.label) ? '▾' : '▸'}</span>
-                                        {item.label}
-                                    </button>
-                                    {#if openGroups.has(item.label)}
+                                    <div class="gv-toc-group-hd">
+                                        {#if item.slug}
+                                            <button
+                                                class="gv-toc-link gv-toc-group-nav"
+                                                class:gv-toc-link--active={isActive(item.slug)}
+                                                onclick={() => navTo(item.slug)}
+                                            >{item.label}</button>
+                                        {:else}
+                                            <span class="gv-toc-group-lbl">{item.label}</span>
+                                        {/if}
+                                        <button
+                                            class="gv-toc-chevron-btn"
+                                            onclick={() => toggleGroup(item.label)}
+                                            aria-label="Toggle section"
+                                        >{groupOpen ? '▾' : '▸'}</button>
+                                    </div>
+                                    {#if groupOpen}
                                         <div class="gv-toc-group-body">
                                             {#each item.children as child}
                                                 <button

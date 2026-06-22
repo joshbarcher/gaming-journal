@@ -1625,34 +1625,131 @@ div.gj-ach-badge {
 
 /* ── Guides dashboard card ─────────────────────────────────────────────────── */
 
-.gj-guide-subcards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
+.gj-guides-sources {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     flex: 1;
 }
 
-.gj-guide-subcard {
+.gj-guides-source-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
     background: var(--clr-bg-hover);
     border: 1px solid var(--clr-border);
     border-radius: 6px;
-    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+    text-align: left;
+    width: 100%;
+    color: inherit;
+    font: inherit;
+}
+
+.gj-guides-source-row:hover {
+    border-color: var(--clr-border-hi);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.gj-guides-source-lhs {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    cursor: pointer;
-    transition: border-color var(--transition), filter var(--transition);
-    text-decoration: none;
+    min-width: 0;
 }
 
-.gj-guide-subcard:hover {
-    border-color: var(--clr-border-hi);
-    filter: brightness(1.2);
+.gj-guides-source-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--clr-text);
+    line-height: 1;
 }
 
-.gj-guide-source {
-    font-size: 9px;
+.gj-guides-source-count {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+.gj-guides-source-rhs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.gj-guides-dl-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--clr-accent);
+    background: rgba(201, 168, 76, 0.12);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    border-radius: 3px;
+    padding: 2px 7px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.gj-guides-chevron {
+    font-size: 16px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+/* ── Guides modal ─────────────────────────────────────────────────────────── */
+
+.gm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gm-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+}
+
+.gm-panel {
+    position: relative;
+    z-index: 1;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border-hi);
+    border-radius: 10px;
+    width: min(640px, calc(100vw - 40px));
+    max-height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+.gm-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid var(--clr-border);
+    flex-shrink: 0;
+}
+
+.gm-header-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.gm-source-label {
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -1660,8 +1757,78 @@ div.gj-ach-badge {
     line-height: 1;
 }
 
-.gj-guide-title {
+.gm-title {
+    font-family: var(--font-title);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--clr-text);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.gm-matched {
     font-size: 12px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+.gm-matched-link {
+    color: var(--clr-accent);
+    text-decoration: none;
+    margin-left: 4px;
+}
+
+.gm-close {
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: 4px;
+    color: var(--clr-text-muted);
+    font-size: 14px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.gm-close:hover {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.gm-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 10px 0;
+}
+
+.gm-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--clr-border);
+    transition: background var(--transition);
+}
+
+.gm-row:last-child { border-bottom: none; }
+.gm-row:hover { background: rgba(255, 255, 255, 0.02); }
+.gm-row--done { opacity: 0.6; }
+
+.gm-row-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.gm-guide-title {
+    font-size: 13px;
     font-weight: 600;
     color: var(--clr-text);
     white-space: nowrap;
@@ -1669,7 +1836,170 @@ div.gj-ach-badge {
     text-overflow: ellipsis;
 }
 
-.gj-guide-author {
+.gm-guide-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gm-type-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    line-height: 1.4;
+}
+
+.gm-type-badge--html {
+    background: rgba(80, 180, 100, 0.15);
+    color: #6ec97c;
+    border: 1px solid rgba(80, 180, 100, 0.3);
+}
+
+.gm-type-badge--text {
+    background: rgba(150, 150, 180, 0.12);
+    color: var(--clr-text-muted);
+    border: 1px solid rgba(150, 150, 180, 0.2);
+}
+
+.gm-type-badge--unknown {
+    background: rgba(150, 150, 150, 0.1);
+    color: var(--clr-text-muted);
+    border: 1px solid rgba(150, 150, 150, 0.15);
+}
+
+.gm-ext-link {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+.gm-ext-link:hover { color: var(--clr-accent); }
+
+.gm-row-action {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    min-width: 110px;
+    justify-content: flex-end;
+}
+
+.gm-dl-btn {
+    padding: 6px 14px;
+    background: rgba(201, 168, 76, 0.1);
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    border-radius: 4px;
+    color: var(--clr-accent);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    white-space: nowrap;
+}
+
+.gm-dl-btn:hover {
+    background: rgba(201, 168, 76, 0.18);
+    border-color: var(--clr-accent);
+}
+
+.gm-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 110px;
+}
+
+.gm-progress-label {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+.gm-progress-track {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.gm-progress-fill {
+    height: 100%;
+    background: var(--clr-accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.gm-status-done {
+    font-size: 12px;
+    color: #6ec97c;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.gm-status-err {
+    font-size: 11px;
+    color: #dc5050;
+    white-space: nowrap;
+}
+
+/* ── Guides list page ─────────────────────────────────────────────────────── */
+
+.gl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.gl-card {
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+}
+
+.gl-card:hover {
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.gl-card-source {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--clr-accent);
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.gl-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--clr-text);
+    line-height: 1.3;
+}
+
+.gl-card-author {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+}
+
+.gl-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
     font-size: 11px;
     color: var(--clr-text-muted);
 }
+
+.gl-card-sep { opacity: 0.4; }

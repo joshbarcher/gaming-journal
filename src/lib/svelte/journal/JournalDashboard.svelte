@@ -14,6 +14,7 @@
     import LastSessionCard from './LastSessionCard.svelte'
     import SessionHistoryRail from './SessionHistoryRail.svelte'
     import Breadcrumb from '../Breadcrumb.svelte'
+    import GuidesModal from './guide/GuidesModal.svelte'
 
     let { appid } = $props()
 
@@ -32,7 +33,26 @@
     let hltbRefreshing = $state(false)
 
     // ── Guides ─────────────────────────────────────────────────────────────────
-    let guides = $state<{ source: string; title: string; author: string | null; parsedAt: string | null }[]>([])
+
+    interface DownloadedGuide { source: string; guideId: string; title: string; author: string | null; parsedAt: string | null; pageCount: number }
+    interface SearchSource { searchedAt: string; matchedGame: any; guides: { title: string; url: string; type: string }[] }
+    interface SearchData { steamId: string; sources: Record<string, SearchSource> }
+
+    let guides     = $state<DownloadedGuide[]>([])
+    let searchData = $state<SearchData | null>(null)
+    let modalSource = $state<string | null>(null)
+
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs' }
+
+    function openGuideModal(src: string, e: MouseEvent) {
+        e.stopPropagation()
+        modalSource = src
+    }
+
+    async function handleGuideDownloaded(_guideId: string) {
+        const g = await fetch(`/relay/api/guides/${appid}`).then(r => r.ok ? r.json() : []).catch(() => [])
+        guides = g
+    }
 
     // HLTB pin live tracking
     let basePlaytimeMin  = $state(0)   // effectiveMin from relay at load time
@@ -106,6 +126,7 @@
         ])
 
         fetch(`/relay/api/guides/${appid}`).then(r => r.ok ? r.json() : []).then(g => { guides = g }).catch(() => {})
+        fetch(`/relay/api/guides/${appid}/search`).then(r => r.ok ? r.json() : null).then(d => { searchData = d }).catch(() => {})
 
         const g    = (gameRes as PromiseFulfilledResult<any>).value    ?? null
         const np   = (nowPlayingRes as PromiseFulfilledResult<any>).value ?? null
@@ -339,9 +360,8 @@
         <span class="gj-header-title">Journal</span>
     </div>
 
-    <div class="gj-grid"
-         class:gj-grid--with-history={closedSessions.length > 0}
-         class:gj-grid--with-guides={guides.length > 0}>
+    <div class="gj-grid gj-grid--with-guides"
+         class:gj-grid--with-history={closedSessions.length > 0}>
 
         <!-- Rating card -->
         <div class="gj-card gj-card--clickable" onclick={openReview} role="button" tabindex="0">
@@ -405,23 +425,35 @@
 
         <!-- Guides card: always col 3, always row-span 2. Always visible.
              Must come before HLTB in the DOM so auto-placement fills cols 1-2 around it. -->
-        <div class="gj-card gj-card--guides-panel" style="grid-column:3;grid-row:2/4">
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="gj-card gj-card--guides-panel" style="grid-column:3;grid-row:2/4"
+             onclick={() => navigate(`journal/${appid}/guides`)}
+             role="button" tabindex="0">
             <div class="gj-card-header">
                 <span class="gj-card-title">Guides</span>
             </div>
-            {#if guides.length === 0}
-                <p class="gj-no-data">No guides available</p>
+
+            {#if !searchData}
+                <p class="gj-no-data">No guide data — run seed-search script to populate.</p>
             {:else}
-                <div class="gj-guide-subcards">
-                    {#each guides as g}
+                <div class="gj-guides-sources">
+                    {#each Object.entries(searchData.sources) as [src, srcData]}
+                        {@const dlCount = guides.filter(g => g.source === src).length}
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div class="gj-guide-subcard"
-                             onclick={() => navigate(`journal/${appid}/guides/${g.source}`)}>
-                            <span class="gj-guide-source">{g.source}</span>
-                            <span class="gj-guide-title">{g.title}</span>
-                            {#if g.author}
-                                <span class="gj-guide-author">by {g.author}</span>
-                            {/if}
+                        <div class="gj-guides-source-row"
+                             onclick={(e) => openGuideModal(src, e)}
+                             role="button" tabindex="0"
+                             onkeydown={(e) => e.key === 'Enter' && openGuideModal(src, e)}>
+                            <div class="gj-guides-source-lhs">
+                                <span class="gj-guides-source-name">{SOURCE_LABELS[src] ?? src}</span>
+                                <span class="gj-guides-source-count">{srcData.guides.length} guide{srcData.guides.length !== 1 ? 's' : ''} available</span>
+                            </div>
+                            <div class="gj-guides-source-rhs">
+                                {#if dlCount > 0}
+                                    <span class="gj-guides-dl-badge">{dlCount} downloaded</span>
+                                {/if}
+                                <span class="gj-guides-chevron">›</span>
+                            </div>
                         </div>
                     {/each}
                 </div>
@@ -539,4 +571,15 @@
 
     </div>
 </div>
+
+{#if modalSource && searchData?.sources?.[modalSource]}
+    <GuidesModal
+        {appid}
+        source={modalSource}
+        sourceData={searchData.sources[modalSource]}
+        downloadedGuideIds={new Set(guides.filter(g => g.source === modalSource).map(g => g.guideId))}
+        onClose={() => modalSource = null}
+        onDownloaded={handleGuideDownloaded}
+    />
+{/if}
 {/if}

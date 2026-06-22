@@ -416,33 +416,42 @@
 .gv-toc-group-hd {
     display: flex;
     align-items: center;
-    gap: 5px;
-    width: 100%;
+    gap: 2px;
+}
+
+.gv-toc-group-nav {
+    flex: 1;
+    min-width: 0;
     text-align: left;
-    background: none;
-    border: none;
-    color: var(--clr-text-muted);
+    font-weight: 600;
+}
+
+.gv-toc-group-lbl {
+    flex: 1;
+    min-width: 0;
     font-size: 12px;
     font-weight: 600;
+    color: var(--clr-text-muted);
     padding: 5px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: color var(--transition), background var(--transition);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.gv-toc-group-hd:hover {
-    color: var(--clr-text);
-    background: rgba(255, 255, 255, 0.05);
+.gv-toc-chevron-btn {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--clr-text-muted);
+    font-size: 9px;
+    padding: 5px 4px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity var(--transition);
 }
 
-.gv-toc-chevron {
-    font-size: 9px;
-    flex-shrink: 0;
-    color: var(--clr-text-muted);
-    opacity: 0.6;
+.gv-toc-chevron-btn:hover {
+    opacity: 1;
 }
 
 .gv-toc-group-body {

@@ -30,18 +30,19 @@
         rows?: (Cell | null)[][]
     }
 
-    let { blocks, steamId, source, section, onImageClick }: {
+    let { blocks, steamId, source, guideId, section, onImageClick }: {
         blocks: Block[]
         steamId: string
         source: string
+        guideId: string
         section: string
         onImageClick: (url: string) => void
     } = $props()
 
     function imgUrl(localSrc: string): string {
-        const filename = localSrc.replace(/^img\//, '')
+        const filename = localSrc.replace(/^img\//, '').replace(/\.[^.]+$/, '.webp')
         const sectionEncoded = encodeURIComponent(section)
-        return `/relay/guides-img/${steamId}/${source}/${sectionEncoded}/img/${filename}`
+        return `/relay/guides-img/${steamId}/${source}/${guideId}/${sectionEncoded}/img/${filename}`
     }
 </script>
 
@@ -84,7 +85,7 @@
                 <h4 class="gv-h4" id={block.id}>{block.heading}</h4>
             {/if}
             {#if block.children?.length}
-                <svelte:self blocks={block.children} {steamId} {source} {section} {onImageClick} />
+                <svelte:self blocks={block.children} {steamId} {source} {guideId} {section} {onImageClick} />
             {/if}
         </div>
 
