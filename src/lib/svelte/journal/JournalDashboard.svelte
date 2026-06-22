@@ -31,6 +31,9 @@
     let error         = $state<string | null>(null)
     let hltbRefreshing = $state(false)
 
+    // ── Guides ─────────────────────────────────────────────────────────────────
+    let guides = $state<{ source: string; title: string; author: string | null; parsedAt: string | null }[]>([])
+
     // HLTB pin live tracking
     let basePlaytimeMin  = $state(0)   // effectiveMin from relay at load time
     let renderTime       = $state(0)   // Date.now() at load — HLTB pin uses delta from here
@@ -101,6 +104,8 @@
             fetch('/relay/api/account').then(r => r.ok ? r.json() : null),
             fetch('/relay/api/steam/now-playing').then(r => r.ok ? r.json() : null),
         ])
+
+        fetch(`/relay/api/guides/${appid}`).then(r => r.ok ? r.json() : []).then(g => { guides = g }).catch(() => {})
 
         const g    = (gameRes as PromiseFulfilledResult<any>).value    ?? null
         const np   = (nowPlayingRes as PromiseFulfilledResult<any>).value ?? null
@@ -334,7 +339,9 @@
         <span class="gj-header-title">Journal</span>
     </div>
 
-    <div class="gj-grid" class:gj-grid--with-history={closedSessions.length > 0}>
+    <div class="gj-grid"
+         class:gj-grid--with-history={closedSessions.length > 0}
+         class:gj-grid--with-guides={guides.length > 0}>
 
         <!-- Rating card -->
         <div class="gj-card gj-card--clickable" onclick={openReview} role="button" tabindex="0">
@@ -453,6 +460,28 @@
                 </div>
             {/if}
         </div>
+
+        <!-- Guides card (col 3, spans 2 rows when history exists) -->
+        {#if guides.length > 0}
+            <div class="gj-card gj-card--guides-panel">
+                <div class="gj-card-header">
+                    <span class="gj-card-title">Guides</span>
+                </div>
+                <div class="gj-guide-subcards">
+                    {#each guides as g}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div class="gj-guide-subcard gj-card--clickable"
+                             onclick={() => navigate(`journal/${appid}/guides/${g.source}`)}>
+                            <span class="gj-guide-source">{g.source}</span>
+                            <span class="gj-guide-title">{g.title}</span>
+                            {#if g.author}
+                                <span class="gj-guide-author">by {g.author}</span>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        {/if}
 
         <!-- Session history rail -->
         {#if closedSessions.length > 0}
