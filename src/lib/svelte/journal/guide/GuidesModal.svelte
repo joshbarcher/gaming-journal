@@ -99,6 +99,8 @@
                         let event: any
                         try { event = JSON.parse(raw.slice(6)) } catch { continue }
 
+                        console.log(`[guides:modal:sse] ${new Date().toISOString()}`, JSON.stringify(event).slice(0, 120))
+
                         if (event.phase === 'fetch-guide') {
                             fetchLines++
                             states[guideId] = { phase: 'fetch', pct: Math.min(5 + fetchLines * 2, 29) }
