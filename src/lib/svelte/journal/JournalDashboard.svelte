@@ -38,9 +38,11 @@
     interface SearchSource { searchedAt: string; matchedGame: any; guides: { title: string; url: string; type: string }[] }
     interface SearchData { steamId: string; sources: Record<string, SearchSource> }
 
-    let guides     = $state<DownloadedGuide[]>([])
-    let searchData = $state<SearchData | null>(null)
-    let modalSource = $state<string | null>(null)
+    let guides        = $state<DownloadedGuide[]>([])
+    let searchData    = $state<SearchData | null>(null)
+    let modalSource   = $state<string | null>(null)
+    let searchRunning = $state(false)
+    let searchNotFound = $state(false)
 
     const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs' }
 
@@ -52,6 +54,50 @@
     async function handleGuideDownloaded(_guideId: string) {
         const g = await fetch(`/relay/api/guides/${appid}`).then(r => r.ok ? r.json() : []).catch(() => [])
         guides = g
+    }
+
+    async function refreshSearch() {
+        if (searchRunning || !game) return
+        searchRunning = true
+        searchNotFound = false
+
+        try {
+            const resp = await fetch(`/relay/api/guides/${appid}/search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameName: game.name }),
+            })
+
+            if (!resp.ok || !resp.body) { return }
+
+            const reader = resp.body.getReader()
+            const decoder = new TextDecoder()
+            let buf = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                buf += decoder.decode(value, { stream: true })
+                const parts = buf.split('\n\n')
+                buf = parts.pop() ?? ''
+
+                for (const part of parts) {
+                    for (const raw of part.split('\n')) {
+                        if (!raw.startsWith('data: ')) continue
+                        let event: any
+                        try { event = JSON.parse(raw.slice(6)) } catch { continue }
+
+                        if (event.phase === 'done') {
+                            searchData = event.data
+                        } else if (event.phase === 'not_found') {
+                            searchNotFound = true
+                        }
+                    }
+                }
+            }
+        } catch { /* silent */ } finally {
+            searchRunning = false
+        }
     }
 
     // HLTB pin live tracking
@@ -431,10 +477,19 @@
              role="button" tabindex="0">
             <div class="gj-card-header">
                 <span class="gj-card-title">Guides</span>
+                <button
+                    class="game-refresh-btn"
+                    class:game-refresh-btn--spinning={searchRunning}
+                    disabled={searchRunning}
+                    onclick={(e) => { e.stopPropagation(); refreshSearch() }}
+                    title="Search for guides"
+                >↻</button>
             </div>
 
             {#if !searchData}
-                <p class="gj-no-data">No guide data — run seed-search script to populate.</p>
+                <p class="gj-no-data">
+                    {searchNotFound ? 'No guides found on GameFAQs' : 'No guide data — click ↻ to search'}
+                </p>
             {:else}
                 <div class="gj-guides-sources">
                     {#each Object.entries(searchData.sources) as [src, srcData]}
