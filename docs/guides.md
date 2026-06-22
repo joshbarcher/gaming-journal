@@ -118,3 +118,77 @@ The `_meta.json` can provide either:
 - `pages` / `nav` — flat list of `{ slug, label }` entries
 
 The active link is highlighted via `gv-toc-link--active` (gold background).
+
+**navTree group nodes with a `slug`:** A group node may have both `slug` and `children`. When it does, the group header renders as a navigable button (`.gv-toc-group-nav`) alongside a separate chevron toggle button (`.gv-toc-chevron-btn`). Groups auto-expand when `currentSlug` matches the group slug or any child slug.
+
+---
+
+## Parser — Content Cleaner (`html-cleaner.js`)
+
+`cleanInlineHtml` sanitises paragraph/list-item HTML before it is stored:
+
+1. Normalises `<b>` → `<strong>`, `<i>` → `<em>`
+2. Unwraps `span`, `font`, `small`, `big`, `u`, `s`, `strike`, `sup`, `sub`
+3. KEEP_INLINE set: `strong`, `em`, `code`, `a`, `abbr` — everything else is unwrapped
+4. Strips all attributes from `strong`/`em`/`code`/`abbr`
+5. For `<a>`: keeps only `href`; strips class, style, target, rel, etc. Removes the link entirely (leaves text) if the href is an absolute external URL and `cfg.links.keepExternal` is false
+6. Final safety pass: `root.find('[style],[class]').removeAttr(...)` — catches survivors from Cheerio `replaceWith` edge cases (e.g. `<span style="color:…">` wrapping mixed text+elements)
+
+**External vs internal link detection:** A link is external only if its href matches `/^[a-z][a-z0-9+\-.]*:\/\//i` (absolute URI scheme). Bare relative hrefs like `href="wrenwood-hotel"` are treated as internal and preserved.
+
+---
+
+## Parser — GameFAQs Adapter (`gamefaqs/adapter.js`)
+
+### `rewriteInternalLinks`
+
+Rewrites full GameFAQs section URLs to bare sibling slugs:
+
+```
+href="/ps5/…/faqs/82414/wrenwood-hotel"  →  href="wrenwood-hotel"
+```
+
+Bare slugs resolve correctly from any section URL. The previous `../section/` format was wrong — `..` from a URL without a trailing slash strips two path segments, not one.
+
+### `extractNavTree`
+
+Reads `.ftoc ol` and produces `link`, `group`, and `label` nodes. Handles two `<ol>` child patterns:
+
+- `<li><b>Label</b></li><ol>…</ol>` → `{ type: 'group', label, children }` (non-navigable header)
+- `<li><a href="slug">Label</a></li><ol>…</ol>` → `{ type: 'group', label, slug, children }` (navigable parent page with sub-pages; preceding link is promoted to group)
+
+---
+
+## Parser — Auto-Link Pass (`parse-guide.js`)
+
+After `rewriteInternalLinks`, a second pass walks every `list` block and auto-links plain-text list items whose normalized text matches a known section slug.
+
+Normalization: `s.toLowerCase().replace(/[^a-z0-9]/g, '')` — reduces both the item text and the slug+label to pure alphanumeric, bridging gaps like `"Rhodes Hill - The Care Center"` ↔ `rhodes-hill-the-care-center`.
+
+Only items with no existing HTML markup (`!/</.test(item.text)`) and whose target differs from the current page are linked.
+
+---
+
+## Tests (`relay-server/src/tests/guides/`)
+
+### `content-parser.test.js`
+
+73 tests across 18 describe blocks (expanded from 20). New blocks:
+
+- `tables` — basic cell content, colspan, rowspan
+- `table grid integrity` — `assertRectangular` helper verifies every row has the same column count and no `undefined` cells
+- `pre and code blocks`, `figure`, `blockquote`
+- `inline buffer flushing`, `external link policy`
+- `br handling` — documents that `behavior: 'keep'` does not preserve `<br>` because `br` is not in KEEP_INLINE
+- `isParagraphJunk edge cases`, `empty containers`, `mixed paragraph content`, `deeply nested divs`
+- `malformed HTML` — verifies no crash and content is recovered (htmlparser2 does browser-like error recovery)
+
+### `content-file.test.js` (NEW)
+
+File-based structural validator for pre-generated `content.json` files. Run against any NAS file:
+
+```sh
+CONTENT_FILE="\\192.168.86.74\app-data\relay\guides\...\content.json" node --test src/tests/guides/content-file.test.js
+```
+
+Skips gracefully when `CONTENT_FILE` is not set. 10 assertions: JSON parse, non-empty, valid block types, paragraph html field, heading level+text, section structure, list item shapes, table rectangularity, no undefined cells, full deep structural validation.
