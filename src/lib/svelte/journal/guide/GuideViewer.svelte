@@ -20,36 +20,14 @@
     let loadingSection = $state(false)
     let error        = $state<string | null>(null)
 
-    // ── Left gutter h2 navigation ──────────────────────────────────────────────
+    // ── Page scroll (left gutter arrows + keyboard ↑↓) ────────────────────────
 
-    let contentEl    = $state<HTMLElement | null>(null)
-    let h2Headings   = $state<HTMLElement[]>([])
+    let contentEl = $state<HTMLElement | null>(null)
 
-    function collectH2s() {
-        if (!contentEl) return
-        h2Headings = Array.from(contentEl.querySelectorAll<HTMLElement>('.gv-h2'))
-    }
-
-    function scrollToH2(delta: 1 | -1) {
-        if (!h2Headings.length) return
+    function scrollPage(delta: 1 | -1) {
         const scrollEl = document.getElementById('main-content')
         if (!scrollEl) return
-        const scrollTop = scrollEl.scrollTop
-        const containerTop = scrollEl.getBoundingClientRect().top
-
-        let cur = -1
-        for (let i = 0; i < h2Headings.length; i++) {
-            const rect = h2Headings[i].getBoundingClientRect()
-            const relTop = rect.top - containerTop + scrollTop
-            if (relTop <= scrollTop + 4) cur = i
-        }
-
-        const target = delta === 1
-            ? Math.min(cur + 1, h2Headings.length - 1)
-            : Math.max(cur - 1, 0)
-
-        if (target < 0) return
-        h2Headings[target]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        scrollEl.scrollBy({ top: delta * scrollEl.clientHeight * 0.85, behavior: 'smooth' })
     }
 
     // ── Image modal ────────────────────────────────────────────────────────────
@@ -66,8 +44,7 @@
                 <button class="gv-img-modal-close" aria-label="Close">✕</button>
             `
             document.body.appendChild(modalEl)
-            modalEl.querySelector('.gv-img-modal-backdrop')!.addEventListener('click', closeImageModal)
-            modalEl.querySelector('.gv-img-modal-close')!.addEventListener('click', closeImageModal)
+            modalEl.addEventListener('click', closeImageModal)
         }
         ;(modalEl.querySelector('.gv-img-modal-img') as HTMLImageElement).src = url
         modalEl.classList.add('gv-img-modal--open')
@@ -80,6 +57,14 @@
     function onKeyDown(e: KeyboardEvent) {
         if (e.key === 'Escape' && modalEl?.classList.contains('gv-img-modal--open')) {
             closeImageModal()
+            return
+        }
+        if (e.key === 'ArrowDown' && !modalEl?.classList.contains('gv-img-modal--open')) {
+            e.preventDefault()
+            scrollPage(1)
+        } else if (e.key === 'ArrowUp' && !modalEl?.classList.contains('gv-img-modal--open')) {
+            e.preventDefault()
+            scrollPage(-1)
         }
     }
 
@@ -126,7 +111,6 @@
             loadingSection = false
         }
         await tick()
-        collectH2s()
         document.getElementById('main-content')?.scrollTo({ top: 0 })
     }
 
@@ -156,8 +140,13 @@
     // Re-load section when URL section param changes (handles browser back/forward too)
     $effect(() => {
         const s = section
-        if (s && meta && s !== currentSlug && !loading && !loadingSection) {
+        if (loading || loadingSection || !meta) return
+        if (s && s !== currentSlug) {
             loadSection(s)
+        } else if (!s) {
+            // null section (guide root breadcrumb) → go to first page
+            const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
+            if (firstSlug && firstSlug !== currentSlug) loadSection(firstSlug)
         }
     })
 
@@ -185,19 +174,29 @@
     <p class="page-error">{error}</p>
 {:else if meta}
 <div class="gv-wrap">
-    <!-- ── Header ────────────────────────────────────────────────────────── -->
-    <div class="gv-header">
-        <Breadcrumb {crumbs} />
-        <h1 class="gv-page-title">{meta.title}</h1>
+
+    <!-- ── Header row: 3-col grid so CONTENTS aligns with breadcrumbs+h1 ── -->
+    <div class="gv-header-row">
+        <div class="gv-header-gutter"></div>
+        <div class="gv-header-main">
+            <Breadcrumb {crumbs} />
+            <h1 class="gv-page-title">{sectionLabel || meta.title}</h1>
+        </div>
+        <div class="gv-header-toc">
+            <span class="gv-sidebar-label">Contents</span>
+        </div>
     </div>
+
+    <!-- ── Full-width separator ──────────────────────────────────────────── -->
+    <div class="gv-rule"></div>
 
     <!-- ── Three-column body ─────────────────────────────────────────────── -->
     <div class="gv-body">
 
-        <!-- Left gutter: h2 navigation arrows -->
+        <!-- Left gutter: page scroll arrows (fixed) -->
         <div class="gv-gutter">
-            <button class="gv-nav-arrow" onclick={() => scrollToH2(-1)} title="Previous section" aria-label="Previous h2 section">↑</button>
-            <button class="gv-nav-arrow" onclick={() => scrollToH2(1)}  title="Next section"     aria-label="Next h2 section">↓</button>
+            <button class="gv-nav-arrow" onclick={() => scrollPage(-1)} title="Scroll up" aria-label="Scroll up">↑</button>
+            <button class="gv-nav-arrow" onclick={() => scrollPage(1)}  title="Scroll down" aria-label="Scroll down">↓</button>
         </div>
 
         <!-- Center: content -->
@@ -215,10 +214,9 @@
             {/if}
         </div>
 
-        <!-- Right sidebar: TOC nav tree -->
+        <!-- Right sidebar: TOC nav tree (sticky, no label — it's in the header row) -->
         <aside class="gv-sidebar">
             <div class="gv-sidebar-inner">
-                <p class="gv-sidebar-label">Contents</p>
                 {#if meta.navTree?.length}
                     <nav class="gv-toc">
                         {#each meta.navTree as item}

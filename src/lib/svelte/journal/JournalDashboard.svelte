@@ -400,28 +400,36 @@
             {/if}
         </div>
 
-        <!-- Playing Now / Last Session -->
-        {#if activeSession}
-            <div class="gj-card gj-card--active-session gj-card--game-bg" style="--gj-game-bg: url('/relay/images/steam/games/{appid}/header.jpg')">
-                <div class="gj-card-header">
-                    <span class="gj-card-title">Playing Now</span>
-                    <span class="gj-active-dot"></span>
-                </div>
-                <div class="gj-session-stat">
-                    <span class="gj-session-big">{sessionElapsedText}</span>
-                    <span class="gj-session-sublabel">so far</span>
-                </div>
-                {#if achDuring.length > 0}
-                    <p class="gj-ach-recent-label">Earned ({achDuring.length})</p>
-                {/if}
-                <SessionAchievements achs={achDuring} achMap={sessionAchMap} noDataMsg="No achievements yet" />
-            </div>
-        {:else}
-            <LastSessionCard sessions={gameSessions} displayAchList={displayAchList} {appid} />
-        {/if}
+        <!-- Last Session (always shown) -->
+        <LastSessionCard sessions={gameSessions} displayAchList={displayAchList} {appid} />
 
-        <!-- HLTB card -->
-        <div class="gj-card gj-card--wide gj-card--hltb">
+        <!-- Guides card: always col 3, always row-span 2. Always visible.
+             Must come before HLTB in the DOM so auto-placement fills cols 1-2 around it. -->
+        <div class="gj-card gj-card--guides-panel" style="grid-column:3;grid-row:2/4">
+            <div class="gj-card-header">
+                <span class="gj-card-title">Guides</span>
+            </div>
+            {#if guides.length === 0}
+                <p class="gj-no-data">No guides available</p>
+            {:else}
+                <div class="gj-guide-subcards">
+                    {#each guides as g}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div class="gj-guide-subcard"
+                             onclick={() => navigate(`journal/${appid}/guides/${g.source}`)}>
+                            <span class="gj-guide-source">{g.source}</span>
+                            <span class="gj-guide-title">{g.title}</span>
+                            {#if g.author}
+                                <span class="gj-guide-author">by {g.author}</span>
+                            {/if}
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+        </div>
+
+        <!-- HLTB card: always spans cols 1-2 (guides always in col 3) -->
+        <div class="gj-card gj-card--hltb gj-card--span2">
             <div class="gj-card-header">
                 <span class="gj-card-title">How Long to Beat</span>
                 <button
@@ -461,34 +469,12 @@
             {/if}
         </div>
 
-        <!-- Guides card (col 3, spans 2 rows when history exists) -->
-        {#if guides.length > 0}
-            <div class="gj-card gj-card--guides-panel">
-                <div class="gj-card-header">
-                    <span class="gj-card-title">Guides</span>
-                </div>
-                <div class="gj-guide-subcards">
-                    {#each guides as g}
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div class="gj-guide-subcard gj-card--clickable"
-                             onclick={() => navigate(`journal/${appid}/guides/${g.source}`)}>
-                            <span class="gj-guide-source">{g.source}</span>
-                            <span class="gj-guide-title">{g.title}</span>
-                            {#if g.author}
-                                <span class="gj-guide-author">by {g.author}</span>
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-            </div>
-        {/if}
+        <!-- Session history rail: always visible, spans cols 1-2 (narrowed by CSS when guides exist) -->
+        <SessionHistoryRail sessions={closedSessions} />
 
-        <!-- Session history rail -->
-        {#if closedSessions.length > 0}
-            <SessionHistoryRail sessions={closedSessions} />
-        {/if}
+        <!-- Row 4: three individual cards, one per column -->
 
-        <!-- Progress trackers card -->
+        <!-- Progress trackers -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="gj-card gj-card--clickable {progressPages.length > 0 ? 'gj-card--fill' : ''}" role="button" tabindex="0"
              onclick={(e) => { if ((e.target as Element)?.closest('.gj-heat-cell')) return; navigate(`journal/${appid}/progress`) }}>
@@ -513,45 +499,42 @@
             {/if}
         </div>
 
-        <!-- Notes + Pages card -->
-        <div class="gj-card gj-card--span2 gj-card--compact-np">
-            <div class="gj-cnp-body">
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="gj-cnp-section gj-cnp-section--clickable"
-                     onclick={(e) => { if ((e.target as Element)?.closest('.sw-note')) return; navigate(`journal/${appid}/notes`) }}>
-                    <div class="gj-card-header">
-                        <span class="gj-card-title">Notes</span>
-                    </div>
-                    {#if journalNotes.length > 0}
-                        <div class="gj-dash-notes-wall" bind:this={notesWallEl}></div>
-                    {:else}
-                        <p class="gj-no-data">No notes yet</p>
-                    {/if}
-                </div>
-                <div class="gj-cnp-sep"></div>
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="gj-cnp-section gj-cnp-section--clickable"
-                     onclick={(e) => { if ((e.target as Element)?.closest('.gj-page-card')) return; navigate(`journal/${appid}/pages`) }}>
-                    <div class="gj-card-header">
-                        <span class="gj-card-title">Journal Pages</span>
-                    </div>
-                    {#if sortedJournalPages.length > 0}
-                        <div class="gj-pages-cards">
-                            {#each sortedJournalPages.slice(0, 3) as p (p.id)}
-                                {@const preview = stripHtml(p.content ?? '')}
-                                <a class="gj-page-card" href="/{p.id}">
-                                    <span class="gj-page-card-icon">{@html IC.file}</span>
-                                    <span class="gj-page-card-name">{p.title}</span>
-                                    <span class="gj-page-card-date">Edited {fmtDate(p.updatedAt)}</span>
-                                    <span class="gj-page-card-preview">{preview || 'No content yet'}</span>
-                                </a>
-                            {/each}
-                        </div>
-                    {:else}
-                        <p class="gj-no-data">No pages yet</p>
-                    {/if}
-                </div>
+        <!-- Notes -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="gj-card gj-card--clickable" role="button" tabindex="0"
+             onclick={(e) => { if ((e.target as Element)?.closest('.sw-note')) return; navigate(`journal/${appid}/notes`) }}>
+            <div class="gj-card-header">
+                <span class="gj-card-title">Notes</span>
             </div>
+            {#if journalNotes.length > 0}
+                <div class="gj-dash-notes-wall" bind:this={notesWallEl}></div>
+            {:else}
+                <p class="gj-no-data">No notes yet</p>
+            {/if}
+        </div>
+
+        <!-- Journal Pages -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="gj-card gj-card--clickable" role="button" tabindex="0"
+             onclick={(e) => { if ((e.target as Element)?.closest('.gj-page-card')) return; navigate(`journal/${appid}/pages`) }}>
+            <div class="gj-card-header">
+                <span class="gj-card-title">Journal Pages</span>
+            </div>
+            {#if sortedJournalPages.length > 0}
+                <div class="gj-pages-cards">
+                    {#each sortedJournalPages.slice(0, 3) as p (p.id)}
+                        {@const preview = stripHtml(p.content ?? '')}
+                        <a class="gj-page-card" href="/{p.id}">
+                            <span class="gj-page-card-icon">{@html IC.file}</span>
+                            <span class="gj-page-card-name">{p.title}</span>
+                            <span class="gj-page-card-date">Edited {fmtDate(p.updatedAt)}</span>
+                            <span class="gj-page-card-preview">{preview || 'No content yet'}</span>
+                        </a>
+                    {/each}
+                </div>
+            {:else}
+                <p class="gj-no-data">No pages yet</p>
+            {/if}
         </div>
 
     </div>

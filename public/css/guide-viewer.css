@@ -10,26 +10,54 @@
 .gv-wrap {
     display: flex;
     flex-direction: column;
-    padding: 32px 0 0;
     min-height: 0;
 }
 
-.gv-header {
-    padding: 0 40px 20px;
+/* ── Header row: 3-col grid so CONTENTS aligns with breadcrumbs + h1 ──── */
+
+.gv-header-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 280px;
     flex-shrink: 0;
+}
+
+.gv-header-gutter {
+    /* spacer matching left gutter column */
+}
+
+.gv-header-main {
+    padding: 32px 24px 20px 8px;
+}
+
+.gv-header-toc {
+    padding: 32px 16px 20px 20px;
+    background: var(--clr-bg-raised);
+    border-left: 1px solid var(--clr-border);
+    display: flex;
+    align-items: flex-end;
 }
 
 .gv-page-title {
     font-family: var(--font-title);
     font-size: clamp(18px, 2.5vw, 26px);
     font-weight: 700;
-    margin-top: 8px;
+    margin-top: 20px;
     line-height: 1.2;
 }
 
+/* ── Full-width separator ─────────────────────────────────────────────── */
+
+.gv-rule {
+    height: 1px;
+    background: var(--clr-border);
+    flex-shrink: 0;
+}
+
+/* ── Body grid ────────────────────────────────────────────────────────── */
+
 .gv-body {
     display: grid;
-    grid-template-columns: 44px 1fr 240px;
+    grid-template-columns: 44px 1fr 280px;
     gap: 0;
     min-height: 0;
     align-items: start;
@@ -38,13 +66,16 @@
 /* ── Left gutter (h2 arrows) ─────────────────────────────────────────────── */
 
 .gv-gutter {
+    /* Fixed so arrows never scroll — grid column still reserves the 44px space */
+    position: fixed;
+    left: calc(var(--sidebar-w) + 6px);
+    top: 40%;
+    transform: translateY(-50%);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding-top: 8px;
-    position: sticky;
-    top: 20px;
+    z-index: 20;
 }
 
 .gv-nav-arrow {
@@ -72,6 +103,7 @@
 /* ── Center content ──────────────────────────────────────────────────────── */
 
 .gv-content {
+    grid-column: 2;
     padding: 0 24px 80px 8px;
     min-width: 0;
     max-width: 860px;
@@ -289,26 +321,29 @@
 /* ── Right sidebar ───────────────────────────────────────────────────────── */
 
 .gv-sidebar {
+    grid-column: 3;
     position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 60px);
+    top: 0;
+    align-self: stretch;
+    max-height: 100vh;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-
-.gv-sidebar-inner {
-    padding: 0 16px 40px 16px;
+    background: var(--clr-bg-raised);
     border-left: 1px solid var(--clr-border);
 }
 
+.gv-sidebar-inner {
+    padding: 16px 16px 40px 16px;
+}
+
 .gv-sidebar-label {
-    font-size: 9px;
+    font-family: var(--font-title);
+    font-size: clamp(18px, 2.5vw, 26px);
     font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--clr-text-muted);
-    margin: 0 0 10px;
+    line-height: 1.2;
+    color: var(--clr-text);
+    margin: 0;
 }
 
 .gv-sidebar-author {

@@ -42,16 +42,20 @@
         <span class="gj-card-title">Past Sessions</span>
         <span class="gj-sessions-count">{sessions.length} total</span>
     </div>
-    <div class="gj-sessions-scroll">
-        {#each sessions.slice(0, 30) as s}
-            {@const mins = s.durationMin ?? 0}
-            {@const achs = s.achievements?.length ?? 0}
-            {@const color = chipColor(s.startedAt)}
-            <div class="gj-session-chip" style="background:{color.bg};border-color:{color.border}">
-                <span class="gj-session-chip-when">{fmtDate(s.startedAt)}</span>
-                <span class="gj-session-chip-dur">{mins ? fmtDur(mins) : '—'}</span>
-                <span class="gj-session-chip-achs">{fmtAchs(achs)}</span>
-            </div>
-        {/each}
-    </div>
+    {#if sessions.length === 0}
+        <p class="gj-no-data">No sessions recorded yet</p>
+    {:else}
+        <div class="gj-sessions-scroll">
+            {#each sessions.slice(0, 30) as s}
+                {@const mins = s.durationMin ?? 0}
+                {@const achs = s.achievements?.length ?? 0}
+                {@const color = chipColor(s.startedAt)}
+                <div class="gj-session-chip" style="background:{color.bg};border-color:{color.border}">
+                    <span class="gj-session-chip-when">{fmtDate(s.startedAt)}</span>
+                    <span class="gj-session-chip-dur">{mins ? fmtDur(mins) : '—'}</span>
+                    <span class="gj-session-chip-achs">{fmtAchs(achs)}</span>
+                </div>
+            {/each}
+        </div>
+    {/if}
 </div>

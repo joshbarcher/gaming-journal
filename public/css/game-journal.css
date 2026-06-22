@@ -116,10 +116,8 @@
 .gj-card--span2 { grid-column: span 2; }
 .gj-card--hltb  { padding: 8px 20px; gap: 0; }
 
-/* When guides panel is present: narrow wide cards to cols 1-2, guides takes col 3 */
-.gj-grid--with-guides .gj-card--wide        { grid-column: 1 / 3; }
-.gj-card--guides-panel                       { grid-column: 3; grid-row: 2 / 3; }
-.gj-grid--with-guides.gj-grid--with-history .gj-card--guides-panel { grid-row: 2 / 4; }
+/* When guides panel is present: narrow wide cards to cols 1-2 so guides has col 3 */
+.gj-grid--with-guides .gj-card--wide { grid-column: 1 / 3; }
 
 .gj-hltb-overlay-title {
     position: absolute;
@@ -887,7 +885,7 @@
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding-bottom: 10px;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
@@ -1628,8 +1626,9 @@ div.gj-ach-badge {
 /* ── Guides dashboard card ─────────────────────────────────────────────────── */
 
 .gj-guide-subcards {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
     gap: 8px;
     flex: 1;
 }
@@ -1643,14 +1642,13 @@ div.gj-ach-badge {
     flex-direction: column;
     gap: 3px;
     cursor: pointer;
-    transition: border-color var(--transition), background var(--transition);
+    transition: border-color var(--transition), filter var(--transition);
     text-decoration: none;
 }
 
 .gj-guide-subcard:hover {
     border-color: var(--clr-border-hi);
-    background: var(--clr-bg-hover);
-    filter: brightness(1.15);
+    filter: brightness(1.2);
 }
 
 .gj-guide-source {
