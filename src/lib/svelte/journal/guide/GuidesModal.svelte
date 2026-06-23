@@ -62,18 +62,22 @@
         }
     })
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam' }
 
     function guideIdFromUrl(url: string): string | null {
+        try {
+            const u = new URL(url)
+            if (u.hostname.includes('steamcommunity.com')) return u.searchParams.get('id')
+        } catch { /* fall through */ }
         return url.match(/\/faqs\/(\d+)/)?.[1]
             ?? url.match(/ign\.com\/wikis\/([^/?#]+)/i)?.[1]?.toLowerCase()
             ?? null
     }
 
     const PHASES: { key: keyof Omit<DownloadState, 'status' | 'error'>; label: string }[] = [
-        { key: 'download', label: 'Download' },
-        { key: 'pages',    label: 'Pages'    },
-        { key: 'subtask',  label: 'Page'     },
+        { key: 'download', label: 'Fetch'    },
+        { key: 'pages',    label: 'Parse'    },
+        { key: 'subtask',  label: 'Contents' },
     ]
 
     async function downloadGuide(guide: Guide) {
@@ -196,7 +200,7 @@
                         {#if !guideId}
                             <span class="gm-status-err">—</span>
                         {:else if state?.status === 'done'}
-                            <a class="gm-open-btn" href={`/journal/${appid}/guides/${source}/${guideId}`} onclick={(e) => { e.preventDefault(); onClose(); navigate(`journal/${appid}/guides/${source}/${guideId}`) }}>
+                            <a class="gm-open-btn" href={`/journal/${appid}/guides/${source}/${guideId}`} onclick={(e) => { e.preventDefault(); const dest = `journal/${appid}/guides/${source}/${guideId}`; onClose(); navigate(dest) }}>
                                 Open ›
                             </a>
                         {:else if state?.status === 'error'}

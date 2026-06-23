@@ -2,7 +2,7 @@
 
 ## Overview
 
-The guides system allows parsed GameFAQs (and future) guides to be stored on the NAS and surfaced in the gaming journal. Each guide is associated with a Steam App ID and a source name (e.g. `gamefaqs`).
+The guides system downloads, parses, and surfaces guides from three sources: **GameFAQs**, **IGN**, and **Steam Community**. Each guide is associated with a Steam App ID and a source name (`gamefaqs`, `ign`, or `steam`).
 
 ---
 
@@ -14,8 +14,27 @@ Guides live on the NAS at:
 ```
 
 Each source folder contains:
-- `_meta.json` — guide metadata (title, author, nav tree, pages list, parsedAt)
-- One folder per section slug, each containing `content.json` and any images in `img/`
+- `_raw/` — raw HTML files written by the fetcher (one `.html` per section/page)
+- `_raw/_manifest.json` — page list, sourceUrl, fetchedAt (+ title/author for Steam)
+- `_meta.json` — guide metadata (title, author, navTree, pages list, parsedAt) — written by parser
+- One folder per section slug, each containing `content.json` + `preview.html` + `img/`
+
+Full layout:
+```
+$DATA_DIR/relay/guides/{steamId}/
+  _search.json                       ← search results for all sources
+  {source}/                          ← gamefaqs/, ign/, steam/
+    {guideId}/
+      _raw/
+        _manifest.json
+        _index.html                  ← IGN only: index page
+        {slug}.html                  ← one file per section/page
+      _meta.json
+      {slug}/
+        content.json                 ← ContentBlock[] (app-facing)
+        preview.html                 ← standalone preview for testing
+        img/                         ← downloaded + WebP-converted images
+```
 
 ### Steam ID Mapping
 
@@ -27,19 +46,89 @@ The folder name must match the game's **current** Steam App ID. Notable cases:
 
 ---
 
+## Two-Step Pipeline
+
+Every guide goes through two scripts in `relay-server/src/tools/`:
+
+1. **`fetch-guide.js`** — launches Puppeteer (or calls an API for Steam search), saves raw HTML to `_raw/`, writes `_manifest.json`
+2. **`parse-guide.js`** — reads `_raw/` + manifest, writes `content.json` + `preview.html` + `img/`
+
+To re-parse with fixes: just re-run `parse-guide.js --no-images` — images already on disk are reused, no network needed.
+
+`--no-images` only skips downloading NEW images; it still resolves `localSrc` for images already on disk.
+
+---
+
+## Adapter Contract
+
+All three source adapters (`gamefaqs/adapter.js`, `ign/adapter.js`, `steam/adapter.js`) must export:
+
+```js
+resolveContentSelector($)                         → string
+buildAdapter(contentSelector)                     → { contentSelector, junkSelectors, unwrapSelectors?, transformImageUrl? }
+extractTitle($)                                   → string | null
+extractNavTree($, guideId, manifestPages?)        → NavItem[] | null
+slugToLabel(slug)                                 → string
+rewriteInternalLinks(html, guideId, knownSlugs?) → string
+
+// Optional:
+preprocessRawHtml?(html, guideId)                → string
+extractNavLinksFromDoc?(...)                      → PageLink[]   // IGN only
+isTextGuide?($)                                  → boolean      // GameFAQs only
+extractAuthor?($)                                → string|null
+```
+
+`buildAdapter` can return `unwrapSelectors` — elements that get replaced with their children before junk removal. Used by the Steam adapter to strip `<a class="modalContentLink">` image popup wrappers before the `ALWAYS_REMOVE` pass runs on `<a>` tags.
+
+---
+
+## _search.json Schema
+
+Written by the controller's search endpoints. All sources share the same top-level structure:
+
+```json
+{
+  "steamId": "...",
+  "sources": {
+    "gamefaqs": {
+      "searchedAt": "ISO string",
+      "matchedGame": { "name": "...", "platform": "...", "gameUrl": "...", "score": 1.0 },
+      "guides": [{ "title": "...", "url": "...", "type": "html|text|unknown" }]
+    },
+    "ign": {
+      "searchedAt": "ISO string",
+      "matchedGame": { "name": "...", "gameUrl": "...", "score": 1.0 },
+      "guides": [{ "title": "...", "url": "...", "type": "html" }]
+    },
+    "steam": {
+      "searchedAt": "ISO string",
+      "matchedGame": { "name": "...", "gameUrl": "...", "score": 1.0 },
+      "guides": [{ "title": "...", "url": "steamcommunity.com/sharedfiles/filedetails/?id=...", "type": "html" }]
+    }
+  }
+}
+```
+
+`matchedGame.platform` is optional — GameFAQs populates it, IGN and Steam do not.
+
+---
+
 ## Relay API
 
 Endpoints served by the relay server (`relay-server/src/controllers/guides/guides.controller.js`):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/guides/:steamId` | List all guide sources for a game |
-| GET | `/api/guides/:steamId/:source/meta` | Full `_meta.json` for a guide |
-| GET | `/api/guides/:steamId/:source/:section` | `content.json` for a section |
+| GET | `/api/guides/:steamId` | List all downloaded guides for a game |
+| GET | `/api/guides/:steamId/search` | Return cached `_search.json` |
+| POST | `/api/guides/:steamId/search` | Run a live search (SSE stream) |
+| POST | `/api/guides/:steamId/download` | Download + parse a guide (SSE stream) |
+| GET | `/api/guides/:steamId/:source/:guideId/meta` | Full `_meta.json` for a guide |
+| GET | `/api/guides/:steamId/:source/:guideId/:section` | `content.json` for a section |
 
 Static images are served at:
 ```
-/guides-img/{steamId}/{source}/{section}/img/{filename}
+/guides-img/{steamId}/{source}/{guideId}/{section}/img/{filename}
 ```
 
 Section slugs containing `#` (anchor slugs like `intro#mechanics`) must be `encodeURIComponent()`-encoded in both API calls and navigation URLs.
@@ -135,6 +224,43 @@ The active link is highlighted via `gv-toc-link--active` (gold background).
 6. Final safety pass: `root.find('[style],[class]').removeAttr(...)` — catches survivors from Cheerio `replaceWith` edge cases (e.g. `<span style="color:…">` wrapping mixed text+elements)
 
 **External vs internal link detection:** A link is external only if its href matches `/^[a-z][a-z0-9+\-.]*:\/\//i` (absolute URI scheme). Bare relative hrefs like `href="wrenwood-hotel"` are treated as internal and preserved.
+
+---
+
+## Source-Specific Conventions
+
+### GameFAQs
+
+- Guide ID: numeric `faqId` extracted from `/faqs/{id}` in URL
+- Text-format (ASCII) guides are detected by `isTextGuide($)` and skipped
+- Nav tree built from `.ftoc ol` on the first raw page
+- `rewriteInternalLinks` rewrites full GameFAQs URLs to bare sibling slugs
+
+### IGN
+
+- Guide ID: wiki slug (e.g. `monster-hunter-stories-3-twisted-reflection`) from `/wikis/{slug}`
+- Index page always saved as `_raw/_index.html`; nav tree is built from it
+- Sidebar (`.scrollbar`) = genuine nav hierarchy; article body = TOC on index only
+- `discoveredFrom` in manifest pages tracks which parent first linked to a child — enables grouped nav tree
+- `preprocessRawHtml` normalizes absolute IGN URLs → root-relative so internal links survive `cleanInlineHtml`
+- Search uses Puppeteer to scrape IGN wiki search; no API
+
+### Steam
+
+- Guide ID: numeric `publishedfileid` from `?id=` param in `steamcommunity.com/sharedfiles/filedetails/` URL
+- Search uses Steam Published File API (`ISteamPublishedFileService/QueryFiles/v1`, `file_type=9`, `query_type=1` for popularity ranking) — **no browser needed**
+- Fetcher fetches the single-page guide once with Puppeteer, then cheerio slices it into per-section files
+- DOM structure:
+  - Sections: `div.subSection[id="{sectionId}"]` inside `div.guide.subSections`
+  - Section title: `div.subSectionTitle` | Section body: `div.subSectionDesc`
+  - Nav sidebar: `div.rightbox_list_option[id="guideSectionSelection_{sectionId}"]` → `.guideSubSectionSelectionLink`
+  - Skip sectionId `"0"` (Overview = show-all default) and `"-1"` (Comments)
+- BBCode headings render as `div.bb_h2`, `div.bb_h3` — `preprocessRawHtml` converts to `<h2>`, `<h3>`
+- Images are wrapped in `<a class="modalContentLink">` for Steam's popup viewer; `buildAdapter` returns `unwrapSelectors: ['a.modalContentLink']` to strip the wrapper. The `img.src` already points to the full-size Steam CDN URL — no URL transform needed
+- Author: `.friendBlockContent` contains "Name\n\t\tOffline" — fetcher takes only the first line
+- Each per-section file embeds `div.workshopItemTitle` and `div.friendBlockContent` (cleaned) so `extractTitle`/`extractAuthor` work without re-reading the full raw page
+- `extractNavTree` returns a flat link list from `manifest.pages[].label` (original Steam section labels, not slug-ified versions)
+- Manifest includes `title` and `author` fields in addition to the standard fields
 
 ---
 

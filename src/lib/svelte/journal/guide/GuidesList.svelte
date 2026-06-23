@@ -19,7 +19,7 @@
     let loading  = $state(true)
     let error    = $state<string | null>(null)
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam' }
 
     function fmtDate(iso: string | null): string {
         if (!iso) return '—'

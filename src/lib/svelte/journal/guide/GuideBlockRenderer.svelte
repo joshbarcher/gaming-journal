@@ -5,9 +5,10 @@
         children?: { ordered: boolean; items: ListItem[] }
     }
 
-    // Table cells from buildGrid: { text: string, colspan?: number, rowspan?: number } | null
+    // Table cells from buildGrid: { text: string, html?: string, colspan?: number, rowspan?: number } | null
     interface Cell {
         text: string
+        html?: string
         colspan?: number
         rowspan?: number
     }
@@ -138,7 +139,7 @@
                                 {#if h}
                                     <th colspan={h.colspan ?? 1} rowspan={h.rowspan ?? 1}>
                                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                        {@html h.text}
+                                        {@html h.html ?? h.text}
                                     </th>
                                 {/if}
                             {/each}
@@ -152,7 +153,7 @@
                                 {#if cell}
                                     <td colspan={cell.colspan ?? 1} rowspan={cell.rowspan ?? 1}>
                                         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                        {@html cell.text}
+                                        {@html cell.html ?? cell.text}
                                     </td>
                                 {/if}
                             {/each}

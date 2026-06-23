@@ -5,8 +5,9 @@
     align-items: center;
     gap: 6px;
     margin-bottom: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     min-width: 0;
+    overflow: hidden;
 }
 
 /* Space below breadcrumb before the page title — only where a title directly follows */
@@ -14,8 +15,7 @@
 .community-header-body .bc-trail { margin-bottom: 12px; }
 
 .bc-crumb {
-    display: inline-flex;
-    align-items: center;
+    display: inline-block;
     padding: 4px 13px;
     border-radius: 20px;
     font-size: 10.5px;
@@ -30,6 +30,12 @@
     transition: border-color var(--transition), color var(--transition), background var(--transition);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 3px rgba(0, 0, 0, 0.25);
     white-space: nowrap;
+    /* elastic truncation */
+    min-width: 0;
+    flex-shrink: 1;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 a.bc-crumb:hover {
@@ -44,10 +50,8 @@ a.bc-crumb:hover {
     color: var(--clr-accent);
     cursor: default;
     box-shadow: inset 0 1px 0 rgba(201, 168, 76, 0.1), 0 0 8px rgba(201, 168, 76, 0.07);
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: inline-block;
+    /* current crumb can be a bit wider — it's the most important label */
+    max-width: 200px;
 }
 
 .bc-sep {
@@ -56,4 +60,5 @@ a.bc-crumb:hover {
     opacity: 0.4;
     user-select: none;
     line-height: 1;
+    flex-shrink: 0;
 }

@@ -3,6 +3,7 @@
     import { goto } from '$app/navigation'
     import Breadcrumb from '../../Breadcrumb.svelte'
     import GuideBlockRenderer from './GuideBlockRenderer.svelte'
+    import GuideLanding from './GuideLanding.svelte'
 
     let { appid, source, guideId, section }: {
         appid: string
@@ -41,6 +42,7 @@
     }
 
     // Intercept clicks on links inside the rendered guide content.
+    // • href="#"             → guide index link → go to landing page
     // • href="#anchor"       → scroll .gv-content to element (no navigation)
     // • href="page#anchor"   → if the base page is already loaded, just scroll;
     //                          otherwise navTo so # is percent-encoded, not treated as URL fragment
@@ -49,6 +51,15 @@
         if (!a) return
         const href = a.getAttribute('href')
         if (!href) return
+
+        // Bare "#" = bare wiki index URL — go to guide landing page
+        if (href === '#') {
+            e.preventDefault()
+            e.stopPropagation()
+            navToLanding()
+            return
+        }
+
         const hashIdx = href.indexOf('#')
         if (hashIdx === -1) return
         e.preventDefault()
@@ -116,10 +127,25 @@
         openGroups = next
     }
 
+    // Open the TOC group that contains `slug` without closing others the user may have opened.
+    function autoOpenGroupFor(slug: string) {
+        const tree = filteredNavTree
+        if (!tree) return
+        const toOpen = (tree as any[])
+            .filter(item => item.type === 'group' &&
+                (item.slug === slug || item.children?.some((c: any) => c.slug === slug)))
+            .map(item => item.label)
+        if (toOpen.length) openGroups = new Set([...openGroups, ...toOpen])
+    }
+
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     function navTo(slug: string) {
         goto(`/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}`)
+    }
+
+    function navToLanding() {
+        goto(`/journal/${appid}/guides/${source}/${guideId}`, { replaceState: false })
     }
 
     function isActive(slug: string): boolean {
@@ -152,6 +178,7 @@
             }
             blocks = data ?? []
             currentSlug = slug
+            autoOpenGroupFor(slug)
         } finally {
             loadingSection = false
         }
@@ -163,21 +190,83 @@
         }
     }
 
+    // ── Table drag-to-scroll ───────────────────────────────────────────────────
+
+    function attachDragScroll(el: HTMLElement): () => void {
+        let startX = 0
+        let startScroll = 0
+        let active = false
+        let dragged = false
+
+        function onMouseDown(e: MouseEvent) {
+            if (e.button !== 0) return
+            startX = e.clientX
+            startScroll = el.scrollLeft
+            active = true
+            dragged = false
+            document.body.style.cursor = 'grabbing'
+            document.body.style.userSelect = 'none'
+        }
+
+        function onMouseMove(e: MouseEvent) {
+            if (!active) return
+            const delta = startX - e.clientX
+            if (Math.abs(delta) > 4) {
+                dragged = true
+                el.scrollLeft = startScroll + delta
+            }
+        }
+
+        function onMouseUp() {
+            if (!active) return
+            active = false
+            document.body.style.cursor = ''
+            document.body.style.userSelect = ''
+        }
+
+        // Capture-phase click handler: cancel the click when the mouse moved
+        function onClick(e: MouseEvent) {
+            if (dragged) {
+                e.preventDefault()
+                e.stopPropagation()
+                dragged = false
+            }
+        }
+
+        el.addEventListener('mousedown', onMouseDown)
+        window.addEventListener('mousemove', onMouseMove)
+        window.addEventListener('mouseup', onMouseUp)
+        el.addEventListener('click', onClick, true)
+
+        return () => {
+            el.removeEventListener('mousedown', onMouseDown)
+            window.removeEventListener('mousemove', onMouseMove)
+            window.removeEventListener('mouseup', onMouseUp)
+            el.removeEventListener('click', onClick, true)
+        }
+    }
+
+    // Attach drag-scroll to every table container after blocks render
+    $effect(() => {
+        void blocks // re-run when blocks change
+        if (!contentEl) return
+        const cleanups: (() => void)[] = []
+        tick().then(() => {
+            contentEl!.querySelectorAll<HTMLElement>('.gv-table-wrap, .gv-p > table').forEach(el => {
+                cleanups.push(attachDragScroll(el))
+            })
+        })
+        return () => cleanups.forEach(fn => fn())
+    })
+
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     onMount(async () => {
         try {
             await loadMeta()
-            const firstSlug = section ?? meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
-            if (!firstSlug) throw new Error('No sections in guide')
-            await loadSection(firstSlug)
-            // When there's no section in the URL, update it so that relative
-            // links inside guide content (href="some-page") resolve correctly.
-            if (!section) {
-                await goto(
-                    `/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(firstSlug)}`,
-                    { replaceState: true, noScroll: true }
-                )
+            // No section = show landing page; don't auto-navigate to first page.
+            if (section) {
+                await loadSection(section)
             }
         } catch (e) {
             error = (e as Error).message
@@ -205,14 +294,15 @@
             const curBase = currentSlug?.split('#')[0] ?? ''
             if (anchor && sBase === curBase && document.getElementById(anchor)) {
                 currentSlug = s
+                autoOpenGroupFor(sBase)
                 scrollToAnchor(anchor)
                 return
             }
             loadSection(s)
-        } else if (!s) {
-            // null section (guide root breadcrumb) → go to first page
-            const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
-            if (firstSlug && firstSlug !== currentSlug) loadSection(firstSlug)
+        } else if (!s && currentSlug) {
+            // Navigated back to guide root (landing page) — clear current section
+            currentSlug = null
+            blocks = []
         }
     })
 
@@ -252,23 +342,19 @@
 
     let sectionLabel = $derived.by(() => {
         if (!currentSlug || !meta) return ''
-        // Find label in nav/pages
         const pages = meta.pages ?? meta.nav ?? []
         return pages.find((p: any) => p.slug === currentSlug)?.label ?? currentSlug
     })
 
-    let firstSlugHref = $derived.by(() => {
-        const slug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
-        return slug ? `/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}` : null
-    })
+    let guideLandingHref = $derived(`/journal/${appid}/guides/${source}/${guideId}`)
 
     let crumbs = $derived([
         { label: 'Home',    href: '/' },
         { label: gameName || appid, href: `/game/${appid}` },
         { label: 'Journal', href: `/journal/${appid}` },
         { label: 'Guides',  href: `/journal/${appid}/guides` },
-        { label: meta?.title ?? source, href: firstSlugHref ?? undefined },
-        ...(sectionLabel && sectionLabel !== (meta?.title ?? source) ? [{ label: sectionLabel }] : []),
+        { label: meta?.title ?? source, href: currentSlug ? guideLandingHref : undefined },
+        ...(sectionLabel ? [{ label: sectionLabel }] : []),
     ])
 </script>
 
@@ -297,10 +383,12 @@
     <!-- ── Three-column body ─────────────────────────────────────────────── -->
     <div class="gv-body">
 
-        <!-- Left gutter: page scroll arrows (fixed) -->
+        <!-- Left gutter: page scroll arrows (hidden on landing) -->
         <div class="gv-gutter">
-            <button class="gv-nav-arrow" onclick={() => scrollPage(-1)} title="Scroll up" aria-label="Scroll up">↑</button>
-            <button class="gv-nav-arrow" onclick={() => scrollPage(1)}  title="Scroll down" aria-label="Scroll down">↓</button>
+            {#if currentSlug}
+                <button class="gv-nav-arrow" onclick={() => scrollPage(-1)} title="Scroll up" aria-label="Scroll up">↑</button>
+                <button class="gv-nav-arrow" onclick={() => scrollPage(1)}  title="Scroll down" aria-label="Scroll down">↓</button>
+            {/if}
         </div>
 
         <!-- Center: content -->
@@ -308,6 +396,22 @@
         <div class="gv-content" bind:this={contentEl} onclick={onContentClick}>
             {#if loadingSection}
                 <div class="gv-section-loading"><div class="community-loader"></div></div>
+            {:else if !currentSlug}
+                <div class="gv-content-inner">
+                    <GuideLanding
+                        steamId={appid}
+                        {source}
+                        {guideId}
+                        title={meta.title}
+                        pageCount={(meta.pages ?? []).length}
+                        parsedAt={meta.parsedAt ?? null}
+                        coverImages={meta.coverImages ?? []}
+                        onStart={() => {
+                            const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
+                            if (firstSlug) navTo(firstSlug)
+                        }}
+                    />
+                </div>
             {:else}
                 <div class="gv-content-inner">
                     <GuideBlockRenderer
@@ -337,16 +441,14 @@
                                     onclick={() => navTo(item.slug)}
                                 >{item.label}</button>
                             {:else if item.type === 'group'}
-                                {@const groupOpen = openGroups.has(item.label)
-                                    || isActive(item.slug)
-                                    || item.children.some((c: any) => isActive(c.slug))}
+                                {@const groupOpen = openGroups.has(item.label)}
                                 <div class="gv-toc-group">
                                     <div class="gv-toc-group-hd" role="button" tabindex="-1" onclick={() => toggleGroup(item.label)}>
                                         {#if item.slug}
                                             <button
                                                 class="gv-toc-link gv-toc-group-nav"
                                                 class:gv-toc-link--active={isActive(item.slug)}
-                                                onclick={(e) => { e.stopPropagation(); navTo(item.slug); }}
+                                                onclick={() => navTo(item.slug)}
                                             >{item.label}</button>
                                         {:else}
                                             <span class="gv-toc-group-lbl">{item.label}</span>

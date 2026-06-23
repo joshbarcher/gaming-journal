@@ -44,7 +44,7 @@
     let searchRunning = $state(false)
     let searchNotFound = $state(false)
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam' }
 
     function openGuideModal(src: string, e: MouseEvent) {
         e.stopPropagation()
@@ -93,7 +93,7 @@
         searchRunning = true
         searchNotFound = false
         try {
-            await Promise.all([runSearch('gamefaqs'), runSearch('ign')])
+            await Promise.all([runSearch('gamefaqs'), runSearch('ign'), runSearch('steam')])
         } catch { /* silent */ } finally {
             searchRunning = false
         }
