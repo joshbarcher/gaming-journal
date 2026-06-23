@@ -35,7 +35,7 @@
     // ── Guides ─────────────────────────────────────────────────────────────────
 
     interface DownloadedGuide { source: string; guideId: string; title: string; author: string | null; parsedAt: string | null; pageCount: number }
-    interface SearchSource { searchedAt: string; matchedGame: any; guides: { title: string; url: string; type: string }[] }
+    interface SearchSource { searchedAt: string; matchedGame: { name: string; gameUrl: string; score: number } | null; guides: { title: string; url: string; type: string }[] }
     interface SearchData { steamId: string; sources: Record<string, SearchSource> }
 
     let guides        = $state<DownloadedGuide[]>([])
@@ -44,7 +44,7 @@
     let searchRunning = $state(false)
     let searchNotFound = $state(false)
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN' }
 
     function openGuideModal(src: string, e: MouseEvent) {
         e.stopPropagation()
@@ -56,45 +56,44 @@
         guides = g
     }
 
+    async function runSearch(source: string) {
+        if (!game) return
+        const resp = await fetch(`/relay/api/guides/${appid}/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameName: game.name, source }),
+        })
+        if (!resp.ok || !resp.body) return
+
+        const reader = resp.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buf += decoder.decode(value, { stream: true })
+            const parts = buf.split('\n\n')
+            buf = parts.pop() ?? ''
+
+            for (const part of parts) {
+                for (const raw of part.split('\n')) {
+                    if (!raw.startsWith('data: ')) continue
+                    let event: any
+                    try { event = JSON.parse(raw.slice(6)) } catch { continue }
+                    if (event.phase === 'done') searchData = event.data
+                    else if (event.phase === 'not_found') searchNotFound = true
+                }
+            }
+        }
+    }
+
     async function refreshSearch() {
         if (searchRunning || !game) return
         searchRunning = true
         searchNotFound = false
-
         try {
-            const resp = await fetch(`/relay/api/guides/${appid}/search`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameName: game.name }),
-            })
-
-            if (!resp.ok || !resp.body) { return }
-
-            const reader = resp.body.getReader()
-            const decoder = new TextDecoder()
-            let buf = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-                buf += decoder.decode(value, { stream: true })
-                const parts = buf.split('\n\n')
-                buf = parts.pop() ?? ''
-
-                for (const part of parts) {
-                    for (const raw of part.split('\n')) {
-                        if (!raw.startsWith('data: ')) continue
-                        let event: any
-                        try { event = JSON.parse(raw.slice(6)) } catch { continue }
-
-                        if (event.phase === 'done') {
-                            searchData = event.data
-                        } else if (event.phase === 'not_found') {
-                            searchNotFound = true
-                        }
-                    }
-                }
-            }
+            await Promise.all([runSearch('gamefaqs'), runSearch('ign')])
         } catch { /* silent */ } finally {
             searchRunning = false
         }
@@ -486,7 +485,12 @@
                 >↻</button>
             </div>
 
-            {#if !searchData}
+            {#if searchRunning}
+                <div class="gj-guides-searching">
+                    <div class="gj-guides-spinner"></div>
+                    <span class="gj-guides-spinner-label">Searching…</span>
+                </div>
+            {:else if !searchData}
                 <p class="gj-no-data">
                     {searchNotFound ? 'No guides found on GameFAQs' : 'No guide data — click ↻ to search'}
                 </p>

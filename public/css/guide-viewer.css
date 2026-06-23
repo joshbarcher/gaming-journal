@@ -10,7 +10,8 @@
 .gv-wrap {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    height: 100dvh;
+    overflow: hidden;
 }
 
 /* ── Header row: 3-col grid so CONTENTS aligns with breadcrumbs + h1 ──── */
@@ -59,8 +60,9 @@
     display: grid;
     grid-template-columns: 44px 1fr 280px;
     gap: 0;
+    flex: 1;
     min-height: 0;
-    align-items: start;
+    overflow: hidden;
 }
 
 /* ── Left gutter (h2 arrows) ─────────────────────────────────────────────── */
@@ -104,9 +106,14 @@
 
 .gv-content {
     grid-column: 2;
-    padding: 0 24px 80px 8px;
     min-width: 0;
+    overflow-y: auto;
+    height: 100%;
+}
+
+.gv-content-inner {
     max-width: 860px;
+    padding: 0 24px 80px 8px;
 }
 
 .gv-section-loading {
@@ -322,13 +329,10 @@
 
 .gv-sidebar {
     grid-column: 3;
-    position: sticky;
-    top: 0;
-    align-self: stretch;
-    max-height: 100vh;
+    height: 100%;
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.04) transparent;
     background: var(--clr-bg-raised);
     border-left: 1px solid var(--clr-border);
 }
@@ -411,12 +415,23 @@
     padding-left: 14px;
 }
 
-.gv-toc-group { }
+.gv-toc-group {
+    margin-top: 6px;
+}
 
 .gv-toc-group-hd {
     display: flex;
     align-items: center;
     gap: 2px;
+    cursor: pointer;
+    border-left: 2px solid rgba(201, 168, 76, 0.4);
+    padding-left: 6px;
+    border-radius: 0 3px 3px 0;
+    transition: border-color var(--transition);
+}
+
+.gv-toc-group-hd:hover {
+    border-color: rgba(201, 168, 76, 0.7);
 }
 
 .gv-toc-group-nav {
@@ -424,6 +439,7 @@
     min-width: 0;
     text-align: left;
     font-weight: 600;
+    color: var(--clr-accent) !important;
 }
 
 .gv-toc-group-lbl {
@@ -431,8 +447,8 @@
     min-width: 0;
     font-size: 12px;
     font-weight: 600;
-    color: var(--clr-text-muted);
-    padding: 5px 6px;
+    color: var(--clr-accent);
+    padding: 5px 6px 5px 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -442,11 +458,11 @@
     flex-shrink: 0;
     background: none;
     border: none;
-    color: var(--clr-text-muted);
+    color: var(--clr-accent);
     font-size: 9px;
     padding: 5px 4px;
     cursor: pointer;
-    opacity: 0.6;
+    opacity: 0.5;
     transition: opacity var(--transition);
 }
 
@@ -458,6 +474,9 @@
     display: flex;
     flex-direction: column;
     gap: 1px;
+    padding-left: 8px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    margin-left: 7px;
 }
 
 /* ── Inline markup from guide HTML ───────────────────────────────────────── */

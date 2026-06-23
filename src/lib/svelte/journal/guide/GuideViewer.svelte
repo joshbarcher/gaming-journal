@@ -26,9 +26,45 @@
     let contentEl = $state<HTMLElement | null>(null)
 
     function scrollPage(delta: 1 | -1) {
-        const scrollEl = document.getElementById('main-content')
-        if (!scrollEl) return
-        scrollEl.scrollBy({ top: delta * scrollEl.clientHeight * 0.85, behavior: 'smooth' })
+        if (!contentEl) return
+        contentEl.scrollBy({ top: delta * contentEl.clientHeight * 0.85, behavior: 'smooth' })
+    }
+
+    // ── Anchor / fragment link helpers ─────────────────────────────────────────
+
+    function scrollToAnchor(anchor: string) {
+        if (!contentEl) return
+        const el = document.getElementById(anchor)
+        if (!el) return
+        const elTop = el.getBoundingClientRect().top - contentEl.getBoundingClientRect().top
+        contentEl.scrollBy({ top: elTop - 16, behavior: 'smooth' })
+    }
+
+    // Intercept clicks on links inside the rendered guide content.
+    // • href="#anchor"       → scroll .gv-content to element (no navigation)
+    // • href="page#anchor"   → if the base page is already loaded, just scroll;
+    //                          otherwise navTo so # is percent-encoded, not treated as URL fragment
+    function onContentClick(e: MouseEvent) {
+        const a = (e.target as Element)?.closest('a[href]') as HTMLAnchorElement | null
+        if (!a) return
+        const href = a.getAttribute('href')
+        if (!href) return
+        const hashIdx = href.indexOf('#')
+        if (hashIdx === -1) return
+        e.preventDefault()
+        e.stopPropagation()
+        const anchor = href.slice(hashIdx + 1)
+        if (hashIdx === 0) {
+            scrollToAnchor(anchor)
+        } else {
+            const basePage = href.slice(0, hashIdx)
+            const currentBase = currentSlug?.split('#')[0] ?? ''
+            if (currentBase === basePage) {
+                scrollToAnchor(anchor)
+            } else {
+                navTo(href)
+            }
+        }
     }
 
     // ── Image modal ────────────────────────────────────────────────────────────
@@ -104,15 +140,27 @@
 
     async function loadSection(slug: string) {
         loadingSection = true
+        const anchorIdx = slug.indexOf('#')
+        const anchor = anchorIdx !== -1 ? slug.slice(anchorIdx + 1) : null
         try {
-            const data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : null)
+            let data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : null)
+            // If the anchor-slug has no pre-sliced page, fall back to the base page
+            // and scroll to the anchor within it after render.
+            if (!data && anchor) {
+                const baseSlug = slug.slice(0, anchorIdx)
+                data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(baseSlug)}`).then(r => r.ok ? r.json() : null)
+            }
             blocks = data ?? []
             currentSlug = slug
         } finally {
             loadingSection = false
         }
         await tick()
-        document.getElementById('main-content')?.scrollTo({ top: 0 })
+        if (anchor) {
+            scrollToAnchor(anchor)
+        } else {
+            contentEl?.scrollTo({ top: 0 })
+        }
     }
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -123,6 +171,14 @@
             const firstSlug = section ?? meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
             if (!firstSlug) throw new Error('No sections in guide')
             await loadSection(firstSlug)
+            // When there's no section in the URL, update it so that relative
+            // links inside guide content (href="some-page") resolve correctly.
+            if (!section) {
+                await goto(
+                    `/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(firstSlug)}`,
+                    { replaceState: true, noScroll: true }
+                )
+            }
         } catch (e) {
             error = (e as Error).message
         } finally {
@@ -143,12 +199,53 @@
         const s = section
         if (loading || loadingSection || !meta) return
         if (s && s !== currentSlug) {
+            // If only the anchor differs and the element is already rendered, just scroll
+            const anchor = s.includes('#') ? s.split('#')[1] : null
+            const sBase  = s.split('#')[0]
+            const curBase = currentSlug?.split('#')[0] ?? ''
+            if (anchor && sBase === curBase && document.getElementById(anchor)) {
+                currentSlug = s
+                scrollToAnchor(anchor)
+                return
+            }
             loadSection(s)
         } else if (!s) {
             // null section (guide root breadcrumb) → go to first page
             const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
             if (firstSlug && firstSlug !== currentSlug) loadSection(firstSlug)
         }
+    })
+
+    // ── Filtered nav tree ─────────────────────────────────────────────────────
+    // Only show nav items whose slugs actually exist as parsed pages.
+    // Drops groups that become empty after filtering.
+
+    let filteredNavTree = $derived.by(() => {
+        if (!meta?.navTree) return null
+        const pageSet = new Set<string>((meta.pages ?? []).map((p: any) => p.slug))
+
+        function validSlug(slug: string | undefined): boolean {
+            if (!slug) return false
+            const base = slug.split('#')[0]
+            return pageSet.has(slug) || pageSet.has(base)
+        }
+
+        function filterItems(items: any[]): any[] {
+            return items.flatMap((item: any) => {
+                if (item.type === 'link') {
+                    return validSlug(item.slug) ? [item] : []
+                }
+                if (item.type === 'group') {
+                    const children = filterItems(item.children ?? [])
+                    const selfValid = validSlug(item.slug)
+                    if (selfValid || children.length > 0) return [{ ...item, children }]
+                    return []
+                }
+                return [] // labels have no navigation value
+            })
+        }
+
+        return filterItems(meta.navTree)
     })
 
     // ── Breadcrumbs ────────────────────────────────────────────────────────────
@@ -207,27 +304,30 @@
         </div>
 
         <!-- Center: content -->
-        <div class="gv-content" bind:this={contentEl}>
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <div class="gv-content" bind:this={contentEl} onclick={onContentClick}>
             {#if loadingSection}
                 <div class="gv-section-loading"><div class="community-loader"></div></div>
             {:else}
-                <GuideBlockRenderer
-                    {blocks}
-                    steamId={appid}
-                    {source}
-                    {guideId}
-                    section={currentSlug ?? ''}
-                    onImageClick={openImageModal}
-                />
+                <div class="gv-content-inner">
+                    <GuideBlockRenderer
+                        {blocks}
+                        steamId={appid}
+                        {source}
+                        {guideId}
+                        section={currentSlug ?? ''}
+                        onImageClick={openImageModal}
+                    />
+                </div>
             {/if}
         </div>
 
         <!-- Right sidebar: TOC nav tree (sticky, no label — it's in the header row) -->
         <aside class="gv-sidebar">
             <div class="gv-sidebar-inner">
-                {#if meta.navTree?.length}
+                {#if filteredNavTree?.length}
                     <nav class="gv-toc">
-                        {#each meta.navTree as item}
+                        {#each filteredNavTree as item}
                             {#if item.type === 'label'}
                                 <span class="gv-toc-label">{item.label}</span>
                             {:else if item.type === 'link'}
@@ -241,19 +341,19 @@
                                     || isActive(item.slug)
                                     || item.children.some((c: any) => isActive(c.slug))}
                                 <div class="gv-toc-group">
-                                    <div class="gv-toc-group-hd">
+                                    <div class="gv-toc-group-hd" role="button" tabindex="-1" onclick={() => toggleGroup(item.label)}>
                                         {#if item.slug}
                                             <button
                                                 class="gv-toc-link gv-toc-group-nav"
                                                 class:gv-toc-link--active={isActive(item.slug)}
-                                                onclick={() => navTo(item.slug)}
+                                                onclick={(e) => { e.stopPropagation(); navTo(item.slug); }}
                                             >{item.label}</button>
                                         {:else}
                                             <span class="gv-toc-group-lbl">{item.label}</span>
                                         {/if}
                                         <button
                                             class="gv-toc-chevron-btn"
-                                            onclick={() => toggleGroup(item.label)}
+                                            onclick={(e) => { e.stopPropagation(); toggleGroup(item.label); }}
                                             aria-label="Toggle section"
                                         >{groupOpen ? '▾' : '▸'}</button>
                                     </div>

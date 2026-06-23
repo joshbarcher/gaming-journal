@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import { navigate } from '../../../js/router.js'
 
     interface Guide {
         title: string
@@ -9,7 +10,7 @@
 
     interface MatchedGame {
         name: string
-        platform: string
+        platform?: string
         gameUrl: string
         score: number
     }
@@ -20,12 +21,13 @@
         searchedAt: string
     }
 
-    type DownloadPhase = 'fetch' | 'parse' | 'done' | 'error'
+    interface PhaseBar { pct: number; status: 'pending' | 'active' | 'done' }
 
     interface DownloadState {
-        phase: DownloadPhase
-        pct: number
-        label?: string
+        status:   'running' | 'done' | 'error'
+        download: PhaseBar
+        pages:    PhaseBar
+        subtask:  PhaseBar
         error?: string
     }
 
@@ -45,27 +47,46 @@
         onDownloaded: (guideId: string) => void
     } = $props()
 
+    const DONE_STATE: DownloadState = {
+        status:   'done',
+        download: { pct: 100, status: 'done' },
+        pages:    { pct: 100, status: 'done' },
+        subtask:  { pct: 100, status: 'done' },
+    }
+
     let states = $state<Record<string, DownloadState>>({})
 
-    // Pre-mark already-downloaded guides as done
     $effect(() => {
         for (const id of downloadedGuideIds) {
-            if (!states[id]) states[id] = { phase: 'done', pct: 100 }
+            if (!states[id]) states[id] = { ...DONE_STATE }
         }
     })
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN' }
 
     function guideIdFromUrl(url: string): string | null {
-        return url.match(/\/faqs\/(\d+)/)?.[1] ?? null
+        return url.match(/\/faqs\/(\d+)/)?.[1]
+            ?? url.match(/ign\.com\/wikis\/([^/?#]+)/i)?.[1]?.toLowerCase()
+            ?? null
     }
+
+    const PHASES: { key: keyof Omit<DownloadState, 'status' | 'error'>; label: string }[] = [
+        { key: 'download', label: 'Download' },
+        { key: 'pages',    label: 'Pages'    },
+        { key: 'subtask',  label: 'Page'     },
+    ]
 
     async function downloadGuide(guide: Guide) {
         const guideId = guideIdFromUrl(guide.url)
         if (!guideId) return
-        if (states[guideId]?.phase === 'done') return
+        if (states[guideId]?.status === 'done') return
 
-        states[guideId] = { phase: 'fetch', pct: 5 }
+        states[guideId] = {
+            status:   'running',
+            download: { pct: 0, status: 'active' },
+            pages:    { pct: 0, status: 'pending' },
+            subtask:  { pct: 0, status: 'pending' },
+        }
 
         try {
             const resp = await fetch(`/relay/api/guides/${appid}/download`, {
@@ -76,15 +97,13 @@
 
             if (!resp.ok || !resp.body) {
                 const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }))
-                states[guideId] = { phase: 'error', pct: 0, error: err.error ?? 'Download failed' }
+                states[guideId] = { ...states[guideId], status: 'error', error: err.error ?? 'Download failed' }
                 return
             }
 
             const reader = resp.body.getReader()
             const decoder = new TextDecoder()
             let buf = ''
-            let fetchLines = 0
-            let parseLines = 0
 
             while (true) {
                 const { done, value } = await reader.read()
@@ -99,26 +118,35 @@
                         let event: any
                         try { event = JSON.parse(raw.slice(6)) } catch { continue }
 
-                        console.log(`[guides:modal:sse] ${new Date().toISOString()}`, JSON.stringify(event).slice(0, 120))
-
+                        const cur = states[guideId]
                         if (event.phase === 'fetch-guide') {
-                            fetchLines++
-                            states[guideId] = { phase: 'fetch', pct: Math.min(5 + fetchLines * 2, 29) }
+                            const m = event.line?.match(/\[(\d+)\/(\d+)\]/)
+                            if (m) {
+                                const pct = Math.round(parseInt(m[1]) / parseInt(m[2]) * 100)
+                                states[guideId] = { ...cur, download: { pct, status: 'active' } }
+                            }
+                        } else if (event.phase === 'parse') {
+                            // Controller marker: download done, parse phase starting
+                            states[guideId] = { ...cur, download: { pct: 100, status: 'done' }, pages: { pct: 0, status: 'active' }, subtask: { pct: 0, status: 'active' } }
                         } else if (event.phase === 'progress') {
-                            const label = event.pct < 46 ? 'Parsing…' : event.pct < 85 ? 'Downloading images…' : 'Converting…'
-                            states[guideId] = { phase: 'parse', pct: event.pct, label }
+                            const bar = event.bar as string | undefined
+                            if (bar === 'pages') {
+                                states[guideId] = { ...cur, pages: { pct: event.pct, status: 'active' } }
+                            } else if (bar === 'subtask') {
+                                states[guideId] = { ...cur, subtask: { pct: event.pct, status: 'active' } }
+                            }
                         } else if (event.phase === 'done') {
-                            states[guideId] = { phase: 'done', pct: 100 }
+                            states[guideId] = { ...DONE_STATE }
                             onDownloaded(guideId)
                         } else if (event.phase === 'error') {
-                            states[guideId] = { phase: 'error', pct: 0, error: event.message }
+                            states[guideId] = { ...cur, status: 'error', error: event.message }
                         }
                     }
                 }
             }
         } catch (err: any) {
-            if (states[guideId]?.phase !== 'done') {
-                states[guideId] = { phase: 'error', pct: 0, error: err.message }
+            if (states[guideId]?.status !== 'done') {
+                states[guideId] = { ...states[guideId], status: 'error', error: err.message }
             }
         }
     }
@@ -143,7 +171,7 @@
                 <h2 class="gm-title">Available Guides</h2>
                 {#if sourceData.matchedGame}
                     <span class="gm-matched">
-                        {sourceData.matchedGame.name} · {sourceData.matchedGame.platform.toUpperCase()}
+                        {sourceData.matchedGame.name}{sourceData.matchedGame.platform ? ` · ${sourceData.matchedGame.platform.toUpperCase()}` : ''}
                         <a class="gm-matched-link" href={sourceData.matchedGame.gameUrl} target="_blank" rel="noopener noreferrer">↗</a>
                     </span>
                 {/if}
@@ -155,7 +183,7 @@
             {#each sourceData.guides as guide}
                 {@const guideId = guideIdFromUrl(guide.url)}
                 {@const state = guideId ? (states[guideId] ?? null) : null}
-                <div class="gm-row" class:gm-row--done={state?.phase === 'done'}>
+                <div class="gm-row" class:gm-row--running={state?.status === 'running'}>
                     <div class="gm-row-info">
                         <span class="gm-guide-title">{guide.title}</span>
                         <div class="gm-guide-meta">
@@ -167,16 +195,26 @@
                     <div class="gm-row-action">
                         {#if !guideId}
                             <span class="gm-status-err">—</span>
-                        {:else if state?.phase === 'done'}
-                            <span class="gm-status-done">✓ Downloaded</span>
-                        {:else if state?.phase === 'error'}
+                        {:else if state?.status === 'done'}
+                            <a class="gm-open-btn" href={`/journal/${appid}/guides/${source}/${guideId}`} onclick={(e) => { e.preventDefault(); onClose(); navigate(`journal/${appid}/guides/${source}/${guideId}`) }}>
+                                Open ›
+                            </a>
+                        {:else if state?.status === 'error'}
                             <span class="gm-status-err" title={state.error}>Failed</span>
-                        {:else if state}
-                            <div class="gm-progress">
-                                <span class="gm-progress-label">{state.label ?? (state.phase === 'fetch' ? 'Fetching…' : 'Parsing…')}</span>
-                                <div class="gm-progress-track">
-                                    <div class="gm-progress-fill" style="width:{state.pct}%"></div>
-                                </div>
+                        {:else if state?.status === 'running'}
+                            <div class="gm-phases">
+                                {#each PHASES as p}
+                                    {@const bar = state[p.key]}
+                                    <div class="gm-phase gm-phase--{bar.status}">
+                                        <span class="gm-phase-label">{p.label}</span>
+                                        <div class="gm-phase-track">
+                                            <div class="gm-phase-fill" style="width:{bar.pct}%"></div>
+                                        </div>
+                                        <span class="gm-phase-pct">
+                                            {bar.status === 'pending' ? '—' : bar.status === 'done' ? '✓' : `${bar.pct}%`}
+                                        </span>
+                                    </div>
+                                {/each}
                             </div>
                         {:else}
                             <button class="gm-dl-btn" onclick={() => downloadGuide(guide)}>Download</button>
