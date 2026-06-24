@@ -31,7 +31,7 @@ export async function patchSettings(patch: Partial<Settings>): Promise<Settings>
         if (key === 'titleBlocklist') {
             if (Array.isArray(v) && v.every(t => typeof t === 'string')) data.titleBlocklist = v
         } else if (key in DEFAULTS && typeof v === 'boolean') {
-            (data as Record<string, unknown>)[key] = v
+            (data as unknown as Record<string, unknown>)[key] = v
         }
     }
     await file.set(data)

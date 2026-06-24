@@ -74,7 +74,7 @@ export async function load(): Promise<HomeData> {
         fetchJson<HomePoster[]>(`${base}/api/games/posters?source=wishlist&n=50`),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
         getAllFlags().catch(() => ({} as FlagsStore)),
-        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [] } as Settings)),
+        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true } as Settings)),
     ])
 
     const shouldShow = makeShouldShow(flags, settings)

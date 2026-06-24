@@ -35,16 +35,19 @@
     // ── Guides ─────────────────────────────────────────────────────────────────
 
     interface DownloadedGuide { source: string; guideId: string; title: string; author: string | null; parsedAt: string | null; pageCount: number }
-    interface SearchSource { searchedAt: string; matchedGame: { name: string; gameUrl: string; score: number } | null; guides: { title: string; url: string; type: string }[] }
+    interface SearchSource { searchedAt: string; matchedGame: { name: string; gameUrl: string; score: number } | null; guides: { title: string; url: string; type: string }[]; categories?: Record<string, { title: string; url: string; type: string }[]> }
     interface SearchData { steamId: string; sources: Record<string, SearchSource> }
 
-    let guides        = $state<DownloadedGuide[]>([])
-    let searchData    = $state<SearchData | null>(null)
-    let modalSource   = $state<string | null>(null)
-    let searchRunning = $state(false)
+    let guides         = $state<DownloadedGuide[]>([])
+    let searchData     = $state<SearchData | null>(null)
+    let modalSource    = $state<string | null>(null)
+    let searchingSet   = $state<Set<string>>(new Set())
     let searchNotFound = $state(false)
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam' }
+    const searchRunning = $derived(searchingSet.size > 0)
+
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker' }
+    const SOURCE_ICONS:  Record<string, string> = { gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp', steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp', gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp', neoseeker: '/images/guides/neoseeker.webp' }
 
     function openGuideModal(src: string, e: MouseEvent) {
         e.stopPropagation()
@@ -56,47 +59,68 @@
         guides = g
     }
 
+    function mergeSource(src: string, sourceEntry: any) {
+        searchData = {
+            ...(searchData ?? {}),
+            sources: { ...(searchData?.sources ?? {}), [src]: sourceEntry },
+        }
+    }
+
     async function runSearch(source: string) {
-        if (!game) return
-        const resp = await fetch(`/relay/api/guides/${appid}/search`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ gameName: game.name, source }),
-        })
-        if (!resp.ok || !resp.body) return
+        if (!game || searchingSet.has(source)) return
+        searchingSet = new Set([...searchingSet, source])
+        try {
+            const resp = await fetch(`/relay/api/guides/${appid}/search`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameName: game.name, source }),
+            })
 
-        const reader = resp.body.getReader()
-        const decoder = new TextDecoder()
-        let buf = ''
+            if (resp.status === 409) {
+                // Another search for this source is already running (e.g. a concurrent request).
+                // Poll the cached result in a few seconds so the UI eventually updates.
+                setTimeout(async () => {
+                    const d = await fetch(`/relay/api/guides/${appid}/search`).then(r => r.ok ? r.json() : null).catch(() => null)
+                    const entry = d?.sources?.[source]
+                    if (entry) mergeSource(source, entry)
+                }, 6_000)
+                return
+            }
 
-        while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            buf += decoder.decode(value, { stream: true })
-            const parts = buf.split('\n\n')
-            buf = parts.pop() ?? ''
+            if (!resp.ok || !resp.body) return
 
-            for (const part of parts) {
-                for (const raw of part.split('\n')) {
-                    if (!raw.startsWith('data: ')) continue
-                    let event: any
-                    try { event = JSON.parse(raw.slice(6)) } catch { continue }
-                    if (event.phase === 'done') searchData = event.data
-                    else if (event.phase === 'not_found') searchNotFound = true
+            const reader = resp.body.getReader()
+            const decoder = new TextDecoder()
+            let buf = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+                buf += decoder.decode(value, { stream: true })
+                const parts = buf.split('\n\n')
+                buf = parts.pop() ?? ''
+
+                for (const part of parts) {
+                    for (const raw of part.split('\n')) {
+                        if (!raw.startsWith('data: ')) continue
+                        let event: any
+                        try { event = JSON.parse(raw.slice(6)) } catch { continue }
+                        if (event.phase === 'done') {
+                            const entry = event.data?.sources?.[source]
+                            if (entry) mergeSource(source, entry)
+                        } else if (event.phase === 'not_found') searchNotFound = true
+                    }
                 }
             }
+        } catch { /* silent */ } finally {
+            searchingSet = new Set([...searchingSet].filter(s => s !== source))
         }
     }
 
     async function refreshSearch() {
-        if (searchRunning || !game) return
-        searchRunning = true
+        if (!game) return
         searchNotFound = false
-        try {
-            await Promise.all([runSearch('gamefaqs'), runSearch('ign'), runSearch('steam')])
-        } catch { /* silent */ } finally {
-            searchRunning = false
-        }
+        await Promise.all([runSearch('gamefaqs'), runSearch('ign'), runSearch('steam'), runSearch('game8'), runSearch('gamerguides'), runSearch('fandom'), runSearch('neoseeker')])
     }
 
     // HLTB pin live tracking
@@ -395,7 +419,7 @@
 {:else if error}
     <p class="page-error">{error}</p>
 {:else if game}
-<div class="gj-dash">
+<div class="gj-dash gj-dash--with-bg" style="--jd-bg: url('{game.media?.screenshots?.[0] ?? game.media?.background ?? game.media?.header ?? ''}')">
     <div class="gj-header">
         <Breadcrumb crumbs={[
             { label: 'Home', href: '/' },
@@ -470,53 +494,47 @@
 
         <!-- Guides card: always col 3, always row-span 2. Always visible.
              Must come before HLTB in the DOM so auto-placement fills cols 1-2 around it. -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="gj-card gj-card--guides-panel" style="grid-column:3;grid-row:2/4"
-             onclick={() => navigate(`journal/${appid}/guides`)}
-             role="button" tabindex="0">
+        <div class="gj-card gj-card--guides-panel" style="grid-column:3;grid-row:2/4">
             <div class="gj-card-header">
                 <span class="gj-card-title">Guides</span>
                 <button
                     class="game-refresh-btn"
                     class:game-refresh-btn--spinning={searchRunning}
                     disabled={searchRunning}
-                    onclick={(e) => { e.stopPropagation(); refreshSearch() }}
-                    title="Search for guides"
+                    onclick={refreshSearch}
+                    title="Refresh all sources"
                 >↻</button>
             </div>
 
-            {#if searchRunning}
-                <div class="gj-guides-searching">
-                    <div class="gj-guides-spinner"></div>
-                    <span class="gj-guides-spinner-label">Searching…</span>
-                </div>
-            {:else if !searchData}
-                <p class="gj-no-data">
-                    {searchNotFound ? 'No guides found on GameFAQs' : 'No guide data — click ↻ to search'}
-                </p>
-            {:else}
-                <div class="gj-guides-sources">
-                    {#each Object.entries(searchData.sources) as [src, srcData]}
-                        {@const dlCount = guides.filter(g => g.source === src).length}
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div class="gj-guides-source-row"
-                             onclick={(e) => openGuideModal(src, e)}
-                             role="button" tabindex="0"
-                             onkeydown={(e) => e.key === 'Enter' && openGuideModal(src, e)}>
-                            <div class="gj-guides-source-lhs">
-                                <span class="gj-guides-source-name">{SOURCE_LABELS[src] ?? src}</span>
-                                <span class="gj-guides-source-count">{srcData.guides.length} guide{srcData.guides.length !== 1 ? 's' : ''} available</span>
-                            </div>
-                            <div class="gj-guides-source-rhs">
-                                {#if dlCount > 0}
-                                    <span class="gj-guides-dl-badge">{dlCount} downloaded</span>
-                                {/if}
-                                <span class="gj-guides-chevron">›</span>
-                            </div>
+            <div class="gj-guides-grid">
+                {#each Object.entries(SOURCE_LABELS) as [src, label]}
+                    {@const srcData = searchData?.sources?.[src]}
+                    {@const dlCount = guides.filter(g => g.source === src).length}
+                    {@const spinning = searchingSet.has(src)}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div class="gj-guides-tile"
+                         class:gj-guides-tile--active={!!srcData}
+                         onclick={() => srcData && openGuideModal(src, new MouseEvent('click'))}
+                         role={srcData ? 'button' : undefined}
+                         tabindex={srcData ? 0 : undefined}
+                         onkeydown={(e) => e.key === 'Enter' && srcData && openGuideModal(src, new MouseEvent('click'))}>
+                        <img class="gj-guides-tile-icon" src={SOURCE_ICONS[src]} alt={label}>
+                        <div class="gj-guides-tile-info">
+                            <span class="gj-guides-tile-name">{label}</span>
+                            {#if srcData}
+                                <span class="gj-guides-tile-count">{srcData.guides.length} found{dlCount > 0 ? ` · ${dlCount} saved` : ''}</span>
+                            {:else}
+                                <span class="gj-guides-tile-count gj-guides-tile-count--empty">—</span>
+                            {/if}
                         </div>
-                    {/each}
-                </div>
-            {/if}
+                        <button class="gj-guides-tile-refresh"
+                                class:gj-guides-tile-refresh--spinning={spinning}
+                                disabled={spinning}
+                                onclick={(e) => { e.stopPropagation(); runSearch(src) }}
+                                title="Refresh {label}">↻</button>
+                    </div>
+                {/each}
+            </div>
         </div>
 
         <!-- HLTB card: always spans cols 1-2 (guides always in col 3) -->
@@ -637,6 +655,7 @@
         source={modalSource}
         sourceData={searchData.sources[modalSource]}
         downloadedGuideIds={new Set(guides.filter(g => g.source === modalSource).map(g => g.guideId))}
+        gameName={game?.name ?? ''}
         onClose={() => modalSource = null}
         onDownloaded={handleGuideDownloaded}
     />

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
     import { navigate } from '../../../js/router.js'
+    import { jobStore, type Job } from '$lib/guide-jobs.svelte.js'
 
     interface Guide {
         title: string
@@ -18,6 +19,7 @@
     interface SourceData {
         matchedGame: MatchedGame | null
         guides: Guide[]
+        categories?: Record<string, Guide[]>
         searchedAt: string
     }
 
@@ -36,6 +38,7 @@
         source,
         sourceData,
         downloadedGuideIds,
+        gameName = '',
         onClose,
         onDownloaded,
     }: {
@@ -43,6 +46,7 @@
         source: string
         sourceData: SourceData
         downloadedGuideIds: Set<string>
+        gameName?: string
         onClose: () => void
         onDownloaded: (guideId: string) => void
     } = $props()
@@ -54,25 +58,92 @@
         subtask:  { pct: 100, status: 'done' },
     }
 
-    let states = $state<Record<string, DownloadState>>({})
-
+    const categoryKeys = $derived(sourceData.categories ? Object.keys(sourceData.categories) : [])
+    let selectedCategory = $state<string>('')
     $effect(() => {
-        for (const id of downloadedGuideIds) {
-            if (!states[id]) states[id] = { ...DONE_STATE }
-        }
+        if (categoryKeys.length && !selectedCategory) selectedCategory = categoryKeys[0]
     })
+    const visibleGuides = $derived(
+        sourceData.categories && selectedCategory
+            ? (sourceData.categories[selectedCategory] ?? [])
+            : sourceData.guides
+    )
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker' }
 
     function guideIdFromUrl(url: string): string | null {
         try {
             const u = new URL(url)
             if (u.hostname.includes('steamcommunity.com')) return u.searchParams.get('id')
+            if (u.hostname.endsWith('.fandom.com')) {
+                const sub = u.hostname.split('.')[0]
+                const article = decodeURIComponent(u.pathname.replace(/^\/wiki\//, ''))
+                if (article) return `${sub}--${article.replace(/ /g, '_')}`
+            }
+            if (u.hostname.includes('neoseeker.com')) {
+                return u.pathname.match(/\/([a-z0-9-]+)\/walkthrough/i)?.[1] ?? null
+            }
         } catch { /* fall through */ }
         return url.match(/\/faqs\/(\d+)/)?.[1]
             ?? url.match(/ign\.com\/wikis\/([^/?#]+)/i)?.[1]?.toLowerCase()
+            ?? url.match(/game8\.co\/games\/([A-Za-z0-9-]+)/i)?.[1]
+            ?? url.match(/gamerguides\.com\/([^/?#]+)/i)?.[1]
             ?? null
     }
+
+    function mapJobToState(job: Job): DownloadState {
+        if (job.status === 'done') return { ...DONE_STATE }
+        if (job.status === 'error') return {
+            status:   'error',
+            download: { pct: job.progress.download, status: 'done' },
+            pages:    { pct: job.progress.pages,    status: 'done' },
+            subtask:  { pct: job.progress.subtask,  status: 'done' },
+            error: job.error ?? 'Unknown error',
+        }
+        const dlPct = job.progress.download
+        const pgPct = job.progress.pages
+        const stPct = job.progress.subtask
+        return {
+            status: 'running',
+            download: { pct: dlPct, status: dlPct >= 100 ? 'done'   : 'active'  },
+            pages:    { pct: pgPct, status: pgPct > 0    ? 'active'  : (dlPct >= 100 ? 'active' : 'pending') },
+            subtask:  { pct: stPct, status: stPct > 0    ? 'active'  : 'pending' },
+        }
+    }
+
+    // Map from job store: jobs for this appid+source override anything else
+    const jobStates = $derived.by(() => {
+        const result: Record<string, DownloadState> = {}
+        for (const job of jobStore.jobs) {
+            if (job.steamId !== String(appid) || job.source !== source) continue
+            result[job.guideId] = mapJobToState(job)
+        }
+        return result
+    })
+
+    // Final state: already-downloaded IDs as base, job store state on top
+    const states = $derived.by(() => {
+        const result: Record<string, DownloadState> = {}
+        for (const id of downloadedGuideIds) {
+            result[id] = { ...DONE_STATE }
+        }
+        for (const [id, s] of Object.entries(jobStates)) {
+            result[id] = s
+        }
+        return result
+    })
+
+    // Fire onDownloaded when a job transitions to done
+    let _notified = new Set<string>()
+    $effect(() => {
+        for (const job of jobStore.jobs) {
+            if (job.steamId !== String(appid) || job.source !== source) continue
+            if (job.status === 'done' && !_notified.has(job.id)) {
+                _notified.add(job.id)
+                onDownloaded(job.guideId)
+            }
+        }
+    })
 
     const PHASES: { key: keyof Omit<DownloadState, 'status' | 'error'>; label: string }[] = [
         { key: 'download', label: 'Fetch'    },
@@ -83,75 +154,19 @@
     async function downloadGuide(guide: Guide) {
         const guideId = guideIdFromUrl(guide.url)
         if (!guideId) return
-        if (states[guideId]?.status === 'done') return
-
-        states[guideId] = {
-            status:   'running',
-            download: { pct: 0, status: 'active' },
-            pages:    { pct: 0, status: 'pending' },
-            subtask:  { pct: 0, status: 'pending' },
-        }
+        const existing = jobStore.jobFor(String(appid), source, guideId)
+        if (existing?.status === 'pending' || existing?.status === 'running') return
 
         try {
-            const resp = await fetch(`/relay/api/guides/${appid}/download`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source, url: guide.url }),
+            await jobStore.enqueue({
+                steamId:  String(appid),
+                source,
+                guideId,
+                url:      guide.url,
+                gameName: gameName || sourceData.matchedGame?.name || '',
             })
-
-            if (!resp.ok || !resp.body) {
-                const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }))
-                states[guideId] = { ...states[guideId], status: 'error', error: err.error ?? 'Download failed' }
-                return
-            }
-
-            const reader = resp.body.getReader()
-            const decoder = new TextDecoder()
-            let buf = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-                buf += decoder.decode(value, { stream: true })
-                const parts = buf.split('\n\n')
-                buf = parts.pop() ?? ''
-
-                for (const part of parts) {
-                    for (const raw of part.split('\n')) {
-                        if (!raw.startsWith('data: ')) continue
-                        let event: any
-                        try { event = JSON.parse(raw.slice(6)) } catch { continue }
-
-                        const cur = states[guideId]
-                        if (event.phase === 'fetch-guide') {
-                            const m = event.line?.match(/\[(\d+)\/(\d+)\]/)
-                            if (m) {
-                                const pct = Math.round(parseInt(m[1]) / parseInt(m[2]) * 100)
-                                states[guideId] = { ...cur, download: { pct, status: 'active' } }
-                            }
-                        } else if (event.phase === 'parse') {
-                            // Controller marker: download done, parse phase starting
-                            states[guideId] = { ...cur, download: { pct: 100, status: 'done' }, pages: { pct: 0, status: 'active' }, subtask: { pct: 0, status: 'active' } }
-                        } else if (event.phase === 'progress') {
-                            const bar = event.bar as string | undefined
-                            if (bar === 'pages') {
-                                states[guideId] = { ...cur, pages: { pct: event.pct, status: 'active' } }
-                            } else if (bar === 'subtask') {
-                                states[guideId] = { ...cur, subtask: { pct: event.pct, status: 'active' } }
-                            }
-                        } else if (event.phase === 'done') {
-                            states[guideId] = { ...DONE_STATE }
-                            onDownloaded(guideId)
-                        } else if (event.phase === 'error') {
-                            states[guideId] = { ...cur, status: 'error', error: event.message }
-                        }
-                    }
-                }
-            }
         } catch (err: any) {
-            if (states[guideId]?.status !== 'done') {
-                states[guideId] = { ...states[guideId], status: 'error', error: err.message }
-            }
+            console.error('[GuidesModal] enqueue failed:', err.message)
         }
     }
 
@@ -176,15 +191,29 @@
                 {#if sourceData.matchedGame}
                     <span class="gm-matched">
                         {sourceData.matchedGame.name}{sourceData.matchedGame.platform ? ` · ${sourceData.matchedGame.platform.toUpperCase()}` : ''}
-                        <a class="gm-matched-link" href={sourceData.matchedGame.gameUrl} target="_blank" rel="noopener noreferrer">↗</a>
+                        <a class="gm-matched-link" href={sourceData.matchedGame.gameUrl} target="_blank" rel="noopener noreferrer" title="Open on Steam">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                        </a>
                     </span>
                 {/if}
             </div>
             <button class="gm-close" onclick={onClose} aria-label="Close">✕</button>
         </div>
 
+        {#if categoryKeys.length}
+            <div class="gm-tabs">
+                {#each categoryKeys as cat}
+                    <button
+                        class="gm-tab"
+                        class:gm-tab--active={selectedCategory === cat}
+                        onclick={() => selectedCategory = cat}
+                    >{cat}</button>
+                {/each}
+            </div>
+        {/if}
+
         <div class="gm-list">
-            {#each sourceData.guides as guide}
+            {#each visibleGuides as guide}
                 {@const guideId = guideIdFromUrl(guide.url)}
                 {@const state = guideId ? (states[guideId] ?? null) : null}
                 <div class="gm-row" class:gm-row--running={state?.status === 'running'}>
@@ -192,7 +221,9 @@
                         <span class="gm-guide-title">{guide.title}</span>
                         <div class="gm-guide-meta">
                             <span class="gm-type-badge gm-type-badge--{guide.type}">{guide.type}</span>
-                            <a class="gm-ext-link" href={guide.url} target="_blank" rel="noopener noreferrer" title="View on GameFAQs">View ↗</a>
+                            <a class="gm-ext-link" href={guide.url} target="_blank" rel="noopener noreferrer" title="View on {SOURCE_LABELS[source] ?? source}">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                            </a>
                         </div>
                     </div>
 
@@ -200,9 +231,14 @@
                         {#if !guideId}
                             <span class="gm-status-err">—</span>
                         {:else if state?.status === 'done'}
-                            <a class="gm-open-btn" href={`/journal/${appid}/guides/${source}/${guideId}`} onclick={(e) => { e.preventDefault(); const dest = `journal/${appid}/guides/${source}/${guideId}`; onClose(); navigate(dest) }}>
-                                Open ›
-                            </a>
+                            <div class="gm-done-actions">
+                                <a class="gm-open-btn" href={`/journal/${appid}/guides/${source}/${guideId}`} onclick={(e) => { e.preventDefault(); const dest = `journal/${appid}/guides/${source}/${guideId}`; onClose(); navigate(dest) }}>
+                                    Open ›
+                                </a>
+                                <button class="gm-refresh-btn" onclick={() => downloadGuide(guide)} title="Re-fetch missing pages">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                                </button>
+                            </div>
                         {:else if state?.status === 'error'}
                             <span class="gm-status-err" title={state.error}>Failed</span>
                         {:else if state?.status === 'running'}

@@ -79,6 +79,23 @@
     box-sizing: border-box;
 }
 
+.gj-dash--with-bg {
+    position: relative;
+}
+
+.gj-dash--with-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 55%;
+    background: var(--jd-bg, none) center center / cover no-repeat;
+    opacity: 0.4;
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+    pointer-events: none;
+    z-index: -1;
+}
+
 .gj-sub-wrap {
     padding: 40px;
 }
@@ -738,6 +755,79 @@
     z-index: 1;
 }
 
+/* ── Journal game identity banner ─────────────────────────────────────────────── */
+
+.jd-banner {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+}
+
+.jd-banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 20%;
+    display: block;
+}
+
+/* Gradient + name row pinned to the bottom */
+.jd-banner-foot {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 32px 18px 13px;
+    background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.jd-banner-name {
+    font-family: var(--font-title);
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.jd-banner-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.jd-banner-badge--live {
+    background: rgba(80, 200, 100, 0.2);
+    color: #50c864;
+    border: 1px solid rgba(80, 200, 100, 0.35);
+}
+
+/* Fallback when image fails to load — show nothing, collapse gracefully */
+.jd-banner--no-img {
+    height: 0;
+    border: none;
+    margin-bottom: 0;
+    overflow: visible;
+}
+
 /* ── Active (currently playing) session card ──────────────────────────────────── */
 
 .gj-card--active-session {
@@ -885,7 +975,7 @@
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding-bottom: 10px;
+    padding-bottom: 20px;
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
@@ -1625,102 +1715,101 @@ div.gj-ach-badge {
 
 /* ── Guides dashboard card ─────────────────────────────────────────────────── */
 
-.gj-guides-searching {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    gap: 10px;
-}
-
-.gj-guides-spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid rgba(201, 168, 76, 0.15);
-    border-top-color: var(--clr-accent);
-    border-radius: 50%;
-    animation: game-spin 0.8s linear infinite;
-}
-
-.gj-guides-spinner-label {
-    font-size: 11px;
-    color: var(--clr-text-muted);
-    letter-spacing: 0.04em;
-}
-
-.gj-guides-sources {
-    display: flex;
-    flex-direction: column;
+.gj-guides-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     flex: 1;
+    align-content: start;
 }
 
-.gj-guides-source-row {
+.gj-guides-tile {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 12px 14px;
+    gap: 6px;
+    padding: 10px 8px 8px;
     background: var(--clr-bg-hover);
     border: 1px solid var(--clr-border);
     border-radius: 6px;
-    cursor: pointer;
+    position: relative;
     transition: border-color var(--transition), background var(--transition);
-    text-align: left;
-    width: 100%;
-    color: inherit;
-    font: inherit;
+    min-width: 0;
+    text-align: center;
 }
 
-.gj-guides-source-row:hover {
+.gj-guides-tile--active {
+    cursor: pointer;
+}
+
+.gj-guides-tile--active:hover {
     border-color: var(--clr-border-hi);
     background: rgba(255, 255, 255, 0.05);
 }
 
-.gj-guides-source-lhs {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-}
-
-.gj-guides-source-name {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--clr-text);
-    line-height: 1;
-}
-
-.gj-guides-source-count {
-    font-size: 11px;
-    color: var(--clr-text-muted);
-    line-height: 1;
-}
-
-.gj-guides-source-rhs {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.gj-guides-tile-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 4px;
     flex-shrink: 0;
 }
 
-.gj-guides-dl-badge {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--clr-accent);
-    background: rgba(201, 168, 76, 0.12);
-    border: 1px solid rgba(201, 168, 76, 0.3);
-    border-radius: 3px;
-    padding: 2px 7px;
-    line-height: 1.4;
-    white-space: nowrap;
+.gj-guides-tile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    width: 100%;
 }
 
-.gj-guides-chevron {
-    font-size: 16px;
-    color: var(--clr-text-muted);
+.gj-guides-tile-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--clr-text);
     line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gj-guides-tile-count {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    line-height: 1.2;
+}
+
+.gj-guides-tile-count--empty {
+    opacity: 0.4;
+}
+
+.gj-guides-tile-refresh {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+}
+
+.gj-guides-tile:hover .gj-guides-tile-refresh {
+    opacity: 1;
+}
+
+.gj-guides-tile-refresh:hover {
+    color: var(--clr-accent);
+}
+
+.gj-guides-tile-refresh--spinning {
+    animation: game-spin 0.8s linear infinite;
+    opacity: 1;
+    color: var(--clr-accent);
 }
 
 /* ── Guides modal ─────────────────────────────────────────────────────────── */
@@ -1748,7 +1837,7 @@ div.gj-ach-badge {
     border: 1px solid var(--clr-border-hi);
     border-radius: 10px;
     width: min(640px, calc(100vw - 40px));
-    max-height: calc(100vh - 80px);
+    max-height: 60vh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
@@ -1800,6 +1889,8 @@ div.gj-ach-badge {
     color: var(--clr-accent);
     text-decoration: none;
     margin-left: 4px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .gm-close {
@@ -1822,6 +1913,36 @@ div.gj-ach-badge {
     color: var(--clr-text);
     border-color: var(--clr-border-hi);
     background: var(--clr-bg-hover);
+}
+
+.gm-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 0 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.gm-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 8px 12px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    margin-bottom: -1px;
+}
+
+.gm-tab:hover { color: var(--clr-text); }
+
+.gm-tab--active {
+    border-bottom-color: var(--clr-accent);
+    color: var(--clr-text);
 }
 
 .gm-list {
@@ -1895,7 +2016,8 @@ div.gj-ach-badge {
 }
 
 .gm-ext-link {
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
     color: var(--clr-text-muted);
     text-decoration: none;
     transition: color var(--transition);
@@ -1990,6 +2112,12 @@ div.gj-ach-badge {
 .gm-phase--active .gm-phase-pct { color: var(--clr-accent); }
 .gm-phase--done   .gm-phase-pct { color: #6ec97c; }
 
+.gm-done-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
 .gm-open-btn {
     padding: 6px 14px;
     background: rgba(110, 201, 124, 0.1);
@@ -2006,13 +2134,33 @@ div.gj-ach-badge {
     -webkit-appearance: none;
     display: block;
     text-decoration: none;
-    width: 100%;
+    flex: 1;
     text-align: center;
 }
 
 .gm-open-btn:hover {
     background: rgba(110, 201, 124, 0.2);
     border-color: #6ec97c;
+}
+
+.gm-refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #778;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+    flex-shrink: 0;
+}
+
+.gm-refresh-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #aab;
 }
 
 .gm-status-err {
@@ -2036,7 +2184,7 @@ div.gj-ach-badge {
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 10px;
     cursor: pointer;
     transition: border-color var(--transition), background var(--transition);
 }
@@ -2047,13 +2195,23 @@ div.gj-ach-badge {
 }
 
 .gl-card-source {
-    font-size: 9px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--clr-accent);
     line-height: 1;
-    margin-bottom: 2px;
+}
+
+.gl-card-source-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 3px;
+    flex-shrink: 0;
 }
 
 .gl-card-title {
@@ -2073,7 +2231,6 @@ div.gj-ach-badge {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 6px;
     font-size: 11px;
     color: var(--clr-text-muted);
 }

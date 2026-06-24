@@ -1,16 +1,29 @@
 <script lang="ts">
-    interface CoverImage { section: string; src: string }
+    import Fuse from 'fuse.js'
 
-    let { steamId, source, guideId, title, pageCount, parsedAt, coverImages, onStart }: {
+    interface CoverImage { section: string; src: string }
+    interface FtEntry   { slug: string; label: string; text: string }
+    interface HitSnippet { html: string }
+    interface HitGroup  { slug: string; label: string; snippets: HitSnippet[] }
+
+    let { steamId, source, guideId, title, pageCount, parsedAt, sizeBytes, coverImages, onStart, onNav }: {
         steamId:     string
         source:      string
         guideId:     string
         title:       string
         pageCount:   number
         parsedAt:    string | null
+        sizeBytes?:  number
         coverImages: CoverImage[]
         onStart:     () => void
+        onNav:       (slug: string) => void
     } = $props()
+
+    function fmtBytes(n: number | undefined): string {
+        if (!n) return ''
+        if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
+        return `${(n / (1024 * 1024)).toFixed(1)} MB`
+    }
 
     // ── Mosaic (same flip logic as HomeMosaic) ─────────────────────────────────
 
@@ -25,16 +38,15 @@
     const INTERVAL = 5000
 
     let slots     = $state<Slot[]>([])
-    let available: CoverImage[] = []
+    let allImages: CoverImage[] = []
 
     $effect(() => {
         const imgs = coverImages
-        if (imgs.length < 4) return
+        if (imgs.length < 6) return
 
-        const copy = [...imgs].sort(() => Math.random() - 0.5)
-        const take = Math.min(6, copy.length)
-        slots     = copy.slice(0, take).map(img => ({ front: img, back: img, flipClass: '' as const, axis: 'Y' as const, delay: 0 }))
-        available = copy.slice(take)
+        allImages = [...imgs]
+        const initial = [...allImages].sort(() => Math.random() - 0.5).slice(0, 6)
+        slots = initial.map(img => ({ front: img, back: img, flipClass: '' as const, axis: 'Y' as const, delay: 0 }))
 
         const iv = setInterval(tick, INTERVAL)
         return () => clearInterval(iv)
@@ -42,24 +54,26 @@
 
     function tick() {
         if (!slots.length) return
-        const frontSet = new Set(slots.map(s => s.front.src))
-        const pool     = [...(available.filter(p => !frontSet.has(p.src)).length >= slots.length
-                             ? available.filter(p => !frontSet.has(p.src))
-                             : available)].sort(() => Math.random() - 0.5)
-        if (pool.length < slots.length) return
-        const picked = pool.slice(0, slots.length)
-        available = available.filter(p => !picked.some(q => q.src === p.src))
+
+        // Shuffle all images, pick 6, ensure no slot gets its current image
+        let pool = [...allImages].sort(() => Math.random() - 0.5).slice(0, 6)
+        for (let i = 0; i < pool.length; i++) {
+            if (pool[i].src === slots[i].front.src) {
+                const j = (i + 1) % pool.length
+                ;[pool[i], pool[j]] = [pool[j], pool[i]]
+            }
+        }
+
         slots = slots.map((slot, i) => {
             const axis: 'X' | 'Y' = Math.random() < 0.5 ? 'X' : 'Y'
-            return { front: slot.front, back: picked[i], flipClass: axis === 'X' ? 'flip-x' : 'flip-y', axis, delay: Math.floor(Math.random() * 450) }
+            return { front: slot.front, back: pool[i], flipClass: axis === 'X' ? 'flip-x' : 'flip-y', axis, delay: Math.floor(Math.random() * 450) }
         })
     }
 
     function onFlipEnd(i: number) {
         if (!slots[i].flipClass) return
-        const { front, back, axis } = slots[i]
-        available = [...available, front]
-        slots[i]  = { front: back, back, flipClass: '', axis, delay: 0 }
+        const { back, axis } = slots[i]
+        slots[i] = { front: back, back, flipClass: '', axis, delay: 0 }
     }
 
     // ── Image URL ──────────────────────────────────────────────────────────────
@@ -68,6 +82,79 @@
         const filename = img.src.replace(/^img\//, '').replace(/\.[^.]+$/, '.webp')
         return `/relay/guides-img/${steamId}/${source}/${guideId}/${encodeURIComponent(img.section)}/img/${filename}`
     }
+
+    // ── Full-text search ────────────────────────────────────────────────────────
+
+    let query       = $state('')
+    let hits        = $state<HitGroup[]>([])
+    let searchReady = $state(false)
+    let fuseInst: Fuse<FtEntry> | null = null
+
+    function esc(s: string) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    }
+
+    function makeSnippet(text: string, indices: readonly [number, number][]): string {
+        if (!indices?.length) return esc(text.slice(0, 160))
+        const R = 80
+        const [s, e] = indices[0]
+        const from = Math.max(0, s - R)
+        const to   = Math.min(text.length, e + 1 + R)
+        return (from > 0 ? '…' : '') +
+            esc(text.slice(from, s)) +
+            `<mark>${esc(text.slice(s, e + 1))}</mark>` +
+            esc(text.slice(e + 1, to)) +
+            (to < text.length ? '…' : '')
+    }
+
+    async function loadIndex() {
+        if (fuseInst) return
+        try {
+            const data: FtEntry[] = await fetch(
+                `/relay/api/guides/${steamId}/${source}/${encodeURIComponent(guideId)}/fulltext`
+            ).then(r => r.ok ? r.json() : [])
+            fuseInst = new Fuse(data, {
+                keys: ['text'],
+                includeMatches: true,
+                includeScore: true,
+                threshold: 0.3,
+                minMatchCharLength: 3,
+                ignoreLocation: true,
+            })
+            searchReady = true
+        } catch { /* index unavailable */ }
+    }
+
+    function runSearch(q: string) {
+        if (!fuseInst || !q.trim()) { hits = []; return }
+        const raw = fuseInst.search(q.trim(), { limit: 60 })
+        // Group by slug, max 3 snippets per page, max 6 pages
+        const groups = new Map<string, HitGroup>()
+        for (const r of raw) {
+            const { slug, label, text } = r.item
+            const indices = r.matches?.[0]?.indices ?? []
+            if (!groups.has(slug)) {
+                if (groups.size >= 6) continue
+                groups.set(slug, { slug, label, snippets: [] })
+            }
+            const g = groups.get(slug)!
+            if (g.snippets.length < 3) {
+                g.snippets.push({ html: makeSnippet(text, indices as [number,number][]) })
+            }
+        }
+        hits = [...groups.values()]
+    }
+
+    let debounceTimer: ReturnType<typeof setTimeout>
+    function onInput() {
+        clearTimeout(debounceTimer)
+        if (!searchReady) { loadIndex(); return }
+        debounceTimer = setTimeout(() => runSearch(query), 180)
+    }
+
+    $effect(() => {
+        if (searchReady && query) runSearch(query)
+    })
 
     // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -89,19 +176,54 @@
     <div class="gl-pills">
         <span class="gl-pill gl-pill--source">{SOURCE_LABELS[source] ?? source}</span>
         <span class="gl-pill">{pageCount} pages</span>
+        {#if sizeBytes}
+            <span class="gl-pill">{fmtBytes(sizeBytes)}</span>
+        {/if}
         {#if parsedDate}
             <span class="gl-pill">Synced {parsedDate}</span>
         {/if}
     </div>
 
-    <!-- Start button -->
-    <button class="gl-start-btn" onclick={onStart}>
-        Start Reading
-        <span class="gl-start-arrow">→</span>
-    </button>
+    <!-- Full-text search -->
+    <div class="gl-search">
+        <div class="gl-search-bar">
+            <span class="gl-search-icon">⌕</span>
+            <input
+                class="gl-search-input"
+                type="search"
+                placeholder="Search guide…"
+                bind:value={query}
+                onfocus={loadIndex}
+                oninput={onInput}
+                autocomplete="off"
+                spellcheck="false"
+            />
+            {#if !searchReady && query}
+                <span class="gl-search-loading">…</span>
+            {/if}
+        </div>
+
+        {#if hits.length > 0}
+            <div class="gl-search-results">
+                {#each hits as group}
+                    <div class="gl-sr-group">
+                        <button class="gl-sr-page" onclick={() => onNav(group.slug)}>
+                            {group.label}
+                        </button>
+                        {#each group.snippets as snippet}
+                            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                            <p class="gl-sr-snippet">{@html snippet.html}</p>
+                        {/each}
+                    </div>
+                {/each}
+            </div>
+        {:else if query.trim() && searchReady}
+            <p class="gl-search-empty">No results for "{query}"</p>
+        {/if}
+    </div>
 
     <!-- Mosaic -->
-    {#if slots.length >= 4}
+    {#if slots.length >= 6}
         <div class="gl-mosaic" style:grid-template-columns="repeat({Math.min(slots.length, 3)}, 1fr)">
             {#each slots as slot, i (i)}
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->

@@ -33,6 +33,7 @@
         "cookie": "^0.7.0"
     },
     "dependencies": {
-        "@archerjb/ui-components": "^1.5.0"
+        "@archerjb/ui-components": "^1.5.0",
+        "fuse.js": "^7.4.2"
     }
 }

@@ -28,6 +28,7 @@
 
 .gv-header-main {
     padding: 32px 24px 20px 8px;
+    min-width: 0;
 }
 
 .gv-header-toc {
@@ -44,6 +45,9 @@
     font-weight: 700;
     margin-top: 20px;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ── Full-width separator ─────────────────────────────────────────────── */
@@ -549,6 +553,29 @@
     padding: 1px 5px;
 }
 
+/* Links to pages referenced in the guide but not fetched / not in the TOC */
+.gv-p a.gv-link-unavailable,
+.gv-list a.gv-link-unavailable {
+    color: #666;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: #555;
+    cursor: help;
+}
+
+/* Links to wiki pages not included in the downloaded guide — opens live wiki */
+.gv-link-external {
+    color: #7eb8f5;
+    text-decoration: underline;
+    text-decoration-color: rgba(126, 184, 245, 0.4);
+}
+.gv-link-external::after {
+    content: ' ↗';
+    font-size: 0.7em;
+    vertical-align: super;
+    opacity: 0.7;
+}
+
 /* ── Guide landing page (renders inside the standard .gv-content column) ───── */
 
 .gl-landing {
@@ -557,13 +584,16 @@
     align-items: center;
     text-align: center;
     padding-top: 36px;
+    /* Don't overflow the content pane — mosaic shrinks to fit */
+    min-height: 0;
+    height: 100%;
 }
 
 /* ── Large title ── */
 
 .gl-title {
     font-family: var(--font-title);
-    font-size: clamp(24px, 3.5vw, 40px);
+    font-size: clamp(22px, 3vw, 34px);
     font-weight: 700;
     color: var(--clr-text);
     line-height: 1.15;
@@ -632,15 +662,112 @@
     transform: translateX(3px);
 }
 
+/* ── Full-text search ── */
+
+.gl-search {
+    width: 100%;
+    max-width: 560px;
+    margin-top: 20px;
+    text-align: left;
+}
+
+.gl-search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.gl-search-icon {
+    position: absolute;
+    left: 12px;
+    font-size: 18px;
+    color: var(--clr-text-muted);
+    pointer-events: none;
+    line-height: 1;
+}
+
+.gl-search-input {
+    width: 100%;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 8px;
+    color: var(--clr-text);
+    font-size: 14px;
+    padding: 10px 12px 10px 38px;
+    outline: none;
+    transition: border-color var(--transition);
+}
+.gl-search-input:focus {
+    border-color: var(--clr-accent);
+}
+.gl-search-input::-webkit-search-cancel-button { display: none; }
+
+.gl-search-loading {
+    position: absolute;
+    right: 12px;
+    color: var(--clr-text-muted);
+    font-size: 13px;
+}
+
+.gl-search-results {
+    margin-top: 8px;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.gl-sr-group {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--clr-border);
+}
+.gl-sr-group:last-child { border-bottom: none; }
+
+.gl-sr-page {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--clr-accent);
+    padding: 0;
+    margin-bottom: 5px;
+    text-align: left;
+}
+.gl-sr-page:hover { text-decoration: underline; }
+
+.gl-sr-snippet {
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    line-height: 1.55;
+    margin: 3px 0 0;
+}
+.gl-sr-snippet mark {
+    background: rgba(201, 168, 76, 0.25);
+    color: var(--clr-text);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.gl-search-empty {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--clr-text-muted);
+    text-align: center;
+}
+
 /* ── Mosaic ── */
 
 .gl-mosaic {
-    margin-top: 36px;
+    margin-top: 24px;
     display: grid;
     grid-template-rows: repeat(2, 1fr);
     gap: 4px;
     width: 100%;
     height: 360px;
+    flex-shrink: 0;
     border-radius: 10px;
     overflow: hidden;
 }

@@ -23,7 +23,7 @@
     })
 </script>
 
-<div class="gj-card" class:gj-card--game-bg={!!last} style={last ? `--gj-game-bg: url('/relay/images/steam/games/${appid}/header.jpg')` : ''}>
+<div class="gj-card gj-card--game-bg" style="--gj-game-bg: url('/relay/images/steam/games/{appid}/header.jpg'); min-height: 160px">
     <div class="gj-card-header">
         <span class="gj-card-title">Last Session</span>
         {#if last}<span class="gj-session-date-chip">{fmtDate(last.startedAt)}</span>{/if}

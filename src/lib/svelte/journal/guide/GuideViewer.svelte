@@ -322,6 +322,7 @@
 
         function filterItems(items: any[]): any[] {
             return items.flatMap((item: any) => {
+                if (item.type === 'label') return [item]
                 if (item.type === 'link') {
                     return validSlug(item.slug) ? [item] : []
                 }
@@ -331,7 +332,7 @@
                     if (selfValid || children.length > 0) return [{ ...item, children }]
                     return []
                 }
-                return [] // labels have no navigation value
+                return []
             })
         }
 
@@ -405,11 +406,13 @@
                         title={meta.title}
                         pageCount={(meta.pages ?? []).length}
                         parsedAt={meta.parsedAt ?? null}
+                        sizeBytes={meta.sizeBytes}
                         coverImages={meta.coverImages ?? []}
                         onStart={() => {
                             const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
                             if (firstSlug) navTo(firstSlug)
                         }}
+                        onNav={(slug: string) => navTo(slug)}
                     />
                 </div>
             {:else}

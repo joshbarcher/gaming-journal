@@ -2,13 +2,16 @@
     import { onMount } from 'svelte'
     import { afterNavigate, beforeNavigate } from '$app/navigation'
     import Sidebar from '$lib/Sidebar.svelte'
+    import GlobalSearch from '$lib/svelte/GlobalSearch.svelte'
     import { store } from '$lib/sidebar.svelte.js'
+    import { jobStore } from '$lib/guide-jobs.svelte.js'
 
     const { children } = $props()
 
-    let sidebarOpen = $state(false)
+    let sidebarOpen  = $state(false)
+    let searchOpen   = $state(false)
 
-    afterNavigate(() => { sidebarOpen = false })
+    afterNavigate(() => { sidebarOpen = false; searchOpen = false })
 
     beforeNavigate(({ to, from }) => {
         if (!to || !from) return
@@ -18,6 +21,17 @@
             sessionStorage.setItem('gj_game_from', fromSeg)
         }
     })
+
+    // ── Global search shortcut ────────────────────────────────────────────────
+    function onGlobalKeyDown(e: KeyboardEvent) {
+        if (e.ctrlKey && e.code === 'Space') {
+            e.preventDefault()
+            searchOpen = !searchOpen
+        }
+        if (e.key === 'Escape' && searchOpen) {
+            searchOpen = false
+        }
+    }
 
     // ── Paste handler ─────────────────────────────────────────────────────────
     function onPaste(e: ClipboardEvent) {
@@ -149,14 +163,21 @@
         fetchCollectionCounts()
         fetchHistoryBackdrop()
 
+        jobStore.connect()
+
         return () => {
             clearInterval(nowPlayingTimer)
             clearInterval(alertsTimer)
+            jobStore.disconnect()
         }
     })
 </script>
 
-<svelte:window onpaste={onPaste} />
+<svelte:window onpaste={onPaste} onkeydown={onGlobalKeyDown} />
+
+{#if searchOpen}
+    <GlobalSearch onclose={() => searchOpen = false} />
+{/if}
 
 <button id="sidebar-toggle" class="sidebar-toggle"
         aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}

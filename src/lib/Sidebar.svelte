@@ -2,6 +2,7 @@
     import { page } from '$app/state'
     import { store } from '$lib/sidebar.svelte.js'
     import type { NowPlayingInfo } from '$lib/sidebar.svelte.js'
+    import { jobStore } from '$lib/guide-jobs.svelte.js'
 
     // ── SVG icons ─────────────────────────────────────────────────────────────
     const ICO = (paths: string) =>
@@ -23,6 +24,7 @@
         account:    ICO(`<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`),
         calendar:   ICO(`<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><line x1="8" x2="8.01" y1="14" y2="14"/><line x1="12" x2="12.01" y1="14" y2="14"/><line x1="16" x2="16.01" y1="14" y2="14"/>`),
         topGames:   ICO(`<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>`),
+        downloads:  ICO(`<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`),
         discover:   ICO(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`),
         releases:   ICO(`<path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>`),
         recommend:  ICO(`<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>`),
@@ -39,6 +41,7 @@
         if (seg === 'franchise') return 'franchises'
         if (seg === 'recommend') return 'recommend'
         if (seg === 'journal' || seg === 'community') return null
+        if (seg === 'downloads') return 'downloads'
         return seg
     }
 
@@ -128,6 +131,12 @@
        data-id="recommend" class:active={activeId === 'recommend'}
        onkeydown={arrowNav}>
         {@html ICONS.recommend} Recommend
+    </a>
+    <a class="sidebar-nav-btn sidebar-downloads-btn" href="/downloads"
+       data-id="downloads" class:active={activeId === 'downloads'}
+       onkeydown={arrowNav}>
+        {@html ICONS.downloads} Downloads
+        {#if jobStore.activeCount > 0}<span class="sidebar-alerts-badge">{jobStore.activeCount}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-alerts-btn" href="/alerts"
        data-id="alerts" class:active={activeId === 'alerts'}
