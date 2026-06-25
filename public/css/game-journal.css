@@ -1812,6 +1812,20 @@ div.gj-ach-badge {
     color: var(--clr-accent);
 }
 
+.gj-guides-tile--downloads {
+    text-decoration: none;
+    color: var(--clr-text);
+    border-color: rgba(201, 168, 76, 0.35);
+}
+
+.gj-guides-tile--downloads .gj-guides-tile-icon {
+    color: rgba(201, 168, 76, 0.55);
+}
+
+.gj-guides-tile--downloads:hover {
+    background: rgba(201, 168, 76, 0.06);
+}
+
 /* ── Guides modal ─────────────────────────────────────────────────────────── */
 
 .gm-backdrop {

@@ -240,7 +240,10 @@
                                 </button>
                             </div>
                         {:else if state?.status === 'error'}
-                            <span class="gm-status-err" title={state.error}>Failed</span>
+                            <div class="gm-done-actions">
+                                <span class="gm-status-err" title={state.error}>Failed</span>
+                                <button class="gm-dl-btn" onclick={() => downloadGuide(guide)}>Retry</button>
+                            </div>
                         {:else if state?.status === 'running'}
                             <div class="gm-phases">
                                 {#each PHASES as p}

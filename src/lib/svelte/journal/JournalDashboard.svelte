@@ -534,6 +534,22 @@
                                 title="Refresh {label}">↻</button>
                     </div>
                 {/each}
+
+                <!-- 8th tile: navigate to downloaded guides list -->
+                <a class="gj-guides-tile gj-guides-tile--active gj-guides-tile--downloads"
+                   href="/journal/{appid}/guides">
+                    <svg class="gj-guides-tile-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="6" y="4" width="20" height="24" rx="2" stroke="currentColor" stroke-width="2"/>
+                        <line x1="10" y1="10" x2="22" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="10" y1="14" x2="22" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="10" y1="18" x2="18" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M16 22 L16 28 M13 25 L16 28 L19 25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div class="gj-guides-tile-info">
+                        <span class="gj-guides-tile-name">Downloaded</span>
+                        <span class="gj-guides-tile-count">{guides.length > 0 ? `${guides.length} saved` : 'None yet'}</span>
+                    </div>
+                </a>
             </div>
         </div>
 
