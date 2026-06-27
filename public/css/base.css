@@ -54,8 +54,30 @@ button {
     color: inherit;
 }
 
-/* ── Scrollbars ─────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar              { width: 5px; height: 5px; }
+/* ── OverlayScrollbars theme ────────────────────────────────────────────────── */
+/* Applied when theme: 'gj-theme' is passed in the OS init options */
+.gj-theme.os-scrollbar {
+    --os-size: 8px;
+    --os-padding-perpendicular: 0px;
+    --os-padding-axis: 2px;
+    --os-track-border-radius: 4px;
+    --os-track-bg: transparent;
+    --os-track-bg-hover: transparent;
+    --os-track-bg-active: transparent;
+    --os-handle-border-radius: 4px;
+    --os-handle-bg: rgba(255, 255, 255, 0.28);
+    --os-handle-bg-hover: rgba(255, 255, 255, 0.42);
+    --os-handle-bg-active: rgba(255, 255, 255, 0.56);
+    --os-handle-min-size: 28px;
+    --os-handle-max-size: none;
+    --os-handle-perpendicular-size: 100%;
+    --os-handle-perpendicular-size-hover: 100%;
+    --os-handle-perpendicular-size-active: 100%;
+    --os-handle-interactive-area-offset: 0px;
+}
+
+/* Webkit rules for any scrollable elements NOT managed by OS (Chrome/Safari) */
+::-webkit-scrollbar              { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track        { background: transparent; }
-::-webkit-scrollbar-thumb        { background: rgba(255, 255, 255, 0.14); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover  { background: rgba(255, 255, 255, 0.28); }
+::-webkit-scrollbar-thumb        { background: rgba(255, 255, 255, 0.28); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover  { background: rgba(255, 255, 255, 0.42); }

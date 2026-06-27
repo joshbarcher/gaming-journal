@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy, tick } from 'svelte'
     import { goto } from '$app/navigation'
+    import { OverlayScrollbars } from 'overlayscrollbars'
     import Breadcrumb from '../../Breadcrumb.svelte'
     import GuideBlockRenderer from './GuideBlockRenderer.svelte'
     import GuideLanding from './GuideLanding.svelte'
@@ -24,21 +25,28 @@
 
     // ── Page scroll (left gutter arrows + keyboard ↑↓) ────────────────────────
 
-    let contentEl = $state<HTMLElement | null>(null)
+    let contentEl  = $state<HTMLElement | null>(null)
+    let contentOs: ReturnType<typeof OverlayScrollbars> | undefined
+
+    function scrollViewport(): HTMLElement | null {
+        return contentOs?.elements().viewport as HTMLElement ?? contentEl
+    }
 
     function scrollPage(delta: 1 | -1) {
-        if (!contentEl) return
-        contentEl.scrollBy({ top: delta * contentEl.clientHeight * 0.85, behavior: 'smooth' })
+        const el = scrollViewport()
+        if (!el) return
+        el.scrollBy({ top: delta * el.clientHeight * 0.85, behavior: 'smooth' })
     }
 
     // ── Anchor / fragment link helpers ─────────────────────────────────────────
 
     function scrollToAnchor(anchor: string) {
-        if (!contentEl) return
+        const vp = scrollViewport()
+        if (!vp) return
         const el = document.getElementById(anchor)
         if (!el) return
-        const elTop = el.getBoundingClientRect().top - contentEl.getBoundingClientRect().top
-        contentEl.scrollBy({ top: elTop - 16, behavior: 'smooth' })
+        const elTop = el.getBoundingClientRect().top - vp.getBoundingClientRect().top
+        vp.scrollBy({ top: elTop - 16, behavior: 'smooth' })
     }
 
     // Intercept clicks on links inside the rendered guide content.
@@ -186,7 +194,7 @@
         if (anchor) {
             scrollToAnchor(anchor)
         } else {
-            contentEl?.scrollTo({ top: 0 })
+            scrollViewport()?.scrollTo({ top: 0 })
         }
     }
 
@@ -250,16 +258,26 @@
     $effect(() => {
         void blocks // re-run when blocks change
         if (!contentEl) return
+        let cancelled = false
         const cleanups: (() => void)[] = []
         tick().then(() => {
+            if (cancelled) return
             contentEl!.querySelectorAll<HTMLElement>('.gv-table-wrap, .gv-p > table').forEach(el => {
                 cleanups.push(attachDragScroll(el))
             })
         })
-        return () => cleanups.forEach(fn => fn())
+        return () => { cancelled = true; cleanups.forEach(fn => fn()) }
     })
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+    $effect(() => {
+        if (!contentEl) { contentOs?.destroy(); contentOs = undefined; return }
+        contentOs = OverlayScrollbars(contentEl, {
+            scrollbars: { theme: 'gj-theme', visibility: 'visible', autoHide: 'never', clickScroll: true },
+        }) ?? undefined
+        return () => { contentOs?.destroy(); contentOs = undefined }
+    })
 
     onMount(async () => {
         try {
@@ -407,6 +425,7 @@
                         pageCount={(meta.pages ?? []).length}
                         parsedAt={meta.parsedAt ?? null}
                         sizeBytes={meta.sizeBytes}
+                        sourceUrl={meta.sourceUrl ?? null}
                         coverImages={meta.coverImages ?? []}
                         onStart={() => {
                             const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug

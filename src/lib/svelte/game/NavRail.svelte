@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import { getScrollInstance } from '$lib/actions/scrollbar.js'
 
     // Sections are watched; rail rebuilds whenever the DOM changes (bg sections loading in)
     let { container } = $props()
@@ -68,7 +69,10 @@
     function onScroll() { updatePosition(); updateActive() }
 
     function scrollTo(id: string) {
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        const target = document.getElementById(id)
+        if (!target || !scrollEl) return
+        const offset = target.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top
+        scrollEl.scrollBy({ top: offset, behavior: 'smooth' })
     }
 
     let scrollEl: HTMLElement | null = null
@@ -82,7 +86,8 @@
         updatePosition()
         updateActive()
 
-        scrollEl = document.getElementById('main-content')
+        const mainContent = document.getElementById('main-content')
+        scrollEl = getScrollInstance()?.elements().viewport as HTMLElement ?? mainContent
         scrollEl?.addEventListener('scroll', onScroll, { passive: true })
 
         mo = new MutationObserver(() => { rebuild(); updatePosition(); updateActive() })

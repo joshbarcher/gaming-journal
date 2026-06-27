@@ -368,8 +368,6 @@
     grid-column: 3;
     height: 100%;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.04) transparent;
     background: var(--clr-bg-raised);
     border-left: 1px solid var(--clr-border);
 }
@@ -627,6 +625,20 @@
     color: var(--clr-accent);
     background: rgba(201, 168, 76, 0.1);
     border-color: rgba(201, 168, 76, 0.3);
+}
+
+.gl-pill--link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    color: var(--clr-text-muted);
+    transition: color var(--transition), border-color var(--transition);
+}
+
+.gl-pill--link:hover {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
 }
 
 /* ── Start button ── */

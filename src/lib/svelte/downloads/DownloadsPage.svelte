@@ -1,5 +1,6 @@
 <script lang="ts">
     import { jobStore, type Job } from '$lib/guide-jobs.svelte.js'
+    import { confirmDialog } from '$lib/js/dialog.js'
 
     const SOURCE_LABELS: Record<string, string> = {
         gamefaqs:   'GameFAQs',
@@ -107,7 +108,7 @@
                             <td>{fmtTime(job.startedAt)}</td>
                             <td>{elapsed(job)}</td>
                             <td class="dl-row-size">{job.status === 'done' ? fmtBytes(job.sizeBytes) : '—'}</td>
-                            <td>
+                            <td class="dl-row-actions">
                                 {#if job.status === 'done'}
                                     <a class="dl-open-link" href="/journal/{job.steamId}/guides/{job.source}/{job.guideId}">Open ›</a>
                                 {:else if job.status === 'error'}
@@ -115,6 +116,15 @@
                                         {expandedLog === job.id ? 'Hide' : 'Log'}
                                     </button>
                                 {/if}
+                                <button class="dl-requeue-btn" title="Re-download" onclick={async () => {
+                                    const active = jobStore.jobFor(job.steamId, job.source, job.guideId)
+                                    if (active?.status === 'pending' || active?.status === 'running') return
+                                    if (job.status === 'done') {
+                                        const ok = await confirmDialog('Re-download guide', 'This will overwrite the saved guide. Continue?', 'Re-download')
+                                        if (!ok) return
+                                    }
+                                    jobStore.enqueue({ steamId: job.steamId, source: job.source, guideId: job.guideId, url: job.url, gameName: job.gameName })
+                                }}>↺</button>
                             </td>
                         </tr>
                         {#if expandedLog === job.id && job.log.length}
@@ -285,12 +295,29 @@
     font-size: 0.8rem;
     white-space: nowrap;
 }
+.dl-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
 .dl-open-link {
     color: var(--accent, #4f8ef7);
     text-decoration: none;
     font-size: 0.8rem;
 }
 .dl-open-link:hover { text-decoration: underline; }
+.dl-requeue-btn {
+    font-size: 0.9rem;
+    background: none;
+    border: 1px solid #444;
+    color: #888;
+    border-radius: 3px;
+    padding: 1px 6px;
+    cursor: pointer;
+    line-height: 1;
+}
+.dl-requeue-btn:hover { border-color: #888; color: #ccc; }
 .dl-log-btn {
     font-size: 0.75rem;
     background: none;

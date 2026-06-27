@@ -22,8 +22,9 @@ const _sseAgent = new Agent({
     connections:         32,
 })
 
-async function proxy({ params, request, url }: RequestEvent) {
-    const targetUrl = `${relayBase()}/${params.path}${url.search}`
+async function proxy({ request, url }: RequestEvent) {
+    const targetPath = url.pathname.replace(/^\/relay/, '')
+    const targetUrl  = `${relayBase()}${targetPath}${url.search}`
     const isSSE     = request.headers.get('accept') === 'text/event-stream'
 
     const headers = new Headers()

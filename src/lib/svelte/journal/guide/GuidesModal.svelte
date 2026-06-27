@@ -23,13 +23,8 @@
         searchedAt: string
     }
 
-    interface PhaseBar { pct: number; status: 'pending' | 'active' | 'done' }
-
     interface DownloadState {
-        status:   'running' | 'done' | 'error'
-        download: PhaseBar
-        pages:    PhaseBar
-        subtask:  PhaseBar
+        status: 'running' | 'done' | 'error'
         error?: string
     }
 
@@ -51,12 +46,7 @@
         onDownloaded: (guideId: string) => void
     } = $props()
 
-    const DONE_STATE: DownloadState = {
-        status:   'done',
-        download: { pct: 100, status: 'done' },
-        pages:    { pct: 100, status: 'done' },
-        subtask:  { pct: 100, status: 'done' },
-    }
+    const DONE_STATE: DownloadState = { status: 'done' }
 
     const categoryKeys = $derived(sourceData.categories ? Object.keys(sourceData.categories) : [])
     let selectedCategory = $state<string>('')
@@ -92,23 +82,9 @@
     }
 
     function mapJobToState(job: Job): DownloadState {
-        if (job.status === 'done') return { ...DONE_STATE }
-        if (job.status === 'error') return {
-            status:   'error',
-            download: { pct: job.progress.download, status: 'done' },
-            pages:    { pct: job.progress.pages,    status: 'done' },
-            subtask:  { pct: job.progress.subtask,  status: 'done' },
-            error: job.error ?? 'Unknown error',
-        }
-        const dlPct = job.progress.download
-        const pgPct = job.progress.pages
-        const stPct = job.progress.subtask
-        return {
-            status: 'running',
-            download: { pct: dlPct, status: dlPct >= 100 ? 'done'   : 'active'  },
-            pages:    { pct: pgPct, status: pgPct > 0    ? 'active'  : (dlPct >= 100 ? 'active' : 'pending') },
-            subtask:  { pct: stPct, status: stPct > 0    ? 'active'  : 'pending' },
-        }
+        if (job.status === 'done')  return { status: 'done' }
+        if (job.status === 'error') return { status: 'error', error: job.error ?? 'Unknown error' }
+        return { status: 'running' }
     }
 
     // Map from job store: jobs for this appid+source override anything else
@@ -144,12 +120,6 @@
             }
         }
     })
-
-    const PHASES: { key: keyof Omit<DownloadState, 'status' | 'error'>; label: string }[] = [
-        { key: 'download', label: 'Fetch'    },
-        { key: 'pages',    label: 'Parse'    },
-        { key: 'subtask',  label: 'Contents' },
-    ]
 
     async function downloadGuide(guide: Guide) {
         const guideId = guideIdFromUrl(guide.url)
@@ -245,20 +215,7 @@
                                 <button class="gm-dl-btn" onclick={() => downloadGuide(guide)}>Retry</button>
                             </div>
                         {:else if state?.status === 'running'}
-                            <div class="gm-phases">
-                                {#each PHASES as p}
-                                    {@const bar = state[p.key]}
-                                    <div class="gm-phase gm-phase--{bar.status}">
-                                        <span class="gm-phase-label">{p.label}</span>
-                                        <div class="gm-phase-track">
-                                            <div class="gm-phase-fill" style="width:{bar.pct}%"></div>
-                                        </div>
-                                        <span class="gm-phase-pct">
-                                            {bar.status === 'pending' ? '—' : bar.status === 'done' ? '✓' : `${bar.pct}%`}
-                                        </span>
-                                    </div>
-                                {/each}
-                            </div>
+                            <a class="gm-dl-btn gm-dl-btn--active" href="/downloads" onclick={(e) => { e.preventDefault(); onClose(); navigate('downloads') }}>Downloading →</a>
                         {:else}
                             <button class="gm-dl-btn" onclick={() => downloadGuide(guide)}>Download</button>
                         {/if}

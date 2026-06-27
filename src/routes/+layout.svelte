@@ -5,6 +5,7 @@
     import GlobalSearch from '$lib/svelte/GlobalSearch.svelte'
     import { store } from '$lib/sidebar.svelte.js'
     import { jobStore } from '$lib/guide-jobs.svelte.js'
+    import { scrollbar } from '$lib/actions/scrollbar.js'
 
     const { children } = $props()
 
@@ -201,7 +202,7 @@
     <aside id="sidebar" class:sidebar--open={sidebarOpen}>
         <Sidebar />
     </aside>
-    <main id="main-content">
+    <main id="main-content" use:scrollbar>
         {@render children()}
     </main>
 </div>

@@ -862,8 +862,6 @@
     gap: 8px;
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: var(--clr-border) transparent;
 }
 
 .trailers-thumb {
@@ -963,8 +961,6 @@
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--clr-border) transparent;
 }
 
 .news-item {
@@ -1080,8 +1076,6 @@
     overflow-y: auto;
     min-height: 0;
     flex: 1;
-    scrollbar-width: thin;
-    scrollbar-color: var(--clr-border) transparent;
     font-size: 13px;
     line-height: 1.7;
     color: var(--clr-text-muted);
@@ -1692,8 +1686,6 @@
     overflow-y: hidden;
     padding-bottom: 8px;
     /* custom scrollbar */
-    scrollbar-width: thin;
-    scrollbar-color: var(--clr-border) transparent;
 }
 
 /* Review card */

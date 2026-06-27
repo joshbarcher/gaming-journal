@@ -522,7 +522,7 @@
                         <div class="gj-guides-tile-info">
                             <span class="gj-guides-tile-name">{label}</span>
                             {#if srcData}
-                                <span class="gj-guides-tile-count">{srcData.guides.length} found{dlCount > 0 ? ` · ${dlCount} saved` : ''}</span>
+                                <span class="gj-guides-tile-count">{srcData.guides.length} found{dlCount > 0 ? ` / ${dlCount} saved` : ''}</span>
                             {:else}
                                 <span class="gj-guides-tile-count gj-guides-tile-count--empty">—</span>
                             {/if}
