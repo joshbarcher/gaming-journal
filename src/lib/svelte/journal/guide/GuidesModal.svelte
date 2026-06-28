@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte'
     import { navigate } from '../../../js/router.js'
     import { jobStore, type Job } from '$lib/guide-jobs.svelte.js'
+    import { confirmDialog } from '../../../js/dialog.js'
 
     interface Guide {
         title: string
@@ -126,6 +127,24 @@
         if (!guideId) return
         const existing = jobStore.jobFor(String(appid), source, guideId)
         if (existing?.status === 'pending' || existing?.status === 'running') return
+
+        // Warn if re-downloading a guide that has saved pins
+        if (downloadedGuideIds.has(guideId)) {
+            try {
+                const raw = localStorage.getItem(`guide-pins:${appid}:${source}:${guideId}`)
+                const stored = raw ? JSON.parse(raw) : null
+                const pinCount: number = stored?.pins?.length ?? 0
+                if (pinCount > 0) {
+                    const ok = await confirmDialog(
+                        'Re-download will clear pins',
+                        `This guide has ${pinCount} pin${pinCount !== 1 ? 's' : ''}. Re-downloading will clear all of them.`,
+                        'Re-download'
+                    )
+                    if (!ok) return
+                    localStorage.removeItem(`guide-pins:${appid}:${source}:${guideId}`)
+                }
+            } catch { /* ignore storage errors */ }
+        }
 
         try {
             await jobStore.enqueue({

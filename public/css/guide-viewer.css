@@ -14,20 +14,16 @@
     overflow: hidden;
 }
 
-/* ── Header row: 3-col grid so CONTENTS aligns with breadcrumbs + h1 ──── */
+/* ── Header row: 2-col grid ──────────────────────────────────────────────── */
 
 .gv-header-row {
     display: grid;
-    grid-template-columns: 44px 1fr 280px;
+    grid-template-columns: 1fr 280px;
     flex-shrink: 0;
 }
 
-.gv-header-gutter {
-    /* spacer matching left gutter column */
-}
-
 .gv-header-main {
-    padding: 32px 24px 20px 8px;
+    padding: 32px 24px 20px 24px;
     min-width: 0;
 }
 
@@ -62,61 +58,24 @@
 
 .gv-body {
     display: grid;
-    grid-template-columns: 44px 1fr 280px;
+    grid-template-columns: 1fr 280px;
     gap: 0;
     flex: 1;
     min-height: 0;
     overflow: hidden;
 }
 
-/* ── Left gutter (h2 arrows) ─────────────────────────────────────────────── */
-
-.gv-gutter {
-    /* Fixed so arrows never scroll — grid column still reserves the 44px space */
-    position: fixed;
-    left: calc(var(--sidebar-w) + 6px);
-    top: 40%;
-    transform: translateY(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    z-index: 20;
-}
-
-.gv-nav-arrow {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    color: var(--clr-text-muted);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color var(--transition), border-color var(--transition), background var(--transition);
-    line-height: 1;
-}
-
-.gv-nav-arrow:hover {
-    color: var(--clr-accent);
-    border-color: rgba(201, 168, 76, 0.4);
-    background: rgba(201, 168, 76, 0.06);
-}
-
 /* ── Center content ──────────────────────────────────────────────────────── */
 
 .gv-content {
-    grid-column: 2;
+    grid-column: 1;
     min-width: 0;
     overflow-y: auto;
     height: 100%;
 }
 
 .gv-content-inner {
-    padding: 24px 24px 80px 8px;
+    padding: 24px 24px 80px 24px;
 }
 
 .gv-section-loading {
@@ -286,9 +245,13 @@
 
 /* ── Tables ──────────────────────────────────────────────────────────────── */
 
+.gv-table-outer {
+    position: relative;
+    margin: 12px 0;
+}
+
 .gv-table-wrap {
     overflow-x: auto;
-    margin: 12px 0;
     cursor: grab;
 }
 
@@ -362,10 +325,37 @@
     margin: 2px 0;
 }
 
+/* ── Pin highlights ──────────────────────────────────────────────────────── */
+
+.gv-pinned {
+    position: relative;
+}
+
+.gv-pin-marker {
+    position: absolute;
+    left: -22px;
+    top: 2px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--clr-accent);
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    transition: opacity var(--transition), transform var(--transition);
+    z-index: 1;
+}
+
+.gv-pin-marker:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
 /* ── Right sidebar ───────────────────────────────────────────────────────── */
 
 .gv-sidebar {
-    grid-column: 3;
+    grid-column: 2;
     height: 100%;
     overflow-y: auto;
     background: var(--clr-bg-raised);
@@ -591,12 +581,33 @@
 
 .gl-title {
     font-family: var(--font-title);
-    font-size: clamp(22px, 3vw, 34px);
+    font-size: clamp(28px, 3.5vw, 42px);
     font-weight: 700;
-    color: var(--clr-text);
     line-height: 1.15;
-    margin: 0 0 16px;
+    margin: 0 0 20px;
     max-width: 640px;
+    background: linear-gradient(
+        90deg,
+        #e0d8c0 0%,
+        #e0d8c0 40%,
+        #b8962e 47%,
+        #c9a84c 49%,
+        #fde97a 50%,
+        #c9a84c 51%,
+        #b8962e 53%,
+        #e0d8c0 60%,
+        #e0d8c0 100%
+    );
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gl-title-shimmer 5s linear infinite;
+}
+
+@keyframes gl-title-shimmer {
+    from { background-position: left center; }
+    to   { background-position: right center; }
 }
 
 /* ── Pills row ── */
@@ -786,4 +797,206 @@
 
 .gl-mosaic-cell {
     min-height: 0;
+}
+
+/* ── Pins section (sidebar) ──────────────────────────────────────────────── */
+
+.gv-pins-section {
+    margin-bottom: 4px;
+}
+
+.gv-pins-hd {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 4px 6px 0;
+    color: var(--clr-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: color var(--transition);
+}
+
+.gv-pins-hd:hover { color: var(--clr-text); }
+
+.gv-pins-title {
+    flex: 1;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9px;
+    color: rgba(201, 168, 76, 0.7);
+}
+
+.gv-pins-count {
+    font-size: 10px;
+    background: rgba(201, 168, 76, 0.12);
+    color: var(--clr-accent);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-weight: 700;
+}
+
+.gv-pins-chevron {
+    font-size: 9px;
+    color: var(--clr-accent);
+    opacity: 0.5;
+}
+
+.gv-pins-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding-bottom: 6px;
+}
+
+.gv-pin-entry {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 4px;
+    transition: background var(--transition);
+}
+
+.gv-pin-entry:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.gv-pin-nav {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    padding: 4px 2px 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.gv-pin-page {
+    font-size: 10px;
+    color: var(--clr-accent);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.gv-pin-label {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    line-height: 1.35;
+}
+
+.gv-pin-del {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--clr-text-muted);
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition), background var(--transition);
+}
+
+.gv-pin-entry:hover .gv-pin-del { opacity: 1; }
+.gv-pin-del:hover {
+    color: var(--clr-text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.gv-pins-rule {
+    height: 1px;
+    background: var(--clr-border);
+    margin: 6px 0 10px;
+}
+
+/* ── Stale-pins notice ───────────────────────────────────────────────────── */
+
+.gv-pins-stale {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(201, 168, 76, 0.08);
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    border-radius: 5px;
+    padding: 6px 8px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    line-height: 1.4;
+}
+
+.gv-pins-stale span { flex: 1; }
+
+.gv-pins-stale-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--clr-text-muted);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 3px;
+    transition: color var(--transition);
+}
+.gv-pins-stale-close:hover { color: var(--clr-text); }
+
+/* ── Context menu ────────────────────────────────────────────────────────── */
+
+.gv-ctx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+}
+
+.gv-ctx-menu {
+    position: fixed;
+    z-index: 901;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    min-width: 168px;
+    padding: 4px;
+}
+
+.gv-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--clr-text);
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    transition: background var(--transition);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.gv-ctx-item:hover {
+    background: rgba(255, 255, 255, 0.07);
 }

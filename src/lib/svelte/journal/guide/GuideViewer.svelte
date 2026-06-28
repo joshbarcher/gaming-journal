@@ -15,15 +15,15 @@
 
     // ── State ──────────────────────────────────────────────────────────────────
 
-    let gameName     = $state('')
-    let meta         = $state<any>(null)
-    let blocks       = $state<any[]>([])
-    let currentSlug  = $state<string | null>(null)
-    let loading      = $state(true)
+    let gameName       = $state('')
+    let meta           = $state<any>(null)
+    let blocks         = $state<any[]>([])
+    let currentSlug    = $state<string | null>(null)
+    let loading        = $state(true)
     let loadingSection = $state(false)
-    let error        = $state<string | null>(null)
+    let error          = $state<string | null>(null)
 
-    // ── Page scroll (left gutter arrows + keyboard ↑↓) ────────────────────────
+    // ── Page scroll ────────────────────────────────────────────────────────────
 
     let contentEl  = $state<HTMLElement | null>(null)
     let contentOs: ReturnType<typeof OverlayScrollbars> | undefined
@@ -50,17 +50,12 @@
     }
 
     // Intercept clicks on links inside the rendered guide content.
-    // • href="#"             → guide index link → go to landing page
-    // • href="#anchor"       → scroll .gv-content to element (no navigation)
-    // • href="page#anchor"   → if the base page is already loaded, just scroll;
-    //                          otherwise navTo so # is percent-encoded, not treated as URL fragment
     function onContentClick(e: MouseEvent) {
         const a = (e.target as Element)?.closest('a[href]') as HTMLAnchorElement | null
         if (!a) return
         const href = a.getAttribute('href')
         if (!href) return
 
-        // Bare "#" = bare wiki index URL — go to guide landing page
         if (href === '#') {
             e.preventDefault()
             e.stopPropagation()
@@ -111,9 +106,9 @@
     }
 
     function onKeyDown(e: KeyboardEvent) {
-        if (e.key === 'Escape' && modalEl?.classList.contains('gv-img-modal--open')) {
-            closeImageModal()
-            return
+        if (e.key === 'Escape') {
+            if (ctxMenu) { ctxMenu = null; return }
+            if (modalEl?.classList.contains('gv-img-modal--open')) { closeImageModal(); return }
         }
         if (e.key === 'ArrowDown' && !modalEl?.classList.contains('gv-img-modal--open')) {
             e.preventDefault()
@@ -135,7 +130,6 @@
         openGroups = next
     }
 
-    // Open the TOC group that contains `slug` without closing others the user may have opened.
     function autoOpenGroupFor(slug: string) {
         const tree = filteredNavTree
         if (!tree) return
@@ -160,6 +154,243 @@
         return slug === currentSlug
     }
 
+    // ── Pins ──────────────────────────────────────────────────────────────────
+
+    interface Pin {
+        id: string
+        slug: string        // base page slug (no #anchor)
+        pageLabel: string
+        blockPath: number[] // child-index path from .gv-content-inner to the pinned element
+        label: string       // text snippet from the pinned element
+    }
+
+    interface PinStore {
+        parsedAt: string | null
+        pins: Pin[]
+    }
+
+    const pinsKey = `guide-pins:${appid}:${source}:${guideId}`
+
+    let pins        = $state<Pin[]>([])
+    let pinsOpen    = $state(true)
+    let staleNotice = $state(false)
+
+    let ctxMenu = $state<{ x: number; y: number; blockPath: number[]; label: string } | null>(null)
+    let pendingPinPath = $state<number[] | null>(null)
+
+    function loadPins() {
+        try {
+            const raw = localStorage.getItem(pinsKey)
+            if (!raw) { pins = []; return }
+            const stored: PinStore = JSON.parse(raw)
+            const currentParsedAt = meta?.parsedAt ?? null
+            // If parsedAt changed the guide was re-downloaded — pins are stale
+            if (currentParsedAt && stored.parsedAt && stored.parsedAt !== currentParsedAt) {
+                pins = []
+                localStorage.removeItem(pinsKey)
+                staleNotice = true
+            } else {
+                pins = stored.pins ?? []
+            }
+        } catch { pins = [] }
+    }
+
+    function savePins(updated: Pin[]) {
+        try {
+            const store: PinStore = { parsedAt: meta?.parsedAt ?? null, pins: updated }
+            localStorage.setItem(pinsKey, JSON.stringify(store))
+        } catch {}
+    }
+
+    function deletePin(id: string) {
+        const updated = pins.filter(p => p.id !== id)
+        pins = updated
+        savePins(updated)
+    }
+
+    function navToPin(pin: Pin) {
+        ctxMenu = null
+        const curBase = (currentSlug ?? '').split('#')[0]
+        if (pin.slug === curBase) {
+            scrollToBlockPath(pin.blockPath)
+        } else {
+            pendingPinPath = pin.blockPath
+            navTo(pin.slug)
+        }
+    }
+
+    // ── Block path utilities ───────────────────────────────────────────────────
+
+    function getContentInner(): HTMLElement | null {
+        return contentEl?.querySelector('.gv-content-inner') as HTMLElement ?? null
+    }
+
+    // Walk up from target to the nearest block-level container:
+    // a direct child of .gv-content-inner, or a direct child of any .gv-section div.
+    function getBlockPath(target: Element): number[] {
+        const inner = getContentInner()
+        if (!inner) return []
+
+        let el: Element | null = target
+        while (el && el !== inner) {
+            const parent = el.parentElement
+            if (!parent || parent === inner || parent.classList.contains('gv-section')) break
+            el = parent
+        }
+        if (!el || el === inner) return []
+
+        const path: number[] = []
+        let cur: Element | null = el
+        while (cur && cur !== inner) {
+            const parent = cur.parentElement
+            if (!parent) break
+            path.unshift(Array.from(parent.children).indexOf(cur))
+            cur = parent
+        }
+        return path
+    }
+
+    function resolveBlockPath(path: number[]): HTMLElement | null {
+        const inner = getContentInner()
+        if (!inner || !path.length) return null
+        let el: Element | null = inner
+        for (const idx of path) {
+            el = el?.children[idx] ?? null
+            if (!el) return null
+        }
+        return el as HTMLElement
+    }
+
+    function scrollToBlockPath(path: number[]) {
+        const el = resolveBlockPath(path)
+        if (!el) return
+        const vp = scrollViewport()
+        if (!vp) return
+        const elTop = el.getBoundingClientRect().top - vp.getBoundingClientRect().top
+        vp.scrollBy({ top: elTop - 16, behavior: 'smooth' })
+    }
+
+    // On cold load, images above the target haven't expanded yet, making layout
+    // positions wrong. Wait for preceding images before computing scroll offset.
+    async function scrollToBlockPathWhenReady(path: number[]) {
+        const el = resolveBlockPath(path)
+        const inner = getContentInner()
+        if (!el || !inner) return
+
+        const pending = (Array.from(inner.querySelectorAll('img')) as HTMLImageElement[])
+            .filter(img => !img.complete &&
+                !!(el.compareDocumentPosition(img) & Node.DOCUMENT_POSITION_PRECEDING))
+
+        if (pending.length) {
+            await Promise.all(pending.map(img => new Promise<void>(resolve => {
+                img.addEventListener('load', () => resolve(), { once: true })
+                img.addEventListener('error', () => resolve(), { once: true })
+                setTimeout(resolve, 2000)
+            })))
+        }
+
+        scrollToBlockPath(path)
+    }
+
+    function applyPinHighlights() {
+        const inner = getContentInner()
+        if (!inner) return
+        // Clear existing markers and highlights
+        inner.querySelectorAll('.gv-pinned').forEach(el => {
+            el.classList.remove('gv-pinned')
+            el.querySelector('.gv-pin-marker')?.remove()
+        })
+        const baseSlug = (currentSlug ?? '').split('#')[0]
+        for (const pin of pins) {
+            if (pin.slug !== baseSlug) continue
+            const el = resolveBlockPath(pin.blockPath)
+            if (!el) continue
+            el.classList.add('gv-pinned')
+            // Inject a real button so click-to-delete works
+            const btn = document.createElement('button')
+            btn.className = 'gv-pin-marker'
+            btn.setAttribute('aria-label', 'Remove pin')
+            btn.title = 'Click to remove pin'
+            btn.innerHTML = PIN_SVG
+            btn.addEventListener('click', (e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                deletePin(pin.id)
+            })
+            el.prepend(btn)
+        }
+    }
+
+    // Re-apply pin highlights whenever blocks or pins change
+    $effect(() => {
+        void blocks
+        void pins
+        void currentSlug
+        if (!contentEl) return
+        tick().then(applyPinHighlights)
+    })
+
+    // Lucide "Pin" icon — shared between the DOM-injected marker and the template
+    const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>`
+
+    // ── Context menu ───────────────────────────────────────────────────────────
+
+    function extractLabel(target: Element): string {
+        const figure = target.closest('figure') as HTMLElement | null
+        if (figure || target.tagName === 'IMG') {
+            const caption = figure?.querySelector('figcaption')?.textContent?.trim()
+            const alt = (figure?.querySelector('img') as HTMLImageElement | null)?.alt?.trim()
+            return caption || alt || 'Image'
+        }
+        const tr = target.closest('tr') as HTMLElement | null
+        if (tr) {
+            const text = Array.from(tr.querySelectorAll('td, th'))
+                .map(c => c.textContent?.trim()).filter(Boolean).slice(0, 3).join(' · ')
+            return text.length > 70 ? text.slice(0, 70) + '…' : text
+        }
+        const readable = target.closest('p, li, h2, h3, h4, figcaption') as HTMLElement | null
+        const raw = readable?.textContent?.trim() ?? ''
+        return raw.length > 70 ? raw.slice(0, 70) + '…' : raw || 'Pin'
+    }
+
+    let currentPageHasPin = $derived(
+        pins.some(p => p.slug === (currentSlug ?? '').split('#')[0])
+    )
+
+    function onContextMenu(e: MouseEvent) {
+        if (!currentSlug) return
+        // Don't intercept right-clicks on the pin marker itself
+        if ((e.target as Element).closest('.gv-pin-marker')) return
+        e.preventDefault()
+        const target = e.target as Element
+        const blockPath = getBlockPath(target)
+        if (!blockPath.length) return
+        const label = extractLabel(target)
+        const x = Math.min(e.clientX, window.innerWidth - 190)
+        const y = Math.min(e.clientY, window.innerHeight - 60)
+        ctxMenu = { x, y, blockPath, label }
+    }
+
+    function doCreatePin() {
+        if (!ctxMenu || !currentSlug) return
+        const baseSlug = currentSlug.split('#')[0]
+        const existing = pins.find(p => p.slug === baseSlug)
+        const pin: Pin = {
+            id: existing?.id ?? crypto.randomUUID(),
+            slug: baseSlug,
+            pageLabel: sectionLabel || baseSlug,
+            blockPath: ctxMenu.blockPath,
+            label: ctxMenu.label,
+        }
+        // One pin per page — replace if one already exists
+        const updated = existing
+            ? pins.map(p => p.slug === baseSlug ? pin : p)
+            : [...pins, pin]
+        pins = updated
+        savePins(updated)
+        ctxMenu = null
+    }
+
     // ── Data loading ───────────────────────────────────────────────────────────
 
     async function loadMeta() {
@@ -178,8 +409,6 @@
         const anchor = anchorIdx !== -1 ? slug.slice(anchorIdx + 1) : null
         try {
             let data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : null)
-            // If the anchor-slug has no pre-sliced page, fall back to the base page
-            // and scroll to the anchor within it after render.
             if (!data && anchor) {
                 const baseSlug = slug.slice(0, anchorIdx)
                 data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(baseSlug)}`).then(r => r.ok ? r.json() : null)
@@ -191,10 +420,19 @@
             loadingSection = false
         }
         await tick()
-        if (anchor) {
+        if (pendingPinPath) {
+            const path = pendingPinPath
+            pendingPinPath = null
+            scrollToBlockPath(path)
+        } else if (anchor) {
             scrollToAnchor(anchor)
         } else {
-            scrollViewport()?.scrollTo({ top: 0 })
+            const pagePin = pins.find(p => p.slug === slug.split('#')[0])
+            if (pagePin) {
+                scrollToBlockPath(pagePin.blockPath)
+            } else {
+                scrollViewport()?.scrollTo({ top: 0 })
+            }
         }
     }
 
@@ -232,7 +470,6 @@
             document.body.style.userSelect = ''
         }
 
-        // Capture-phase click handler: cancel the click when the mouse moved
         function onClick(e: MouseEvent) {
             if (dragged) {
                 e.preventDefault()
@@ -254,9 +491,8 @@
         }
     }
 
-    // Attach drag-scroll to every table container after blocks render
     $effect(() => {
-        void blocks // re-run when blocks change
+        void blocks
         if (!contentEl) return
         let cancelled = false
         const cleanups: (() => void)[] = []
@@ -282,7 +518,7 @@
     onMount(async () => {
         try {
             await loadMeta()
-            // No section = show landing page; don't auto-navigate to first page.
+            loadPins()
             if (section) {
                 await loadSection(section)
             }
@@ -290,6 +526,14 @@
             error = (e as Error).message
         } finally {
             loading = false
+        }
+
+        // loadSection's scroll ran while loading=true hid the gv-wrap, so contentEl
+        // was null and the scroll silently failed. Retry now that the DOM is live.
+        if (section && !section.includes('#')) {
+            await tick()
+            const pagePin = pins.find(p => p.slug === section.split('#')[0])
+            if (pagePin) scrollToBlockPathWhenReady(pagePin.blockPath)
         }
 
         document.addEventListener('keydown', onKeyDown)
@@ -306,7 +550,6 @@
         const s = section
         if (loading || loadingSection || !meta) return
         if (s && s !== currentSlug) {
-            // If only the anchor differs and the element is already rendered, just scroll
             const anchor = s.includes('#') ? s.split('#')[1] : null
             const sBase  = s.split('#')[0]
             const curBase = currentSlug?.split('#')[0] ?? ''
@@ -318,15 +561,12 @@
             }
             loadSection(s)
         } else if (!s && currentSlug) {
-            // Navigated back to guide root (landing page) — clear current section
             currentSlug = null
             blocks = []
         }
     })
 
     // ── Filtered nav tree ─────────────────────────────────────────────────────
-    // Only show nav items whose slugs actually exist as parsed pages.
-    // Drops groups that become empty after filtering.
 
     let filteredNavTree = $derived.by(() => {
         if (!meta?.navTree) return null
@@ -384,9 +624,8 @@
 {:else if meta}
 <div class="gv-wrap">
 
-    <!-- ── Header row: 3-col grid so CONTENTS aligns with breadcrumbs+h1 ── -->
+    <!-- ── Header row ──────────────────────────────────────────────────── -->
     <div class="gv-header-row">
-        <div class="gv-header-gutter"></div>
         <div class="gv-header-main">
             <Breadcrumb {crumbs} />
             <h1 class="gv-page-title">{sectionLabel || meta.title}</h1>
@@ -402,17 +641,9 @@
     <!-- ── Three-column body ─────────────────────────────────────────────── -->
     <div class="gv-body">
 
-        <!-- Left gutter: page scroll arrows (hidden on landing) -->
-        <div class="gv-gutter">
-            {#if currentSlug}
-                <button class="gv-nav-arrow" onclick={() => scrollPage(-1)} title="Scroll up" aria-label="Scroll up">↑</button>
-                <button class="gv-nav-arrow" onclick={() => scrollPage(1)}  title="Scroll down" aria-label="Scroll down">↓</button>
-            {/if}
-        </div>
-
         <!-- Center: content -->
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <div class="gv-content" bind:this={contentEl} onclick={onContentClick}>
+        <div class="gv-content" bind:this={contentEl} onclick={onContentClick} oncontextmenu={onContextMenu}>
             {#if loadingSection}
                 <div class="gv-section-loading"><div class="community-loader"></div></div>
             {:else if !currentSlug}
@@ -448,9 +679,42 @@
             {/if}
         </div>
 
-        <!-- Right sidebar: TOC nav tree (sticky, no label — it's in the header row) -->
+        <!-- Right sidebar: TOC nav tree -->
         <aside class="gv-sidebar">
             <div class="gv-sidebar-inner">
+
+                <!-- ── Pins ── -->
+                {#if staleNotice}
+                    <div class="gv-pins-stale">
+                        <span>Pins cleared — guide was re-downloaded.</span>
+                        <button class="gv-pins-stale-close" onclick={() => staleNotice = false}>×</button>
+                    </div>
+                {/if}
+                {#if pins.length > 0}
+                    <div class="gv-pins-section">
+                        <button class="gv-pins-hd" onclick={() => pinsOpen = !pinsOpen}>
+                            <span class="gv-pins-title">Pins</span>
+                            <span class="gv-pins-count">{pins.length}</span>
+                            <span class="gv-pins-chevron">{pinsOpen ? '▾' : '▸'}</span>
+                        </button>
+                        {#if pinsOpen}
+                            <div class="gv-pins-list">
+                                {#each pins as pin (pin.id)}
+                                    <div class="gv-pin-entry">
+                                        <button class="gv-pin-nav" onclick={() => navToPin(pin)} title={pin.label}>
+                                            <span class="gv-pin-page">{pin.pageLabel}</span>
+                                            <span class="gv-pin-label">{pin.label}</span>
+                                        </button>
+                                        <button class="gv-pin-del" onclick={() => deletePin(pin.id)} aria-label="Remove pin">×</button>
+                                    </div>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                    <div class="gv-pins-rule"></div>
+                {/if}
+
+                <!-- ── TOC nav tree ── -->
                 {#if filteredNavTree?.length}
                     <nav class="gv-toc">
                         {#each filteredNavTree as item}
@@ -470,7 +734,7 @@
                                             <button
                                                 class="gv-toc-link gv-toc-group-nav"
                                                 class:gv-toc-link--active={isActive(item.slug)}
-                                                onclick={() => navTo(item.slug)}
+                                                onclick={(e) => { e.stopPropagation(); navTo(item.slug); }}
                                             >{item.label}</button>
                                         {:else}
                                             <span class="gv-toc-group-lbl">{item.label}</span>
@@ -514,4 +778,16 @@
         </aside>
     </div>
 </div>
+
+<!-- Context menu — fixed position so it clears scroll containers -->
+{#if ctxMenu}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="gv-ctx-overlay" onclick={() => ctxMenu = null}></div>
+    <div class="gv-ctx-menu" style="left:{ctxMenu.x}px;top:{ctxMenu.y}px">
+        <button class="gv-ctx-item" onclick={doCreatePin}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>
+            {currentPageHasPin ? 'Move pin here' : 'Pin this location'}
+        </button>
+    </div>
+{/if}
 {/if}

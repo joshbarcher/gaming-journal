@@ -127,7 +127,7 @@
         {/if}
 
     {:else if block.type === 'table'}
-        <div class="gv-table-wrap">
+        <div class="gv-table-outer"><div class="gv-table-wrap">
             <table class="gv-table">
                 {#if block.caption}
                     <caption class="gv-table-caption">{block.caption}</caption>
@@ -161,6 +161,6 @@
                     {/each}
                 </tbody>
             </table>
-        </div>
+        </div></div>
     {/if}
 {/each}

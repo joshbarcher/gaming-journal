@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount } from 'svelte'
-    import { goto } from '$app/navigation'
     import Breadcrumb from '../../Breadcrumb.svelte'
 
     let { appid }: { appid: string } = $props()
@@ -71,12 +70,7 @@
     {:else}
         <div class="gl-grid">
             {#each guides as g}
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="gl-card"
-                     onclick={() => goto(`/journal/${appid}/guides/${g.source}/${g.guideId}`)}
-                     role="button"
-                     tabindex="0"
-                     onkeydown={(e) => e.key === 'Enter' && goto(`/journal/${appid}/guides/${g.source}/${g.guideId}`)}>
+                <a class="gl-card" href="/journal/{appid}/guides/{g.source}/{g.guideId}">
                     <div class="gl-card-source">
                         {#if SOURCE_ICONS[g.source]}
                             <img class="gl-card-source-icon" src={SOURCE_ICONS[g.source]} alt="">
@@ -96,7 +90,7 @@
                         <span class="gl-card-sep">·</span>
                         <span class="gl-card-date">Added {fmtDate(g.parsedAt)}</span>
                     </div>
-                </div>
+                </a>
             {/each}
         </div>
     {/if}

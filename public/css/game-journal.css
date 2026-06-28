@@ -2151,6 +2151,8 @@ div.gj-ach-badge {
     gap: 10px;
     cursor: pointer;
     transition: border-color var(--transition), background var(--transition);
+    text-decoration: none;
+    color: inherit;
 }
 
 .gl-card:hover {
