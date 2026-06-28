@@ -2,8 +2,8 @@
     import Fuse from 'fuse.js'
 
     interface CoverImage { section: string; src: string }
-    interface FtEntry   { slug: string; label: string; text: string }
-    interface HitSnippet { html: string }
+    interface FtEntry   { slug: string; label: string; text: string; blockPath?: number[] }
+    interface HitSnippet { html: string; blockPath?: number[] }
     interface HitGroup  { slug: string; label: string; snippets: HitSnippet[] }
 
     let { steamId, source, guideId, title, pageCount, parsedAt, sizeBytes, sourceUrl, coverImages, onStart, onNav }: {
@@ -17,7 +17,7 @@
         sourceUrl?:  string | null
         coverImages: CoverImage[]
         onStart:     () => void
-        onNav:       (slug: string) => void
+        onNav:       (slug: string, blockPath?: number[]) => void
     } = $props()
 
     function fmtBytes(n: number | undefined): string {
@@ -128,9 +128,11 @@
 
     function runSearch(q: string) {
         if (!fuseInst || !q.trim()) { hits = []; return }
+        const qLower = q.trim().toLowerCase()
         const raw = fuseInst.search(q.trim(), { limit: 60 })
         // Group by slug, max 3 snippets per page, max 6 pages
         const groups = new Map<string, HitGroup>()
+        const exactSlugs = new Set<string>()
         for (const r of raw) {
             const { slug, label, text } = r.item
             const indices = r.matches?.[0]?.indices ?? []
@@ -140,10 +142,12 @@
             }
             const g = groups.get(slug)!
             if (g.snippets.length < 3) {
-                g.snippets.push({ html: makeSnippet(text, indices as [number,number][]) })
+                g.snippets.push({ html: makeSnippet(text, indices as [number,number][]), blockPath: r.item.blockPath })
             }
+            if (text.toLowerCase().includes(qLower)) exactSlugs.add(slug)
         }
-        hits = [...groups.values()]
+        // Promote pages with exact phrase matches above fuzzy-only matches
+        hits = [...groups.values()].sort((a, b) => +exactSlugs.has(b.slug) - +exactSlugs.has(a.slug))
     }
 
     let debounceTimer: ReturnType<typeof setTimeout>
@@ -219,7 +223,7 @@
                         </button>
                         {#each group.snippets as snippet}
                             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                            <p class="gl-sr-snippet">{@html snippet.html}</p>
+                            <button class="gl-sr-snippet" onclick={() => onNav(group.slug, snippet.blockPath)}>{@html snippet.html}</button>
                         {/each}
                     </div>
                 {/each}

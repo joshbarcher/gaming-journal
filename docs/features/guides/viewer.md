@@ -27,7 +27,7 @@ The SvelteKit route is `src/routes/journal/[appid]/guides/[source]/[guideId]/[[s
 |------|------|
 | `src/lib/svelte/journal/guide/GuideViewer.svelte` | Main viewer: state, data loading, nav, pins, link interception |
 | `src/lib/svelte/journal/guide/GuideBlockRenderer.svelte` | Renders ContentBlock[] to DOM (paragraphs, headings, tables, images) |
-| `src/lib/svelte/journal/guide/GuideLanding.svelte` | Landing page shown when no section is selected (shimmer title, start button) |
+| `src/lib/svelte/journal/guide/GuideLanding.svelte` | Landing page shown when no section is selected — shimmer title, pills, full-text search, cover mosaic. See [landing.md](landing.md) |
 | `src/lib/svelte/journal/guide/GuidesList.svelte` | `/journal/{appid}/guides` list of all downloaded guides for a game |
 | `src/routes/journal/[appid]/guides/[source]/[guideId]/[[section]]/+page.svelte` | SvelteKit route |
 

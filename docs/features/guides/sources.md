@@ -2,6 +2,9 @@
 
 Each guide source (IGN, GameFAQs, Steam, Game8, Gamer Guides, Fandom, Neoseeker) has two files: a **fetcher** (Puppeteer BFS → raw HTML on disk) and an **adapter** (site-specific selectors + metadata extraction). The shared `parse-guide.js` tool calls into the adapter; the raw HTML never needs re-fetching to re-parse.
 
+**Per-source detail docs** — DOM structure, fetch strategy, preprocessing, search mechanism, gotchas:
+[IGN](sources/ign.md) · [GameFAQs](sources/gamefaqs.md) · [Steam](sources/steam.md) · [Game8](sources/game8.md) · [Gamer Guides](sources/gamerguides.md) · [Fandom](sources/fandom.md) · [Neoseeker](sources/neoseeker.md)
+
 ## Adapter contract
 
 Every adapter must export:

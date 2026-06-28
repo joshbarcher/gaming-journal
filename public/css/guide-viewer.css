@@ -170,7 +170,7 @@
 
 .gv-img {
     display: block;
-    max-width: 100%;
+    max-width: 80%;
     border-radius: 6px;
     border: 1px solid var(--clr-border);
     cursor: zoom-in;
@@ -388,7 +388,7 @@
 .gv-toc {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
 }
 
 .gv-toc-label {
@@ -407,10 +407,10 @@
     text-align: left;
     background: none;
     border: none;
-    color: var(--clr-text-muted);
+    color: color-mix(in srgb, var(--clr-text-muted) 55%, var(--clr-text) 45%);
     font-size: 12px;
     line-height: 1.4;
-    padding: 4px 6px;
+    padding: 3px 6px 3px 10px;
     border-radius: 4px;
     cursor: pointer;
     transition: color var(--transition), background var(--transition);
@@ -445,63 +445,43 @@
 }
 
 .gv-toc-group-hd {
-    display: flex;
-    align-items: center;
-    gap: 2px;
+    display: block;
+    width: 100%;
+    background: rgba(201, 168, 76, 0.03);
+    border: 1px solid rgba(201, 168, 76, 0.28);
+    border-radius: 4px;
+    padding: 6px 10px;
     cursor: pointer;
-    border-left: 2px solid rgba(201, 168, 76, 0.4);
-    padding-left: 6px;
-    border-radius: 0 3px 3px 0;
-    transition: border-color var(--transition);
-}
-
-.gv-toc-group-hd:hover {
-    border-color: rgba(201, 168, 76, 0.7);
-}
-
-.gv-toc-group-nav {
-    flex: 1;
-    min-width: 0;
-    text-align: left;
-    font-weight: 600;
-    color: var(--clr-accent) !important;
-}
-
-.gv-toc-group-lbl {
-    flex: 1;
-    min-width: 0;
+    color: var(--clr-accent);
     font-size: 12px;
     font-weight: 600;
-    color: var(--clr-accent);
-    padding: 5px 6px 5px 0;
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: background var(--transition), border-color var(--transition);
 }
 
-.gv-toc-chevron-btn {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    color: var(--clr-accent);
-    font-size: 9px;
-    padding: 5px 4px;
-    cursor: pointer;
-    opacity: 0.5;
-    transition: opacity var(--transition);
+.gv-toc-group-hd:hover {
+    background: rgba(201, 168, 76, 0.07);
+    border-color: rgba(201, 168, 76, 0.45);
 }
 
-.gv-toc-chevron-btn:hover {
-    opacity: 1;
+.gv-toc-group--open .gv-toc-group-hd {
+    border-radius: 4px 4px 0 0;
+    background: rgba(201, 168, 76, 0.07);
+    border-color: rgba(201, 168, 76, 0.42);
 }
 
 .gv-toc-group-body {
     display: flex;
     flex-direction: column;
     gap: 1px;
-    padding-left: 8px;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    margin-left: 7px;
+    padding: 4px 6px 6px 6px;
+    border: 1px dashed rgba(201, 168, 76, 0.32);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    background: var(--clr-bg);
 }
 
 /* ── Inline markup from guide HTML ───────────────────────────────────────── */
@@ -766,6 +746,19 @@
     color: var(--clr-text-muted);
     line-height: 1.55;
     margin: 3px 0 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-left: -4px;
+    text-align: left;
+    display: block;
+    width: calc(100% + 4px);
+    border-radius: 3px;
+}
+.gl-sr-snippet:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--clr-text);
 }
 .gl-sr-snippet mark {
     background: rgba(201, 168, 76, 0.25);

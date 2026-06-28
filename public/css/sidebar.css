@@ -542,3 +542,104 @@
     color: var(--clr-text-muted);
     text-align: center;
 }
+
+/* ── Nav label span (wraps text to allow CSS hide when collapsed) ────────────── */
+.sidebar-nav-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Collapsed sidebar: desktop only ───────────────────────────────────────── */
+@media (min-width: 1280px) {
+
+    /* Nav buttons: icon-only, centered */
+    #sidebar.sidebar--collapsed .sidebar-nav-btn {
+        justify-content: center;
+        padding: clamp(4px, 0.85vh, 8px) 4px;
+        position: relative;
+    }
+
+    /* Explicitly override the alerts button flex-start */
+    #sidebar.sidebar--collapsed .sidebar-alerts-btn {
+        justify-content: center;
+    }
+
+    /* Hide label text */
+    #sidebar.sidebar--collapsed .sidebar-nav-label {
+        display: none;
+    }
+
+    /* Hide number badges */
+    #sidebar.sidebar--collapsed .sidebar-collection-badge,
+    #sidebar.sidebar--collapsed .sidebar-alerts-badge {
+        display: none;
+    }
+
+    /* History backdrop: full-width in collapsed mode */
+    #sidebar.sidebar--collapsed .sidebar-history-btn {
+        overflow: visible;
+    }
+
+    #sidebar.sidebar--collapsed .sidebar-history-backdrop {
+        width: 100%;
+        -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,1) 100%);
+        mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,1) 100%);
+    }
+
+    /* Now Playing: hide text body, orbit still animates, glow persists */
+    #sidebar.sidebar--collapsed .now-playing-body {
+        display: none;
+    }
+
+    /* Scale orbit down to fit narrow card (≈48px content width) */
+    #sidebar.sidebar--collapsed .now-playing-particle {
+        top: -18px;
+        width: 5px;
+        height: 5px;
+        left: -2.5px;
+    }
+
+    /* Pin strip: just the dot, centered */
+    #sidebar.sidebar--collapsed .sidebar-pin-strip {
+        justify-content: center;
+        padding: 7px 0;
+    }
+
+    #sidebar.sidebar--collapsed .sidebar-pin-text {
+        display: none;
+    }
+
+    /* ── Hover tooltip for collapsed nav buttons ─────────────────────────────
+       Appears to the right of the icon; escapes sidebar via overflow:visible
+       set on #sidebar.sidebar--collapsed in layout.css
+    ──────────────────────────────────────────────────────────────────────── */
+    #sidebar.sidebar--collapsed .sidebar-nav-btn::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: calc(100% + 28px); /* clears the 14px gutter button */
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--clr-bg-raised);
+        border: 1px solid var(--clr-border-hi);
+        border-radius: var(--radius);
+        padding: 5px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--clr-text);
+        white-space: nowrap;
+        z-index: 500;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.1s ease;
+    }
+
+    #sidebar.sidebar--collapsed .sidebar-nav-btn:hover::after {
+        opacity: 1;
+    }
+
+}

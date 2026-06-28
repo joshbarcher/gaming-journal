@@ -1,169 +1,101 @@
 # Sidebar (Left Nav)
 
-The persistent left navigation bar rendered in `+layout.svelte`. Contains the Now Playing / Last Session card, pinned community strip, all nav links with count badges, and the History backdrop. Driven entirely by a reactive `store` singleton populated by pollers in the layout.
+The persistent left navigation bar rendered in `+layout.svelte`. Contains the Now Playing / Last Session card, pinned community strip, all nav links with count badges, and the History backdrop. Driven by a reactive `store` singleton populated by pollers in the layout. Supports desktop collapse to icon-only mode, persisted across sessions.
 
 ## Key files
 
 | File | Role |
 |------|------|
-| `src/lib/Sidebar.svelte` | Component — renders all nav items, Now Playing card, pin strip, badges |
+| `src/lib/Sidebar.svelte` | Component — renders nav items, Now Playing card, pin strip, badges |
 | `src/lib/sidebar.svelte.ts` | `SidebarStore` class — all reactive state fields |
 | `src/lib/js/sidebar.ts` | Helper functions: `refreshAlertsBadge()`, `refreshSidebarItem()`, `addPageToSidebar()` |
-| `src/routes/+layout.svelte` | Polling orchestration, `fmtElapsed()`, mobile toggle, global keyboard shortcut |
+| `src/routes/+layout.svelte` | Polling orchestration, collapse state, mobile toggle |
 | `src/lib/guide-jobs.svelte.ts` | `jobStore` — `activeCount` drives the Downloads badge |
+| `public/css/layout.css` | Layout shell, sidebar width/transition, gutter button styles |
+| `public/css/sidebar.css` | All sidebar visual styles including collapsed overrides and CSS tooltips |
 
 ## Store (`sidebar.svelte.ts`)
 
-`SidebarStore` is a Svelte 5 class with `$state` fields, exported as a singleton `store`:
+`SidebarStore` is a Svelte 5 class with `$state` fields, exported as singleton `store`:
 
-```ts
-store.nowPlaying   // NowPlayingInfo | null — currently playing game
-store.lastPlayed   // LastPlayedInfo | null — last session game (shown when not playing)
-store.alertsCount  // number — count of on-sale wishlist games
-store.historyAppid // number | null — drives the History button backdrop image
-store.counts       // SidebarCounts — badge counts for each collection
-store.pin          // PinState | null — pinned community feed game
-store.pages        // Page[] — all journal pages (used by /toc)
-```
+| Field | Type | Content |
+|-------|------|---------|
+| `nowPlaying` | `NowPlayingInfo \| null` | Currently playing game |
+| `lastPlayed` | `LastPlayedInfo \| null` | Last session (shown when not playing) |
+| `alertsCount` | `number` | On-sale wishlist games |
+| `historyAppid` | `number \| null` | Drives History button backdrop image |
+| `counts` | `SidebarCounts` | Badge counts per collection |
+| `pin` | `PinState \| null` | Pinned community feed game |
+| `pages` | `Page[]` | All journal pages (used by `/toc`) |
 
-`SidebarCounts` fields:
+`SidebarCounts` keys: `library`, `wishlist`, `favorites`, `inProgress`, `backlog`, `dropped`, `completed`, `franchises`.
 
-| Field | Badge appears on |
-|-------|-----------------|
-| `library` | Steam Library |
-| `wishlist` | Wishlist |
-| `favorites` | Favorites |
-| `inProgress` | In Progress |
-| `backlog` | Backlog |
-| `dropped` | Abandoned |
-| `completed` | Completed (Hall of Fame) |
-| `franchises` | Franchises |
+## Polling (`+layout.svelte` onMount)
 
-## Polling (all in `+layout.svelte` `onMount`)
+| Function | Endpoint(s) | Interval | Updates |
+|----------|-------------|----------|---------|
+| `fetchNowPlaying()` | `GET /relay/api/steam/now-playing` | 60s | `nowPlaying`, `lastPlayed`, `historyAppid` |
+| `fetchPin()` | `GET /relay/api/pin` | 60s (same timer) | `pin` |
+| `fetchAlertsBadge()` | `GET /api/alerts` | 15min | `alertsCount` |
+| `fetchCollectionCounts()` | `GET /api/flags` + account + franchises | Once | `counts` |
+| `fetchHistoryBackdrop()` | `GET /relay/api/steam/playtime/last-played` | Once | `historyAppid`, `lastPlayed` |
 
-| Function | Endpoint(s) | Interval | What it updates |
-|----------|-------------|----------|-----------------|
-| `fetchNowPlaying()` | `GET /relay/api/steam/now-playing` | Every 60s | `store.nowPlaying`, `store.lastPlayed`, `store.historyAppid` |
-| `fetchPin()` | `GET /relay/api/pin` | Every 60s (same timer) | `store.pin` |
-| `fetchAlertsBadge()` | `GET /api/alerts` | Every 15min | `store.alertsCount` |
-| `fetchCollectionCounts()` | `GET /api/flags` + `GET /relay/api/account` + `GET /api/franchises` | Once on mount | `store.counts` |
-| `fetchHistoryBackdrop()` | `GET /relay/api/steam/playtime/last-played` | Once on mount | `store.historyAppid`, `store.lastPlayed` |
+`jobStore.connect()` opens a persistent SSE stream at `/relay/api/guides/jobs/stream`. `jobStore.activeCount` (pending/running jobs) drives the Downloads badge.
 
-`fetchNowPlaying` and `fetchPin` share a single `setInterval` — they always fire together. Timers are cleaned up in the layout's `onDestroy` return.
+## Desktop collapse
 
-`jobStore.connect()` is also called on mount — opens an SSE stream at `/relay/api/guides/jobs/stream` to keep `jobStore.jobs` up to date. `jobStore.activeCount` (jobs with status `pending` or `running`) drives the Downloads badge. This is not a poller — it's a persistent EventSource.
+`sidebarCollapsed` (`$state(false)`) lives in `+layout.svelte`. It's initialized from `localStorage('sidebar-collapsed')` in `onMount` and toggled by `toggleCollapse()`, which writes back to localStorage.
 
-## Now Playing card
+The `sidebar--collapsed` class is applied to `<aside#sidebar>`. All visual changes are CSS-driven:
 
-Shown when `store.nowPlaying` is set:
-- Full-bleed header.jpg background with scrim overlay
-- "Now Playing" eyebrow label + game name + elapsed time
-- Animated orbit particle (CSS animation `now-playing-orbit`)
-- Links to `/game/{appid}`
+- Sidebar narrows to 56px (width transition: 220ms cubic-bezier).
+- `.sidebar-nav-label` spans (wrapping each button's text) → `display: none`.
+- `.sidebar-collection-badge`, `.sidebar-alerts-badge` → `display: none`.
+- Nav buttons → `justify-content: center`.
+- Now Playing text body hidden; orbit particle scales down to fit the narrow card; gold glow animation persists.
+- Pin strip → dot only, centered.
 
-`elapsed` is computed by `fmtElapsed(playing.sessionStartedAt)` in the layout at fetch time, formatted as `"Xh Ym"` or `"Xm"`. It's a snapshot — not live-updating between polls. The elapsed time updates every 60s when the poll fires again.
+**Tooltips:** each `.sidebar-nav-btn` carries a dynamic `data-tooltip` attribute (label + count, e.g. `"Backlog (12)"`). In collapsed mode a CSS `::after` pseudo-element reads `attr(data-tooltip)` and fades in on hover. Offset is `left: calc(100% + 28px)` to clear the 14px gutter button.
 
-**Transition**: when `fetchNowPlaying` gets back `playing: null`, it copies the current `store.nowPlaying` into `store.lastPlayed` before clearing it. So the Last Session card always shows whichever game just stopped, not just whatever was last-played historically.
+**Gutter button:** `.sidebar-gutter-btn` is in `+layout.svelte` inside `<aside>`, positioned `left: 100%; top: 50%` — a 14×48px tab with rounded right corners that merges with the sidebar border. Hidden on mobile (`max-width: 1279px`).
 
-## Last Session card
-
-Shown when `store.nowPlaying` is null and `store.lastPlayed` is set:
-- Same background + scrim layout, no orbit animation
-- "Last Session" eyebrow label + game name (no elapsed — session is over)
-- Links to `/game/{appid}`
-
-`store.lastPlayed` is set from two sources:
-1. `fetchNowPlaying()` — when a session ends, copies `nowPlaying` → `lastPlayed`
-2. `fetchHistoryBackdrop()` — on mount, if neither nowPlaying nor lastPlayed is set, fetches the most recently played game from the playtime history and populates lastPlayed
-
-## Pinned community strip
-
-Shown when `store.pin` is set. A single-line strip below the Now Playing card:
-- Colored dot: pulsing live indicator if `pin.reason === 'playing' && pin.sessionEndedAt === null`, otherwise static
-- Game name + "Live community" / "Pinned community" label
-- Links to `/community/{pin.appid}`
-
-Pin is managed from the Community page — see [community.md](../community/community.md).
-
-## History button backdrop
-
-The History nav button has a faint blurred game header image as its background. This is driven by `store.historyAppid`: whichever appid is set renders `/relay/images/steam/games/{appid}/header.jpg` as the button's `background-image`.
-
-Priority order for `historyAppid`:
-1. Set to the currently playing game's appid during an active session (`fetchNowPlaying`)
-2. Set to the most-recently-played game from the playtime history (`fetchHistoryBackdrop`)
-
-## Badge styles
-
-Two visual styles of badge:
-
-| Style | Class | Used for |
-|-------|-------|---------|
-| Collection badge | `sidebar-collection-badge` | Library, Wishlist, Favorites, In Progress, Backlog, Abandoned, Completed, Franchises |
-| Alert badge | `sidebar-alerts-badge` | Sale Alerts (`store.alertsCount`), Downloads (`jobStore.activeCount`) |
-
-Collection badges are quiet/gray; alert badges are more prominent (typically accent-colored). They only render when the count > 0.
+**Overflow plumbing:** `#sidebar` is `position: relative; overflow: visible; z-index: 1` on desktop so the gutter button and tooltips escape its right edge. The mobile media query restores `overflow: hidden`. `#sidebar.sidebar--collapsed` bumps `z-index` to 10 and sets `#sidebar-nav` to `overflow: visible` for tooltip escape. The `collapsed` prop on `Sidebar.svelte` is used only for conditional `title` attributes on the Now Playing card and pin strip (browser native tooltip as fallback).
 
 ## Active item detection
 
-`getActiveId(pathname)` in `Sidebar.svelte` maps the current URL to the nav item that should be highlighted:
+`getActiveId(pathname)` in `Sidebar.svelte` maps the current URL to the highlighted nav item:
 
 ```
 /               → 'home'
-/game/*         → 'library'   (game pages highlight Library)
+/game/*         → 'library'
 /franchise/*    → 'franchises'
-/journal/*      → null         (no highlight)
-/community/*    → null         (no highlight)
+/recommend      → 'recommend'
+/journal/*      → null
+/community/*    → null
 /downloads      → 'downloads'
-anything else   → first URL segment (e.g. /backlog → 'backlog')
+anything else   → first URL segment
 ```
-
-`/journal/*` and `/community/*` return `null` because those are sub-pages of a specific game — highlighting a generic nav item would be misleading.
 
 ## Mobile behavior
 
-On mobile, the sidebar is hidden off-screen by default. A hamburger toggle button (`#sidebar-toggle`) appears. Clicking it sets `sidebarOpen = true`, which:
-- Adds `sidebar--open` class to `<aside>` (slides sidebar into view)
-- Shows `#sidebar-overlay` (dark scrim over content)
-
-Clicking the overlay, or any navigation (`afterNavigate`), resets `sidebarOpen = false`.
-
-## Keyboard navigation within sidebar
-
-`arrowNav()` in `Sidebar.svelte` handles `↑`/`↓` within the `<nav>`. Pressing ArrowDown while focused on a `.sidebar-nav-btn` moves focus to the next button; ArrowUp moves focus back. Allows keyboard-only navigation of the entire sidebar without Tab-tabbing through every item.
-
-## Updating store from outside the layout
-
-Three helper functions in `src/lib/js/sidebar.ts`:
-
-```ts
-refreshAlertsBadge()              // re-fetches /api/alerts → updates store.alertsCount
-refreshSidebarItem(updatedPage)   // patches one Page in store.pages by id
-addPageToSidebar(page)            // appends a new Page to store.pages
-```
-
-These are called from other parts of the app (e.g., after creating/editing a journal page) so the sidebar stays in sync without a full page reload.
+Sidebar is hidden off-screen by default (`transform: translateX(-100%)`). Hamburger toggle (`#sidebar-toggle`) sets `sidebarOpen = true` → adds `sidebar--open` class → sidebar slides in. Overlay click or `afterNavigate` resets to closed. The collapse feature is desktop-only; `sidebarCollapsed` is ignored on mobile.
 
 ## Common questions
 
 **Q: The Now Playing card shows the wrong game / an old game.**
-The card reflects `store.nowPlaying` which is polled every 60s from `GET /relay/api/steam/now-playing`. If Steam hasn't reported the new session to the relay yet, the card will lag by up to 60s. It's not real-time.
-
-**Q: The elapsed time on the Now Playing card isn't updating.**
-Elapsed time is computed once per 60s poll and stored as a formatted string. It does not tick in real-time between polls. To get live elapsed time, see the journal sessions doc — the journal dashboard uses a separate live poller.
+`store.nowPlaying` polls every 60s. It lags by up to 60s after a session starts or ends.
 
 **Q: A collection badge count is wrong.**
-`fetchCollectionCounts()` runs once on mount (not on a timer). If flags change during the session (e.g., you add a game to Backlog), the badge won't update until the next page load. If the count is consistently wrong, check the `GET /api/flags` response — it must include all games.
+`fetchCollectionCounts()` runs once on mount. Counts won't update mid-session. Check the `GET /api/flags` response if consistently wrong.
 
-**Q: The Downloads badge shows a number but no jobs are visible on the Downloads page.**
-`jobStore.activeCount` counts jobs with status `pending` or `running` from the SSE stream. If the stream dropped and reconnected, it receives a `snapshot` event with the current job list. If the Downloads page shows nothing, the SSE may have emitted a stale snapshot — refresh the page.
-
-**Q: I added a new nav item to the sidebar. How do I make it highlight correctly?**
-Add a case to `getActiveId()` in `Sidebar.svelte`. The default behavior is to match the first URL segment, so `/my-new-route` will match automatically if the nav item's `data-id` equals `my-new-route`. Only add a special case if the URL structure doesn't match the item ID.
+**Q: I added a new nav item. How do I wire up active highlighting?**
+Add a `data-id` matching the URL segment. The default catches `/my-new-route → 'my-new-route'`. Only add a `getActiveId` case if the URL structure doesn't match the item ID. Also add a `data-tooltip` attribute for the collapsed tooltip.
 
 ## Gotchas
 
-- **`store.pages` is not a nav item list** — it's the list of all journal `Page` records (notes, trackers, lists), used by the `/toc` (table of contents) page. It's unrelated to the sidebar nav links themselves.
-- **`dropped` vs `abandoned`**: the flag is called `dropped` in `SidebarCounts` and in `flags`, but the nav item is labeled "Abandoned" and routes to `/abandoned`. If you're filtering by this flag in other code, use `f.dropped`, not `f.abandoned`.
-- **`fmtElapsed` is in the layout, not the store** — it's a pure function that runs at poll time. The `elapsed` string is baked into `NowPlayingInfo` when stored. Don't look for elapsed-time logic in `sidebar.svelte.ts`.
-- **Pin 204 response means "no pin"** — `fetchPin()` treats HTTP 204 as `store.pin = null`. Any other non-OK status leaves `store.pin` unchanged (preserves the last known state rather than clearing it on transient errors).
+- **`store.pages` is not the nav link list** — it's all journal `Page` records, used only by `/toc`.
+- **`dropped` vs `abandoned`**: flag is `dropped` in store/API, but the nav label is "Abandoned" and route is `/abandoned`.
+- **`fmtElapsed` is in the layout, not the store** — baked into `NowPlayingInfo.elapsed` at poll time; doesn't tick live between polls.
+- **Pin 204 = no pin** — `fetchPin()` treats HTTP 204 as `store.pin = null`; other errors leave `pin` unchanged.
+- **Tooltip clipping** — tooltips escape via `overflow: visible` on `#sidebar`. If a future change adds `overflow: hidden` back to `#sidebar` on desktop, collapsed tooltips will disappear silently.
+- **History button needs `overflow: visible` when collapsed** — `.sidebar-history-btn` normally has `overflow: hidden` (for the backdrop clip). The collapsed CSS overrides it to `visible` so the tooltip `::after` isn't clipped.

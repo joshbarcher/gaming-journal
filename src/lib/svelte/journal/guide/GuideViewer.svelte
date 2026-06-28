@@ -142,7 +142,15 @@
 
     // ── Navigation ─────────────────────────────────────────────────────────────
 
-    function navTo(slug: string) {
+    function navTo(slug: string, blockPath?: number[]) {
+        if (blockPath?.length) {
+            const curBase = (currentSlug ?? '').split('#')[0]
+            if (slug === curBase) {
+                scrollToBlockPath(blockPath)
+                return
+            }
+            pendingPinPath = blockPath
+        }
         goto(`/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}`)
     }
 
@@ -361,6 +369,8 @@
         if (!currentSlug) return
         // Don't intercept right-clicks on the pin marker itself
         if ((e.target as Element).closest('.gv-pin-marker')) return
+        // Let native context menu handle links (e.g. open in new tab)
+        if ((e.target as Element).closest('a')) return
         e.preventDefault()
         const target = e.target as Element
         const blockPath = getBlockPath(target)
@@ -423,7 +433,7 @@
         if (pendingPinPath) {
             const path = pendingPinPath
             pendingPinPath = null
-            scrollToBlockPath(path)
+            scrollToBlockPathWhenReady(path)
         } else if (anchor) {
             scrollToAnchor(anchor)
         } else {
@@ -662,7 +672,7 @@
                             const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
                             if (firstSlug) navTo(firstSlug)
                         }}
-                        onNav={(slug: string) => navTo(slug)}
+                        onNav={(slug: string, blockPath?: number[]) => navTo(slug, blockPath)}
                     />
                 </div>
             {:else}
@@ -727,25 +737,11 @@
                                     onclick={() => navTo(item.slug)}
                                 >{item.label}</button>
                             {:else if item.type === 'group'}
-                                {@const groupOpen = openGroups.has(item.label)}
-                                <div class="gv-toc-group">
-                                    <div class="gv-toc-group-hd" role="button" tabindex="-1" onclick={() => toggleGroup(item.label)}>
-                                        {#if item.slug}
-                                            <button
-                                                class="gv-toc-link gv-toc-group-nav"
-                                                class:gv-toc-link--active={isActive(item.slug)}
-                                                onclick={(e) => { e.stopPropagation(); navTo(item.slug); }}
-                                            >{item.label}</button>
-                                        {:else}
-                                            <span class="gv-toc-group-lbl">{item.label}</span>
-                                        {/if}
-                                        <button
-                                            class="gv-toc-chevron-btn"
-                                            onclick={(e) => { e.stopPropagation(); toggleGroup(item.label); }}
-                                            aria-label="Toggle section"
-                                        >{groupOpen ? '▾' : '▸'}</button>
-                                    </div>
-                                    {#if groupOpen}
+                                <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(item.label)}>
+                                    <button class="gv-toc-group-hd" onclick={() => toggleGroup(item.label)}>
+                                        {item.label}
+                                    </button>
+                                    {#if openGroups.has(item.label)}
                                         <div class="gv-toc-group-body">
                                             {#each item.children as child}
                                                 <button

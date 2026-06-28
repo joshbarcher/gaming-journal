@@ -1,0 +1,100 @@
+Exactly, yes. A “glow spinning around the edge of a rectangle button” is basically an element moving around a rectangular path.
+
+Here’s a simple version:
+
+```html
+<button class="glow-button">
+  Click Me
+  <span class="glow"></span>
+</button>
+```
+
+```css
+.glow-button {
+  position: relative;
+  padding: 1rem 2rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: #111;
+  color: white;
+  font-size: 1.2rem;
+  overflow: visible;
+}
+
+.glow {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: cyan;
+  border-radius: 50%;
+  box-shadow: 0 0 12px cyan, 0 0 24px cyan;
+
+  offset-path: path("M 0 0 L 140 0 L 140 56 L 0 56 L 0 0");
+  offset-distance: 0%;
+
+  animation: travel 3s linear infinite;
+}
+
+@keyframes travel {
+  to {
+    offset-distance: 100%;
+  }
+}
+```
+
+The idea is:
+
+```css
+offset-path: path("M 0 0 L 140 0 L 140 56 L 0 56 L 0 0");
+```
+
+That says:
+
+```text
+start top-left
+go top-right
+go bottom-right
+go bottom-left
+go back top-left
+```
+
+So the glow follows the rectangle.
+
+For a button, though, I’d usually use a pseudo-element so the HTML stays clean:
+
+```html
+<button class="glow-button">Click Me</button>
+```
+
+```css
+.glow-button {
+  position: relative;
+  padding: 1rem 2rem;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background: #111;
+  color: white;
+  font-size: 1.2rem;
+}
+
+.glow-button::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: cyan;
+  box-shadow: 0 0 12px cyan, 0 0 24px cyan;
+
+  offset-path: path("M 0 0 L 140 0 L 140 56 L 0 56 L 0 0");
+  animation: glowTravel 3s linear infinite;
+}
+
+@keyframes glowTravel {
+  to {
+    offset-distance: 100%;
+  }
+}
+```
+
+One catch: the path uses fixed pixel coordinates, so if the button size changes, the path may not match perfectly. For a production version, the more common approach is often a rotating gradient border instead of a literal glowing dot following the edge. But for teaching motion paths, this is a great example.

@@ -9,8 +9,14 @@
 
     const { children } = $props()
 
-    let sidebarOpen  = $state(false)
-    let searchOpen   = $state(false)
+    let sidebarOpen      = $state(false)
+    let sidebarCollapsed = $state(false)
+    let searchOpen       = $state(false)
+
+    function toggleCollapse() {
+        sidebarCollapsed = !sidebarCollapsed
+        localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed))
+    }
 
     afterNavigate(() => { sidebarOpen = false; searchOpen = false })
 
@@ -149,6 +155,8 @@
 
     // ── Mount ─────────────────────────────────────────────────────────────────
     onMount(() => {
+        sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true'
+
         fetch('/api/pages')
             .then(r => r.ok ? r.json() : [])
             .then(pages => { store.pages = pages })
@@ -199,8 +207,20 @@
      class:visible={sidebarOpen}
      onclick={() => sidebarOpen = false}></div>
 <div id="app">
-    <aside id="sidebar" class:sidebar--open={sidebarOpen}>
-        <Sidebar />
+    <aside id="sidebar" class:sidebar--open={sidebarOpen} class:sidebar--collapsed={sidebarCollapsed}>
+        <Sidebar collapsed={sidebarCollapsed} />
+        <button class="sidebar-gutter-btn" onclick={toggleCollapse}
+                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+            {#if sidebarCollapsed}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>
+                </svg>
+            {:else}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
+                </svg>
+            {/if}
+        </button>
     </aside>
     <main id="main-content" use:scrollbar>
         {@render children()}

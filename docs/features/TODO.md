@@ -5,9 +5,17 @@ All docs are checked off (written). See [guidance.md](guidance.md) for the forma
 ## Guides
 - [x] [guides/downloading.md](guides/downloading.md) — job queue, fetch-guide.js, parse-guide.js, storage layout
 - [x] [guides/refreshing.md](guides/refreshing.md) — re-fetch without force, refresh button in GuidesModal
+- [x] [guides/landing.md](guides/landing.md) — GuideLanding, shimmer title, pills, full-text search (Fuse.js), cover mosaic
 - [x] [guides/viewer.md](guides/viewer.md) — GuideViewer, nav tree, section loading, link interception, pins
 - [x] [guides/search.md](guides/search.md) — guide discovery per source, GuidesModal search flow, _search.json
 - [x] [guides/sources.md](guides/sources.md) — adapter contract, all 7 sources, ContentBlock + NavTree schemas
+- [x] [guides/sources/ign.md](guides/sources/ign.md) — Next.js SSR wiki, BFS sidebar+body, slug probe + DDG search
+- [x] [guides/sources/gamefaqs.md](guides/sources/gamefaqs.md) — HTML guides only, TOC-seeded BFS, browser image capture
+- [x] [guides/sources/steam.md](guides/sources/steam.md) — single-page fetch sliced by section ID, Published File API search
+- [x] [guides/sources/game8.md](guides/sources/game8.md) — BFS from game index, data-src lazy images, numeric archive IDs
+- [x] [guides/sources/gamerguides.md](guides/sources/gamerguides.md) — server-rendered TOC, image-block→figure rewrite, HEAD-probe search
+- [x] [guides/sources/fandom.md](guides/sources/fandom.md) — MediaWiki, Puppeteer BFS up to 700 pages, CDN image transform
+- [x] [guides/sources/neoseeker.md](guides/sources/neoseeker.md) — Cloudflare-protected, 429 retry, wiki-toc accordion nav
 
 ## Journal
 - [x] [journal/overview.md](journal/overview.md) — JournalDashboard, GameJournal, 7-parallel-fetch pattern

@@ -4,6 +4,8 @@
     import type { NowPlayingInfo } from '$lib/sidebar.svelte.js'
     import { jobStore } from '$lib/guide-jobs.svelte.js'
 
+    let { collapsed = false }: { collapsed?: boolean } = $props()
+
     // ── SVG icons ─────────────────────────────────────────────────────────────
     const ICO = (paths: string) =>
         `<svg class="sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
@@ -62,11 +64,13 @@
 </script>
 
 <nav id="sidebar-nav" bind:this={navEl}>
+
     <!-- Now Playing / Last Session -->
     {#if store.nowPlaying}
         {@const np = store.nowPlaying}
         <div class="now-playing-wrap">
-            <a class="now-playing-card" href="/game/{np.appid}">
+            <a class="now-playing-card" href="/game/{np.appid}"
+               title={collapsed ? `Now Playing: ${np.name}${np.elapsed ? ` — ${np.elapsed}` : ''}` : undefined}>
                 <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/{np.appid}/header.jpg')"></div>
                 <div class="now-playing-scrim"></div>
                 <div class="now-playing-body">
@@ -80,7 +84,8 @@
     {:else if store.lastPlayed}
         {@const lp = store.lastPlayed}
         <div class="now-playing-wrap now-playing-wrap--last">
-            <a class="now-playing-card" href="/game/{lp.appid}">
+            <a class="now-playing-card" href="/game/{lp.appid}"
+               title={collapsed ? `Last Session: ${lp.name}` : undefined}>
                 <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/{lp.appid}/header.jpg')"></div>
                 <div class="now-playing-scrim"></div>
                 <div class="now-playing-body">
@@ -95,7 +100,10 @@
     {#if store.pin}
         {@const p = store.pin}
         {@const isLive = p.reason === 'playing' && p.sessionEndedAt === null}
-        <a class="sidebar-pin-strip" href="/community/{p.appid}" title="Pinned community feed — {p.name}">
+        <a class="sidebar-pin-strip" href="/community/{p.appid}"
+           title={collapsed
+               ? `${isLive ? 'Live' : 'Pinned'}: ${p.name}`
+               : `Pinned community feed — ${p.name}`}>
             <span class="sidebar-pin-dot" class:sidebar-pin-dot--live={isLive}></span>
             <span class="sidebar-pin-text">
                 <span class="sidebar-pin-name">{p.name}</span>
@@ -106,120 +114,139 @@
 
     <!-- Main nav -->
     <a class="sidebar-nav-btn sidebar-home-btn" href="/"
+       data-tooltip="Home"
        data-id="home" class:active={activeId === 'home'}
        onkeydown={arrowNav}>
-        {@html ICONS.home} Home
+        {@html ICONS.home} <span class="sidebar-nav-label">Home</span>
     </a>
     <a class="sidebar-nav-btn sidebar-library-btn" href="/library"
+       data-tooltip={`Steam Library${store.counts.library > 0 ? ` (${store.counts.library})` : ''}`}
        data-id="library" class:active={activeId === 'library'}
        onkeydown={arrowNav}>
-        {@html ICONS.library} Steam Library
+        {@html ICONS.library} <span class="sidebar-nav-label">Steam Library</span>
         {#if store.counts.library > 0}<span class="sidebar-collection-badge">{store.counts.library}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-wishlist-btn" href="/wishlist"
+       data-tooltip={`Wishlist${store.counts.wishlist > 0 ? ` (${store.counts.wishlist})` : ''}`}
        data-id="wishlist" class:active={activeId === 'wishlist'}
        onkeydown={arrowNav}>
-        {@html ICONS.wishlist} Wishlist
+        {@html ICONS.wishlist} <span class="sidebar-nav-label">Wishlist</span>
         {#if store.counts.wishlist > 0}<span class="sidebar-collection-badge">{store.counts.wishlist}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-discover-btn" href="/discover"
+       data-tooltip="Discover"
        data-id="discover" class:active={activeId === 'discover'}
        onkeydown={arrowNav}>
-        {@html ICONS.discover} Discover
+        {@html ICONS.discover} <span class="sidebar-nav-label">Discover</span>
     </a>
     <a class="sidebar-nav-btn sidebar-recommend-btn" href="/recommend"
+       data-tooltip="Recommend"
        data-id="recommend" class:active={activeId === 'recommend'}
        onkeydown={arrowNav}>
-        {@html ICONS.recommend} Recommend
+        {@html ICONS.recommend} <span class="sidebar-nav-label">Recommend</span>
     </a>
     <a class="sidebar-nav-btn sidebar-downloads-btn" href="/downloads"
+       data-tooltip={`Downloads${jobStore.activeCount > 0 ? ` (${jobStore.activeCount})` : ''}`}
        data-id="downloads" class:active={activeId === 'downloads'}
        onkeydown={arrowNav}>
-        {@html ICONS.downloads} Downloads
+        {@html ICONS.downloads} <span class="sidebar-nav-label">Downloads</span>
         {#if jobStore.activeCount > 0}<span class="sidebar-alerts-badge">{jobStore.activeCount}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-alerts-btn" href="/alerts"
+       data-tooltip={`Sale Alerts${store.alertsCount > 0 ? ` (${store.alertsCount})` : ''}`}
        data-id="alerts" class:active={activeId === 'alerts'}
        onkeydown={arrowNav}>
-        {@html ICONS.alerts} Sale Alerts
+        {@html ICONS.alerts} <span class="sidebar-nav-label">Sale Alerts</span>
         {#if store.alertsCount > 0}<span class="sidebar-alerts-badge">{store.alertsCount}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-calendar-btn" href="/calendar"
+       data-tooltip="Calendar"
        data-id="calendar" class:active={activeId === 'calendar' || activeId === 'releases'}
        onkeydown={arrowNav}>
-        {@html ICONS.calendar} Calendar
+        {@html ICONS.calendar} <span class="sidebar-nav-label">Calendar</span>
     </a>
     <a class="sidebar-nav-btn sidebar-top-games-btn" href="/top-games"
+       data-tooltip="Top Games"
        data-id="top-games" class:active={activeId === 'top-games'}
        onkeydown={arrowNav}>
-        {@html ICONS.topGames} Top Games
+        {@html ICONS.topGames} <span class="sidebar-nav-label">Top Games</span>
     </a>
 
     <div class="sidebar-bottom-sep"></div>
 
     <!-- Collection -->
     <a class="sidebar-nav-btn sidebar-history-btn" href="/history"
+       data-tooltip="History"
        data-id="history" class:active={activeId === 'history'}
        onkeydown={arrowNav}>
         {#if store.historyAppid}
             <span class="sidebar-history-backdrop"
                   style="background-image:url('/relay/images/steam/games/{store.historyAppid}/header.jpg')"></span>
         {/if}
-        {@html ICONS.history} History
+        {@html ICONS.history} <span class="sidebar-nav-label">History</span>
     </a>
     <a class="sidebar-nav-btn sidebar-inprogress-btn" href="/in-progress"
+       data-tooltip={`In Progress${store.counts.inProgress > 0 ? ` (${store.counts.inProgress})` : ''}`}
        data-id="in-progress" class:active={activeId === 'in-progress'}
        onkeydown={arrowNav}>
-        {@html ICONS.inProgress} In Progress
+        {@html ICONS.inProgress} <span class="sidebar-nav-label">In Progress</span>
         {#if store.counts.inProgress > 0}<span class="sidebar-collection-badge">{store.counts.inProgress}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-backlog-btn" href="/backlog"
+       data-tooltip={`Backlog${store.counts.backlog > 0 ? ` (${store.counts.backlog})` : ''}`}
        data-id="backlog" class:active={activeId === 'backlog'}
        onkeydown={arrowNav}>
-        {@html ICONS.backlog} Backlog
+        {@html ICONS.backlog} <span class="sidebar-nav-label">Backlog</span>
         {#if store.counts.backlog > 0}<span class="sidebar-collection-badge">{store.counts.backlog}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-favorites-btn" href="/favorites"
+       data-tooltip={`Favorites${store.counts.favorites > 0 ? ` (${store.counts.favorites})` : ''}`}
        data-id="favorites" class:active={activeId === 'favorites'}
        onkeydown={arrowNav}>
-        {@html ICONS.favorites} Favorites
+        {@html ICONS.favorites} <span class="sidebar-nav-label">Favorites</span>
         {#if store.counts.favorites > 0}<span class="sidebar-collection-badge">{store.counts.favorites}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-abandoned-btn" href="/abandoned"
+       data-tooltip={`Abandoned${store.counts.dropped > 0 ? ` (${store.counts.dropped})` : ''}`}
        data-id="abandoned" class:active={activeId === 'abandoned'}
        onkeydown={arrowNav}>
-        {@html ICONS.abandoned} Abandoned
+        {@html ICONS.abandoned} <span class="sidebar-nav-label">Abandoned</span>
         {#if store.counts.dropped > 0}<span class="sidebar-collection-badge">{store.counts.dropped}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-hof-btn" href="/hall-of-fame"
+       data-tooltip={`Completed${store.counts.completed > 0 ? ` (${store.counts.completed})` : ''}`}
        data-id="hall-of-fame" class:active={activeId === 'hall-of-fame'}
        onkeydown={arrowNav}>
-        {@html ICONS.hallOfFame} Completed
+        {@html ICONS.hallOfFame} <span class="sidebar-nav-label">Completed</span>
         {#if store.counts.completed > 0}<span class="sidebar-collection-badge">{store.counts.completed}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-franchises-btn" href="/franchises"
+       data-tooltip={`Franchises${store.counts.franchises > 0 ? ` (${store.counts.franchises})` : ''}`}
        data-id="franchises" class:active={activeId === 'franchises'}
        onkeydown={arrowNav}>
-        {@html ICONS.franchises} Franchises
+        {@html ICONS.franchises} <span class="sidebar-nav-label">Franchises</span>
         {#if store.counts.franchises > 0}<span class="sidebar-collection-badge">{store.counts.franchises}</span>{/if}
     </a>
 
     <div class="sidebar-bottom-sep"></div>
 
     <a class="sidebar-nav-btn sidebar-myreviews-btn" href="/my-reviews"
+       data-tooltip="My Reviews"
        data-id="my-reviews" class:active={activeId === 'my-reviews'}
        onkeydown={arrowNav}>
-        {@html ICONS.myReviews} My Reviews
+        {@html ICONS.myReviews} <span class="sidebar-nav-label">My Reviews</span>
     </a>
     <a class="sidebar-nav-btn sidebar-account-btn" href="/account"
+       data-tooltip="Account"
        data-id="account" class:active={activeId === 'account'}
        onkeydown={arrowNav}>
-        {@html ICONS.account} Account
+        {@html ICONS.account} <span class="sidebar-nav-label">Account</span>
     </a>
     <a class="sidebar-nav-btn sidebar-settings-btn" href="/settings"
+       data-tooltip="Settings"
        data-id="settings" class:active={activeId === 'settings'}
        onkeydown={arrowNav}>
-        {@html ICONS.settings} Settings
+        {@html ICONS.settings} <span class="sidebar-nav-label">Settings</span>
     </a>
 
 </nav>
