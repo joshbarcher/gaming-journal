@@ -15,6 +15,7 @@
     import SessionHistoryRail from './SessionHistoryRail.svelte'
     import Breadcrumb from '../Breadcrumb.svelte'
     import GuidesModal from './guide/GuidesModal.svelte'
+    import { trackerSuggestJobStore } from '$lib/tracker-suggest-jobs.svelte.js'
 
     let { appid } = $props()
 
@@ -32,6 +33,8 @@
     let error         = $state<string | null>(null)
     let hltbRefreshing = $state(false)
 
+    const activeTrackerJob = $derived(trackerSuggestJobStore.jobFor(String(appid)))
+
     // ── Guides ─────────────────────────────────────────────────────────────────
 
     interface DownloadedGuide { source: string; guideId: string; title: string; author: string | null; parsedAt: string | null; pageCount: number }
@@ -40,19 +43,11 @@
 
     let guides         = $state<DownloadedGuide[]>([])
     let searchData     = $state<SearchData | null>(null)
-    let modalSource    = $state<string | null>(null)
+    let guideModalOpen = $state(false)
     let searchingSet   = $state<Set<string>>(new Set())
-    let searchNotFound = $state(false)
-
-    const searchRunning = $derived(searchingSet.size > 0)
 
     const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker' }
     const SOURCE_ICONS:  Record<string, string> = { gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp', steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp', gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp', neoseeker: '/images/guides/neoseeker.webp' }
-
-    function openGuideModal(src: string, e: MouseEvent) {
-        e.stopPropagation()
-        modalSource = src
-    }
 
     async function handleGuideDownloaded(_guideId: string) {
         const g = await fetch(`/relay/api/guides/${appid}`).then(r => r.ok ? r.json() : []).catch(() => [])
@@ -108,7 +103,7 @@
                         if (event.phase === 'done') {
                             const entry = event.data?.sources?.[source]
                             if (entry) mergeSource(source, entry)
-                        } else if (event.phase === 'not_found') searchNotFound = true
+                        }
                     }
                 }
             }
@@ -119,7 +114,6 @@
 
     async function refreshSearch() {
         if (!game) return
-        searchNotFound = false
         await Promise.all([runSearch('gamefaqs'), runSearch('ign'), runSearch('steam'), runSearch('game8'), runSearch('gamerguides'), runSearch('fandom'), runSearch('neoseeker')])
     }
 
@@ -335,6 +329,11 @@
         hltbRefreshing = false
     }
 
+    async function enqueueTrackerSuggest() {
+        if (!game || activeTrackerJob) return
+        await trackerSuggestJobStore.enqueue({ steamId: String(appid), gameName: game.name })
+    }
+
     // ── Notes wall ─────────────────────────────────────────────────────────────
 
     let notesWallEl: HTMLElement
@@ -496,61 +495,27 @@
              Must come before HLTB in the DOM so auto-placement fills cols 1-2 around it. -->
         <div class="gj-card gj-card--guides-panel" style="grid-column:3;grid-row:2/4">
             <div class="gj-card-header">
-                <span class="gj-card-title">Guides</span>
-                <button
-                    class="game-refresh-btn"
-                    class:game-refresh-btn--spinning={searchRunning}
-                    disabled={searchRunning}
-                    onclick={refreshSearch}
-                    title="Refresh all sources"
-                >↻</button>
+                <span class="gj-card-title">Guides{guides.length > 0 ? ` (${guides.length})` : ''}</span>
+                <button class="gj-find-guides-btn" onclick={() => guideModalOpen = true}>Find</button>
             </div>
 
-            <div class="gj-guides-grid">
-                {#each Object.entries(SOURCE_LABELS) as [src, label]}
-                    {@const srcData = searchData?.sources?.[src]}
-                    {@const dlCount = guides.filter(g => g.source === src).length}
-                    {@const spinning = searchingSet.has(src)}
-                    <!-- svelte-ignore a11y_no_static_element_interactions -->
-                    <div class="gj-guides-tile"
-                         class:gj-guides-tile--active={!!srcData}
-                         onclick={() => srcData && openGuideModal(src, new MouseEvent('click'))}
-                         role={srcData ? 'button' : undefined}
-                         tabindex={srcData ? 0 : undefined}
-                         onkeydown={(e) => e.key === 'Enter' && srcData && openGuideModal(src, new MouseEvent('click'))}>
-                        <img class="gj-guides-tile-icon" src={SOURCE_ICONS[src]} alt={label}>
-                        <div class="gj-guides-tile-info">
-                            <span class="gj-guides-tile-name">{label}</span>
-                            {#if srcData}
-                                <span class="gj-guides-tile-count">{srcData.guides.length} found{dlCount > 0 ? ` / ${dlCount} saved` : ''}</span>
-                            {:else}
-                                <span class="gj-guides-tile-count gj-guides-tile-count--empty">—</span>
-                            {/if}
-                        </div>
-                        <button class="gj-guides-tile-refresh"
-                                class:gj-guides-tile-refresh--spinning={spinning}
-                                disabled={spinning}
-                                onclick={(e) => { e.stopPropagation(); runSearch(src) }}
-                                title="Refresh {label}">↻</button>
-                    </div>
-                {/each}
-
-                <!-- 8th tile: navigate to downloaded guides list -->
-                <a class="gj-guides-tile gj-guides-tile--active gj-guides-tile--downloads"
-                   href="/journal/{appid}/guides">
-                    <svg class="gj-guides-tile-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="6" y="4" width="20" height="24" rx="2" stroke="currentColor" stroke-width="2"/>
-                        <line x1="10" y1="10" x2="22" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="10" y1="14" x2="22" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="10" y1="18" x2="18" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <path d="M16 22 L16 28 M13 25 L16 28 L19 25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <div class="gj-guides-tile-info">
-                        <span class="gj-guides-tile-name">Downloaded</span>
-                        <span class="gj-guides-tile-count">{guides.length > 0 ? `${guides.length} saved` : 'None yet'}</span>
-                    </div>
-                </a>
-            </div>
+            {#if guides.length > 0}
+                <div class="gj-guide-dl-list" class:gj-guide-dl-list--grid={guides.length >= 5}>
+                    {#each guides as g (g.source + g.guideId)}
+                        <a class="gj-guide-dl-tile"
+                           href="/journal/{appid}/guides/{g.source}/{g.guideId}"
+                           onclick={(e) => { e.preventDefault(); navigate(`journal/${appid}/guides/${g.source}/${g.guideId}`) }}>
+                            <img class="gj-guide-dl-tile-icon" src={SOURCE_ICONS[g.source]} alt={SOURCE_LABELS[g.source] ?? g.source}>
+                            <div class="gj-guide-dl-tile-body">
+                                <span class="gj-guide-dl-tile-title">{g.title}</span>
+                                <span class="gj-guide-dl-tile-meta">{SOURCE_LABELS[g.source] ?? g.source} · {g.pageCount} pages</span>
+                            </div>
+                        </a>
+                    {/each}
+                </div>
+            {:else}
+                <p class="gj-no-data">No guides downloaded yet</p>
+            {/if}
         </div>
 
         <!-- HLTB card: always spans cols 1-2 (guides always in col 3) -->
@@ -605,6 +570,17 @@
              onclick={(e) => { if ((e.target as Element)?.closest('.gj-heat-cell')) return; navigate(`journal/${appid}/progress`) }}>
             <div class="gj-card-header">
                 <span class="gj-card-title">Progress Trackers</span>
+                {#if activeTrackerJob}
+                    <a class="game-refresh-btn game-refresh-btn--link"
+                       href="/downloads"
+                       onclick={(e) => e.stopPropagation()}>→ Downloads</a>
+                {:else}
+                    <button
+                        class="game-refresh-btn"
+                        onclick={(e) => { e.stopPropagation(); enqueueTrackerSuggest() }}
+                        title="AI-suggest trackers"
+                    >✦</button>
+                {/if}
             </div>
             {#if progressPages.length > 0}
                 <div class="gj-heat-grid" onmouseover={handleHeatOver} onmouseleave={() => { _lastHeatTip = null; hideTip() }}>
@@ -665,15 +641,17 @@
     </div>
 </div>
 
-{#if modalSource && searchData?.sources?.[modalSource]}
+{#if guideModalOpen}
     <GuidesModal
         {appid}
-        source={modalSource}
-        sourceData={searchData.sources[modalSource]}
-        downloadedGuideIds={new Set(guides.filter(g => g.source === modalSource).map(g => g.guideId))}
+        {searchData}
+        {guides}
         gameName={game?.name ?? ''}
-        onClose={() => modalSource = null}
+        {searchingSet}
+        onClose={() => guideModalOpen = false}
         onDownloaded={handleGuideDownloaded}
+        {runSearch}
+        {refreshSearch}
     />
 {/if}
 {/if}

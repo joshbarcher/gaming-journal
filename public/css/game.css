@@ -450,6 +450,7 @@
 .game-refresh-btn:hover:not(:disabled) { opacity: 1; color: var(--clr-text); }
 .game-refresh-btn:disabled             { cursor: default; opacity: 0.2; }
 .game-refresh-btn--spinning            { animation: game-spin 0.7s linear infinite; opacity: 0.6; }
+.game-refresh-btn--link                { font-size: 11px; text-decoration: none; letter-spacing: 0.02em; color: var(--clr-accent, #4f8ef7); opacity: 0.9; }
 
 @keyframes game-spin {
     from { transform: rotate(0deg); }

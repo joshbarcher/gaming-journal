@@ -3,6 +3,7 @@
     import { store } from '$lib/sidebar.svelte.js'
     import type { NowPlayingInfo } from '$lib/sidebar.svelte.js'
     import { jobStore } from '$lib/guide-jobs.svelte.js'
+    import { trackerSuggestJobStore } from '$lib/tracker-suggest-jobs.svelte.js'
 
     let { collapsed = false }: { collapsed?: boolean } = $props()
 
@@ -146,11 +147,11 @@
         {@html ICONS.recommend} <span class="sidebar-nav-label">Recommend</span>
     </a>
     <a class="sidebar-nav-btn sidebar-downloads-btn" href="/downloads"
-       data-tooltip={`Downloads${jobStore.activeCount > 0 ? ` (${jobStore.activeCount})` : ''}`}
+       data-tooltip={`Downloads${(jobStore.activeCount + trackerSuggestJobStore.activeCount) > 0 ? ` (${jobStore.activeCount + trackerSuggestJobStore.activeCount})` : ''}`}
        data-id="downloads" class:active={activeId === 'downloads'}
        onkeydown={arrowNav}>
         {@html ICONS.downloads} <span class="sidebar-nav-label">Downloads</span>
-        {#if jobStore.activeCount > 0}<span class="sidebar-alerts-badge">{jobStore.activeCount}</span>{/if}
+        {#if (jobStore.activeCount + trackerSuggestJobStore.activeCount) > 0}<span class="sidebar-alerts-badge">{jobStore.activeCount + trackerSuggestJobStore.activeCount}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-alerts-btn" href="/alerts"
        data-tooltip={`Sale Alerts${store.alertsCount > 0 ? ` (${store.alertsCount})` : ''}`}

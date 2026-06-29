@@ -26,7 +26,8 @@
     // ── Page scroll ────────────────────────────────────────────────────────────
 
     let contentEl  = $state<HTMLElement | null>(null)
-    let contentOs: ReturnType<typeof OverlayScrollbars> | undefined
+    let contentOs  = $state<ReturnType<typeof OverlayScrollbars> | undefined>(undefined)
+    let scrollProgress = $state(0)
 
     function scrollViewport(): HTMLElement | null {
         return contentOs?.elements().viewport as HTMLElement ?? contentEl
@@ -341,6 +342,59 @@
     // Lucide "Pin" icon — shared between the DOM-injected marker and the template
     const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>`
 
+    // ── TOC collapse ───────────────────────────────────────────────────────────
+
+    let tocCollapsed = $state(false)
+
+    function toggleToc() {
+        tocCollapsed = !tocCollapsed
+        localStorage.setItem('guide-toc-collapsed', String(tocCollapsed))
+    }
+
+    interface CollapsedPage {
+        label: string
+        fullLabel: string
+        slug: string
+        navigable: boolean
+        isGroup: boolean
+    }
+
+    // Numbered list for collapsed TOC — top-level only (no sub-pages).
+    // Groups are numbered but children are omitted; clicking a non-navigable group expands the TOC.
+    let collapsedPages = $derived.by<CollapsedPage[]>(() => {
+        const result: CollapsedPage[] = []
+        const tree = filteredNavTree
+        if (tree?.length) {
+            let n = 0
+            for (const item of tree) {
+                if (item.type === 'label') continue
+                n++
+                if (item.type === 'link') {
+                    result.push({ label: String(n), fullLabel: item.label, slug: item.slug, navigable: true, isGroup: false })
+                } else if (item.type === 'group') {
+                    result.push({ label: String(n), fullLabel: item.label, slug: item.slug ?? '', navigable: !!item.slug, isGroup: true })
+                }
+            }
+        } else if (meta) {
+            const pages = meta.pages ?? meta.nav ?? []
+            pages.forEach((p: any, i: number) => {
+                result.push({ label: String(i + 1), fullLabel: p.label, slug: p.slug, navigable: true, isGroup: false })
+            })
+        }
+        return result
+    })
+
+    let tocTooltip = $state<{ text: string; x: number; y: number } | null>(null)
+
+    function showTocTooltip(e: MouseEvent, text: string) {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        tocTooltip = { text, x: rect.left - 6, y: rect.top + rect.height / 2 }
+    }
+
+    function hideTocTooltip() {
+        tocTooltip = null
+    }
+
     // ── Context menu ───────────────────────────────────────────────────────────
 
     function extractLabel(target: Element): string {
@@ -520,12 +574,26 @@
     $effect(() => {
         if (!contentEl) { contentOs?.destroy(); contentOs = undefined; return }
         contentOs = OverlayScrollbars(contentEl, {
-            scrollbars: { theme: 'gj-theme', visibility: 'visible', autoHide: 'never', clickScroll: true },
+            scrollbars: { theme: 'gj-theme', visibility: 'hidden', clickScroll: true },
         }) ?? undefined
         return () => { contentOs?.destroy(); contentOs = undefined }
     })
 
+    $effect(() => {
+        const os = contentOs
+        if (!os) { scrollProgress = 0; return }
+        const vp = os.elements().viewport as HTMLElement
+        function update() {
+            const max = vp.scrollHeight - vp.clientHeight
+            scrollProgress = max > 0 ? (vp.scrollTop / max) * 100 : 0
+        }
+        vp.addEventListener('scroll', update, { passive: true })
+        update()
+        return () => vp.removeEventListener('scroll', update)
+    })
+
     onMount(async () => {
+        tocCollapsed = localStorage.getItem('guide-toc-collapsed') === 'true'
         try {
             await loadMeta()
             loadPins()
@@ -632,7 +700,7 @@
 {:else if error}
     <p class="page-error">{error}</p>
 {:else if meta}
-<div class="gv-wrap">
+<div class="gv-wrap" class:gv-toc--collapsed={tocCollapsed}>
 
     <!-- ── Header row ──────────────────────────────────────────────────── -->
     <div class="gv-header-row">
@@ -650,6 +718,13 @@
 
     <!-- ── Three-column body ─────────────────────────────────────────────── -->
     <div class="gv-body">
+
+        <!-- Reading progress bar — absolute, spans content column only -->
+        {#if currentSlug}
+            <div class="gv-scroll-progress" aria-hidden="true">
+                <div class="gv-scroll-progress-fill" style="width:{scrollProgress}%"></div>
+            </div>
+        {/if}
 
         <!-- Center: content -->
         <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -689,89 +764,134 @@
             {/if}
         </div>
 
-        <!-- Right sidebar: TOC nav tree -->
-        <aside class="gv-sidebar">
-            <div class="gv-sidebar-inner">
+        <button class="gv-toc-gutter-btn" onclick={toggleToc} title={tocCollapsed ? 'Expand contents' : 'Collapse contents'}>
+            {#if tocCollapsed}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
+                </svg>
+            {:else}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>
+                </svg>
+            {/if}
+        </button>
 
-                <!-- ── Pins ── -->
-                {#if staleNotice}
-                    <div class="gv-pins-stale">
-                        <span>Pins cleared — guide was re-downloaded.</span>
-                        <button class="gv-pins-stale-close" onclick={() => staleNotice = false}>×</button>
-                    </div>
-                {/if}
-                {#if pins.length > 0}
-                    <div class="gv-pins-section">
-                        <button class="gv-pins-hd" onclick={() => pinsOpen = !pinsOpen}>
-                            <span class="gv-pins-title">Pins</span>
-                            <span class="gv-pins-count">{pins.length}</span>
-                            <span class="gv-pins-chevron">{pinsOpen ? '▾' : '▸'}</span>
+        <!-- TOC wrap: constrains sidebar scroll height -->
+        <div class="gv-toc-wrap">
+            <aside class="gv-sidebar">
+            {#if tocCollapsed}
+                <!-- ── Collapsed view: pins then numbered pages ── -->
+                <div class="gv-toc-collapsed">
+                    {#each pins as pin (pin.id)}
+                        <button
+                            class="gv-tcc-pin"
+                            onclick={() => navToPin(pin)}
+                            onmouseenter={(e) => showTocTooltip(e, `${pin.pageLabel} — ${pin.label}`)}
+                            onmouseleave={hideTocTooltip}
+                        >
+                            {@html PIN_SVG}
                         </button>
-                        {#if pinsOpen}
-                            <div class="gv-pins-list">
-                                {#each pins as pin (pin.id)}
-                                    <div class="gv-pin-entry">
-                                        <button class="gv-pin-nav" onclick={() => navToPin(pin)} title={pin.label}>
-                                            <span class="gv-pin-page">{pin.pageLabel}</span>
-                                            <span class="gv-pin-label">{pin.label}</span>
-                                        </button>
-                                        <button class="gv-pin-del" onclick={() => deletePin(pin.id)} aria-label="Remove pin">×</button>
-                                    </div>
-                                {/each}
+                    {/each}
+                    {#if pins.length > 0}
+                        <div class="gv-tcc-rule"></div>
+                    {/if}
+                    {#each collapsedPages as item (item.slug + item.label)}
+                        <button
+                            class="gv-tcc-badge"
+                            class:gv-tcc-badge--active={item.navigable && isActive(item.slug)}
+                            class:gv-tcc-badge--group={item.isGroup}
+                            class:gv-tcc-badge--no-nav={!item.navigable}
+                            onclick={() => { if (item.navigable) navTo(item.slug); else tocCollapsed = false }}
+                            onmouseenter={(e) => showTocTooltip(e, item.fullLabel)}
+                            onmouseleave={hideTocTooltip}
+                        >{item.label}</button>
+                    {/each}
+                </div>
+            {:else}
+                <!-- ── Expanded view ── -->
+                <div class="gv-sidebar-inner">
+
+                    <!-- ── Pins ── -->
+                        {#if staleNotice}
+                            <div class="gv-pins-stale">
+                                <span>Pins cleared — guide was re-downloaded.</span>
+                                <button class="gv-pins-stale-close" onclick={() => staleNotice = false}>×</button>
                             </div>
                         {/if}
-                    </div>
-                    <div class="gv-pins-rule"></div>
-                {/if}
+                        {#if pins.length > 0}
+                            <div class="gv-pins-section">
+                                <button class="gv-pins-hd" onclick={() => pinsOpen = !pinsOpen}>
+                                    <span class="gv-pins-title">Pins</span>
+                                    <span class="gv-pins-count">{pins.length}</span>
+                                    <span class="gv-pins-chevron">{pinsOpen ? '▾' : '▸'}</span>
+                                </button>
+                                {#if pinsOpen}
+                                    <div class="gv-pins-list">
+                                        {#each pins as pin (pin.id)}
+                                            <div class="gv-pin-entry">
+                                                <button class="gv-pin-nav" onclick={() => navToPin(pin)} title={pin.label}>
+                                                    <span class="gv-pin-page">{pin.pageLabel}</span>
+                                                    <span class="gv-pin-label">{pin.label}</span>
+                                                </button>
+                                                <button class="gv-pin-del" onclick={() => deletePin(pin.id)} aria-label="Remove pin">×</button>
+                                            </div>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
+                            <div class="gv-pins-rule"></div>
+                        {/if}
 
-                <!-- ── TOC nav tree ── -->
-                {#if filteredNavTree?.length}
-                    <nav class="gv-toc">
-                        {#each filteredNavTree as item}
-                            {#if item.type === 'label'}
-                                <span class="gv-toc-label">{item.label}</span>
-                            {:else if item.type === 'link'}
-                                <button
-                                    class="gv-toc-link"
-                                    class:gv-toc-link--active={isActive(item.slug)}
-                                    onclick={() => navTo(item.slug)}
-                                >{item.label}</button>
-                            {:else if item.type === 'group'}
-                                <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(item.label)}>
-                                    <button class="gv-toc-group-hd" onclick={() => toggleGroup(item.label)}>
-                                        {item.label}
-                                    </button>
-                                    {#if openGroups.has(item.label)}
-                                        <div class="gv-toc-group-body">
-                                            {#each item.children as child}
-                                                <button
-                                                    class="gv-toc-link gv-toc-link--child"
-                                                    class:gv-toc-link--active={isActive(child.slug)}
-                                                    onclick={() => navTo(child.slug)}
-                                                >{child.label}</button>
-                                            {/each}
+                        <!-- ── TOC nav tree ── -->
+                        {#if filteredNavTree?.length}
+                            <nav class="gv-toc">
+                                {#each filteredNavTree as item}
+                                    {#if item.type === 'label'}
+                                        <span class="gv-toc-label">{item.label}</span>
+                                    {:else if item.type === 'link'}
+                                        <button
+                                            class="gv-toc-link"
+                                            class:gv-toc-link--active={isActive(item.slug)}
+                                            onclick={() => navTo(item.slug)}
+                                        >{item.label}</button>
+                                    {:else if item.type === 'group'}
+                                        <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(item.label)}>
+                                            <button class="gv-toc-group-hd" onclick={() => toggleGroup(item.label)}>
+                                                {item.label}
+                                            </button>
+                                            {#if openGroups.has(item.label)}
+                                                <div class="gv-toc-group-body">
+                                                    {#each item.children as child}
+                                                        <button
+                                                            class="gv-toc-link gv-toc-link--child"
+                                                            class:gv-toc-link--active={isActive(child.slug)}
+                                                            onclick={() => navTo(child.slug)}
+                                                        >{child.label}</button>
+                                                    {/each}
+                                                </div>
+                                            {/if}
                                         </div>
                                     {/if}
-                                </div>
-                            {/if}
-                        {/each}
-                    </nav>
-                {:else}
-                    <nav class="gv-toc">
-                        {#each (meta.pages ?? meta.nav ?? []) as item}
-                            <button
-                                class="gv-toc-link"
-                                class:gv-toc-link--active={isActive(item.slug)}
-                                onclick={() => navTo(item.slug)}
-                            >{item.label}</button>
-                        {/each}
-                    </nav>
-                {/if}
-                {#if meta.author}
-                    <p class="gv-sidebar-author">by {meta.author}</p>
-                {/if}
-            </div>
-        </aside>
+                                {/each}
+                            </nav>
+                        {:else}
+                            <nav class="gv-toc">
+                                {#each (meta.pages ?? meta.nav ?? []) as item}
+                                    <button
+                                        class="gv-toc-link"
+                                        class:gv-toc-link--active={isActive(item.slug)}
+                                        onclick={() => navTo(item.slug)}
+                                    >{item.label}</button>
+                                {/each}
+                            </nav>
+                        {/if}
+                    {#if meta.author}
+                        <p class="gv-sidebar-author">by {meta.author}</p>
+                    {/if}
+                </div>
+            {/if}
+            </aside>
+        </div>
     </div>
 </div>
 
@@ -784,6 +904,11 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>
             {currentPageHasPin ? 'Move pin here' : 'Pin this location'}
         </button>
+    </div>
+{/if}
+{#if tocTooltip}
+    <div class="gv-tcc-tooltip" style="left:{tocTooltip.x}px;top:{tocTooltip.y}px">
+        {tocTooltip.text}
     </div>
 {/if}
 {/if}

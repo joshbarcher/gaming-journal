@@ -1,8 +1,5 @@
 Tasks for AI to work on:
 
-# Making left nav bar collapsable
-Left navigation bar should be collapsable with a button that closes it when open, and then opens it when closed. Other nav elements collapse do their icons with hover tooltip. Number pills on nav elements are hidden. Currently playing still has animation and looks nice. Information in hover tooltip.
-
 # Adding claude/api integration so progress trackers can be auto-created
 
 # Updating Community Features

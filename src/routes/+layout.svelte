@@ -3,11 +3,10 @@
     import { afterNavigate, beforeNavigate } from '$app/navigation'
     import Sidebar from '$lib/Sidebar.svelte'
     import GlobalSearch from '$lib/svelte/GlobalSearch.svelte'
-    import { store } from '$lib/sidebar.svelte.js'
-    import { jobStore } from '$lib/guide-jobs.svelte.js'
+    import { store, type NowPlayingInfo } from '$lib/sidebar.svelte.js'
     import { scrollbar } from '$lib/actions/scrollbar.js'
 
-    const { children } = $props()
+    const { children, data } = $props()
 
     let sidebarOpen      = $state(false)
     let sidebarCollapsed = $state(false)
@@ -58,126 +57,82 @@
         }
     }
 
-    // ── Polling helpers ───────────────────────────────────────────────────────
-    function fmtElapsed(startIso: string | null | undefined): string {
+    // ── Elapsed formatter (for now-playing display) ───────────────────────────
+    function fmtElapsed(startIso: string | null): string {
         if (!startIso) return ''
         const min = Math.max(1, Math.floor((Date.now() - new Date(startIso).getTime()) / 60_000))
-        const h = Math.floor(min / 60)
-        const m = min % 60
+        const h = Math.floor(min / 60), m = min % 60
         if (h === 0) return `${m}m`
         if (m === 0) return `${h}h`
         return `${h}h ${m}m`
-    }
-
-    async function fetchNowPlaying() {
-        try {
-            const res = await fetch('/relay/api/steam/now-playing')
-            if (!res.ok) return
-            const { playing } = await res.json()
-            if (!playing) {
-                if (store.nowPlaying) {
-                    store.lastPlayed = { appid: store.nowPlaying.appid, name: store.nowPlaying.name }
-                }
-                store.nowPlaying = null
-                return
-            }
-            store.nowPlaying = { ...playing, elapsed: fmtElapsed(playing.sessionStartedAt ?? null) }
-            store.historyAppid = playing.appid
-        } catch { /* silent */ }
-    }
-
-    async function fetchPin() {
-        try {
-            const res = await fetch('/relay/api/pin')
-            store.pin = res.status === 204 ? null : (res.ok ? await res.json() : store.pin)
-        } catch { /* silent */ }
-    }
-
-    async function fetchAlertsBadge() {
-        try {
-            const res = await fetch('/api/alerts')
-            if (!res.ok) return
-            const { onSale } = await res.json()
-            store.alertsCount = onSale?.length ?? 0
-        } catch { /* silent */ }
-    }
-
-    async function fetchCollectionCounts() {
-        try {
-            const [flagsRes, accountRes, franchisesRes] = await Promise.all([
-                fetch('/api/flags'),
-                fetch('/relay/api/account'),
-                fetch('/api/franchises'),
-            ])
-            if (!flagsRes.ok) return
-            const flags = await flagsRes.json()
-            const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 }
-            for (const f of Object.values(flags) as any[]) {
-                if (f.favorite)   counts.favorites++
-                if (f.inProgress) counts.inProgress++
-                if (f.backlog)    counts.backlog++
-                if (f.dropped)    counts.dropped++
-                if (f.completed)  counts.completed++
-            }
-            if (accountRes.ok) {
-                const account = await accountRes.json()
-                counts.library  = account?.stats?.totalGames   ?? 0
-                counts.wishlist = account?.stats?.wishlistCount ?? 0
-            }
-            if (franchisesRes.ok) {
-                const franchises = await franchisesRes.json()
-                counts.franchises = Array.isArray(franchises) ? franchises.length : 0
-            }
-            store.counts = counts
-        } catch { /* silent */ }
-    }
-
-    async function fetchHistoryBackdrop() {
-        try {
-            const res = await fetch('/relay/api/steam/playtime/last-played')
-            if (!res.ok) return
-            const map = await res.json()
-            const sorted = Object.entries(map as Record<string, any>)
-                .filter(([, v]) => v.lastPlayedAt)
-                .sort((a, b) => new Date(b[1].lastPlayedAt).getTime() - new Date(a[1].lastPlayedAt).getTime())
-            if (!sorted.length) return
-            const appid = Number(sorted[0][0])
-            store.historyAppid = appid
-            if (!store.nowPlaying && !store.lastPlayed) {
-                const gameRes = await fetch(`/relay/api/games/${appid}`)
-                if (gameRes.ok) {
-                    const game = await gameRes.json()
-                    if (game?.name) store.lastPlayed = { appid, name: game.name }
-                }
-            }
-        } catch { /* silent */ }
     }
 
     // ── Mount ─────────────────────────────────────────────────────────────────
     onMount(() => {
         sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true'
 
-        fetch('/api/pages')
-            .then(r => r.ok ? r.json() : [])
-            .then(pages => { store.pages = pages })
-            .catch(() => {})
+        // Seed store from SSR data
+        store.pages        = data.pages        ?? []
+        store.counts       = data.counts       ?? store.counts
+        store.alertsCount  = data.alertsCount  ?? 0
+        store.historyAppid = data.historyAppid ?? null
+        store.lastPlayed   = data.lastPlayed   ?? null
 
-        fetchNowPlaying()
-        fetchPin()
-        const nowPlayingTimer = setInterval(() => { fetchNowPlaying(); fetchPin() }, 60_000)
+        // Alerts refresh every 15 min
+        const alertsTimer = setInterval(async () => {
+            try {
+                const res = await fetch('/api/alerts')
+                if (!res.ok) return
+                const { onSale } = await res.json()
+                store.alertsCount = onSale?.length ?? 0
+            } catch { /* silent */ }
+        }, 15 * 60_000)
 
-        fetchAlertsBadge()
-        const alertsTimer = setInterval(fetchAlertsBadge, 15 * 60_000)
+        // BroadcastChannel: one tab polls per minute, all tabs share the result
+        const channel = new BroadcastChannel('sidebar-poll')
+        let prevNowPlaying: { appid: number; name: string } | null = null
 
-        fetchCollectionCounts()
-        fetchHistoryBackdrop()
+        function applyNowPlaying(nowPlaying: NowPlayingInfo | null) {
+            if (prevNowPlaying && !nowPlaying) store.lastPlayed = prevNowPlaying
+            prevNowPlaying = nowPlaying ? { appid: nowPlaying.appid, name: nowPlaying.name } : null
+            store.nowPlaying = nowPlaying
+        }
 
-        jobStore.connect()
+        channel.onmessage = ({ data: msg }) => {
+            applyNowPlaying(msg.nowPlaying ?? null)
+            store.pin = msg.pin ?? null
+        }
+
+        async function maybePoll() {
+            const last = Number(localStorage.getItem('sidebar_last_poll') ?? 0)
+            if (Date.now() - last < 60_000) return
+            localStorage.setItem('sidebar_last_poll', String(Date.now()))
+            try {
+                const [npRes, pinRes] = await Promise.all([
+                    fetch('/relay/api/steam/now-playing'),
+                    fetch('/relay/api/pin'),
+                ])
+                let nowPlaying: NowPlayingInfo | null = null
+                if (npRes.ok) {
+                    const { playing } = await npRes.json()
+                    if (playing) nowPlaying = { ...playing, elapsed: fmtElapsed(playing.sessionStartedAt ?? null) }
+                }
+                let pin = null
+                if (pinRes.ok && pinRes.status !== 204) pin = await pinRes.json()
+                applyNowPlaying(nowPlaying)
+                store.pin = pin
+                channel.postMessage({ nowPlaying, pin })
+                localStorage.setItem('sidebar_last_poll', String(Date.now()))
+            } catch { /* silent */ }
+        }
+
+        const pollTimer = setInterval(maybePoll, 60_000)
+        maybePoll()
 
         return () => {
-            clearInterval(nowPlayingTimer)
             clearInterval(alertsTimer)
-            jobStore.disconnect()
+            clearInterval(pollTimer)
+            channel.close()
         }
     })
 </script>

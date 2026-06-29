@@ -1850,7 +1850,7 @@ div.gj-ach-badge {
     border: 1px solid var(--clr-border-hi);
     border-radius: 10px;
     width: min(640px, calc(100vw - 40px));
-    max-height: 60vh;
+    height: min(680px, 70vh);
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
@@ -2131,6 +2131,270 @@ div.gj-ach-badge {
     font-size: 11px;
     color: #dc5050;
     white-space: nowrap;
+}
+
+/* ── Downloaded guides card (dashboard) ───────────────────────────────────── */
+
+.gj-card--guides-panel {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.gj-guide-dl-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gj-guide-dl-list--grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+}
+
+.gj-guide-dl-tile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--clr-border);
+    background: var(--clr-bg-hover);
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--transition), background var(--transition);
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+.gj-guide-dl-tile:hover {
+    border-color: var(--clr-border-hi);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.gj-guide-dl-tile-icon {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.gj-guide-dl-tile-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.gj-guide-dl-tile-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clr-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.gj-guide-dl-tile-meta {
+    font-size: 10px;
+    color: var(--clr-text-muted);
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gj-find-guides-btn {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    background: rgba(201, 168, 76, 0.1);
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    border-radius: 4px;
+    color: var(--clr-accent);
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    flex-shrink: 0;
+}
+
+.gj-find-guides-btn:hover {
+    background: rgba(201, 168, 76, 0.18);
+    border-color: rgba(201, 168, 76, 0.55);
+}
+
+/* ── Guides modal — multi-source tabs ─────────────────────────────────────── */
+
+.gm-source-tabs {
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 2px;
+}
+
+.gm-source-tabs::-webkit-scrollbar { display: none; }
+
+.gm-source-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    padding: 8px 10px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    margin-bottom: -1px;
+    flex-shrink: 0;
+}
+
+.gm-source-tab:hover { color: var(--clr-text); }
+
+.gm-source-tab--active {
+    border-bottom-color: var(--clr-accent);
+    color: var(--clr-text);
+}
+
+.gm-source-tab-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    border-radius: 2px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.gm-source-tab--active .gm-source-tab-icon { opacity: 1; }
+
+.gm-tab-badge {
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--clr-text-muted);
+    border-radius: 8px;
+    padding: 1px 5px;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.gm-source-tab--active .gm-tab-badge {
+    background: rgba(201, 168, 76, 0.15);
+    color: var(--clr-accent);
+}
+
+.gm-tab-spinner {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid rgba(201, 168, 76, 0.3);
+    border-top-color: var(--clr-accent);
+    border-radius: 50%;
+    animation: game-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+.gm-source-tabs-end {
+    margin-left: auto;
+    padding-left: 8px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.gm-refresh-all-btn {
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: 4px;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.gm-refresh-all-btn:hover:not(:disabled) {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.gm-refresh-all-btn:disabled { opacity: 0.35; cursor: default; }
+
+.gm-source-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 22px;
+    border-bottom: 1px solid var(--clr-border);
+    flex-shrink: 0;
+    min-height: 36px;
+}
+
+.gm-source-info-label {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gm-source-info-label--empty { font-style: italic; opacity: 0.6; }
+
+.gm-source-refresh-btn {
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: 4px;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.gm-source-refresh-btn:hover:not(:disabled) {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
+}
+
+.gm-source-refresh-btn:disabled { opacity: 0.35; cursor: default; }
+
+.gm-source-refresh-btn--spinning {
+    animation: game-spin 0.7s linear infinite;
+    color: var(--clr-accent);
+    opacity: 1 !important;
+}
+
+.gm-empty-msg {
+    padding: 32px 22px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--clr-text-muted);
 }
 
 /* ── Guides list page ─────────────────────────────────────────────────────── */

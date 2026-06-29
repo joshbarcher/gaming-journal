@@ -1,5 +1,7 @@
 <script lang="ts">
+    import { onMount } from 'svelte'
     import { jobStore, type Job } from '$lib/guide-jobs.svelte.js'
+    import { trackerSuggestJobStore, type TrackerSuggestJob } from '$lib/tracker-suggest-jobs.svelte.js'
     import { confirmDialog } from '$lib/js/dialog.js'
 
     const SOURCE_LABELS: Record<string, string> = {
@@ -14,19 +16,60 @@
     const active    = $derived(jobStore.jobs.filter(j => j.status === 'running' || j.status === 'pending'))
     const finished  = $derived(jobStore.jobs.filter(j => j.status === 'done' || j.status === 'error' || j.status === 'cancelled').slice().reverse())
 
+    const tsActive   = $derived(trackerSuggestJobStore.jobs.filter(j => j.status === 'running' || j.status === 'pending'))
+    const tsFinished = $derived(trackerSuggestJobStore.jobs.filter(j => j.status === 'done' || j.status === 'error' || j.status === 'cancelled').slice().reverse())
+
+    onMount(() => {
+        let guideEs: EventSource | null = null
+        let trackerEs: EventSource | null = null
+
+        function openStreams() {
+            if (!guideEs) {
+                guideEs = new EventSource('/relay/api/guides/jobs/stream')
+                guideEs.onmessage = (e) => {
+                    try { jobStore.applyEvent(JSON.parse(e.data)) } catch { /* silent */ }
+                }
+            }
+            if (!trackerEs) {
+                trackerEs = new EventSource('/relay/api/progress-suggest/jobs/stream')
+                trackerEs.onmessage = (e) => {
+                    try { trackerSuggestJobStore.applyEvent(JSON.parse(e.data)) } catch { /* silent */ }
+                }
+            }
+        }
+
+        function closeStreams() {
+            guideEs?.close();   guideEs   = null
+            trackerEs?.close(); trackerEs = null
+        }
+
+        function onVisibility() { document.hidden ? closeStreams() : openStreams() }
+        document.addEventListener('visibilitychange', onVisibility)
+
+        if (!document.hidden) openStreams()
+
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility)
+            closeStreams()
+        }
+    })
+
     function fmtTime(iso: string | null): string {
         if (!iso) return '—'
         return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
 
-    function elapsed(job: Job): string {
-        if (!job.startedAt) return ''
-        const end = job.completedAt ? new Date(job.completedAt).getTime() : Date.now()
-        const sec = Math.floor((end - new Date(job.startedAt).getTime()) / 1000)
+    function elapsed(startedAt: string | null, completedAt: string | null): string {
+        if (!startedAt) return ''
+        const end = completedAt ? new Date(completedAt).getTime() : Date.now()
+        const sec = Math.floor((end - new Date(startedAt).getTime()) / 1000)
         if (sec < 60) return `${sec}s`
         const m = Math.floor(sec / 60), s = sec % 60
         return `${m}m ${s}s`
     }
+
+    function elapsedJob(job: Job): string { return elapsed(job.startedAt, job.completedAt) }
+    function elapsedTs(job: TrackerSuggestJob): string { return elapsed(job.startedAt, job.completedAt) }
 
     let expandedLog = $state<string | null>(null)
 
@@ -35,18 +78,28 @@
         if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
         return `${(n / (1024 * 1024)).toFixed(1)} MB`
     }
+
+    const hasAnything = $derived(
+        active.length > 0 || finished.length > 0 || tsActive.length > 0 || tsFinished.length > 0
+    )
 </script>
 
 <div class="dl-page">
-    <h1 class="dl-title">Guide Downloads</h1>
+    <h1 class="dl-title">Downloads</h1>
 
-    {#if active.length === 0 && finished.length === 0}
-        <p class="dl-empty">No downloads yet. Open a game's guide panel and press Download.</p>
+    {#if !hasAnything}
+        <p class="dl-empty">No downloads yet. Open a game's guide panel and press Download, or use ✦ on a journal dashboard to suggest trackers.</p>
+    {/if}
+
+    <!-- ── Guide Downloads ──────────────────────────────────────────────────── -->
+
+    {#if active.length > 0 || finished.length > 0}
+        <h2 class="dl-category-title">Guide Downloads</h2>
     {/if}
 
     {#if active.length > 0}
         <section class="dl-section">
-            <h2 class="dl-section-title">Active</h2>
+            <h3 class="dl-section-title">Active</h3>
             {#each active as job (job.id)}
                 <div class="dl-card dl-card--{job.status}">
                     <div class="dl-card-header">
@@ -86,7 +139,7 @@
 
     {#if finished.length > 0}
         <section class="dl-section">
-            <h2 class="dl-section-title">History</h2>
+            <h3 class="dl-section-title">History</h3>
             <table class="dl-table">
                 <thead>
                     <tr>
@@ -106,7 +159,7 @@
                             <td>{SOURCE_LABELS[job.source] ?? job.source}</td>
                             <td><span class="dl-status dl-status--{job.status}">{job.status}</span></td>
                             <td>{fmtTime(job.startedAt)}</td>
-                            <td>{elapsed(job)}</td>
+                            <td>{elapsedJob(job)}</td>
                             <td class="dl-row-size">{job.status === 'done' ? fmtBytes(job.sizeBytes) : '—'}</td>
                             <td class="dl-row-actions">
                                 {#if job.status === 'done'}
@@ -139,6 +192,98 @@
             </table>
         </section>
     {/if}
+
+    <!-- ── AI Tracker Suggestions ──────────────────────────────────────────── -->
+
+    {#if tsActive.length > 0 || tsFinished.length > 0}
+        <h2 class="dl-category-title">AI Tracker Suggestions</h2>
+    {/if}
+
+    {#if tsActive.length > 0}
+        <section class="dl-section">
+            <h3 class="dl-section-title">Active</h3>
+            {#each tsActive as job (job.id)}
+                <div class="dl-card dl-card--{job.status}">
+                    <div class="dl-card-header">
+                        <span class="dl-game">{job.gameName}</span>
+                        <span class="dl-source dl-source--ai">AI ✦</span>
+                        <span class="dl-status dl-status--{job.status}">{job.status === 'pending' ? 'Queued' : 'Running'}</span>
+                        {#if job.status === 'pending'}
+                            <button class="dl-cancel-btn" onclick={() => trackerSuggestJobStore.cancel(job.id)}>Cancel</button>
+                        {/if}
+                    </div>
+                    {#if job.status === 'running'}
+                        <div class="dl-bars">
+                            <div class="dl-bar-row">
+                                <span class="dl-bar-label">Research</span>
+                                <div class="dl-bar-track"><div class="dl-bar-fill dl-bar-fill--ai" style="width:{job.progress}%"></div></div>
+                                <span class="dl-bar-pct">{job.progress}%</span>
+                            </div>
+                        </div>
+                        {#if job.log.length}
+                            <div class="dl-log-tail">{job.log[job.log.length - 1]}</div>
+                        {/if}
+                    {/if}
+                </div>
+            {/each}
+        </section>
+    {/if}
+
+    {#if tsFinished.length > 0}
+        <section class="dl-section">
+            <h3 class="dl-section-title">History</h3>
+            <table class="dl-table">
+                <thead>
+                    <tr>
+                        <th>Game</th>
+                        <th>Trackers</th>
+                        <th>Status</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each tsFinished as job (job.id)}
+                        <tr class="dl-row dl-row--{job.status}">
+                            <td class="dl-row-game">{job.gameName}</td>
+                            <td class="dl-row-size">
+                                {#if job.status === 'done'}
+                                    {job.trackers?.length ?? 0} trackers
+                                {:else}
+                                    —
+                                {/if}
+                            </td>
+                            <td><span class="dl-status dl-status--{job.status}">{job.status}</span></td>
+                            <td>{fmtTime(job.startedAt)}</td>
+                            <td>{elapsedTs(job)}</td>
+                            <td class="dl-row-actions">
+                                {#if job.status === 'done'}
+                                    <a class="dl-open-link" href="/journal/{job.steamId}/progress">View Trackers ›</a>
+                                {:else if job.status === 'error'}
+                                    <button class="dl-log-btn" onclick={() => expandedLog = expandedLog === job.id ? null : job.id}>
+                                        {expandedLog === job.id ? 'Hide' : 'Log'}
+                                    </button>
+                                {/if}
+                            </td>
+                        </tr>
+                        {#if expandedLog === job.id}
+                            <tr class="dl-log-row">
+                                <td colspan="6">
+                                    {#if job.error}
+                                        <pre class="dl-log-pre">{job.error}</pre>
+                                    {/if}
+                                    {#if job.log.length}
+                                        <pre class="dl-log-pre">{job.log.join('\n')}</pre>
+                                    {/if}
+                                </td>
+                            </tr>
+                        {/if}
+                    {/each}
+                </tbody>
+            </table>
+        </section>
+    {/if}
 </div>
 
 <style>
@@ -158,14 +303,22 @@
     font-size: 0.9rem;
     padding: 2rem 0;
 }
-.dl-section { margin-bottom: 2.5rem; }
+.dl-category-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #e8e8e8);
+    margin: 2rem 0 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border, #2a2a2a);
+}
+.dl-section { margin-bottom: 2rem; }
 .dl-section-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-muted, #888);
-    margin-bottom: 0.75rem;
+    margin: 0.75rem 0 0.6rem;
 }
 
 /* Active cards */
@@ -198,6 +351,10 @@
     background: var(--surface-3, #2a2a2a);
     padding: 2px 6px;
     border-radius: 3px;
+}
+.dl-source--ai {
+    color: #c9a84c;
+    background: rgba(201,168,76,0.12);
 }
 .dl-status {
     font-size: 0.72rem;
@@ -245,6 +402,7 @@
     border-radius: 2px;
     transition: width 0.3s ease;
 }
+.dl-bar-fill--ai { background: #c9a84c; }
 .dl-bar-pct {
     width: 2.5rem;
     font-size: 0.72rem;

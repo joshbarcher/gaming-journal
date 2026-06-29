@@ -23,7 +23,7 @@ test('sidebar renders all nav buttons', async ({ page }) => {
     const buttons = [
         '.sidebar-home-btn', '.sidebar-library-btn', '.sidebar-wishlist-btn',
         '.sidebar-discover-btn', '.sidebar-alerts-btn', '.sidebar-calendar-btn',
-        '.sidebar-releases-btn', '.sidebar-top-games-btn', '.sidebar-history-btn',
+        '.sidebar-top-games-btn', '.sidebar-history-btn',
         '.sidebar-inprogress-btn', '.sidebar-backlog-btn', '.sidebar-favorites-btn',
         '.sidebar-abandoned-btn', '.sidebar-hof-btn', '.sidebar-franchises-btn',
         '.sidebar-myreviews-btn', '.sidebar-account-btn', '.sidebar-settings-btn',
@@ -42,7 +42,6 @@ const ACTIVE_CASES = [
     ['/discover',     '.sidebar-discover-btn'],
     ['/alerts',       '.sidebar-alerts-btn'],
     ['/calendar',     '.sidebar-calendar-btn'],
-    ['/releases',     '.sidebar-releases-btn'],
     ['/history',      '.sidebar-history-btn'],
     ['/in-progress',  '.sidebar-inprogress-btn'],
     ['/backlog',      '.sidebar-backlog-btn'],
@@ -54,6 +53,13 @@ const ACTIVE_CASES = [
     ['/account',      '.sidebar-account-btn'],
     ['/settings',     '.sidebar-settings-btn'],
 ]
+
+// /releases shares the calendar button (both activate .sidebar-calendar-btn)
+test('active: .sidebar-calendar-btn on /releases (releases shares calendar button)', async ({ page }) => {
+    await page.goto('/releases')
+    await waitForLayout(page)
+    await expect(page.locator('.sidebar-calendar-btn')).toHaveClass(/\bactive\b/)
+})
 
 for (const [url, selector] of ACTIVE_CASES) {
     test(`active: ${selector} on ${url}`, async ({ page }) => {
