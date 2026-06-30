@@ -34,6 +34,8 @@
     })
 </script>
 
+<svelte:head><title>{pageData?.title ?? ''}</title></svelte:head>
+
 {#if Component}
     <div class="gj-sub-wrap">
         <Component page={pageData} />

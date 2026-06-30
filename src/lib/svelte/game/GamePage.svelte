@@ -363,6 +363,8 @@
     }
 </script>
 
+<svelte:head><title>{game?.name ?? ''}</title></svelte:head>
+
 <div bind:this={containerEl}>
     {#if loading}
         <div class="game-p1-loader">

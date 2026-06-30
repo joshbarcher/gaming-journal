@@ -322,6 +322,8 @@
     })
 </script>
 
+<svelte:head><title>{game?.name ? `Community — ${game.name}` : 'Community'}</title></svelte:head>
+
 {#if loading}
     <div class="community-loader-wrap"><div class="community-loader"></div></div>
 {:else if error}

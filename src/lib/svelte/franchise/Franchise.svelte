@@ -296,6 +296,8 @@
     onDestroy(() => { clearTimeout(_renameTimer ?? undefined) })
 </script>
 
+<svelte:head><title>{franchise?.name ?? 'Franchise'}</title></svelte:head>
+
 {#if loading}
     <div class="page-loading">Loading franchise…</div>
 {:else if error}

@@ -15,6 +15,21 @@
     let renderTime = Date.now()
     let basePlaytimeMin = $derived(game?.playtimeMinutes ?? 0)
 
+    let inView = $state(false)
+    let barWrapEl = $state<HTMLElement | null>(null)
+
+    $effect(() => {
+        if (!barWrapEl || inView) return
+        const obs = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                requestAnimationFrame(() => { inView = true })
+                obs.disconnect()
+            }
+        }, { threshold: 0.1 })
+        obs.observe(barWrapEl)
+        return () => obs.disconnect()
+    })
+
     // Check if this game is currently being played and start ticking
     onMount(async () => {
         if (!hltb?.matched) return
@@ -54,6 +69,21 @@
 
     const pct = (h: number) => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
 
+    const SHORT_LABELS = ['MAIN', 'EXTRAS', 'COMPLETE']
+
+    let segments = $derived(
+        milestones.map((m, i) => {
+            const leftPct = i === 0 ? 0 : pct(milestones[i - 1].h)
+            const isLast = i === milestones.length - 1
+            return {
+                shortLabel: SHORT_LABELS[i] ?? m.label.toUpperCase(),
+                h: m.h,
+                leftPct,
+                widthPct: (isLast ? 100 : pct(m.h)) - leftPct,
+            }
+        })
+    )
+
     let refreshing = $state(false)
 
     async function refresh() {
@@ -75,26 +105,22 @@
             <p class="game-section-empty">No data available for this game.</p>
         {:else}
             {@const fillPct = playerHours > 0 ? pct(playerHours) : pct(milestones[0].h)}
-            <div class="hltb-bar-wrap">
-                <div class="hltb-labels-row">
-                    {#each milestones as m}
-                        <span class="hltb-lbl" style="left:{pct(m.h).toFixed(2)}%">{m.label}</span>
-                    {/each}
-                </div>
-                <div class="hltb-track-wrap">
-                    <div class="hltb-track">
-                        <div class="hltb-fill" style="width:{fillPct.toFixed(2)}%"></div>
+            <div class="hltb-bar-wrap" class:hltb--inview={inView} bind:this={barWrapEl}>
+                {#if playerHours > 0}
+                    <div class="hltb-pin" style="left:{pct(playerHours).toFixed(2)}%">
+                        {fmtHours(playerHours)} played
                     </div>
-                    {#each milestones as m}
-                        <div class="hltb-tick" style="left:{pct(m.h).toFixed(2)}%"></div>
-                    {/each}
-                    {#if playerHours > 0}
-                        <div class="hltb-pin" style="left:{pct(playerHours).toFixed(2)}%" data-label="{fmtHours(playerHours)} played"></div>
-                    {/if}
-                </div>
-                <div class="hltb-hours-row">
-                    {#each milestones as m}
-                        <span class="hltb-hr" style="left:{pct(m.h).toFixed(2)}%">{fmtHours(m.h)}</span>
+                {/if}
+                <div class="hltb-track">
+                    <div class="hltb-fill" style="width:{inView ? fillPct.toFixed(2) : '0'}%"></div>
+                    {#each segments as seg, i}
+                        {#if i > 0}
+                            <div class="hltb-seg-divider" style="left:{seg.leftPct.toFixed(2)}%"></div>
+                        {/if}
+                        <div class="hltb-segment" style="left:{seg.leftPct.toFixed(2)}%; width:{seg.widthPct.toFixed(2)}%">
+                            <span class="hltb-seg-label">{seg.shortLabel}</span>
+                            <span class="hltb-seg-hours">{fmtHours(seg.h)}</span>
+                        </div>
                     {/each}
                 </div>
             </div>

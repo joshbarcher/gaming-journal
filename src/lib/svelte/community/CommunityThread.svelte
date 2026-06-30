@@ -277,6 +277,8 @@
     })
 </script>
 
+<svelte:head><title>{post?.title ?? 'Thread'}</title></svelte:head>
+
 {#if loading}
     <div class="community-loader-wrap"><div class="community-loader"></div></div>
 {:else if error}

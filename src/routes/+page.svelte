@@ -4,4 +4,5 @@
 
     let { data }: { data: HomeData } = $props()
 </script>
+<svelte:head><title>Game Journal</title></svelte:head>
 <Home {data} />

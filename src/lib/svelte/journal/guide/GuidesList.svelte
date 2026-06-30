@@ -49,6 +49,8 @@
     })
 </script>
 
+<svelte:head><title>{gameName ? `Guides — ${gameName}` : 'Guides'}</title></svelte:head>
+
 {#if loading}
     <p class="page-loading">Loading guides…</p>
 {:else if error}

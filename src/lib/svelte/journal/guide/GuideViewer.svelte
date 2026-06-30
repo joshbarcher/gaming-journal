@@ -217,9 +217,10 @@
 
     const pinsKey = `guide-pins:${appid}:${source}:${guideId}`
 
-    let pins        = $state<Pin[]>([])
-    let pinsOpen    = $state(true)
-    let staleNotice = $state(false)
+    let pins          = $state<Pin[]>([])
+    let pinsOpen      = $state(true)
+    let staleNotice   = $state(false)
+    let brokenPinIds  = $state<Set<string>>(new Set())
 
     let ctxMenu = $state<{ x: number; y: number; blockPath: number[]; label: string } | null>(null)
     let pendingPinPath = $state<number[] | null>(null)
@@ -347,10 +348,11 @@
             el.querySelector('.gv-pin-marker')?.remove()
         })
         const baseSlug = (currentSlug ?? '').split('#')[0]
+        const newBroken = new Set<string>()
         for (const pin of pins) {
             if (pin.slug !== baseSlug) continue
             const el = resolveBlockPath(pin.blockPath)
-            if (!el) continue
+            if (!el) { newBroken.add(pin.id); continue }
             el.classList.add('gv-pinned')
             // Inject a real button so click-to-delete works
             const btn = document.createElement('button')
@@ -365,6 +367,7 @@
             })
             el.prepend(btn)
         }
+        brokenPinIds = newBroken
     }
 
     // Re-apply pin highlights whenever blocks or pins change
@@ -732,6 +735,8 @@
     ])
 </script>
 
+<svelte:head><title>{sectionLabel || meta?.title || gameName || 'Guide'}</title></svelte:head>
+
 {#if loading}
     <div class="gv-loading"><div class="community-loader"></div></div>
 {:else if error}
@@ -870,10 +875,10 @@
                                 {#if pinsOpen}
                                     <div class="gv-pins-list">
                                         {#each pins as pin (pin.id)}
-                                            <div class="gv-pin-entry">
-                                                <button class="gv-pin-nav" onclick={() => navToPin(pin)} title={pin.label}>
+                                            <div class="gv-pin-entry" class:gv-pin-entry--broken={brokenPinIds.has(pin.id)}>
+                                                <button class="gv-pin-nav" onclick={() => navToPin(pin)} title={brokenPinIds.has(pin.id) ? 'Location not found — delete and re-pin to restore' : pin.label}>
                                                     <span class="gv-pin-page">{pin.pageLabel}</span>
-                                                    <span class="gv-pin-label">{pin.label}</span>
+                                                    <span class="gv-pin-label">{#if brokenPinIds.has(pin.id)}<span class="gv-pin-broken">Location not found</span>{:else}{pin.label}{/if}</span>
                                                 </button>
                                                 <button class="gv-pin-del" onclick={() => deletePin(pin.id)} aria-label="Remove pin">×</button>
                                             </div>

@@ -18,6 +18,8 @@
     })
 </script>
 
+<svelte:head><title>{gameName ? `Journal — ${gameName}` : 'Journal'}</title></svelte:head>
+
 {#if sub === 'achievements'}
     <div class="gj-sub-wrap">
         <JournalAchievements {appid} {gameName} />

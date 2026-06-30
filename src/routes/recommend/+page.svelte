@@ -98,6 +98,7 @@
     })
 </script>
 
+<svelte:head><title>Recommendations</title></svelte:head>
 <div class="recommend-page">
     <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
     <div class="recommend-topbar">

@@ -175,6 +175,36 @@
     let hltbPinPct  = $derived(playerHours > 0 ? hltbPct(playerHours) : null)
     let hltbFillPct = $derived(hltbPinPct ?? (hltbMilestones.length ? hltbPct(hltbMilestones[0].h) : 0))
 
+    const HLTB_SHORT_LABELS = ['MAIN', 'EXTRAS', 'COMPLETE']
+
+    let hltbSegments = $derived(
+        hltbMilestones.map((m, i) => {
+            const leftPct = i === 0 ? 0 : hltbPct(hltbMilestones[i - 1].h)
+            const isLast = i === hltbMilestones.length - 1
+            return {
+                shortLabel: HLTB_SHORT_LABELS[i] ?? m.label.toUpperCase(),
+                h: m.h,
+                leftPct,
+                widthPct: (isLast ? 100 : hltbPct(m.h)) - leftPct,
+            }
+        })
+    )
+
+    let hltbInView = $state(false)
+    let hltbBarEl  = $state<HTMLElement | null>(null)
+
+    $effect(() => {
+        if (!hltbBarEl || hltbInView) return
+        const obs = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                requestAnimationFrame(() => { hltbInView = true })
+                obs.disconnect()
+            }
+        }, { threshold: 0.1 })
+        obs.observe(hltbBarEl)
+        return () => obs.disconnect()
+    })
+
 
     // ── Data loading ───────────────────────────────────────────────────────────
 
@@ -527,39 +557,25 @@
 
         <!-- HLTB card: always spans cols 1-2 (guides always in col 3) -->
         <div class="gj-card gj-card--hltb gj-card--span2">
-            <div class="gj-card-header">
-                <span class="gj-card-title">How Long to Beat</span>
-                <button
-                    class="game-refresh-btn"
-                    class:game-refresh-btn--spinning={hltbRefreshing}
-                    disabled={hltbRefreshing}
-                    onclick={refreshHltb}
-                    title="Refresh HLTB data"
-                >↻</button>
-            </div>
             {#if hltbMilestones.length === 0}
                 <p class="gj-no-data">{playerHours > 0 ? `Played ${fmtHours(playerHours)} — no HLTB data` : 'No playtime or HLTB data'}</p>
             {:else}
-                <div class="hltb-bar-wrap">
-                    <div class="hltb-labels-row">
-                        {#each hltbMilestones as m}
-                            <span class="hltb-lbl" style="left:{hltbPct(m.h).toFixed(2)}%">{m.label}</span>
-                        {/each}
-                    </div>
-                    <div class="hltb-track-wrap">
-                        <div class="hltb-track">
-                            <div class="hltb-fill" style="width:{hltbFillPct.toFixed(2)}%"></div>
+                <div class="hltb-bar-wrap" class:hltb--inview={hltbInView} bind:this={hltbBarEl}>
+                    {#if hltbPinPct != null}
+                        <div class="hltb-pin" style="left:{hltbPinPct.toFixed(2)}%">
+                            {fmtHours(playerHours)} played
                         </div>
-                        {#each hltbMilestones as m}
-                            <div class="hltb-tick" style="left:{hltbPct(m.h).toFixed(2)}%"></div>
-                        {/each}
-                        {#if hltbPinPct != null}
-                            <div class="hltb-pin" style="left:{hltbPinPct.toFixed(2)}%" data-label="{fmtHours(playerHours)} played"></div>
-                        {/if}
-                    </div>
-                    <div class="hltb-hours-row">
-                        {#each hltbMilestones as m}
-                            <span class="hltb-hr" style="left:{hltbPct(m.h).toFixed(2)}%">{fmtHours(m.h)}</span>
+                    {/if}
+                    <div class="hltb-track">
+                        <div class="hltb-fill" style="width:{hltbInView ? hltbFillPct.toFixed(2) : '0'}%"></div>
+                        {#each hltbSegments as seg, i}
+                            {#if i > 0}
+                                <div class="hltb-seg-divider" style="left:{seg.leftPct.toFixed(2)}%"></div>
+                            {/if}
+                            <div class="hltb-segment" style="left:{seg.leftPct.toFixed(2)}%; width:{seg.widthPct.toFixed(2)}%">
+                                <span class="hltb-seg-label">{seg.shortLabel}</span>
+                                <span class="hltb-seg-hours">{fmtHours(seg.h)}</span>
+                            </div>
                         {/each}
                     </div>
                 </div>
