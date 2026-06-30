@@ -1,5 +1,6 @@
 <script lang="ts">
     import Fuse from 'fuse.js'
+    import { getCachedFulltext } from '$lib/guide-cache.js'
 
     interface CoverImage { section: string; src: string }
     interface FtEntry   { slug: string; label: string; text: string; blockPath?: number[] }
@@ -111,9 +112,7 @@
     async function loadIndex() {
         if (fuseInst) return
         try {
-            const data: FtEntry[] = await fetch(
-                `/relay/api/guides/${steamId}/${source}/${encodeURIComponent(guideId)}/fulltext`
-            ).then(r => r.ok ? r.json() : [])
+            const data = await getCachedFulltext(steamId, source, guideId, parsedAt)
             fuseInst = new Fuse(data, {
                 keys: ['text'],
                 includeMatches: true,

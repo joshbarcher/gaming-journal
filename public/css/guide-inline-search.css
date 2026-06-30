@@ -1,0 +1,189 @@
+/* ── Guide inline search overlay (Shift+Space on guide pages) ─────────────── */
+
+.gis-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 1100;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 10vh;
+    animation: gs-scrim-in 0.12s ease;
+}
+
+.gis-box {
+    width: min(640px, calc(100vw - 32px));
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border-hi);
+    border-radius: 6px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: gs-box-in 0.14s ease;
+}
+
+/* ── Input row ── */
+
+.gis-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--clr-border);
+}
+
+.gis-search-icon {
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.gis-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--clr-text);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    padding: 16px 0;
+    caret-color: var(--clr-accent);
+}
+
+.gis-input::placeholder { color: var(--clr-text-muted); }
+
+.gis-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--clr-border);
+    border-top-color: var(--clr-accent);
+    border-radius: 50%;
+    animation: gs-spin 0.6s linear infinite;
+    flex-shrink: 0;
+}
+
+.gis-clear {
+    background: none;
+    border: none;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color var(--transition);
+}
+.gis-clear:hover { color: var(--clr-text); }
+
+/* ── Results ── */
+
+.gis-results {
+    max-height: 400px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 0;
+}
+
+.gis-group {
+    padding: 8px 16px 10px;
+    border-bottom: 1px solid var(--clr-border);
+}
+.gis-group:last-child { border-bottom: none; }
+
+.gis-page-btn {
+    display: block;
+    width: calc(100% + 8px);
+    margin-left: -4px;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--clr-accent);
+    padding: 3px 4px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background var(--transition);
+}
+
+.gis-page-btn:hover,
+.gis-item--active.gis-page-btn {
+    background: rgba(201, 168, 76, 0.1);
+}
+
+.gis-snippet {
+    display: block;
+    width: calc(100% + 8px);
+    margin-left: -4px;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    line-height: 1.55;
+    padding: 3px 4px;
+    margin-top: 2px;
+    border-radius: 3px;
+    transition: background var(--transition), color var(--transition);
+}
+
+.gis-snippet:hover,
+.gis-item--active.gis-snippet {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--clr-text);
+}
+
+.gis-snippet mark {
+    background: rgba(201, 168, 76, 0.25);
+    color: var(--clr-text);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+/* ── Empty / unavailable ── */
+
+.gis-empty {
+    padding: 20px 16px;
+    font-size: 13px;
+    color: var(--clr-text-muted);
+    text-align: center;
+}
+
+/* ── Hint bar ── */
+
+.gis-hint {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--clr-border);
+    font-size: 11px;
+    color: var(--clr-text-muted);
+}
+
+.gis-hint-label {
+    margin-left: auto;
+    font-size: 10px;
+    opacity: 0.55;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.gis-hint kbd {
+    display: inline-block;
+    background: var(--clr-bg-hover);
+    border: 1px solid var(--clr-border-hi);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: var(--font-ui);
+    color: var(--clr-text);
+    margin-right: 3px;
+}

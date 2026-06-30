@@ -11,12 +11,22 @@ function relayBase(): string {
 async function safeRelayJson(path: string): Promise<any> {
     try {
         const res = await fetch(`${relayBase()}${path}`)
-        return res.ok ? res.json() : null
+        if (!res.ok || res.status === 204) return null
+        return await res.json()
     } catch { return null }
 }
 
+function fmtElapsed(startIso: string | null): string {
+    if (!startIso) return ''
+    const min = Math.max(1, Math.floor((Date.now() - new Date(startIso).getTime()) / 60_000))
+    const h = Math.floor(min / 60), m = min % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+}
+
 export async function load() {
-    const [flagsResult, pagesResult, franchisesResult, alertsResult, account, playtime] =
+    const [flagsResult, pagesResult, franchisesResult, alertsResult, account, playtime, npResult, pinResult] =
         await Promise.allSettled([
             getAllFlags(),
             Promise.resolve(getJournalService().getAll()),
@@ -24,14 +34,18 @@ export async function load() {
             getAlerts(),
             safeRelayJson('/api/account'),
             safeRelayJson('/api/steam/playtime/last-played'),
+            safeRelayJson('/api/steam/now-playing'),
+            safeRelayJson('/api/pin'),
         ])
 
     const flags      = flagsResult.status      === 'fulfilled' ? flagsResult.value      : {}
     const pages      = pagesResult.status      === 'fulfilled' ? pagesResult.value      : []
     const franchises = franchisesResult.status === 'fulfilled' ? franchisesResult.value : []
     const alerts     = alertsResult.status     === 'fulfilled' ? alertsResult.value     : { onSale: [] }
-    const accountData   = account.status   === 'fulfilled' ? account.value   : null
-    const playtimeData  = playtime.status  === 'fulfilled' ? playtime.value  : null
+    const accountData  = account.status   === 'fulfilled' ? account.value   : null
+    const playtimeData = playtime.status  === 'fulfilled' ? playtime.value  : null
+    const npData       = npResult.status  === 'fulfilled' ? npResult.value  : null
+    const pinData      = pinResult.status === 'fulfilled' ? pinResult.value : null
 
     // Collection counts
     const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 }
@@ -62,11 +76,19 @@ export async function load() {
         }
     }
 
+    // Now playing — compute elapsed server-side so the card is ready to render immediately
+    const playingRaw = npData?.playing ?? null
+    const nowPlaying = playingRaw
+        ? { ...playingRaw, elapsed: fmtElapsed(playingRaw.sessionStartedAt ?? null) }
+        : null
+
     return {
         counts,
         pages:        pages as Page[],
         alertsCount,
         historyAppid,
         lastPlayed,
+        nowPlaying,
+        pin:          pinData as PinState | null,
     }
 }

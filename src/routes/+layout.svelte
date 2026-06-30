@@ -71,12 +71,24 @@
     onMount(() => {
         sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true'
 
-        // Seed store from SSR data
+        // BroadcastChannel — defined first so applyNowPlaying is available for seeding
+        const channel = new BroadcastChannel('sidebar-poll')
+        let prevNowPlaying: { appid: number; name: string } | null = null
+
+        function applyNowPlaying(nowPlaying: NowPlayingInfo | null) {
+            if (prevNowPlaying && !nowPlaying) store.lastPlayed = prevNowPlaying
+            prevNowPlaying = nowPlaying ? { appid: nowPlaying.appid, name: nowPlaying.name } : null
+            store.nowPlaying = nowPlaying
+        }
+
+        // Seed store from SSR data — nowPlaying and pin arrive with the HTML, no poll needed
         store.pages        = data.pages        ?? []
         store.counts       = data.counts       ?? store.counts
         store.alertsCount  = data.alertsCount  ?? 0
         store.historyAppid = data.historyAppid ?? null
         store.lastPlayed   = data.lastPlayed   ?? null
+        applyNowPlaying((data.nowPlaying ?? null) as NowPlayingInfo | null)
+        store.pin = (data.pin ?? null)
 
         // Alerts refresh every 15 min
         const alertsTimer = setInterval(async () => {
@@ -88,25 +100,15 @@
             } catch { /* silent */ }
         }, 15 * 60_000)
 
-        // BroadcastChannel: one tab polls per minute, all tabs share the result
-        const channel = new BroadcastChannel('sidebar-poll')
-        let prevNowPlaying: { appid: number; name: string } | null = null
-
-        function applyNowPlaying(nowPlaying: NowPlayingInfo | null) {
-            if (prevNowPlaying && !nowPlaying) store.lastPlayed = prevNowPlaying
-            prevNowPlaying = nowPlaying ? { appid: nowPlaying.appid, name: nowPlaying.name } : null
-            store.nowPlaying = nowPlaying
-        }
-
         channel.onmessage = ({ data: msg }) => {
             applyNowPlaying(msg.nowPlaying ?? null)
             store.pin = msg.pin ?? null
         }
 
-        async function maybePoll() {
-            const last = Number(localStorage.getItem('sidebar_last_poll') ?? 0)
-            if (Date.now() - last < 60_000) return
-            localStorage.setItem('sidebar_last_poll', String(Date.now()))
+        let polling = false
+        async function poll() {
+            if (polling) return
+            polling = true
             try {
                 const [npRes, pinRes] = await Promise.all([
                     fetch('/relay/api/steam/now-playing'),
@@ -124,8 +126,22 @@
                 channel.postMessage({ nowPlaying, pin })
                 localStorage.setItem('sidebar_last_poll', String(Date.now()))
             } catch { /* silent */ }
+            finally { polling = false }
         }
 
+        async function maybePoll() {
+            const last = Number(localStorage.getItem('sidebar_last_poll') ?? 0)
+            if (Date.now() - last < 60_000) return
+            await poll()
+        }
+
+        function onVisibilityChange() {
+            if (document.hidden) return
+            const last = Number(localStorage.getItem('sidebar_last_poll') ?? 0)
+            if (Date.now() - last > 15_000) poll()
+        }
+
+        document.addEventListener('visibilitychange', onVisibilityChange)
         const pollTimer = setInterval(maybePoll, 60_000)
         maybePoll()
 
@@ -133,6 +149,7 @@
             clearInterval(alertsTimer)
             clearInterval(pollTimer)
             channel.close()
+            document.removeEventListener('visibilitychange', onVisibilityChange)
         }
     })
 </script>

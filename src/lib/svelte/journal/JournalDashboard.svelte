@@ -16,6 +16,7 @@
     import Breadcrumb from '../Breadcrumb.svelte'
     import GuidesModal from './guide/GuidesModal.svelte'
     import { trackerSuggestJobStore } from '$lib/tracker-suggest-jobs.svelte.js'
+    import { confirmDialog } from '../../js/dialog.js'
 
     let { appid } = $props()
 
@@ -331,6 +332,12 @@
 
     async function enqueueTrackerSuggest() {
         if (!game || activeTrackerJob) return
+        const ok = await confirmDialog(
+            'AI-suggest trackers',
+            `This will search the web and generate progress trackers for ${game.name}. Continue?`,
+            'Generate'
+        )
+        if (!ok) return
         await trackerSuggestJobStore.enqueue({ steamId: String(appid), gameName: game.name })
     }
 

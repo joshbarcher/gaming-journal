@@ -5,6 +5,11 @@
     import Breadcrumb from '../../Breadcrumb.svelte'
     import GuideBlockRenderer from './GuideBlockRenderer.svelte'
     import GuideLanding from './GuideLanding.svelte'
+    import GuideInlineSearch from './GuideInlineSearch.svelte'
+    import GuidePageSearch from './GuidePageSearch.svelte'
+    import Fuse from 'fuse.js'
+    import { getCachedFulltext } from '$lib/guide-cache.js'
+    import type { FtEntry } from '$lib/guide-cache.js'
 
     let { appid, source, guideId, section }: {
         appid: string
@@ -19,9 +24,31 @@
     let meta           = $state<any>(null)
     let blocks         = $state<any[]>([])
     let currentSlug    = $state<string | null>(null)
-    let loading        = $state(true)
-    let loadingSection = $state(false)
-    let error          = $state<string | null>(null)
+    let loading          = $state(true)
+    let loadingSection   = $state(false)
+    let error            = $state<string | null>(null)
+    let guideSearchOpen  = $state(false)
+
+    // Full-text index for guide-wide search — loaded once per guide, survives modal open/close.
+    let ftEntries = $state<FtEntry[] | null>(null)
+    let ftFuse    = $derived.by(() =>
+        ftEntries
+            ? new Fuse(ftEntries, {
+                keys: ['text'],
+                includeMatches: true,
+                includeScore: true,
+                threshold: 0.3,
+                minMatchCharLength: 3,
+                ignoreLocation: true,
+              })
+            : null
+    )
+    // Lazy: only fetch when the user first opens the inline search modal.
+    $effect(() => {
+        if (!guideSearchOpen || !meta || ftEntries !== null) return
+        getCachedFulltext(appid, source, guideId, meta.parsedAt ?? null)
+            .then(entries => { ftEntries = entries })
+    })
 
     // ── Page scroll ────────────────────────────────────────────────────────────
 
@@ -107,6 +134,16 @@
     }
 
     function onKeyDown(e: KeyboardEvent) {
+        if (e.shiftKey && e.code === 'Space') {
+            const tag = (e.target as HTMLElement).tagName
+            if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && !(e.target as HTMLElement).isContentEditable) {
+                e.preventDefault()
+                if (!e.repeat) guideSearchOpen = !guideSearchOpen
+                return
+            }
+        }
+        // Let the inline search modal handle all remaining keys while it's open
+        if (guideSearchOpen) return
         if (e.key === 'Escape') {
             if (ctxMenu) { ctxMenu = null; return }
             if (modalEl?.classList.contains('gv-img-modal--open')) { closeImageModal(); return }
@@ -751,6 +788,11 @@
                     />
                 </div>
             {:else}
+                <GuidePageSearch
+                    {blocks}
+                    slug={currentSlug ?? ''}
+                    onScroll={scrollToBlockPath}
+                />
                 <div class="gv-content-inner">
                     <GuideBlockRenderer
                         {blocks}
@@ -911,4 +953,12 @@
         {tocTooltip.text}
     </div>
 {/if}
+{/if}
+
+{#if guideSearchOpen}
+    <GuideInlineSearch
+        fuse={ftFuse}
+        onclose={() => guideSearchOpen = false}
+        onNav={navTo}
+    />
 {/if}

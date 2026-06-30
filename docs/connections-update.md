@@ -63,42 +63,47 @@ Server-to-relay calls are direct (no proxy hop). They never touch the browser's 
 
 ### 2. Shared now-playing/pin poll via BroadcastChannel
 
-Now-playing and pin must stay client-side — Steam sessions start and stop externally, no user action to hook onto. But each tab polling independently is wasteful.
+The initial values of `nowPlaying` and `pin` arrive via SSR (see below). After that, sessions start and stop externally — there's no user action to hook onto — so the sidebar keeps them live via a client-side poll shared across tabs with `BroadcastChannel`.
 
-`BroadcastChannel` lets tabs share the result without a SharedWorker:
+Two additions beyond the basic poll: a `visibilitychange` listener fires `poll()` directly (bypassing the 60s rate limit) when returning to a tab that's been away for 15+ seconds, and a `polling` flag prevents concurrent fetches if the interval and a visibility event race.
 
 ```ts
 // In +layout.svelte
 const channel = new BroadcastChannel('sidebar-poll')
 
-channel.onmessage = ({ data }) => {
-    store.nowPlaying = data.nowPlaying
-    store.pin = data.pin
+channel.onmessage = ({ data: msg }) => {
+    applyNowPlaying(msg.nowPlaying ?? null)
+    store.pin = msg.pin ?? null
 }
 
-function maybePoll() {
+let polling = false
+async function poll() {
+    if (polling) return
+    polling = true
+    try {
+        const [npRes, pinRes] = await Promise.all([...])
+        // update store + channel.postMessage + write localStorage timestamp
+    } finally { polling = false }
+}
+
+async function maybePoll() {
     const last = Number(localStorage.getItem('sidebar_last_poll') ?? 0)
     if (Date.now() - last < 60_000) return
-    localStorage.setItem('sidebar_last_poll', String(Date.now()))
-    Promise.all([
-        fetch('/relay/api/steam/now-playing'),
-        fetch('/relay/api/pin'),
-    ]).then(async ([npRes, pinRes]) => {
-        const { playing } = await npRes.json()
-        const pin = pinRes.status === 204 ? null : await pinRes.json()
-        const msg = { nowPlaying: playing ?? null, pin }
-        store.nowPlaying = msg.nowPlaying
-        store.pin = msg.pin
-        channel.postMessage(msg)
-        localStorage.setItem('sidebar_last_poll', String(Date.now()))
-    })
+    await poll()
 }
 
+function onVisibilityChange() {
+    if (document.hidden) return
+    const last = Number(localStorage.getItem('sidebar_last_poll') ?? 0)
+    if (Date.now() - last > 15_000) poll()
+}
+
+document.addEventListener('visibilitychange', onVisibilityChange)
 setInterval(maybePoll, 60_000)
 maybePoll()
 ```
 
-Tab 1 opens → polls, broadcasts, writes timestamp. Tabs 2–8 open → timestamp is fresh, skip. 60s later, whichever tab fires first wins. **Result: 1 relay request per minute regardless of tab count.**
+Tab 1 opens → SSR seeds the card instantly, poll runs in background, broadcasts result. Tabs 2–8 open → SSR again, timestamp fresh, skip poll. Returning to a background tab → visibility event triggers immediate refresh if 15s have elapsed. **Result: card visible on first paint; 1 relay request per minute at steady state.**
 
 ### 3. One EventSource, one component — DownloadsPage
 
@@ -154,15 +159,77 @@ The SharedWorker was introduced to avoid per-tab SSE connections. With SSR handl
 
 ---
 
+## Implementation
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `src/routes/+layout.server.ts` | **New.** SSR load function — calls services directly, hits relay server-to-server |
+| `src/routes/+layout.svelte` | Removed all mount fetches and SharedWorker calls. Seeds store from `data`. BroadcastChannel polling for now-playing/pin |
+| `src/lib/guide-jobs.svelte.ts` | Removed SharedWorker. Added `applyEvent()` (fed by DownloadsPage) and `fetchAll()` (called by GuidesModal on open) |
+| `src/lib/tracker-suggest-jobs.svelte.ts` | Same pattern as guide-jobs |
+| `src/lib/svelte/downloads/DownloadsPage.svelte` | Opens two `EventSource` streams on mount (`/relay/api/guides/jobs/stream` + tracker stream), closes on `visibilitychange:hidden`, reopens on focus |
+| `src/lib/svelte/journal/guide/GuidesModal.svelte` | Added `jobStore.fetchAll()` in `onMount` — one REST call on open, no SSE needed |
+| `vite.config.js` | Removed `__RELAY_WORKER_VER__` define |
+
+### Files deleted
+
+| File | Reason |
+|---|---|
+| `static/relay-events.worker.js` | SharedWorker eliminated |
+| `src/routes/relay-events.worker.js/+server.ts` | Route that served the worker JS |
+| `src/lib/sidebar-polling.svelte.ts` | Replaced by BroadcastChannel in `+layout.svelte` |
+
+### What the SSR load function fetches
+
+`+layout.server.ts` calls these in parallel on every initial page load:
+
+- `getAllFlags()` — for collection counts (favorites, in-progress, backlog, etc.)
+- `getJournalService().getAll()` — sidebar pages list
+- `getFranchiseService().getAll()` — franchise count
+- `getAlerts()` — alerts badge count (this hits the relay internally; it's expensive if many games are on alert, but it's a server-side call so it doesn't touch the browser pool)
+- `fetch(relay + '/api/account')` — library + wishlist counts
+- `fetch(relay + '/api/steam/playtime/last-played')` — history backdrop appid
+- `fetch(relay + '/api/games/{appid}')` — last-played game name (sequential, only if playtime has data)
+- `fetch(relay + '/api/steam/now-playing')` — seeds `store.nowPlaying` so the Now Playing card renders on first paint
+- `fetch(relay + '/api/pin')` — seeds `store.pin`; 204 (no pin) is handled by the safe fetch wrapper
+
+SvelteKit caches the result for the session — client-side navigation does not re-run this function unless a dependency is invalidated.
+
+### Notes on the DownloadsPage streams
+
+Both streams open on mount: one for guide downloads, one for AI tracker suggestions. The relay sends a full snapshot on every `EventSource` connect, so there's no stale-state problem when reopening after a hide. `fetchAll()` in the old `onMount` was removed as a result.
+
+### BroadcastChannel polling detail
+
+The `localStorage` key `sidebar_last_poll` is used as a cross-tab timestamp. Any tab that fires `maybePoll()` first claims the slot by writing the timestamp before the fetch returns, so two tabs racing at the 60s mark each check the key and one backs off. This is best-effort (not a lock) but the worst case is two polls in the same second once per hour, which is acceptable.
+
+---
+
 ## End State
 
 | Scenario | Connections held open |
 |---|---|
 | Browsing game pages (8 tabs) | 0 |
 | Now-playing poll (8 tabs) | 0 — fires and closes every 60s, shared via BroadcastChannel |
-| On downloads page, tab active | 1 EventSource |
+| On downloads page, tab active | 2 EventSources (guide-jobs + tracker-jobs) |
 | On downloads page, tab hidden | 0 — closes on hide, reopens on focus |
 
 Mount burst: eliminated — data arrives with SSR HTML.  
 Ongoing polling: 1–2 short-lived requests per minute total.  
 Connection pool pressure: effectively zero.
+
+### Test coverage
+
+`src/tests/e2e/connections.test.js` covers all of the above behaviours end-to-end:
+
+- No SharedWorker errors in console
+- `/api/flags`, `/api/franchises`, `/api/pages` not fetched client-side (SSR confirmed)
+- `relay-events.worker.js` never requested
+- DownloadsPage opens both SSE streams on visit
+- DownloadsPage closes streams on visibility hidden, reopens on focus
+- Streams not open after leaving DownloadsPage
+- Sidebar poll fires at most 2 relay requests per cycle
+- GuidesModal triggers `jobStore.fetchAll()` on open
+- Second tab skips poll if first tab polled within 60s

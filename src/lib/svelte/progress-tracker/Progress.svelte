@@ -15,7 +15,14 @@
 
     let { page: pageProp } = $props()
 
-    let pd           = $state<ProgressPage>(JSON.parse(JSON.stringify(pageProp)))
+    const _raw = JSON.parse(JSON.stringify(pageProp))
+    let _needsIdSave = false
+    if (Array.isArray(_raw.tasks) && _raw.tasks.some((t: Task) => !t.id)) {
+        _needsIdSave = true
+        _raw.tasks = _raw.tasks.map((t: Task) => t.id ? t : { ...t, id: uuid(), state: t.state ?? null })
+    }
+
+    let pd           = $state<ProgressPage>(_raw)
     let draggedId    = $state<string | null>(null)
     let dropTargetId = $state<string | null>(null)
     let draggableId  = $state<string | null>(null)
@@ -134,6 +141,7 @@
 
     let gameName = $state('')
     onMount(async () => {
+        if (_needsIdSave) await save()
         if (!pd.appid) return
         try {
             const res = await fetch(`/relay/api/games/${pd.appid}`)
@@ -178,7 +186,7 @@
 </div>
 
 <div class="progress-tasks">
-    {#each (pd.tasks ?? []) as task (task.id)}
+    {#each (pd.tasks ?? []) as task, i (task.id ?? i)}
         <div class="progress-task{task.optional ? ' progress-task--optional' : ''}"
              class:progress-task--dragging={draggedId === task.id}
              class:progress-task--drag-over={dropTargetId === task.id}

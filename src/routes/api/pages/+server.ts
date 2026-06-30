@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit'
+import { randomUUID } from 'node:crypto'
 import { getJournalService, VALID_TYPES } from '$lib/server/services/journalService.js'
 import logger from '$lib/server/logger.js'
 
@@ -14,6 +15,9 @@ export async function POST({ request }: { request: Request }) {
     if (!type || !title) return json({ error: 'type and title are required' }, { status: 400 })
     if (!VALID_TYPES.includes(type)) {
         return json({ error: `type must be one of: ${VALID_TYPES.join(', ')}` }, { status: 400 })
+    }
+    if (type === 'progress' && Array.isArray(rest.tasks)) {
+        rest.tasks = rest.tasks.map((t: any) => t.id ? t : { ...t, id: randomUUID(), state: t.state ?? null })
     }
     try {
         const page = await getJournalService().create({ type, title, ...rest })

@@ -22,6 +22,7 @@ All docs are checked off (written). See [guidance.md](guidance.md) for the forma
 - [x] [journal/sessions.md](journal/sessions.md) — session tracking, now playing, relay poller, SessionHistoryRail
 - [x] [journal/notes.md](journal/notes.md) — StickyWall, PageEditor, storage
 - [x] [journal/progress.md](journal/progress.md) — 4 tracker types, HLTB integration, globalSegments()
+- [x] [journal/trackers.md](journal/trackers.md) — individual tracker editing pages, data schemas, drag systems, color logic
 - [x] [journal/auto-trackers.md](journal/auto-trackers.md) — AI tracker suggestion, suggest-job-queue, Downloads page auto-create
 
 ## Game

@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "vite dev",
+        "dev": "node --env-file .env start.js",
         "build": "vite build",
         "preview": "node --env-file .env build/index.js",
         "test": "vitest run",

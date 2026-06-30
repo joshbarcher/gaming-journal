@@ -17,13 +17,18 @@
     let notFound  = $state(false)
 
     onMount(async () => {
+        const pageId = page.params.pageId
         try {
-            const res = await fetch(`/api/pages/${page.params.pageId}`)
+            const res = await fetch(`/api/pages/${pageId}`)
             if (!res.ok) { notFound = true; return }
             pageData = await res.json()
             const loader = PAGE_COMPONENTS[pageData.type as keyof typeof PAGE_COMPONENTS]
-            if (loader) Component = (await loader()).default
-        } catch {
+            if (loader) {
+                const mod = await loader()
+                Component = mod.default
+            }
+        } catch (err) {
+            console.error('[pageId] caught error:', err)
             notFound = true
         }
     })

@@ -97,22 +97,6 @@
         </div>
     {/if}
 
-    <!-- Pinned community feed -->
-    {#if store.pin}
-        {@const p = store.pin}
-        {@const isLive = p.reason === 'playing' && p.sessionEndedAt === null}
-        <a class="sidebar-pin-strip" href="/community/{p.appid}"
-           title={collapsed
-               ? `${isLive ? 'Live' : 'Pinned'}: ${p.name}`
-               : `Pinned community feed — ${p.name}`}>
-            <span class="sidebar-pin-dot" class:sidebar-pin-dot--live={isLive}></span>
-            <span class="sidebar-pin-text">
-                <span class="sidebar-pin-name">{p.name}</span>
-                <span class="sidebar-pin-sub">{isLive ? 'Live community' : 'Pinned community'}</span>
-            </span>
-        </a>
-    {/if}
-
     <!-- Main nav -->
     <a class="sidebar-nav-btn sidebar-home-btn" href="/"
        data-tooltip="Home"

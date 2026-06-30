@@ -1190,3 +1190,116 @@
     pointer-events: none;
 }
 
+/* ── Per-page inline search (top of each section page) ──────────────────── */
+
+.gps-wrap {
+    margin: 20px 24px 0;
+    border: 1px solid var(--clr-border);
+    border-radius: 7px;
+    background: var(--clr-bg-raised);
+    overflow: hidden;
+}
+
+.gps-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 11px;
+}
+
+.gps-icon {
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+.gps-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--clr-text);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    padding: 0;
+    caret-color: var(--clr-accent);
+    min-width: 0;
+}
+
+.gps-input::placeholder { color: var(--clr-text-muted); opacity: 0.55; }
+.gps-input::-webkit-search-cancel-button { display: none; }
+
+.gps-count {
+    font-size: 11px;
+    color: var(--clr-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.gps-spinner {
+    width: 11px;
+    height: 11px;
+    border: 1.5px solid var(--clr-border);
+    border-top-color: var(--clr-accent);
+    border-radius: 50%;
+    animation: gs-spin 0.6s linear infinite;
+    flex-shrink: 0;
+}
+
+.gps-clear {
+    background: none;
+    border: none;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    border-radius: 3px;
+    transition: color var(--transition);
+}
+.gps-clear:hover { color: var(--clr-text); }
+
+.gps-results {
+    border-top: 1px solid var(--clr-border);
+    max-height: 220px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 3px 0;
+}
+
+.gps-result {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--clr-text-muted);
+    line-height: 1.55;
+    padding: 5px 12px;
+    border-radius: 0;
+    transition: background var(--transition), color var(--transition);
+}
+
+.gps-result:hover,
+.gps-result--active {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--clr-text);
+}
+
+.gps-result mark {
+    background: rgba(201, 168, 76, 0.25);
+    color: var(--clr-text);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.gps-empty {
+    border-top: 1px solid var(--clr-border);
+    padding: 9px 12px;
+    font-size: 12px;
+    color: var(--clr-text-muted);
+}
+
