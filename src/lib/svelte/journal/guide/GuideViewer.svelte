@@ -719,6 +719,19 @@
 
     let sectionLabel = $derived.by(() => {
         if (!currentSlug || !meta) return ''
+        // navTree has labels from the manifest fetch; meta.pages labels may be
+        // raw slugs for sources with numeric IDs (e.g. Game8 archive IDs).
+        const tree = meta.navTree as any[] | null
+        if (tree) {
+            for (const item of tree) {
+                if (item.type === 'link' && item.slug === currentSlug) return item.label as string
+                if (item.type === 'group') {
+                    for (const child of (item.children ?? []) as any[]) {
+                        if (child.slug === currentSlug) return child.label as string
+                    }
+                }
+            }
+        }
         const pages = meta.pages ?? meta.nav ?? []
         return pages.find((p: any) => p.slug === currentSlug)?.label ?? currentSlug
     })
