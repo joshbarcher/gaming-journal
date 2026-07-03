@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
     import type { SteamGame, CommunityReviews, ProtonData, ItadData } from '../../types.js'
-    import { escapeHtml } from '../../js/utils.js'
+    import { escapeHtml, steamStoreUrl } from '../../js/utils.js'
     import { fmtHours } from '../../js/views/game-render.js'
     import ScoreChip from './sections/ScoreChip.svelte'
     import GdpPrices from './sections/GdpPrices.svelte'
@@ -264,7 +264,7 @@
                 <div class="gdp-row">
                     <span class="gdp-label">Steam ID</span>
                     <span class="gdp-value">
-                        <a class="gdp-steam-link" href="https://store.steampowered.com/app/{game?.appid}" target="_blank" rel="noopener">{game?.appid} ↗</a>
+                        <a class="gdp-steam-link" href={steamStoreUrl(game?.appid ?? '')} target="_blank" rel="noopener">{game?.appid} ↗</a>
                     </span>
                 </div>
 

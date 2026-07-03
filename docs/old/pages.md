@@ -25,11 +25,11 @@ Tracks every visitable page in the app, how to reach it, and its responsive poli
 | Home | `/` | ✅ | ✅ | ✅ | ✅ |
 | Steam Library | `/library` | ✅ | ✅ | ✅ | ✅ |
 | Wishlist | `/wishlist` | ✅ | ✅ | ✅ | ✅ |
-| Discover | `/discover` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Recommend | `/recommend` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Sale Alerts | `/alerts` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Calendar | `/calendar` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Top Games | `/top-games` | 🔲 | 🔲 | 🔲 | 🔲 |
+| Discover | `/discover` | ✅ | ✅ | ✅ | ✅ |
+| Recommend | `/recommend` | ✅ | ✅ | ✅ | ✅ |
+| Sale Alerts | `/alerts` | ✅ | ✅ | ✅ | ✅ |
+| Calendar | `/calendar` | ✅ | ✅ | ✅ | ✅ |
+| Top Games | `/top-games` | ✅ | ✅ | ✅ | ✅ |
 
 ### Collection
 
@@ -47,9 +47,9 @@ Tracks every visitable page in the app, how to reach it, and its responsive poli
 
 | Page | Route | Tablet L | Tablet P | Phone L | Phone P |
 |------|-------|----------|----------|---------|---------|
-| My Reviews | `/my-reviews` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Account | `/account` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Settings | `/settings` | 🔲 | 🔲 | 🔲 | 🔲 |
+| My Reviews | `/my-reviews` | ✅ | ✅ | ✅ | ✅ |
+| Account | `/account` | ✅ | ✅ | ✅ | ✅ |
+| Settings | `/settings` | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -59,15 +59,17 @@ Reached by navigating from list pages, not direct sidebar links.
 
 | Page | Route | Tablet L | Tablet P | Phone L | Phone P |
 |------|-------|----------|----------|---------|---------|
-| Game Detail | `/game/[appid]` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Journal Dashboard | `/journal/[appid]` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Journal – Achievements | `/journal/[appid]/achievements` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Journal – Notes | `/journal/[appid]/notes` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Journal – Progress | `/journal/[appid]/progress` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Journal – Pages | `/journal/[appid]/pages` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Community | `/community/[appid]` | 🔲 | 🔲 | 🔲 | 🔲 |
-| Community Thread | `/community/[appid]/thread/[postId]` | 🔲 | 🔲 | 🔲 | 🔲 |
+| Game Detail | `/game/[appid]` | ✅ | ✅ | ✅ | ✅ |
+| Journal Dashboard | `/journal/[appid]` | ✅ | ✅ | ✅ | ✅ |
+| Journal – Achievements | `/journal/[appid]/achievements` | ✅ | ✅ | ✅ | ✅ |
+| Journal – Notes | `/journal/[appid]/notes` | ✅ | ✅ | ✅ | ✅ |
+| Journal – Progress | `/journal/[appid]/progress` | ✅ | ✅ | ✅ | ✅ |
+| Journal – Pages | `/journal/[appid]/pages` | ✅ | ✅ | ✅ | ✅ |
+| Community | `/community/[appid]` | ✅ | ✅ | ✅ | ✅ |
+| Community Thread | `/community/[appid]/thread/[postId]` | ✅ | ✅ | ✅ | ✅ |
 | Franchise Detail | `/franchise/[id]` | ✅ | ✅ | ✅ | ✅ |
+| Guides List | `/journal/[appid]/guides` | ✅ | ✅ | ✅ | ✅ |
+| Guide Viewer | `/journal/[appid]/guides/[source]/[guideId]/[[section]]` | ✅ | ✅ | ✅ | ✅ |
 
 ---
 

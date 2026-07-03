@@ -62,3 +62,27 @@ a.bc-crumb:hover {
     line-height: 1;
     flex-shrink: 0;
 }
+
+/* ── Phone portrait: crumbs stop shrinking, trail scrolls horizontally instead ───
+   ≤ 479px: elastic truncation (flex-shrink + max-width + ellipsis) crushes crumbs
+   to 1-2 characters once the trail competes with sibling content for width.
+   Swap to a horizontal-scroll strip, matching the pattern used for the flags bar
+   and alpha bar elsewhere — full labels stay readable, user swipes to see more.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .bc-trail {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .bc-trail::-webkit-scrollbar { display: none; }
+
+    .bc-crumb {
+        flex-shrink: 0;
+        max-width: none;
+    }
+    .bc-crumb--current {
+        max-width: none;
+    }
+}

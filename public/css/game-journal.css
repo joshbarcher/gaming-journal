@@ -1083,6 +1083,7 @@
 .gj-sub-actions {
     margin-left: auto;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
@@ -2459,10 +2460,96 @@ div.gj-ach-badge {
 
 .gl-card-meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    row-gap: 2px;
+    column-gap: 6px;
     font-size: 11px;
     color: var(--clr-text-muted);
 }
 
+.gl-card-pages,
+.gl-card-size,
+.gl-card-date {
+    white-space: nowrap;
+}
+
+/* ── Responsive: journal sub-pages (Pages / Notes / Progress / Achievements) ─────
+   Breakpoints per docs/old/responsive-pages.md:
+   ≥ 1280px desktop/tablet-landscape (baseline) · ≤ 1279px tablet-portrait/phone-
+   landscape · ≤ 799px narrower phone-landscape/tablet-portrait band · ≤ 479px
+   phone portrait (S25 = 360px). #main-content adds its own 24px (≤1279px) / 16px
+   (≤479px) side padding — .gj-sub-wrap steps down to match, landing on 0 at
+   phone portrait so only #main-content's 16px remains.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .gj-sub-wrap { padding: 24px; }
+}
+
+@media (max-width: 799px) {
+    .gj-sub-wrap    { padding: 20px; }
+    .gj-sub-header  { margin-bottom: 20px; }
+}
+
+@media (max-width: 479px) {
+    .gj-sub-wrap    { padding: 16px 0; }
+    .gj-sub-header  { gap: 10px; margin-bottom: 16px; }
+    .gj-sub-actions { width: 100%; margin-left: 0; }
+}
+
+/* ── Responsive: Journal Dashboard ────────────────────────────────────────────
+   .gj-grid is a fixed 3-column grid with explicit placement (guides panel
+   pinned to col 3 / row 2-4 via inline style, HLTB spanning cols 1-2) and had
+   no mobile treatment at all — below 1280px the columns just got proportionally
+   thinner until text overlapped and cards clipped off the right edge.
+   Collapse to a single column and let cards stack in DOM order; the guides
+   panel's inline grid-column/grid-row needs !important since inline styles
+   otherwise beat a stylesheet media query.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .gj-dash { padding: 24px; }
+
+    .gj-grid {
+        grid-template-columns: 1fr;
+    }
+    .gj-card--wide,
+    .gj-card--span2,
+    .gj-grid--with-guides .gj-card--wide {
+        grid-column: auto;
+    }
+    .gj-card--guides-panel {
+        grid-column: auto !important;
+        grid-row: auto !important;
+    }
+}
+
+@media (max-width: 799px) {
+    .gj-dash { padding: 20px; }
+}
+
+@media (max-width: 479px) {
+    .gj-dash { padding: 16px 0; }
+    .gj-header { margin-bottom: 20px; }
+}
+
 .gl-card-sep { opacity: 0.4; }
+
+/* ── Responsive: Guides Modal ─────────────────────────────────────────────────
+   .gm-panel already sizes itself off the viewport (min(640px, 100vw - 40px)),
+   and the source-tab bar already scrolls horizontally — both built mobile-aware
+   from the start. The one gap: .gm-row-action has a 200px min-width so its
+   Download/Open buttons don't get squashed, but at a ~320px phone-portrait
+   panel that leaves so little room for .gm-row-info that titles truncate to
+   ~6 characters ("Half-Lif…"). Stack info above actions instead.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 479px) {
+    .gm-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .gm-row-action {
+        min-width: 0;
+        width: 100%;
+    }
+}

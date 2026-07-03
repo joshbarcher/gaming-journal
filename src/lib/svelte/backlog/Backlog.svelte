@@ -211,7 +211,7 @@
                        class:backlog-card--drop-before={dropTargetAppid === g.appid && dropSide === 'before'}
                        class:backlog-card--drop-after={dropTargetAppid === g.appid && dropSide === 'after'}
                        class:backlog-card--picked={pickedAppid === g.appid}
-                       href="/game/{g.appid}" data-appid={g.appid} draggable="true"
+                       href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name} draggable="true"
                        ondragstart={() => onDragStart(g.appid)}
                        ondragend={onDragEnd}
                        ondragover={(e) => onDragOver(e, g.appid)}
@@ -250,7 +250,7 @@
                        class:backlog-card--drop-before={dropTargetAppid === g.appid && dropSide === 'before'}
                        class:backlog-card--drop-after={dropTargetAppid === g.appid && dropSide === 'after'}
                        class:backlog-card--picked={pickedAppid === g.appid}
-                       href="/game/{g.appid}" data-appid={g.appid} draggable="true"
+                       href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name} draggable="true"
                        ondragstart={() => onDragStart(g.appid)}
                        ondragend={onDragEnd}
                        ondragover={(e) => onDragOver(e, g.appid)}

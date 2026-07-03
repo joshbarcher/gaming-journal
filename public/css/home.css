@@ -2,6 +2,7 @@
 
 .home-wrap {
     height: 100vh;
+    height: 100dvh; /* see #app in layout.css — 100vh doesn't track the address-bar collapse on mobile */
     overflow: hidden;
     display: grid;
     grid-template-rows: 45fr 55fr;

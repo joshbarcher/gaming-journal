@@ -37,7 +37,7 @@
         style="--delay:{delay}ms"
     >
         <!-- SVG <a> for navigation -->
-        <a href="/game/{appid}" class="result-link">
+        <a href="/game/{appid}" class="result-link" data-game-card data-appid={appid} data-game-name={name}>
             <!-- Poster frame -->
             <rect
                 x={-W / 2} y={-H / 2}

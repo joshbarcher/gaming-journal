@@ -5,10 +5,10 @@
     import GlobalSearch from '$lib/svelte/GlobalSearch.svelte'
     import { store, type NowPlayingInfo } from '$lib/sidebar.svelte.js'
     import { scrollbar } from '$lib/actions/scrollbar.js'
+    import { onGameCardContextMenu } from '$lib/js/views/game-card-menu.js'
 
     const { children, data } = $props()
 
-    let sidebarOpen      = $state(false)
     let sidebarCollapsed = $state(false)
     let searchOpen       = $state(false)
 
@@ -17,7 +17,7 @@
         localStorage.setItem('sidebar-collapsed', String(sidebarCollapsed))
     }
 
-    afterNavigate(() => { sidebarOpen = false; searchOpen = false })
+    afterNavigate(() => { store.appSidebarOpen = false; searchOpen = false })
 
     beforeNavigate(({ to, from }) => {
         if (!to || !from) return
@@ -154,17 +154,17 @@
     })
 </script>
 
-<svelte:window onpaste={onPaste} onkeydown={onGlobalKeyDown} />
+<svelte:window onpaste={onPaste} onkeydown={onGlobalKeyDown} oncontextmenu={onGameCardContextMenu} />
 
 {#if searchOpen}
     <GlobalSearch onclose={() => searchOpen = false} />
 {/if}
 
 <button id="sidebar-toggle" class="sidebar-toggle"
-        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
-        aria-expanded={sidebarOpen}
-        onclick={() => sidebarOpen = !sidebarOpen}>
-    {#if sidebarOpen}
+        aria-label={store.appSidebarOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={store.appSidebarOpen}
+        onclick={() => store.appSidebarOpen = !store.appSidebarOpen}>
+    {#if store.appSidebarOpen}
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -176,10 +176,10 @@
 </button>
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div id="sidebar-overlay" class="sidebar-overlay"
-     class:visible={sidebarOpen}
-     onclick={() => sidebarOpen = false}></div>
+     class:visible={store.appSidebarOpen}
+     onclick={() => store.appSidebarOpen = false}></div>
 <div id="app">
-    <aside id="sidebar" class:sidebar--open={sidebarOpen} class:sidebar--collapsed={sidebarCollapsed}>
+    <aside id="sidebar" class:sidebar--open={store.appSidebarOpen} class:sidebar--collapsed={sidebarCollapsed}>
         <Sidebar collapsed={sidebarCollapsed} />
         <button class="sidebar-gutter-btn" onclick={toggleCollapse}
                 title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>

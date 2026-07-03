@@ -200,7 +200,7 @@
                 {@const flagLabels = { completed: 'Completed', revisit: 'Revisit', inProgress: 'In Progress', dropped: 'Dropped' }}
                 {@const activeTags = Object.entries(flagLabels).filter(([k]) => heroFlags?.[k as FlagKey]).map(([, label]) => label)}
                 {@const quote      = heroReview?.review ?? null}
-                <a class="fav-hero" href="/game/{hero.appid}" data-appid={hero.appid}>
+                <a class="fav-hero" href="/game/{hero.appid}" data-game-card data-appid={hero.appid} data-game-name={hero.name}>
                     <div class="fav-hero-art">
                         <div class="fav-hero-bg-wrap">
                             <div class="fav-hero-bg fav-hero-bg--a"
@@ -235,7 +235,7 @@
             {/if}
             {#each rest as g (g.appid)}
                 {@const hours = fmtHours(g.playtime)}
-                <a class="fav-card" href="/game/{g.appid}">
+                <a class="fav-card" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                     <div class="fav-card-img-wrap">
                         <img class="fav-card-img"
                              src="/relay/images/steam/games/{g.appid}/header.jpg"

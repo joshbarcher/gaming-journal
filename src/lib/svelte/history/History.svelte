@@ -106,7 +106,7 @@
                 {#each topGames as g, i (g.appid)}
                     {@const relLabel = fmtRelative(g.lastPlayedAt)}
                     {@const ptLabel  = fmtHours(g.playtime)}
-                    <a class="history-card history-card--featured" href="/game/{g.appid}">
+                    <a class="history-card history-card--featured" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                         <div class="history-card-img-wrap">
                             <img class="history-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"
@@ -132,7 +132,7 @@
                 {#each restGames as g, i (g.appid)}
                     {@const relLabel = fmtRelative(g.lastPlayedAt)}
                     {@const ptLabel  = fmtHours(g.playtime)}
-                    <a class="history-card" href="/game/{g.appid}">
+                    <a class="history-card" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                         <div class="history-card-img-wrap">
                             <img class="history-card-img"
                                  src="/relay/images/steam/games/{g.appid}/header.jpg"

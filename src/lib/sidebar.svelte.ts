@@ -31,6 +31,10 @@ class SidebarStore {
     historyAppid = $state<number | null>(null)
     counts       = $state<SidebarCounts>({ library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, franchises: 0 })
     pin          = $state<PinState | null>(null)
+    // Mobile hamburger open state — hoisted here (not local to +layout.svelte) so other
+    // mobile overlays (e.g. the Guide Viewer's TOC drawer) can react and close themselves
+    // when the main nav opens, avoiding two full-screen overlays fighting for z-index.
+    appSidebarOpen = $state(false)
 }
 
 export const store = new SidebarStore()

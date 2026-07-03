@@ -154,7 +154,7 @@
             <div class="acct-card-row">
                 {#each recentlyPlayed as g (g.appid)}
                     {@const sub = g.playtime2weeks ? `${fmtMins(g.playtime2weeks)} this week` : g.lastPlayedAt ? fmtDate(g.lastPlayedAt) : ''}
-                    <a class="acct-game-card lib-card" href="/game/{g.appid}">
+                    <a class="acct-game-card lib-card" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                         <div class="lib-card-img-wrap">
                             <img class="lib-card-img" src="/relay/images/steam/games/{g.appid}/header.jpg"
                                  alt={g.name} loading="lazy"
@@ -178,7 +178,7 @@
             <h2 class="acct-section-title">Most Played</h2>
             <div class="acct-most-played">
                 {#each mostPlayed as g, i (g.appid)}
-                    <a class="acct-mp-row" href="/game/{g.appid}">
+                    <a class="acct-mp-row" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                         <span class="acct-mp-rank">{i + 1}</span>
                         <img class="acct-mp-img" src="/relay/images/steam/games/{g.appid}/header.jpg"
                              alt="" loading="lazy"

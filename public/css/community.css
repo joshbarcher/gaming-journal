@@ -93,6 +93,7 @@
     color: var(--clr-text);
     margin: 0 0 8px;
     letter-spacing: 0.02em;
+    overflow-wrap: break-word;
 }
 
 .community-subtitle {
@@ -1361,4 +1362,54 @@
     33%  { inset: -11.2px; transform: rotate(0deg);  }
     66%  { inset: -11.2px; transform: rotate(90deg); }
     100% { inset: 0;       transform: rotate(90deg); }
+}
+
+/* ── Responsive: Community + Community Thread ────────────────────────────────
+   Both pages were already built fairly defensively (auto-fill grids, flex-wrap
+   on tabs/meta rows) — mainly needed the standard side-padding step-down plus
+   two real fixes: the thread post card's image column stays half-width even
+   in a single-column mobile layout (wastes space unnecessarily), and the
+   header needs to allow wrapping so a Pinned badge with a longer label
+   doesn't fight the title for room.
+────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .community-header { padding: 28px 24px 20px; }
+    .community-body   { padding: 0 24px 32px; }
+    .community-thread-nav      { padding: 28px 24px 0; }
+    .community-thread-post     { padding: 16px 24px 0; }
+    .community-thread-comments { padding: 24px 24px 32px; }
+}
+
+@media (max-width: 799px) {
+    .community-header { padding: 24px 20px 16px; }
+    .community-body   { padding: 0 20px 28px; }
+    .community-thread-nav      { padding: 24px 20px 0; }
+    .community-thread-post     { padding: 14px 20px 0; }
+    .community-thread-comments { padding: 20px 20px 28px; }
+
+    /* Post card image column was pinned to half-width even in a narrow single
+       column layout — let it use the full card width instead. */
+    .community-thread-post-card {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "head"
+            "img"
+            "gallery"
+            "body"
+            "foot";
+    }
+}
+
+@media (max-width: 479px) {
+    .community-header {
+        padding: 16px 0 14px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .community-title { font-size: 1.6rem; }
+    .community-body  { padding: 0 0 24px; }
+    .community-thread-nav      { padding: 16px 0 0; }
+    .community-thread-post     { padding: 12px 0 0; }
+    .community-thread-comments { padding: 16px 0 24px; }
+    .community-thread-post-card { padding: 16px 18px; }
 }

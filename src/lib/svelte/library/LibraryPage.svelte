@@ -216,7 +216,7 @@
         {:else}
             {#each pageSlice as g (g.appid)}
                 {@const timeStr = fmtPlaytime(g.playtime_forever ?? 0)}
-                <a class="lib-card" href="/game/{g.appid}">
+                <a class="lib-card" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                     <div class="lib-card-img-wrap">
                         <img class="lib-card-img"
                              src="/relay/images/steam/games/{g.appid}/header.jpg"

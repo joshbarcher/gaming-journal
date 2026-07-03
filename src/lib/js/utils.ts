@@ -24,6 +24,10 @@ export function localDateStr(d: string | number | Date): string {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+export function steamStoreUrl(appid: number | string): string {
+    return `https://store.steampowered.com/app/${appid}`
+}
+
 export function escapeHtml(str: unknown): string {
     return String(str ?? '')
         .replace(/&/g, '&amp;')

@@ -99,10 +99,13 @@
     min-width: 0;
     overflow-y: auto;
     height: 100%;
+    scrollbar-width: none;
 }
 
+.gv-content::-webkit-scrollbar { display: none; }
+
 .gv-content-inner {
-    padding: 24px 24px 80px 24px;
+    padding: 24px 44px 80px 44px;
 }
 
 .gv-section-loading {
@@ -587,9 +590,9 @@
     align-items: center;
     text-align: center;
     padding-top: 36px;
-    /* Don't overflow the content pane — mosaic shrinks to fit */
     min-height: 0;
     height: 100%;
+    overflow: hidden;
 }
 
 /* ── Large title ── */
@@ -817,8 +820,8 @@
     grid-template-rows: repeat(2, 1fr);
     gap: 4px;
     width: min(100%, 860px);
-    aspect-ratio: 8 / 3;
-    flex-shrink: 0;
+    flex: 1;
+    min-height: 0;
     border-radius: 10px;
     overflow: hidden;
 }
@@ -1204,7 +1207,7 @@
 /* ── Per-page inline search (top of each section page) ──────────────────── */
 
 .gps-wrap {
-    margin: 20px 24px 0;
+    margin: 20px 44px 0;
     border: 1px solid var(--clr-border);
     border-radius: 7px;
     background: var(--clr-bg-raised);
@@ -1312,5 +1315,79 @@
     padding: 9px 12px;
     font-size: 12px;
     color: var(--clr-text-muted);
+}
+
+/* ── Responsive: Guide Viewer ─────────────────────────────────────────────────
+   .gv-body / .gv-header-row were a fixed 2-col grid (content + 300px TOC
+   sidebar) with zero mobile treatment — below 1280px the sidebar ate a third
+   of a narrow viewport and the content column overflowed off-screen.
+   Below 1280px, drop to a single column and turn the sidebar into a right-side
+   overlay drawer instead, reusing the existing tocCollapsed state that the
+   desktop "collapse to a 40px rail" button already toggles — collapsed now
+   means "drawer closed" instead of "40px rail". GuideViewer.svelte defaults
+   the drawer closed on mobile load and closes it again after navigating.
+────────────────────────────────────────────────────────────────────────────── */
+.gv-toc-scrim { display: none; }
+
+@media (max-width: 1279px) {
+    .gv-header-row,
+    .gv-toc--collapsed .gv-header-row {
+        grid-template-columns: 1fr;
+    }
+    .gv-header-toc { display: none; }
+    .gv-header-main { padding: 56px 20px 16px; }
+    .gv-page-title { margin-top: 12px; }
+
+    .gv-body,
+    .gv-toc--collapsed .gv-body {
+        grid-template-columns: 1fr;
+    }
+    .gv-scroll-progress,
+    .gv-toc--collapsed .gv-scroll-progress {
+        right: 0;
+    }
+
+    .gv-content-inner { padding: 20px 20px 60px; }
+    .gps-wrap { margin: 16px 20px 0; }
+
+    /* Sidebar: persistent grid column → right-side overlay drawer */
+    .gv-toc-wrap {
+        position: fixed;
+        inset: 0 0 0 auto;
+        width: min(320px, 85vw);
+        z-index: 260;
+        transform: translateX(100%);
+        transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+    }
+    .gv-wrap:not(.gv-toc--collapsed) .gv-toc-wrap {
+        transform: translateX(0);
+    }
+    .gv-sidebar { width: 100%; }
+
+    /* Gutter toggle becomes a floating round FAB instead of a grid-edge tab */
+    .gv-toc-gutter-btn,
+    .gv-toc--collapsed .gv-toc-gutter-btn {
+        right: 16px;
+        left: auto;
+        top: auto;
+        bottom: 16px;
+        transform: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid var(--clr-border-hi);
+        background: var(--clr-bg-raised);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        z-index: 261;
+    }
+
+    .gv-toc-scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 255;
+    }
 }
 

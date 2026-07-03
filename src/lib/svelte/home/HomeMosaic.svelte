@@ -91,7 +91,7 @@
 
 <div class="home-mosaic" class:home-mosaic--landscape={cols === 2} style:grid-template-columns="repeat({cols}, 1fr)" style:grid-template-rows="repeat({cols === 2 ? 3 : 2}, 1fr)">
     {#each slots as slot, i (i)}
-        <a class="mosaic-cell" href="/game/{slot.front.appid}">
+        <a class="mosaic-cell" href="/game/{slot.front.appid}" data-game-card data-appid={slot.front.appid}>
             <div class="mosaic-cell-inner {slot.flipClass}"
                  style:animation-delay="{slot.delay}ms"
                  onanimationend={() => onFlipEnd(i)}>

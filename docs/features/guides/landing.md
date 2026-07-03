@@ -13,6 +13,8 @@ The first screen shown when opening a guide (`/journal/{appid}/guides/{source}/{
 
 ## Layout
 
+`GuideLanding` is rendered as a **direct child of `.gv-content`** (not wrapped by `.gv-content-inner`), so its `height: 100%` resolves to the full height of the content column. The landing never scrolls — it is a fixed-height flex column that clips overflow.
+
 The template renders exactly three sections inside `<div class="gl-landing">`:
 
 1. `<h2 class="gl-title">` — guide title with shimmer animation
@@ -95,6 +97,8 @@ Empty state: `<p class="gl-search-empty">No results for "…"</p>` shown when `q
 ## Mosaic
 
 A 3×2 grid of guide cover images that flip every **5 seconds**. Only renders when `slots.length >= 6` (i.e. `coverImages.length >= 6`).
+
+The mosaic uses `flex: 1; min-height: 0` so it fills whatever vertical space remains after the title, pills, and search bar. It has no fixed aspect ratio — height adapts to the viewport. When search results are visible they consume space above, the mosaic shrinks accordingly.
 
 `coverImages` comes from `meta.coverImages[]` — images extracted from guide content during parse. Each entry: `{ section: string, src: string }` where `section` is the page slug the image came from and `src` is the relative filename (e.g. `img/001.jpg`).
 

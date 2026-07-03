@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
+    import { page } from '$app/state'
     import type { SteamGame, CommunityReviews, SteamUserReviewEntry, PlayerCounts, Flags, LocalReview, Trailer, ItadData, ProtonData, PcgwData, NewsData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { navigate } from '../../js/router.js'
@@ -349,6 +350,50 @@
     onDestroy(() => {
         _modalEl?.remove()
         document.getElementById('main-content')?.classList.remove('has-game-hero')
+    })
+
+    // ── Jump to a #game-sec-* fragment once its section exists in the DOM ─────
+    // Sections stream in across two phases (see onMount above); Prices/ProtonDB/
+    // PCGamingWiki don't exist until phase 2 resolves, so a plain anchor jump
+    // isn't enough — retry via MutationObserver until the target appears.
+    $effect(() => {
+        const hash = page.url.hash
+        if (!hash || !hash.startsWith('#game-sec-')) return
+        const id = hash.slice(1)
+
+        let cancelled = false
+        let firstJump = true
+
+        function tryScroll(): boolean {
+            if (cancelled) return true
+            const el = document.getElementById(id)
+            if (!el) return false
+            el.scrollIntoView({ behavior: firstJump ? 'auto' : 'smooth', block: 'start' })
+            firstJump = false
+            return true
+        }
+
+        tryScroll()
+
+        const mo = new MutationObserver(() => {
+            if (cancelled) { mo.disconnect(); return }
+            tryScroll()
+            if (!(phase2Active && bgPending > 0)) mo.disconnect()
+        })
+        if (containerEl) mo.observe(containerEl, { childList: true, subtree: true })
+
+        const stop = () => { cancelled = true }
+        const scrollEl = document.getElementById('main-content')
+        scrollEl?.addEventListener('wheel', stop, { once: true, passive: true })
+        scrollEl?.addEventListener('touchstart', stop, { once: true, passive: true })
+        const safety = setTimeout(() => { cancelled = true; mo.disconnect() }, 6000)
+
+        return () => {
+            mo.disconnect()
+            clearTimeout(safety)
+            scrollEl?.removeEventListener('wheel', stop)
+            scrollEl?.removeEventListener('touchstart', stop)
+        }
     })
 
     // ── HLTB refresh handler (passed to HltbSection) ──────────────────────────

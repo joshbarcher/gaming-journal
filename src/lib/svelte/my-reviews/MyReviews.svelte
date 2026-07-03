@@ -97,7 +97,7 @@
                 {@const stars   = rev.stars ?? 0}
                 {@const tags    = rev.tags ?? []}
                 {@const excerpt = rev.review ?? ''}
-                <a class="mr-card" href="/game/{appid}">
+                <a class="mr-card" href="/game/{appid}" data-game-card data-appid={appid} data-game-name={name}>
                     <div class="mr-card-img-wrap">
                         <img class="mr-card-img{stars === 0 ? ' mr-card-img--unrated' : ''}"
                              src="/relay/images/steam/games/{appid}/header.jpg"

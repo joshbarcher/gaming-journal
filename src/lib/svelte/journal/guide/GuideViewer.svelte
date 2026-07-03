@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy, tick } from 'svelte'
     import { goto } from '$app/navigation'
-    import { OverlayScrollbars } from 'overlayscrollbars'
     import Breadcrumb from '../../Breadcrumb.svelte'
     import GuideBlockRenderer from './GuideBlockRenderer.svelte'
     import GuideLanding from './GuideLanding.svelte'
@@ -10,6 +9,7 @@
     import Fuse from 'fuse.js'
     import { getCachedFulltext } from '$lib/guide-cache.js'
     import type { FtEntry } from '$lib/guide-cache.js'
+    import { store as sidebarStore } from '$lib/sidebar.svelte.js'
 
     let { appid, source, guideId, section }: {
         appid: string
@@ -53,11 +53,10 @@
     // ── Page scroll ────────────────────────────────────────────────────────────
 
     let contentEl  = $state<HTMLElement | null>(null)
-    let contentOs  = $state<ReturnType<typeof OverlayScrollbars> | undefined>(undefined)
     let scrollProgress = $state(0)
 
     function scrollViewport(): HTMLElement | null {
-        return contentOs?.elements().viewport as HTMLElement ?? contentEl
+        return contentEl
     }
 
     function scrollPage(delta: 1 | -1) {
@@ -181,6 +180,7 @@
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     function navTo(slug: string, blockPath?: number[]) {
+        if (isMobile()) tocCollapsed = true
         if (blockPath?.length) {
             const curBase = (currentSlug ?? '').split('#')[0]
             if (slug === curBase) {
@@ -383,8 +383,23 @@
     const PIN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z"/></svg>`
 
     // ── TOC collapse ───────────────────────────────────────────────────────────
+    // Below 1280px the sidebar becomes an overlay drawer (see guide-viewer.css)
+    // rather than a permanent grid column, so "collapsed" there means "closed".
+    // Ignore the desktop-persisted preference and always start closed on mobile,
+    // and auto-close after navigating so the drawer doesn't obscure the new page.
+
+    function isMobile() {
+        return typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches
+    }
 
     let tocCollapsed = $state(false)
+
+    // The main app hamburger nav is a second full-screen overlay on mobile — if both
+    // ended up open at once, the app nav visually wins regardless of z-index (it sits
+    // in a different stacking context), which looked broken. Close our drawer instead.
+    $effect(() => {
+        if (sidebarStore.appSidebarOpen) tocCollapsed = true
+    })
 
     function toggleToc() {
         tocCollapsed = !tocCollapsed
@@ -612,30 +627,22 @@
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     $effect(() => {
-        if (!contentEl) { contentOs?.destroy(); contentOs = undefined; return }
-        contentOs = OverlayScrollbars(contentEl, {
-            scrollbars: { theme: 'gj-theme', visibility: 'hidden', clickScroll: true },
-        }) ?? undefined
-        return () => { contentOs?.destroy(); contentOs = undefined }
-    })
-
-    $effect(() => {
-        const os = contentOs
-        if (!os) { scrollProgress = 0; return }
-        const vp = os.elements().viewport as HTMLElement
+        const el = contentEl
+        if (!el) { scrollProgress = 0; return }
         function update() {
-            const max = vp.scrollHeight - vp.clientHeight
-            scrollProgress = max > 0 ? (vp.scrollTop / max) * 100 : 0
+            const max = el.scrollHeight - el.clientHeight
+            scrollProgress = max > 0 ? (el.scrollTop / max) * 100 : 0
         }
-        vp.addEventListener('scroll', update, { passive: true })
+        el.addEventListener('scroll', update, { passive: true })
         update()
-        return () => vp.removeEventListener('scroll', update)
+        return () => el.removeEventListener('scroll', update)
     })
 
     onMount(async () => {
-        tocCollapsed = localStorage.getItem('guide-toc-collapsed') === 'true'
+        tocCollapsed = isMobile() ? true : localStorage.getItem('guide-toc-collapsed') === 'true'
         try {
             await loadMeta()
+            fetch(`/relay/api/guides/${appid}/${source}/${guideId}/mark-used`, { method: 'POST' }).catch(() => {})
             loadPins()
             if (section) {
                 await loadSection(section)
@@ -787,24 +794,22 @@
             {#if loadingSection}
                 <div class="gv-section-loading"><div class="community-loader"></div></div>
             {:else if !currentSlug}
-                <div class="gv-content-inner">
-                    <GuideLanding
-                        steamId={appid}
-                        {source}
-                        {guideId}
-                        title={meta.title}
-                        pageCount={(meta.pages ?? []).length}
-                        parsedAt={meta.parsedAt ?? null}
-                        sizeBytes={meta.sizeBytes}
-                        sourceUrl={meta.sourceUrl ?? null}
-                        coverImages={meta.coverImages ?? []}
-                        onStart={() => {
-                            const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
-                            if (firstSlug) navTo(firstSlug)
-                        }}
-                        onNav={(slug: string, blockPath?: number[]) => navTo(slug, blockPath)}
-                    />
-                </div>
+                <GuideLanding
+                    steamId={appid}
+                    {source}
+                    {guideId}
+                    title={meta.title}
+                    pageCount={(meta.pages ?? []).length}
+                    parsedAt={meta.parsedAt ?? null}
+                    sizeBytes={meta.sizeBytes}
+                    sourceUrl={meta.sourceUrl ?? null}
+                    coverImages={meta.coverImages ?? []}
+                    onStart={() => {
+                        const firstSlug = meta?.pages?.[0]?.slug ?? meta?.nav?.[0]?.slug
+                        if (firstSlug) navTo(firstSlug)
+                    }}
+                    onNav={(slug: string, blockPath?: number[]) => navTo(slug, blockPath)}
+                />
             {:else}
                 <GuidePageSearch
                     {blocks}
@@ -835,6 +840,12 @@
                 </svg>
             {/if}
         </button>
+
+        <!-- Drawer scrim — only rendered/visible below 1280px, where the TOC is an overlay -->
+        {#if !tocCollapsed}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div class="gv-toc-scrim" onclick={toggleToc}></div>
+        {/if}
 
         <!-- TOC wrap: constrains sidebar scroll height -->
         <div class="gv-toc-wrap">

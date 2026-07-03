@@ -104,7 +104,7 @@
             {#each games as g (g.appid)}
                 {@const invested  = fmtHours(g.playtime)}
                 {@const remaining = remainingLabel(g.hltb, g.playtime ?? 0)}
-                <a class="ab-card" href="/game/{g.appid}" data-appid={g.appid}>
+                <a class="ab-card" href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                     <div class="ab-card-img-wrap">
                         <img class="ab-card-img"
                              src="/relay/images/steam/games/{g.appid}/header.jpg"

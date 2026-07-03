@@ -579,6 +579,23 @@
                         {/each}
                     </div>
                 </div>
+
+                <!-- ≤479px substitute — .hltb-bar-wrap is hidden there in favor of stacked mini bars (see HltbSection.svelte, which this mirrors) -->
+                <div class="hltb-mini">
+                    {#each hltbMilestones as m}
+                        {@const miniPct = playerHours > 0 ? Math.min(100, (playerHours / m.h) * 100) : 0}
+                        <div class="hltb-mini-row">
+                            <span class="hltb-mini-label">{m.label}</span>
+                            <div class="hltb-mini-track">
+                                <div class="hltb-mini-fill" class:hltb-mini-fill--done={playerHours >= m.h} style="width:{miniPct.toFixed(1)}%"></div>
+                            </div>
+                            <span class="hltb-mini-value">{fmtHours(m.h)}</span>
+                        </div>
+                    {/each}
+                    {#if playerHours > 0}
+                        <p class="hltb-mini-played">{fmtHours(playerHours)} played</p>
+                    {/if}
+                </div>
             {/if}
         </div>
 

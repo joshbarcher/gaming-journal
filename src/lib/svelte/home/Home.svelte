@@ -25,7 +25,7 @@
         {#if hasConditional}
             <div class="home-row" style="grid-template-columns: repeat({staticConditionals.length}, 1fr)">
                 {#if release}
-                    <a class="home-card" href="/game/{release.appid}">
+                    <a class="home-card" href="/game/{release.appid}" data-game-card data-appid={release.appid} data-game-name={release.name}>
                         <div class="home-card-bg" style="background-image:url('{release.header}')"></div>
                         <div class="home-card-body">
                             <span class="home-chip home-chip--release"><em class="home-chip-icon">★</em> Released Today</span>
@@ -35,7 +35,7 @@
                     </a>
                 {/if}
                 {#if resume}
-                    <a class="home-card" href="/game/{resume.appid}">
+                    <a class="home-card" href="/game/{resume.appid}" data-game-card data-appid={resume.appid} data-game-name={resume.name}>
                         <div class="home-card-bg" style="background-image:url('{resume.header}')"></div>
                         <div class="home-card-body">
                             <span class="home-chip home-chip--resume">▶ Resume</span>
@@ -51,7 +51,7 @@
         {#if allConditionals.length > 0}
             <div class="home-row" style="grid-template-columns: repeat({allConditionals.length}, 1fr)">
                 {#if release}
-                    <a class="home-card" href="/game/{release.appid}">
+                    <a class="home-card" href="/game/{release.appid}" data-game-card data-appid={release.appid} data-game-name={release.name}>
                         <div class="home-card-bg" style="background-image:url('{release.header}')"></div>
                         <div class="home-card-body">
                             <span class="home-chip home-chip--release"><em class="home-chip-icon">★</em> Released Today</span>
@@ -68,7 +68,8 @@
                     {@const external = url.startsWith('http')}
                     <a class="home-card" href={url}
                        target={external ? '_blank' : null}
-                       rel={external ? 'noopener noreferrer' : null}>
+                       rel={external ? 'noopener noreferrer' : null}
+                       data-game-card data-appid={saleGame.appid} data-game-name={saleGame.name}>
                         <div class="home-card-bg" style="background-image:url('/relay/images/steam/games/{saleGame.appid}/header.jpg')"></div>
                         <div class="home-card-body">
                             <span class="home-chip home-chip--sale">On Sale  −{cut}%</span>
@@ -78,7 +79,7 @@
                     </a>
                 {/if}
                 {#if resume}
-                    <a class="home-card" href="/game/{resume.appid}">
+                    <a class="home-card" href="/game/{resume.appid}" data-game-card data-appid={resume.appid} data-game-name={resume.name}>
                         <div class="home-card-bg" style="background-image:url('{resume.header}')"></div>
                         <div class="home-card-body">
                             <span class="home-chip home-chip--resume">▶ Resume</span>

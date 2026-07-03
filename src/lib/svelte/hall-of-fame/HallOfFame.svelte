@@ -101,7 +101,7 @@
                         {#each tierGames as g (g.appid)}
                             {@const hours = fmtHours(g.playtime)}
                             <a class="hof-card{tier.featured ? ' hof-card--featured' : ''}"
-                               href="/game/{g.appid}" data-appid={g.appid}>
+                               href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                                 <div class="hof-card-img-wrap">
                                     <img class="hof-card-img"
                                          src="/relay/images/steam/games/{g.appid}/header.jpg"

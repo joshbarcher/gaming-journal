@@ -2,6 +2,9 @@
 #app {
     display: flex;
     height: 100vh;
+    height: 100dvh; /* mobile: 100vh is locked to the viewport with the address bar visible;
+                        when it auto-hides on scroll the real viewport grows but a 100vh-sized
+                        shell doesn't, leaving a gap at the bottom. dvh tracks the real size. */
     overflow: hidden;
 }
 

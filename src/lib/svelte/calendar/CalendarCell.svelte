@@ -52,6 +52,7 @@
                 class:cal-entry--release={e.isRelease}
                 class:cal-entry--last-played={e.lastPlayed && !e.isLive}
                 href="/game/{e.appid}"
+                data-game-card data-appid={e.appid} data-game-name={e.name}
                 {title}
             >
                 <img

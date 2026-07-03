@@ -145,7 +145,7 @@
         <div>
             {#each displayRows as entry (entry.appid)}
                 {@const name = entry.name ?? `App ${entry.appid}`}
-                <div class="tg-row-wrap" class:tg-row-wrap--muted={entry.filtered} data-appid={entry.appid}>
+                <div class="tg-row-wrap" class:tg-row-wrap--muted={entry.filtered} data-game-card data-appid={entry.appid} data-game-name={name}>
                     <a class="tg-row" href="/game/{entry.appid}">
                         <span class="tg-rank">{entry.displayRank}</span>
                         <img class="tg-thumb" src="/relay/images/steam/games/{entry.appid}/header.jpg"

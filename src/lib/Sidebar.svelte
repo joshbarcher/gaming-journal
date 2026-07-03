@@ -71,6 +71,7 @@
         {@const np = store.nowPlaying}
         <div class="now-playing-wrap">
             <a class="now-playing-card" href="/game/{np.appid}"
+               data-game-card data-appid={np.appid} data-game-name={np.name}
                title={collapsed ? `Now Playing: ${np.name}${np.elapsed ? ` — ${np.elapsed}` : ''}` : undefined}>
                 <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/{np.appid}/header.jpg')"></div>
                 <div class="now-playing-scrim"></div>
@@ -86,6 +87,7 @@
         {@const lp = store.lastPlayed}
         <div class="now-playing-wrap now-playing-wrap--last">
             <a class="now-playing-card" href="/game/{lp.appid}"
+               data-game-card data-appid={lp.appid} data-game-name={lp.name}
                title={collapsed ? `Last Session: ${lp.name}` : undefined}>
                 <div class="now-playing-bg" style="background-image:url('/relay/images/steam/games/{lp.appid}/header.jpg')"></div>
                 <div class="now-playing-scrim"></div>

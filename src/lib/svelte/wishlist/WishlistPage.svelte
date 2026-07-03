@@ -242,7 +242,7 @@
                 {@const bp          = g.itad?.bestPrice}
                 {@const retail      = g.store?.price}
                 {@const onSale      = (bp?.cut ?? 0) > 0}
-                <a class="lib-card" class:lib-card--unavailable={g.store?.unavailable} href="/game/{g.appid}">
+                <a class="lib-card" class:lib-card--unavailable={g.store?.unavailable} href="/game/{g.appid}" data-game-card data-appid={g.appid} data-game-name={g.name}>
                     <div class="lib-card-img-wrap">
                         <img class="lib-card-img"
                              src="/relay/images/steam/games/{g.appid}/header.jpg"

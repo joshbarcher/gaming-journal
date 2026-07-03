@@ -45,3 +45,37 @@
     background: var(--clr-border);
     margin: 4px 0;
 }
+
+.ctx-menu-item--has-submenu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ctx-menu-item--has-submenu::after {
+    content: '▸';
+    opacity: 0.5;
+    font-size: 11px;
+}
+
+.ctx-menu-item--disabled {
+    display: block;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.35);
+    cursor: default;
+}
+
+.ctx-menu-item--external {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.ctx-menu-item--external svg {
+    opacity: 0.5;
+    flex-shrink: 0;
+}

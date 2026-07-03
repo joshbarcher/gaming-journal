@@ -10,6 +10,22 @@
     max-width: 640px;
 }
 
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .page-header:has(+ .settings-body) { padding: 28px 24px 20px; }
+    .settings-body { padding: 24px; }
+}
+
+@media (max-width: 799px) {
+    .page-header:has(+ .settings-body) { padding: 24px 20px 16px; }
+    .settings-body { padding: 20px; }
+}
+
+@media (max-width: 479px) {
+    .page-header:has(+ .settings-body) { padding: 16px 0 14px; }
+    .settings-body { padding: 16px 0; }
+}
+
 .settings-section {
     margin-bottom: 40px;
 }

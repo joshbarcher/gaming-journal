@@ -418,7 +418,9 @@
             {@const label    = STATUS_LABELS[status]}
             <div
                 class="frc-entry"
+                data-game-card
                 data-appid={entry.appid}
+                data-game-name={entry.name}
                 use:entryDrag
             >
                 <span class="frc-entry-handle" title="Drag to reorder">⠿</span>

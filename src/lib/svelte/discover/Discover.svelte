@@ -371,6 +371,7 @@
                     <div
                         class="lib-card disc-card"
                         tabindex="0"
+                        data-game-card data-appid={item.appid} data-game-name={item.name}
                         onclick={() => navigate(`game/${item.appid}`)}
                         onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`game/${item.appid}`) } }}
                     >
@@ -446,6 +447,7 @@
                     <div
                         class="lib-card disc-card"
                         tabindex="0"
+                        data-game-card data-appid={item.appid} data-game-name={item.name}
                         onclick={() => navigate(`game/${item.appid}`)}
                         onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`game/${item.appid}`) } }}
                     >

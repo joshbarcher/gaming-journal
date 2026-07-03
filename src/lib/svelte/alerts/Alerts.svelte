@@ -118,7 +118,7 @@
                     {@const store = game.bestPrice?.store ?? ''}
                     {@const url   = game.bestPrice?.url   ?? `/game/${game.appid}`}
                     {@const hl    = game.historicalLow}
-                    <a class="alerts-card" href={url} target="_blank" rel="noopener noreferrer">
+                    <a class="alerts-card" href={url} target="_blank" rel="noopener noreferrer" data-game-card data-appid={game.appid} data-game-name={game.name}>
                         <div class="alerts-card-img-wrap">
                             <img class="alerts-card-img"
                                  src="/relay/images/steam/games/{game.appid}/header.jpg"
@@ -152,7 +152,7 @@
                     {@const price = game.bestPrice?.price ?? null}
                     {@const store = game.bestPrice?.store ?? ''}
                     {@const url   = game.bestPrice?.url   ?? `/game/${game.appid}`}
-                    <a class="alerts-watch-row" href={url} target="_blank" rel="noopener noreferrer">
+                    <a class="alerts-watch-row" href={url} target="_blank" rel="noopener noreferrer" data-game-card data-appid={game.appid} data-game-name={game.name}>
                         <img class="alerts-watch-img"
                              src="/relay/images/steam/games/{game.appid}/header.jpg"
                              alt=""

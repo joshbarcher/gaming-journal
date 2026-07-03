@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
     import { getScrollInstance } from '$lib/actions/scrollbar.js'
+    import { GAME_SECTIONS } from '../../js/game-sections.js'
 
     // Sections are watched; rail rebuilds whenever the DOM changes (bg sections loading in)
     let { container } = $props()
@@ -21,21 +22,23 @@
         award:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`,
     }
 
-    const ALL_ITEMS = [
-        { id: 'game-sec-hero',              label: 'Top',               icon: NAV_ICONS.home      },
-        { id: 'game-sec-trailers',          label: 'Trailers',          icon: NAV_ICONS.video     },
-        { id: 'game-sec-about',             label: 'About',             icon: NAV_ICONS.bookOpen  },
-        { id: 'game-sec-hltb',              label: 'How Long To Beat',  icon: NAV_ICONS.clock     },
-        { id: 'game-sec-player-count',      label: 'Player Count',      icon: NAV_ICONS.barChart  },
-        { id: 'game-sec-screenshots',       label: 'Screenshots',       icon: NAV_ICONS.image     },
-        { id: 'game-sec-news',              label: 'News',              icon: NAV_ICONS.newspaper },
-        { id: 'game-sec-local-review',      label: 'Local Review',      icon: NAV_ICONS.star      },
-        { id: 'game-sec-steam-review',      label: 'Steam Review',      icon: NAV_ICONS.thumbsUp  },
-        { id: 'game-sec-community-reviews', label: 'Community Reviews', icon: NAV_ICONS.msgCircle },
-        { id: 'game-sec-prices',            label: 'Prices',            icon: NAV_ICONS.tag       },
-        { id: 'game-sec-protondb',          label: 'Linux Compat.',     icon: NAV_ICONS.award     },
-        { id: 'game-sec-pcgw',              label: 'PCGamingWiki',      icon: NAV_ICONS.monitor   },
-    ]
+    const SECTION_ICONS: Record<string, string> = {
+        'game-sec-hero':              NAV_ICONS.home,
+        'game-sec-trailers':          NAV_ICONS.video,
+        'game-sec-about':             NAV_ICONS.bookOpen,
+        'game-sec-hltb':              NAV_ICONS.clock,
+        'game-sec-player-count':      NAV_ICONS.barChart,
+        'game-sec-screenshots':       NAV_ICONS.image,
+        'game-sec-news':              NAV_ICONS.newspaper,
+        'game-sec-local-review':      NAV_ICONS.star,
+        'game-sec-steam-review':      NAV_ICONS.thumbsUp,
+        'game-sec-community-reviews': NAV_ICONS.msgCircle,
+        'game-sec-prices':            NAV_ICONS.tag,
+        'game-sec-protondb':          NAV_ICONS.award,
+        'game-sec-pcgw':              NAV_ICONS.monitor,
+    }
+
+    const ALL_ITEMS = GAME_SECTIONS.map(s => ({ ...s, icon: SECTION_ICONS[s.id] }))
 
     let visible  = $state<typeof ALL_ITEMS>([] as typeof ALL_ITEMS)
     let activeId = $state(ALL_ITEMS[0].id)

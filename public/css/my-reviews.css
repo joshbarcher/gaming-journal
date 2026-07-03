@@ -193,3 +193,23 @@
 .mr-empty-sub {
     font-size: 0.875rem;
 }
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 1279px) {
+    .mr-header   { padding: 28px 24px 20px; }
+    .mr-controls { padding: 14px 24px; }
+    .mr-grid     { padding: 0 24px 40px; }
+}
+
+@media (max-width: 799px) {
+    .mr-header   { padding: 24px 20px 16px; }
+    .mr-controls { padding: 12px 20px; }
+    .mr-grid     { padding: 0 20px 32px; }
+}
+
+@media (max-width: 479px) {
+    .mr-header    { padding: 16px 0 14px; }
+    .mr-header h1 { font-size: 1.4rem; }
+    .mr-controls  { padding: 10px 0; gap: 8px; }
+    .mr-grid      { padding: 0 0 28px; gap: 12px; }
+}

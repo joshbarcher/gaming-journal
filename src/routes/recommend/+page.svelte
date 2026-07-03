@@ -228,7 +228,7 @@
                         <p class="rec-m-result-hd">Here's what to play</p>
                         <div class="rec-m-results">
                             {#each games as game, i}
-                                <a class="rec-m-game" href="/game/{game.appid}" style="--i:{i}">
+                                <a class="rec-m-game" href="/game/{game.appid}" style="--i:{i}" data-game-card data-appid={game.appid} data-game-name={game.name}>
                                     <img class="rec-m-game-img"
                                          src="/relay/images/steam/games/{game.appid}/header.jpg"
                                          alt=""
