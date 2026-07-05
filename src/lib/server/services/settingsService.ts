@@ -2,7 +2,7 @@ import path from 'node:path'
 import { ManagedFile } from '../shared/managed-file.js'
 import type { Settings } from '../../types.js'
 
-const DEFAULTS: Settings = { showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true }
+const DEFAULTS: Settings = { showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true }
 
 function makeFile(): ManagedFile<Settings> {
     const dataDir = process.env.DATA_DIR

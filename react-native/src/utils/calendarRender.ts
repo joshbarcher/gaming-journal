@@ -1,0 +1,156 @@
+// Ported verbatim from src/lib/js/views/calendar-render.ts + localDateStr from src/lib/js/utils.ts.
+// No logic changes — same local-time-not-UTC day-keying, same midnight-split algorithm, same
+// flags/settings gating. `durationMin` is widened to `?? 0` where the web's CalSession type
+// assumes it's always present after a real fetch (the real API schema marks it optional; this
+// never actually happens in practice, so `?? 0` is a defensive TS-satisfying no-op, not a
+// behavior change).
+export function localDateStr(d: string | number | Date): string {
+    const date = (typeof d === 'string' || typeof d === 'number') ? new Date(d) : d
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+export const DOW    = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+
+export interface CalSession {
+    startedAt:   string
+    endedAt?:    string
+    durationMin: number
+}
+
+export interface CalGame {
+    name:      string
+    sessions?: CalSession[]
+}
+
+export interface DayEntry {
+    appid:       number
+    name:        string
+    durationMin: number
+    isLive?:     boolean
+    lastPlayed?: boolean
+}
+
+export interface ReleaseEntry {
+    appid: number
+    name:  string
+}
+
+export interface UpcomingGameSlim {
+    releaseDateIso?: string | null
+    appid:           number
+    name:            string
+}
+
+export interface FlagsLike {
+    software?:  boolean
+    childLock?: boolean
+    filtered?:  boolean
+}
+
+export interface SettingsLike {
+    showChildLocked?: boolean
+    showFiltered?:    boolean
+}
+
+export function localMidnight(dateStr: string): number {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return new Date(y, m - 1, d, 0, 0, 0, 0).getTime()
+}
+
+export function splitAtMidnight(session: CalSession): CalSession[] {
+    if (!session.endedAt) return [session]
+    const start = new Date(session.startedAt)
+    const end   = new Date(session.endedAt)
+    if (localDateStr(start) === localDateStr(end)) return [session]
+
+    const parts: CalSession[] = []
+    let   cursor = start
+    while (localDateStr(cursor) !== localDateStr(end)) {
+        const next = new Date(cursor)
+        next.setDate(next.getDate() + 1)
+        next.setHours(0, 0, 0, 0)
+        parts.push({
+            startedAt:   cursor.toISOString(),
+            endedAt:     next.toISOString(),
+            durationMin: Math.max(1, Math.round((next.getTime() - cursor.getTime()) / 60_000)),
+        })
+        cursor = next
+    }
+    parts.push({
+        startedAt:   cursor.toISOString(),
+        endedAt:     end.toISOString(),
+        durationMin: Math.max(1, Math.round((end.getTime() - cursor.getTime()) / 60_000)),
+    })
+    return parts
+}
+
+export function buildDayMap(
+    sessions: Record<string, CalGame>,
+    flags: Record<string, FlagsLike> = {},
+    settings: SettingsLike = {},
+): Map<string, DayEntry[]> {
+    const raw = new Map<string, Map<number, DayEntry>>()
+    for (const [appidStr, game] of Object.entries(sessions)) {
+        const f = flags[appidStr] ?? flags[Number(appidStr)] ?? {}
+        if (f.software)                              continue
+        if (f.childLock && !settings.showChildLocked) continue
+        if (f.filtered  && !settings.showFiltered)    continue
+        const appid = Number(appidStr)
+        for (const session of game.sessions ?? []) {
+            for (const part of splitAtMidnight(session)) {
+                const day = localDateStr(part.startedAt)
+                if (!raw.has(day)) raw.set(day, new Map())
+                const dayMap = raw.get(day)!
+                if (dayMap.has(appid)) dayMap.get(appid)!.durationMin += part.durationMin
+                else dayMap.set(appid, { appid, name: game.name, durationMin: part.durationMin })
+            }
+        }
+    }
+    const result = new Map<string, DayEntry[]>()
+    for (const [day, appidMap] of raw) result.set(day, [...appidMap.values()])
+    return result
+}
+
+export function buildLastPlayedOverlay(
+    games: Array<{ appid: number; name: string; rtime_last_played?: number }>,
+    dayMap: Map<string, DayEntry[]>,
+    flags: Record<string, FlagsLike> = {},
+    settings: SettingsLike = {},
+): Map<string, DayEntry[]> {
+    const appsWithSessions = new Set<number>()
+    for (const entries of dayMap.values())
+        for (const e of entries) appsWithSessions.add(e.appid)
+
+    const result = new Map(dayMap)
+    for (const game of games) {
+        if (!game.rtime_last_played || appsWithSessions.has(game.appid)) continue
+        const f = flags[game.appid] ?? flags[String(game.appid)] ?? {}
+        if (f.software)                               continue
+        if (f.childLock && !settings.showChildLocked) continue
+        if (f.filtered  && !settings.showFiltered)    continue
+        const dateStr = localDateStr(new Date(game.rtime_last_played * 1000))
+        const existing = result.get(dateStr) ?? []
+        result.set(dateStr, [...existing, { appid: game.appid, name: game.name, durationMin: 0, lastPlayed: true }])
+    }
+    return result
+}
+
+export function buildReleaseMap(upcoming: UpcomingGameSlim[]): Map<string, ReleaseEntry[]> {
+    const map = new Map<string, ReleaseEntry[]>()
+    for (const game of upcoming) {
+        if (!game.releaseDateIso) continue
+        if (!map.has(game.releaseDateIso)) map.set(game.releaseDateIso, [])
+        map.get(game.releaseDateIso)!.push({ appid: game.appid, name: game.name })
+    }
+    return map
+}
+
+export function fmt(minutes: number): string {
+    if (!minutes) return '0m'
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    if (h === 0) return `${m}m`
+    if (m === 0) return `${h}h`
+    return `${h}h ${m}m`
+}

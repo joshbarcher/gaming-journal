@@ -1,0 +1,10 @@
+{
+    "name": "gaming-journal-contracts",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Shared Zod schemas — single source of truth for API response shapes, consumed by both the SvelteKit web app (via $contracts alias) and react-native/ (via this local file: package).",
+    "peerDependencies": {
+        "zod": "^4.4.3"
+    }
+}

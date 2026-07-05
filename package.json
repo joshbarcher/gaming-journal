@@ -9,7 +9,8 @@
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
-        "typecheck": "svelte-check --tsconfig ./tsconfig.json"
+        "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+        "verify-contracts": "tsx scripts/verify-contracts.ts"
     },
     "devDependencies": {
         "@playwright/test": "^1.60.0",
@@ -36,6 +37,7 @@
         "@archerjb/ui-components": "^1.5.0",
         "fuse.js": "^7.4.2",
         "overlayscrollbars": "^2.16.0",
-        "overlayscrollbars-svelte": "^0.5.5"
+        "overlayscrollbars-svelte": "^0.5.5",
+        "zod": "^4.4.3"
     }
 }

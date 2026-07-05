@@ -136,6 +136,18 @@
                 </div>
             </label>
 
+            <label class="settings-toggle-row">
+                <div class="settings-toggle-text">
+                    <span class="settings-toggle-label">Hide Adult-Only Content</span>
+                    <span class="settings-toggle-desc">Hide games Steam flags as Adult Only Sexual Content from Discovery and the home page mosaic. Lighter content (nudity in an otherwise mainstream title, e.g. Cyberpunk 2077) isn't affected.</span>
+                </div>
+                <div class="settings-toggle-switch">
+                    <input type="checkbox" checked={settings.hideAdultContent}
+                           onchange={(e) => onToggle('hideAdultContent', e.currentTarget.checked)}>
+                    <span class="settings-toggle-track"></span>
+                </div>
+            </label>
+
             <div class="settings-blocklist-row">
                 <div class="settings-toggle-text">
                     <span class="settings-toggle-label">

@@ -149,6 +149,7 @@ export interface Settings {
     hideUnavailable:        boolean
     titleBlocklist:         string[]
     discoverFiltersEnabled: boolean
+    hideAdultContent:       boolean
 }
 
 // ── Local review ──────────────────────────────────────────────────────────────
@@ -529,6 +530,7 @@ export interface DiscoverItem {
     originalPrice?: number
     discount?:      number
     isFree?:        boolean
+    isAdult?:       boolean
 }
 
 export interface DiscoverSection {

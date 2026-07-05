@@ -37,6 +37,7 @@
 
     let titleBlocklist         = $state<string[]>([])
     let discoverFiltersEnabled = $state(true)
+    let hideAdultContent       = $state(true)
 
     // Non-reactive
     let _searchCache: Map<number, DiscoverItem[]> = new Map()
@@ -147,20 +148,19 @@
 
     let activeSection = $derived(featuredData?.find(s => s.id === featuredTab) ?? null)
 
+    function passesContentFilters(item: DiscoverItem): boolean {
+        if (hideAdultContent && item.isAdult) return false
+        if (!discoverFiltersEnabled || !titleBlocklist.length) return true
+        const lower = item.name.toLowerCase()
+        return !titleBlocklist.some(t => lower.includes(t))
+    }
+
     let visibleBrowseItems = $derived(
-        (activeSection?.items ?? []).filter(item => {
-            if (!discoverFiltersEnabled || !titleBlocklist.length) return true
-            const lower = item.name.toLowerCase()
-            return !titleBlocklist.some(t => lower.includes(t))
-        })
+        (activeSection?.items ?? []).filter(passesContentFilters)
     )
 
     let visibleSearchResults = $derived(
-        searchResults.filter(item => {
-            if (!discoverFiltersEnabled || !titleBlocklist.length) return true
-            const lower = item.name.toLowerCase()
-            return !titleBlocklist.some(t => lower.includes(t))
-        })
+        searchResults.filter(passesContentFilters)
     )
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -302,6 +302,7 @@
                 if (!s) return
                 titleBlocklist         = s.titleBlocklist ?? []
                 discoverFiltersEnabled = s.discoverFiltersEnabled ?? true
+                hideAdultContent       = s.hideAdultContent ?? true
                 try { localStorage.setItem(BLOCKLIST_KEY, JSON.stringify(titleBlocklist)) } catch {}
             })
             .catch(() => {})

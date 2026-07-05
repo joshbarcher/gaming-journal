@@ -2,6 +2,7 @@
     import { onMount }     from 'svelte'
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import { setWithTTL, getWithTTL } from '../../js/storage.js'
+    import { getSteamGamesList } from '../../js/relay-api.js'
 
     const PAGE_SIZE      = 48
     const STORAGE_SORT   = 'gj_lib_sort'
@@ -14,8 +15,8 @@
 
     let { scrollContainer = null } = $props()
 
-    import type { SteamGame } from '../../types.js'
-    let all     = $state<SteamGame[]>([])
+    import type { SteamGameRaw } from '$contracts/steamGamesList.js'
+    let all     = $state<SteamGameRaw[]>([])
     let loading = $state(true)
     let error   = $state<string | null>(null)
     let query   = $state('')
@@ -142,18 +143,11 @@
         const savedPage   = Number(getWithTTL(STORAGE_PAGE)   ?? 1)
 
         try {
-            const [gamesRes, shouldShow] = await Promise.all([
-                fetch('/relay/api/steam/games'),
+            const [games, shouldShow] = await Promise.all([
+                getSteamGamesList(),
                 loadGameFilter(),
             ])
-            if (!gamesRes.ok) throw new Error(`Games HTTP ${gamesRes.status}`)
-            const json = await gamesRes.json()
-            const raw  = Array.isArray(json)                        ? json
-                       : Array.isArray(json.games)                  ? json.games
-                       : Array.isArray(json.data)                   ? json.data
-                       : json.response && Array.isArray(json.response.games) ? json.response.games
-                       : []
-            all = (raw as SteamGame[]).filter(g => shouldShow(g.appid))
+            all = games.filter(g => shouldShow(g.appid))
         } catch (err) {
             error   = (err as Error).message
             loading = false

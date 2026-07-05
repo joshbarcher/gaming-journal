@@ -12,5 +12,9 @@ export default {
         files: {
             assets: 'public',
         },
+        alias: {
+            '$contracts':   'contracts',
+            '$contracts/*': 'contracts/*',
+        },
     },
 };

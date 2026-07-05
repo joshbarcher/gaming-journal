@@ -46,10 +46,11 @@ function makeShouldShow(flags: FlagsStore, settings: Settings) {
     }
 }
 
-function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean, titleBlocklist: string[] = []): { appid: number; poster: string }[] {
+function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean, titleBlocklist: string[] = [], hideAdultContent = true): { appid: number; poster: string }[] {
     const blocked = titleBlocklist.map(t => t.toLowerCase())
     const items = sections.flatMap(s => s.items ?? []).filter(item => {
         if (!shouldShow(item.appid)) return false
+        if (hideAdultContent && item.isAdult) return false
         if (blocked.length) {
             const lower = item.name.toLowerCase()
             if (blocked.some(t => lower.includes(t))) return false
@@ -74,7 +75,7 @@ export async function load(): Promise<HomeData> {
         fetchJson<HomePoster[]>(`${base}/api/games/posters?source=wishlist&n=50`),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
         getAllFlags().catch(() => ({} as FlagsStore)),
-        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true } as Settings)),
+        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true } as Settings)),
     ])
 
     const shouldShow = makeShouldShow(flags, settings)
@@ -91,7 +92,7 @@ export async function load(): Promise<HomeData> {
         release:     homeData?.release ?? null,
         libPosters:  (libPosters  ?? []).filter(p => shouldShow(p.appid)),
         wlPosters:   (wlPosters   ?? []).filter(p => shouldShow(p.appid)),
-        discPosters: sampleDiscover(discoverData ?? [], 50, shouldShow, settings.titleBlocklist ?? []),
+        discPosters: sampleDiscover(discoverData ?? [], 50, shouldShow, settings.titleBlocklist ?? [], settings.hideAdultContent),
         saleGame,
     }
 }
