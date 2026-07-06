@@ -8,7 +8,9 @@ export default {
         handler(warning)
     },
     kit: {
-        adapter: adapter(),
+        // BUILD_OUT_DIR lets scripts/build.mjs build into a staging directory
+        // and swap it into place atomically once complete - see that file.
+        adapter: adapter({ out: process.env.BUILD_OUT_DIR || 'build' }),
         files: {
             assets: 'public',
         },

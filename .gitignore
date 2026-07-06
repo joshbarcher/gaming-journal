@@ -2,5 +2,7 @@ node_modules/
 .claude/
 .svelte-kit/
 build/
+build.staging/
+build.old/
 dist/
 package-lock.json

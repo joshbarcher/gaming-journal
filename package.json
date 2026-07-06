@@ -4,7 +4,7 @@
     "type": "module",
     "scripts": {
         "dev": "node --env-file .env start.js",
-        "build": "vite build",
+        "build": "node scripts/build.mjs",
         "preview": "node --env-file .env build/index.js",
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
