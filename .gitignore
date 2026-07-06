@@ -6,3 +6,9 @@ build.staging/
 build.old/
 dist/
 package-lock.json
+
+# Env - .env/.env.production are committed (see docs/local-vs-nas-data-dir.md
+# in course-journal for the pattern); .env.local is the escape hatch for an
+# actual secret, should one ever be needed.
+.env.*
+!.env.production

@@ -5,4 +5,4 @@ set -e
 # but pm2 here is launched via nvm without npm on its PATH, so `npm run
 # build` failed with ENOENT and crashed this script before the server ever
 # started - the previous build's process just kept serving.
-exec node --env-file=/home/jarcher/gaming-journal/.env server.js
+exec node --env-file=/home/jarcher/gaming-journal/.env --env-file=/home/jarcher/gaming-journal/.env.production server.js
