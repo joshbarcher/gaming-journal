@@ -126,6 +126,32 @@
     backdrop-filter: blur(4px);
 }
 
+.home-chip--waiting {
+    background: #6b7a8f;
+    color: #0a0f14;
+}
+
+.home-chip--wishlist {
+    background: #e0736f;
+    color: #1a0605;
+}
+
+.home-chip--bought {
+    background: #d98c3f;
+    color: #180d02;
+}
+
+.home-chip--guide {
+    background: #8a7bd8;
+    color: #0c0818;
+}
+
+.home-chip--stats {
+    background: rgba(201, 168, 76, 0.16);
+    color: #d9bd6a;
+    border: 1px solid rgba(201, 168, 76, 0.35);
+}
+
 /* ── Title + meta ─────────────────────────────────────────────────────────────── */
 
 .home-card-title {
@@ -255,6 +281,103 @@
 .home-chip-icon {
     font-style: normal;
     font-size: 11px;
+}
+
+/* ── Pending placeholder (streamed sale slot / empty session) ────────────────── */
+
+.home-card--pending {
+    cursor: default;
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+    background:
+        linear-gradient(105deg, rgba(255,255,255,0.015) 30%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.015) 70%)
+        var(--clr-surface, rgba(255,255,255,0.02));
+    background-size: 300% 100%;
+    animation: home-pending-shimmer 1.6s ease-in-out infinite;
+}
+
+.home-card--pending::after { display: none; }
+
+@keyframes home-pending-shimmer {
+    from { background-position: 100% 0; }
+    to   { background-position: -100% 0; }
+}
+
+/* ── Stats card (evergreen middle-slot floor) ─────────────────────────────────── */
+
+.home-card--stats {
+    cursor: default;
+    justify-content: center;
+    background:
+        radial-gradient(ellipse at 30% 0%, rgba(201, 168, 76, 0.14) 0%, rgba(201, 168, 76, 0) 60%),
+        linear-gradient(160deg, #1b1813 0%, #100e0b 100%);
+}
+
+.home-card--stats::after { display: none; }
+
+.home-stats {
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.home-stats-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.home-stats-num {
+    font-family: var(--font-title);
+    font-size: clamp(38px, 6vw, 68px);
+    font-weight: 800;
+    line-height: 1;
+    color: #f2e4b8;
+    text-shadow: 0 2px 18px rgba(201, 168, 76, 0.25);
+}
+
+.home-stats-unit {
+    font-size: clamp(12px, 1.4vw, 15px);
+    color: rgba(237, 233, 223, 0.6);
+    letter-spacing: 0.04em;
+}
+
+.home-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 20px;
+    margin-top: 4px;
+}
+
+.home-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 4px;
+    padding: 3px 4px;
+    transition: background var(--transition);
+}
+
+a.home-stat:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.home-stat b {
+    font-family: var(--font-title);
+    font-size: clamp(16px, 2vw, 22px);
+    font-weight: 700;
+    color: #fff;
+    min-width: 1.2em;
+}
+
+.home-stat span {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: rgba(237, 233, 223, 0.6);
+    white-space: nowrap;
 }
 
 /* ── Tablet portrait + phone landscape: tighter spacing ─────────────────────────
