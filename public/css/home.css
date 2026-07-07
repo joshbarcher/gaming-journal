@@ -304,6 +304,90 @@
     to   { background-position: -100% 0; }
 }
 
+/* ── Guide card (screenshot below, source + shimmer title above) ──────────────── */
+
+.home-card--guide {
+    justify-content: flex-start;
+    background: linear-gradient(160deg, #17151f 0%, #0e0d13 100%);
+}
+
+.home-card--guide::after { display: none; }
+
+.home-guide-head {
+    position: relative;
+    z-index: 1;
+    padding: 18px 22px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex-shrink: 0;
+}
+
+.home-guide-source {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b3a7e8;
+}
+
+.home-guide-source-icon {
+    width: 17px;
+    height: 17px;
+    object-fit: contain;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.home-guide-title {
+    font-family: var(--font-title);
+    font-size: clamp(16px, 2vw, 24px);
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: linear-gradient(90deg,
+        #e0d8c0 0%, #e0d8c0 40%, #b8962e 47%, #c9a84c 49%,
+        #fde97a 50%, #c9a84c 51%, #b8962e 53%, #e0d8c0 60%, #e0d8c0 100%);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gl-title-shimmer 5s linear infinite;
+}
+
+.home-guide-meta {
+    font-size: 12px;
+    color: rgba(237, 233, 223, 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.home-guide-shot {
+    flex: 1;
+    min-height: 0;
+    background-size: cover;
+    background-position: center top;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    transition: filter 0.5s ease, transform 0.5s ease;
+}
+
+.home-card--guide:hover .home-guide-shot {
+    filter: brightness(1.08);
+}
+
+/* GameFAQs text guides have no screenshots — the game header stands in, so pull
+   the focus to the top of the art where the title/logo usually sits. */
+.home-guide-shot--fallback {
+    background-position: center center;
+    opacity: 0.85;
+}
+
 /* ── Stats card (evergreen middle-slot floor) ─────────────────────────────────── */
 
 .home-card--stats {

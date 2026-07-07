@@ -1,14 +1,21 @@
-import { getAlerts } from '$lib/server/services/alertsService.js'
 import { getAllFlags } from '$lib/server/services/flagsService.js'
 import { getSettings } from '$lib/server/services/settingsService.js'
-import { getAllLocalReviews } from '$lib/server/services/localReviewsService.js'
-import type { AlertResult, DiscoverSection, FlagsStore, Settings } from '$lib/types.js'
+import type { DiscoverSection, FlagsStore, Settings } from '$lib/types.js'
 
 interface HomePoster  { appid: number; poster: string }
 
 interface AchievementProgress { unlocked: number; total: number }
 
-interface HomeResume  { appid: number; name: string; header: string; hours: number; daysAgo: number }
+interface GuideInfo {
+    source:      string
+    guideId:     string
+    title:       string
+    sourceUrl:   string | null
+    pageCount:   number
+    screenshot:  string | null
+    screenshots: string[]
+}
+
 interface RecentPlayed {
     appid:        number
     name:         string
@@ -16,22 +23,29 @@ interface RecentPlayed {
     hours:        number
     daysAgo:      number
     achievements: AchievementProgress | null
+    guide?:       GuideInfo | null
 }
 interface JustBought  { appid: number; name: string; header: string; daysAgo: number }
 interface HomeRelease { appid: number; name: string; header: string }
-interface RelayStats  { hours: number; achievements: number; added: number; wishlisted: number }
+interface RelayStats  { hours: number; achievements: number; added: number; wishlisted: number; ratings: number }
+
+interface SaleCandidateOnSale  { appid: number; name: string; header: string; cut: number; price: number | null; store: string; url: string | null }
+interface SaleCandidatePlain   { appid: number; name: string; header: string }
+interface RelaySale {
+    onSale:   SaleCandidateOnSale[]
+    watching: SaleCandidatePlain[]
+    wishlist: SaleCandidatePlain[]
+}
 
 interface RelayHomeData {
-    resume:       HomeResume  | null
     recentPlayed: RecentPlayed[]
     justBought:   JustBought[]
     stats:        RelayStats
+    sale:         RelaySale
     release:      HomeRelease | null
     libPosters:   HomePoster[]
     wlPosters:    HomePoster[]
 }
-
-interface GuideListEntry { source: string; guideId: string; title: string; lastUsedAt: string | null }
 
 // ── Card shapes handed to the client ───────────────────────────────────────────
 
@@ -45,19 +59,22 @@ export type SaleCard =
 export type MiddleCard =
     | { kind: 'release'; appid: number; name: string; header: string }
     | { kind: 'bought';  appid: number; name: string; header: string; daysAgo: number }
-    | { kind: 'guide';   appid: number; name: string; header: string; source: string; guideId: string; title: string }
+    | { kind: 'guide';   appid: number; name: string; header: string; guide: GuideInfo }
     | { kind: 'stats';   hours: number; achievements: number; ratings: number; added: number; wishlisted: number }
 
 export interface HomeData {
     session:     SessionCard | null
     middle:      MiddleCard
-    saleGame:    Promise<SaleCard | null>
+    sale:        SaleCard | null
     libPosters:  HomePoster[]
     wlPosters:   HomePoster[]
     discPosters: HomePoster[]
 }
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+const EMPTY_RELAY: RelayHomeData = {
+    recentPlayed: [], justBought: [], stats: { hours: 0, achievements: 0, added: 0, wishlisted: 0, ratings: 0 },
+    sale: { onSale: [], watching: [], wishlist: [] }, release: null, libPosters: [], wlPosters: [],
+}
 
 function relayUrl(): string {
     return (process.env.RELAY_URL ?? 'http://localhost:8050').replace(/\/$/, '')
@@ -106,85 +123,46 @@ function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (app
     return copy.slice(0, n).map(item => ({ appid: item.appid, poster: item.headerImage ?? '' }))
 }
 
-const headerUrl = (appid: number) => `/relay/images/steam/games/${appid}/header.jpg`
-
 /**
  * Sale card, resolved in three tiers so the slot is never empty:
  *   1. a sales-watch game currently discounted        → "On Sale −X%"
  *   2. else a sales-watch game not yet discounted      → "Waiting for sale"
  *   3. else a random wishlist title (no watch at all)  → plain wishlist nudge
+ * All candidates are precomputed on the relay; this just filters + picks.
  */
-async function resolveSale(base: string, wlPosters: HomePoster[], shouldShow: (a: number) => boolean): Promise<SaleCard | null> {
-    try {
-        const { onSale, watching } = await getAlerts()
-
-        const hit = pick(onSale.filter(a => shouldShow(a.appid)))
-        if (hit) {
-            const bp = hit.bestPrice
-            const url = bp?.url ?? `/game/${hit.appid}`
-            return {
-                kind:     'sale',
-                appid:    hit.appid,
-                name:     hit.name,
-                header:   headerUrl(hit.appid),
-                cut:      bp?.cut ?? 0,
-                price:    bp?.price != null ? `$${bp.price.toFixed(2)}` : '',
-                store:    bp?.store ?? '',
-                url,
-                external: url.startsWith('http'),
-            }
-        }
-
-        const wait = pick(watching.filter(a => shouldShow(a.appid)))
-        if (wait) {
-            return { kind: 'waiting', appid: wait.appid, name: wait.name, header: headerUrl(wait.appid) }
-        }
-
-        // Tier 3 — nothing on the sales watch. Surface a random wishlist title.
-        const poster = pick(wlPosters.filter(p => shouldShow(p.appid)))
-        if (!poster) return null
-        const game = await fetchJson<{ name?: string }>(`${base}/api/games/${poster.appid}`)
+function resolveSale(sale: RelaySale, shouldShow: (a: number) => boolean): SaleCard | null {
+    const hit = pick(sale.onSale.filter(a => shouldShow(a.appid)))
+    if (hit) {
+        const url = hit.url ?? `/game/${hit.appid}`
         return {
-            kind:   'wishlist',
-            appid:  poster.appid,
-            name:   game?.name ?? `App ${poster.appid}`,
-            header: poster.poster || headerUrl(poster.appid),
+            kind:     'sale',
+            appid:    hit.appid,
+            name:     hit.name,
+            header:   hit.header,
+            cut:      hit.cut,
+            price:    hit.price != null ? `$${hit.price.toFixed(2)}` : '',
+            store:    hit.store,
+            url,
+            external: url.startsWith('http'),
         }
-    } catch {
-        return null
     }
-}
 
-async function countRecentRatings(): Promise<number> {
-    try {
-        const reviews = await getAllLocalReviews()
-        const cutoff  = Date.now() - THIRTY_DAYS_MS
-        return Object.values(reviews).filter(r => r.updatedAt && new Date(r.updatedAt).getTime() >= cutoff).length
-    } catch {
-        return 0
-    }
-}
+    const wait = pick(sale.watching.filter(a => shouldShow(a.appid)))
+    if (wait) return { kind: 'waiting', appid: wait.appid, name: wait.name, header: wait.header }
 
-function bestGuide(guides: GuideListEntry[]): GuideListEntry | null {
-    if (!guides.length) return null
-    return [...guides].sort((a, b) => {
-        const ta = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0
-        const tb = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0
-        return tb - ta
-    })[0]
+    const wl = pick(sale.wishlist.filter(a => shouldShow(a.appid)))
+    if (wl) return { kind: 'wishlist', appid: wl.appid, name: wl.name, header: wl.header }
+
+    return null
 }
 
 /**
  * Middle card, resolved by priority (first match wins):
  *   released today → just bought → guide for the game you're playing → activity stats
- * Stats is the evergreen floor, so the slot is always filled.
+ * Stats is the evergreen floor, so the slot is always filled. All inputs are
+ * precomputed on the relay — no round-trips here.
  */
-async function resolveMiddle(
-    base: string,
-    relay: RelayHomeData,
-    session: SessionCard | null,
-    shouldShow: (a: number) => boolean,
-): Promise<MiddleCard> {
+function resolveMiddle(relay: RelayHomeData, session: SessionCard | null, shouldShow: (a: number) => boolean): MiddleCard {
     const { release, justBought, stats } = relay
 
     if (release && shouldShow(release.appid)) {
@@ -196,21 +174,18 @@ async function resolveMiddle(
         return { kind: 'bought', appid: bought.appid, name: bought.name, header: bought.header, daysAgo: bought.daysAgo }
     }
 
-    if (session) {
-        const guides = await fetchJson<GuideListEntry[]>(`${base}/api/guides/${session.appid}`)
-        const guide  = bestGuide(guides ?? [])
-        if (guide) {
-            return { kind: 'guide', appid: session.appid, name: session.name, header: session.header, source: guide.source, guideId: guide.guideId, title: guide.title }
-        }
+    if (session?.guide) {
+        return { kind: 'guide', appid: session.appid, name: session.name, header: session.header, guide: session.guide }
     }
 
-    const ratings = await countRecentRatings()
-    return { kind: 'stats', hours: stats.hours, achievements: stats.achievements, ratings, added: stats.added, wishlisted: stats.wishlisted }
+    return { kind: 'stats', hours: stats.hours, achievements: stats.achievements, ratings: stats.ratings, added: stats.added, wishlisted: stats.wishlisted }
 }
 
 export async function load(): Promise<HomeData> {
     const base = relayUrl()
 
+    // The home payload is precomputed + cached on the relay, so this is a fast
+    // single read; the poster endpoints feed the (12+ tile) mosaics.
     const [homeData, libPosters, wlPosters, discoverData, flags, settings] = await Promise.all([
         fetchJson<RelayHomeData>(`${base}/api/home`),
         fetchJson<HomePoster[]>(`${base}/api/games/posters?source=library&n=50`),
@@ -221,24 +196,18 @@ export async function load(): Promise<HomeData> {
     ])
 
     const shouldShow = makeShouldShow(flags, settings)
-
-    const relay: RelayHomeData = homeData ?? {
-        resume: null, recentPlayed: [], justBought: [], stats: { hours: 0, achievements: 0, added: 0, wishlisted: 0 }, release: null, libPosters: [], wlPosters: [],
-    }
+    const relay      = homeData ?? EMPTY_RELAY
 
     // Session card: the most-recently-played title the filter toggles allow, so a
     // hidden (child-locked / filtered) last game never leaks onto the home page.
     const session = relay.recentPlayed.find(g => shouldShow(g.appid)) ?? null
 
-    const filteredWl = (wlPosters ?? []).filter(p => shouldShow(p.appid))
-    const middle     = await resolveMiddle(base, relay, session, shouldShow)
-
     return {
         session,
-        middle,
-        saleGame:    resolveSale(base, filteredWl, shouldShow),
+        middle:      resolveMiddle(relay, session, shouldShow),
+        sale:        resolveSale(relay.sale, shouldShow),
         libPosters:  (libPosters ?? []).filter(p => shouldShow(p.appid)),
-        wlPosters:   filteredWl,
+        wlPosters:   (wlPosters  ?? []).filter(p => shouldShow(p.appid)),
         discPosters: sampleDiscover(discoverData ?? [], 50, shouldShow, settings.titleBlocklist ?? [], settings.hideAdultContent),
     }
 }
