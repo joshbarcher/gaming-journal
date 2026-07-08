@@ -869,7 +869,7 @@
 }
 
 /* Phone (≤ 799px): S25 landscape (780px) */
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     /* List page */
     .frc-list-header    { padding: 24px 20px 20px; margin-bottom: 16px; }
     .frc-grid           { padding: 16px 20px 24px; }

@@ -201,7 +201,7 @@
     .mr-grid     { padding: 0 24px 40px; }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .mr-header   { padding: 24px 20px 16px; }
     .mr-controls { padding: 12px 20px; }
     .mr-grid     { padding: 0 20px 32px; }

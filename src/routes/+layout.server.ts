@@ -61,6 +61,10 @@ export async function load() {
     counts.franchises = Array.isArray(franchises) ? (franchises as unknown[]).length : 0
 
     const alertsCount = (alerts?.onSale?.length ?? 0) as number
+    // Rotating backdrop list for the Sale Alerts nav item: on-sale games + their cut %.
+    const saleAlerts = ((alerts?.onSale ?? []) as { appid: number; bestPrice?: { cut?: number } | null }[])
+        .map(a => ({ appid: a.appid, cut: a.bestPrice?.cut ?? 0 }))
+        .filter(a => a.cut > 0)
 
     // History backdrop: find most-recently-played game
     let historyAppid: number | null = null
@@ -86,6 +90,7 @@ export async function load() {
         counts,
         pages:        pages as Page[],
         alertsCount,
+        saleAlerts,
         historyAppid,
         lastPlayed,
         nowPlaying,

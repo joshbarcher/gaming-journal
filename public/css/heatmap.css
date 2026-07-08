@@ -76,7 +76,7 @@
         0 0 28px 8px rgba(255, 255, 255, 0.18);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
     .heatmap-row {
         flex-direction: column;
         align-items: flex-start;

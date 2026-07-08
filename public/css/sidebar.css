@@ -292,6 +292,50 @@
 /* ── Alerts nav badge ───────────────────────────────────────────────────────── */
 .sidebar-alerts-btn {
     justify-content: flex-start;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Rotating on-sale backdrop — mirrors .sidebar-history-backdrop, fades in on change */
+.sidebar-alerts-backdrop {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 55%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.85) 75%, rgba(0,0,0,1) 100%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.85) 75%, rgba(0,0,0,1) 100%);
+    opacity: 0.75;
+    pointer-events: none;
+    animation: sidebar-alerts-fade 0.9s ease;
+}
+
+@keyframes sidebar-alerts-fade {
+    from { opacity: 0; }
+    to   { opacity: 0.75; }
+}
+
+.sidebar-alerts-btn:hover  .sidebar-alerts-backdrop { opacity: 0.90; }
+.sidebar-alerts-btn.active .sidebar-alerts-backdrop { opacity: 0.55; }
+
+/* Small "% off" corner tag — sits out of the way over the backdrop, top-right */
+.sidebar-alerts-cut {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    z-index: 1;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(58, 156, 58, 0.92);
+    color: #fff;
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .sidebar-alerts-badge {
@@ -574,16 +618,19 @@
 
     /* Hide number badges */
     #sidebar.sidebar--collapsed .sidebar-collection-badge,
-    #sidebar.sidebar--collapsed .sidebar-alerts-badge {
+    #sidebar.sidebar--collapsed .sidebar-alerts-badge,
+    #sidebar.sidebar--collapsed .sidebar-alerts-cut {
         display: none;
     }
 
-    /* History backdrop: full-width in collapsed mode */
-    #sidebar.sidebar--collapsed .sidebar-history-btn {
+    /* History + Sale Alerts backdrops: full-width in collapsed mode */
+    #sidebar.sidebar--collapsed .sidebar-history-btn,
+    #sidebar.sidebar--collapsed .sidebar-alerts-btn {
         overflow: visible;
     }
 
-    #sidebar.sidebar--collapsed .sidebar-history-backdrop {
+    #sidebar.sidebar--collapsed .sidebar-history-backdrop,
+    #sidebar.sidebar--collapsed .sidebar-alerts-backdrop {
         width: 100%;
         -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,1) 100%);
         mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,1) 100%);

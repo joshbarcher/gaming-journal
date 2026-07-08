@@ -304,11 +304,13 @@
     to   { background-position: -100% 0; }
 }
 
-/* ── Guide card (screenshot below, source + shimmer title above) ──────────────── */
+/* ── Guide card (icon + text head, inset cross-fading screenshot below) ───────── */
 
 .home-card--guide {
     justify-content: flex-start;
-    background: linear-gradient(160deg, #17151f 0%, #0e0d13 100%);
+    background:
+        radial-gradient(ellipse at 30% 0%, rgba(201, 168, 76, 0.14) 0%, rgba(201, 168, 76, 0) 60%),
+        linear-gradient(160deg, #1b1813 0%, #100e0b 100%);
 }
 
 .home-card--guide::after { display: none; }
@@ -316,30 +318,38 @@
 .home-guide-head {
     position: relative;
     z-index: 1;
-    padding: 18px 22px 14px;
+    padding: 18px 22px 6px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.home-guide-icon {
+    width: clamp(38px, 4vw, 52px);
+    height: clamp(38px, 4vw, 52px);
+    object-fit: contain;
+    border-radius: 8px;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.home-guide-text {
     display: flex;
     flex-direction: column;
-    gap: 7px;
-    flex-shrink: 0;
+    gap: 3px;
+    min-width: 0;
 }
 
 .home-guide-source {
-    display: flex;
-    align-items: center;
-    gap: 7px;
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #b3a7e8;
-}
-
-.home-guide-source-icon {
-    width: 17px;
-    height: 17px;
-    object-fit: contain;
-    border-radius: 3px;
-    flex-shrink: 0;
+    color: rgba(217, 189, 106, 0.85);
 }
 
 .home-guide-title {
@@ -362,30 +372,75 @@
 
 .home-guide-meta {
     font-size: 12px;
-    color: rgba(237, 233, 223, 0.6);
-    white-space: nowrap;
+    color: rgba(237, 233, 223, 0.55);
+}
+
+/* Inset stage area — screenshots never touch the card edges. One landscape pane,
+   or two side-by-side (16:9) panes that cross-fade in a left→right wave. */
+.home-guide-stages {
+    flex: 1;
+    min-height: 0;
+    margin: 10px 18px 18px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
-    text-overflow: ellipsis;
+}
+
+.home-guide-stage {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.25);
+}
+
+/* Dual panes keep a landscape ratio and centre in the available band. This is
+   ideal on the desktop 2-up row and on the auto-height mobile card (where the
+   aspect ratio is what gives the card its height). */
+.home-guide-stages--dual .home-guide-stage {
+    aspect-ratio: 16 / 9;
+    max-height: 100%;
+}
+
+/* Single pane fills the whole band. */
+.home-guide-stages:not(.home-guide-stages--dual) .home-guide-stage {
+    align-self: stretch;
+}
+
+/* In the 800–1279px "tablet" bucket the cards are a FIXED height (100dvh rows),
+   so width-constrained 16:9 panes either float with dead space (tall portrait)
+   or clip (short landscape). There, let the panes fill the band height instead. */
+@media (min-width: 800px) and (max-width: 1279px) {
+    .home-guide-stages--dual {
+        align-items: stretch;
+    }
+    .home-guide-stages--dual .home-guide-stage {
+        aspect-ratio: auto;
+        max-height: none;
+    }
 }
 
 .home-guide-shot {
-    flex: 1;
-    min-height: 0;
+    position: absolute;
+    inset: 0;
     background-size: cover;
     background-position: center top;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    transition: filter 0.5s ease, transform 0.5s ease;
+    opacity: 0;
+    transition: opacity 1.4s ease-in-out;
 }
 
-.home-card--guide:hover .home-guide-shot {
-    filter: brightness(1.08);
+.home-guide-shot.is-active {
+    opacity: 1;
 }
 
-/* GameFAQs text guides have no screenshots — the game header stands in, so pull
-   the focus to the top of the art where the title/logo usually sits. */
+/* GameFAQs text guides have no screenshots — the game header stands in. */
 .home-guide-shot--fallback {
     background-position: center center;
-    opacity: 0.85;
+    opacity: 0.9;
 }
 
 /* ── Stats card (evergreen middle-slot floor) ─────────────────────────────────── */
@@ -481,7 +536,7 @@ a.home-stat:hover {
 /* ── Phone: auto height so content scrolls rather than clips ─────────────────────
    < 800px covers S25 landscape (780px) and S25 portrait (360px)
 ────────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .home-wrap {
         height: auto;
         overflow: visible;

@@ -7,6 +7,23 @@
 
     let { collapsed = false }: { collapsed?: boolean } = $props()
 
+    // Backdrop for the Sale Alerts nav item. One game is shown for the whole hour,
+    // then a different one is picked — stable across page navigations (the choice is
+    // derived from the wall-clock hour, not a per-load random or a short timer).
+    const hourBucket = () => Math.floor(Date.now() / 3_600_000)
+    let bucket = $state(hourBucket())
+    $effect(() => {
+        const iv = setInterval(() => { const b = hourBucket(); if (b !== bucket) bucket = b }, 60_000)
+        return () => clearInterval(iv)
+    })
+    const currentSale = $derived.by(() => {
+        const list = store.saleAlerts
+        if (!list.length) return null
+        const sorted = [...list].sort((a, b) => a.appid - b.appid)       // stable order
+        const h = Math.abs(Math.imul(bucket ^ 0x9e3779b9, 2654435761))    // pseudo-random per hour
+        return sorted[h % sorted.length]
+    })
+
     // ── SVG icons ─────────────────────────────────────────────────────────────
     const ICO = (paths: string) =>
         `<svg class="sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
@@ -143,8 +160,18 @@
        data-tooltip={`Sale Alerts${store.alertsCount > 0 ? ` (${store.alertsCount})` : ''}`}
        data-id="alerts" class:active={activeId === 'alerts'}
        onkeydown={arrowNav}>
+        {#if currentSale}
+            {#key currentSale.appid}
+                <span class="sidebar-alerts-backdrop"
+                      style="background-image:url('/relay/images/steam/games/{currentSale.appid}/header.jpg')"></span>
+            {/key}
+        {/if}
         {@html ICONS.alerts} <span class="sidebar-nav-label">Sale Alerts</span>
-        {#if store.alertsCount > 0}<span class="sidebar-alerts-badge">{store.alertsCount}</span>{/if}
+        {#if currentSale}
+            <span class="sidebar-alerts-cut">{currentSale.cut}%</span>
+        {:else if store.alertsCount > 0}
+            <span class="sidebar-alerts-badge">{store.alertsCount}</span>
+        {/if}
     </a>
     <a class="sidebar-nav-btn sidebar-calendar-btn" href="/calendar"
        data-tooltip="Calendar"

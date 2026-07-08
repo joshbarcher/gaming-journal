@@ -1,26 +1,15 @@
 # Home Page
 
-The landing page at `/`. The top row is a **fixed three-slot grid** that is always full (no reflow) — **Sale** (left), a priority-resolved **Middle** card, and **Session** (right) — above three mosaic panels for quick navigation to Library, Wishlist, and Discover.
+The landing page at `/`. The top row is a **fixed two-slot grid** (`1fr 1fr`) — a priority-resolved **Middle** card (left) and the **Session** card (right) — above three mosaic panels for quick navigation to Library, Wishlist, and Discover. (Sale/deal presence lives in the sidebar's Sale Alerts backdrop, not the home row — see `sidebar.md`.)
 
-## The three top cards
+## The two top cards
 
-Each slot always renders something, so the row never collapses to fewer than three columns.
-
-### Left — Sale (three-tier fallback)
-
-Resolved in `resolveSale()` (`+page.server.ts`) from candidate lists the **relay precomputes** (`sale.onSale` / `sale.watching` / `sale.wishlist`):
-1. **On Sale** — a random sales-watch (alert-flagged) game currently discounted → `On Sale −X%`.
-2. **Waiting for Sale** — else a random sales-watch game not yet discounted.
-3. **On Your Wishlist** — else (nothing on the sales watch) a random wishlist title.
-
-All tiers are filtered through `shouldShow` and picked synchronously (no `getAlerts()` round-trips, no streaming — the candidates arrive in the cached `/api/home` payload).
-
-### Middle — priority resolver (first match wins)
+### Left — priority resolver (first match wins)
 
 Resolved in `resolveMiddle()`:
 1. **Released Today** — a wishlisted game released today (`relay.release`).
 2. **Just Bought** — a random library game acquired in the last 7 days (`relay.justBought`, `shouldShow`-filtered).
-3. **Guide** — if the game you're playing has a downloaded guide (relay attaches `guide` to each recent-played entry). A distinct card: **source icon + label**, the **guide title in the gold shimmer** (same treatment as the guide index page, `gl-title-shimmer`), and a **guide screenshot** filling the lower band (from the guide's `coverImages`; GameFAQs text guides have none and fall back to the game header). Links straight to the guide viewer.
+3. **Guide** — if the game you're playing has a downloaded guide (relay attaches `guide` to each recent-played entry). A distinct card: **source icon + label**, the **guide title in the gold shimmer** (same treatment as the guide index page, `gl-title-shimmer`), and **two side-by-side landscape screenshot panes** (from the guide's `coverImages`) that cross-fade through the frames in a staggered left→right wave. GameFAQs text guides have no screenshots and fall back to a single game-header pane. Links straight to the guide viewer.
 4. **Activity Stats** — the evergreen floor, so the slot is never empty. A rolling-30-day stat card: big hours number + `unlocked / rated / added / wishlisted`.
 
 ### Right — Session (last played, filter-aware)
@@ -29,14 +18,14 @@ The most-recently-played title that **passes the filter toggles**. The relay ret
 
 ## Legacy
 
-Earlier versions used a variable-width `repeat(N, 1fr)` row of up to three *conditional* cards (Released Today / On Sale / Resume) that reflowed as the streamed sale card resolved. That reflow is gone — the grid is now fixed at three columns.
+Earlier versions used a variable-width `repeat(N, 1fr)` row of conditional cards (Released Today / On Sale / Resume) that reflowed as a streamed sale card resolved, then a fixed **three**-slot row (Sale / Middle / Session). The sale card has since moved to the sidebar (Sale Alerts backdrop), leaving the fixed **two**-slot row.
 
 ## Server-side data loading
 
 The home page uses a SvelteKit **page server** (`+page.server.ts`). Because the relay precomputes the whole card payload (see below), `load()` is **thin** — it does no per-request file reads, guide lookups, or alerts round-trips. It just fetches, filters with `shouldShow`, and picks.
 
 Parallel fetches on the server:
-1. `GET {relay}/api/home` → the **precomputed** payload (recentPlayed+guide, justBought, stats, sale candidates, release)
+1. `GET {relay}/api/home` → the **precomputed** payload (recentPlayed+guide, justBought, stats, release)
 2. `GET {relay}/api/games/posters?source=library&n=50` → 50 library poster images (for the 12+ tile mosaic)
 3. `GET {relay}/api/games/posters?source=wishlist&n=50` → 50 wishlist poster images
 4. `GET {relay}/api/discover/featured` → featured discover sections (Discover mosaic)
@@ -53,7 +42,6 @@ Parallel fetches on the server:
 - `recentPlayed[]` — ranked most-recent-first (up to 10), each with `hours`, `daysAgo`, `achievements: { unlocked, total } | null`, and (top 6) an attached `guide` (`{ source, guideId, title, screenshot, screenshots, sourceUrl, pageCount } | null`) resolved by `guide-card.service.js`. Drives the filter-aware session card **and** the middle guide tier.
 - `justBought[]` — library games whose `firstSeen` is within 7 days. `firstSeen` is stamped in `provisionNewGames()` (Steam owns no purchase date) and written to `relay/steam/library-firstseen.json`. Days on which more than 10 games were first seen are treated as a **library import** and excluded, so a fresh install / re-sync doesn't flag everything.
 - `stats` — rolling-30-day totals: `hours`, `achievements`, `added`, `wishlisted`, and `ratings` (read from the shared `gaming-journal/local-reviews.json`).
-- `sale` — `{ onSale, watching, wishlist }` candidate lists computed from the local ITAD + flags caches (no HTTP), feeding the three sale tiers.
 - `release` — a wishlisted game released today.
 - `resume` — kept for backward compatibility; the client uses `recentPlayed` instead.
 
@@ -61,7 +49,7 @@ Parallel fetches on the server:
 
 ### Top cards row
 
-A fixed `grid-template-columns: 1fr 1fr 1fr` row: Sale (`{#await data.saleGame}`, with a shimmer `.home-card--pending` placeholder while it streams), the resolved `middle` card, and the `session` card (or a pending placeholder if there's no unfiltered play history). See "The three top cards" above for the resolution logic.
+A fixed `grid-template-columns: 1fr 1fr` row: the resolved `middle` card (left) and the `session` card (right; a `.home-card--pending` placeholder if there's no unfiltered play history). See "The two top cards" above for the resolution logic.
 
 ### Mosaic row
 
@@ -121,8 +109,10 @@ Posters are relay-proxied images (`/relay/images/...`). If the relay isn't runni
 
 ## Gotchas
 
-- **The `/api/home` payload is cached on the relay for 60 s** (`PAYLOAD_TTL_MS`). This is what keeps the landing page fast — the guide-meta / ITAD / local-reviews reads that assemble it happen at most once a minute, not per request. Consequences: a just-opened session's live playtime and a brand-new guide/purchase can lag up to ~60 s on the home page. The old design did those reads per request (via `getAlerts()` + `getAllLocalReviews()` + a `/api/guides` fetch) and was noticeably slow; that work now lives behind this cache.
-- **Nothing is streamed anymore** — `session`, `middle`, and `sale` all resolve synchronously server-side. The sale slot only shows a `.home-card--pending` placeholder if the relay is unreachable (empty payload). Because the grid is fixed at three columns, the layout never reflows.
+- **The `/api/home` payload is cached on the relay for 60 s** (`PAYLOAD_TTL_MS`). This is what keeps the landing page fast — the guide-meta / ITAD / local-reviews reads that assemble it happen at most once a minute, not per request. Consequences: a just-opened session's live playtime and a brand-new purchase can lag up to ~60 s on the home page. The old design did those reads per request (via `getAlerts()` + `getAllLocalReviews()` + a `/api/guides` fetch) and was noticeably slow; that work now lives behind this cache.
+  - **Opening a guide busts the cache immediately** — `handleMarkUsed` calls `invalidateHomeCache()`, so returning to the landing page shows the just-viewed guide as the "most recent" without waiting for the TTL. The guide card orders by `_usage.json` `lastUsedAt`.
+  - **An empty build is never cached** — if `getAll()` is empty (games cache not yet warm after a relay restart), the payload is returned but not stored, so the session/sale cards don't blank out for a full TTL.
+- **Nothing is streamed** — `session` and `middle` resolve synchronously server-side. The session slot shows a `.home-card--pending` placeholder only if there's no unfiltered play history (or the relay is unreachable). The grid is fixed at two columns, so the layout never reflows.
 - **Guide screenshots come from `coverImages`** — HTML-source guides (IGN, Fandom, Game8, GamerGuides, Neoseeker, Steam) have them; GameFAQs text FAQs don't, so those guide cards fall back to the game header (`.home-guide-shot--fallback`). Images are served as `.webp` at `/relay/guides-img/{appid}/{source}/{guideId}/{section}/img/{NNN}.webp`.
 - **`firstSeen` is forward-looking** — it's stamped the first time `provisionNewGames` sees a new owned appid. Pre-existing library games have no stamp, so "Just Bought" and the `added` stat only reflect acquisitions after this feature deployed. A fresh `DATA_DIR` stamps everything on the first sync, which the >10-per-day import guard filters out.
 - **`makeShouldShow` runs server-side** — the shouldShow function and flag/settings data are evaluated at server render time, not in the browser. This means the poster/recentPlayed lists are already filtered before they reach the browser. Changes to flags/settings don't update the home page until the next navigation (no live reactivity).

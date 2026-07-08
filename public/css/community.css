@@ -1380,7 +1380,7 @@
     .community-thread-comments { padding: 24px 24px 32px; }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .community-header { padding: 24px 20px 16px; }
     .community-body   { padding: 0 20px 28px; }
     .community-thread-nav      { padding: 24px 20px 0; }

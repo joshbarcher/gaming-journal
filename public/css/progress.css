@@ -462,7 +462,7 @@
 }
 
 /* ── Mobile ───────────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
     /* Global bar: wrap segments onto multiple rows */
     .progress-global-bar {
         flex-wrap: wrap;

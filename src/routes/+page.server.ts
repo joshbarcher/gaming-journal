@@ -29,19 +29,10 @@ interface JustBought  { appid: number; name: string; header: string; daysAgo: nu
 interface HomeRelease { appid: number; name: string; header: string }
 interface RelayStats  { hours: number; achievements: number; added: number; wishlisted: number; ratings: number }
 
-interface SaleCandidateOnSale  { appid: number; name: string; header: string; cut: number; price: number | null; store: string; url: string | null }
-interface SaleCandidatePlain   { appid: number; name: string; header: string }
-interface RelaySale {
-    onSale:   SaleCandidateOnSale[]
-    watching: SaleCandidatePlain[]
-    wishlist: SaleCandidatePlain[]
-}
-
 interface RelayHomeData {
     recentPlayed: RecentPlayed[]
     justBought:   JustBought[]
     stats:        RelayStats
-    sale:         RelaySale
     release:      HomeRelease | null
     libPosters:   HomePoster[]
     wlPosters:    HomePoster[]
@@ -50,11 +41,6 @@ interface RelayHomeData {
 // ── Card shapes handed to the client ───────────────────────────────────────────
 
 export type SessionCard = RecentPlayed
-
-export type SaleCard =
-    | { kind: 'sale';     appid: number; name: string; header: string; cut: number; price: string; store: string; url: string; external: boolean }
-    | { kind: 'waiting';  appid: number; name: string; header: string }
-    | { kind: 'wishlist'; appid: number; name: string; header: string }
 
 export type MiddleCard =
     | { kind: 'release'; appid: number; name: string; header: string }
@@ -65,7 +51,6 @@ export type MiddleCard =
 export interface HomeData {
     session:     SessionCard | null
     middle:      MiddleCard
-    sale:        SaleCard | null
     libPosters:  HomePoster[]
     wlPosters:   HomePoster[]
     discPosters: HomePoster[]
@@ -73,7 +58,7 @@ export interface HomeData {
 
 const EMPTY_RELAY: RelayHomeData = {
     recentPlayed: [], justBought: [], stats: { hours: 0, achievements: 0, added: 0, wishlisted: 0, ratings: 0 },
-    sale: { onSale: [], watching: [], wishlist: [] }, release: null, libPosters: [], wlPosters: [],
+    release: null, libPosters: [], wlPosters: [],
 }
 
 function relayUrl(): string {
@@ -121,39 +106,6 @@ function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (app
         [copy[i], copy[j]] = [copy[j], copy[i]]
     }
     return copy.slice(0, n).map(item => ({ appid: item.appid, poster: item.headerImage ?? '' }))
-}
-
-/**
- * Sale card, resolved in three tiers so the slot is never empty:
- *   1. a sales-watch game currently discounted        → "On Sale −X%"
- *   2. else a sales-watch game not yet discounted      → "Waiting for sale"
- *   3. else a random wishlist title (no watch at all)  → plain wishlist nudge
- * All candidates are precomputed on the relay; this just filters + picks.
- */
-function resolveSale(sale: RelaySale, shouldShow: (a: number) => boolean): SaleCard | null {
-    const hit = pick(sale.onSale.filter(a => shouldShow(a.appid)))
-    if (hit) {
-        const url = hit.url ?? `/game/${hit.appid}`
-        return {
-            kind:     'sale',
-            appid:    hit.appid,
-            name:     hit.name,
-            header:   hit.header,
-            cut:      hit.cut,
-            price:    hit.price != null ? `$${hit.price.toFixed(2)}` : '',
-            store:    hit.store,
-            url,
-            external: url.startsWith('http'),
-        }
-    }
-
-    const wait = pick(sale.watching.filter(a => shouldShow(a.appid)))
-    if (wait) return { kind: 'waiting', appid: wait.appid, name: wait.name, header: wait.header }
-
-    const wl = pick(sale.wishlist.filter(a => shouldShow(a.appid)))
-    if (wl) return { kind: 'wishlist', appid: wl.appid, name: wl.name, header: wl.header }
-
-    return null
 }
 
 /**
@@ -205,7 +157,6 @@ export async function load(): Promise<HomeData> {
     return {
         session,
         middle:      resolveMiddle(relay, session, shouldShow),
-        sale:        resolveSale(relay.sale, shouldShow),
         libPosters:  (libPosters ?? []).filter(p => shouldShow(p.appid)),
         wlPosters:   (wlPosters  ?? []).filter(p => shouldShow(p.appid)),
         discPosters: sampleDiscover(discoverData ?? [], 50, shouldShow, settings.titleBlocklist ?? [], settings.hideAdultContent),

@@ -306,7 +306,7 @@
     }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .cal-nav {
         padding: 6px 12px;
     }

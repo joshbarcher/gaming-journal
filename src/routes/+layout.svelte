@@ -85,6 +85,7 @@
         store.pages        = data.pages        ?? []
         store.counts       = data.counts       ?? store.counts
         store.alertsCount  = data.alertsCount  ?? 0
+        store.saleAlerts   = data.saleAlerts   ?? []
         store.historyAppid = data.historyAppid ?? null
         store.lastPlayed   = data.lastPlayed   ?? null
         applyNowPlaying((data.nowPlaying ?? null) as NowPlayingInfo | null)
@@ -97,6 +98,9 @@
                 if (!res.ok) return
                 const { onSale } = await res.json()
                 store.alertsCount = onSale?.length ?? 0
+                store.saleAlerts  = (onSale ?? [])
+                    .map((a: { appid: number; bestPrice?: { cut?: number } | null }) => ({ appid: a.appid, cut: a.bestPrice?.cut ?? 0 }))
+                    .filter((a: { cut: number }) => a.cut > 0)
             } catch { /* silent */ }
         }, 15 * 60_000)
 

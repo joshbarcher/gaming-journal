@@ -1,12 +1,12 @@
 <script lang="ts">
     import type { HomeData } from '../../../routes/+page.server.js'
     import HomeMosaic from './HomeMosaic.svelte'
+    import HomeGuideCard from './HomeGuideCard.svelte'
 
     let { data }: { data: HomeData } = $props()
 
     const session     = $derived(data.session)
     const middle      = $derived(data.middle)
-    const sale        = $derived(data.sale)
     const libPosters  = $derived(data.libPosters)
     const wlPosters   = $derived(data.wlPosters)
     const discPosters = $derived(data.discPosters)
@@ -23,18 +23,6 @@
         return `Added ${daysAgo} days ago`
     }
 
-    const SOURCE_LABELS: Record<string, string> = {
-        gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8',
-        gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker',
-    }
-    const SOURCE_ICONS: Record<string, string> = {
-        gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp',
-        steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp',
-        gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp',
-        neoseeker: '/images/guides/neoseeker.webp',
-    }
-    const sourceLabel = (s: string) => SOURCE_LABELS[s] ?? s
-
     function sessionMeta(s: NonNullable<HomeData['session']>): string {
         const parts = [`${s.hours}h played`]
         if (s.achievements) parts.push(`${s.achievements.unlocked}/${s.achievements.total} 🏆`)
@@ -44,38 +32,9 @@
 </script>
 
 <div class="home-wrap">
-    <div class="home-row" style="grid-template-columns: 1fr 1fr 1fr">
+    <div class="home-row" style="grid-template-columns: 1fr 1fr">
 
-        <!-- ── Left: Sale (three-tier, precomputed on the relay) ──────────────── -->
-        {#if sale}
-            {@const external = sale.kind === 'sale' && sale.external}
-            <a class="home-card"
-               href={sale.kind === 'sale' ? sale.url : `/game/${sale.appid}`}
-               target={external ? '_blank' : null}
-               rel={external ? 'noopener noreferrer' : null}
-               data-game-card data-appid={sale.appid} data-game-name={sale.name}>
-                <div class="home-card-bg" style="background-image:url('{sale.header}')"></div>
-                <div class="home-card-body">
-                    {#if sale.kind === 'sale'}
-                        <span class="home-chip home-chip--sale">On Sale  −{sale.cut}%</span>
-                        <span class="home-card-title">{sale.name}</span>
-                        <span class="home-card-meta">{sale.price ? `${sale.price} · ` : ''}{sale.store}</span>
-                    {:else if sale.kind === 'waiting'}
-                        <span class="home-chip home-chip--waiting">Waiting for Sale</span>
-                        <span class="home-card-title">{sale.name}</span>
-                        <span class="home-card-meta">On your sales watch</span>
-                    {:else}
-                        <span class="home-chip home-chip--wishlist">On Your Wishlist</span>
-                        <span class="home-card-title">{sale.name}</span>
-                        <span class="home-card-meta">Watching for a deal</span>
-                    {/if}
-                </div>
-            </a>
-        {:else}
-            <div class="home-card home-card--pending" aria-hidden="true"></div>
-        {/if}
-
-        <!-- ── Middle: priority resolver (release → bought → guide → stats) ────── -->
+        <!-- ── Left: priority resolver (release → bought → guide → stats) ──────── -->
         {#if middle.kind === 'release'}
             <a class="home-card" href="/game/{middle.appid}" data-game-card data-appid={middle.appid} data-game-name={middle.name}>
                 <div class="home-card-bg" style="background-image:url('{middle.header}')"></div>
@@ -95,21 +54,7 @@
                 </div>
             </a>
         {:else if middle.kind === 'guide'}
-            <a class="home-card home-card--guide" href="/journal/{middle.appid}/guides/{middle.guide.source}/{middle.guide.guideId}"
-               data-game-card data-appid={middle.appid} data-game-name={middle.name}>
-                <div class="home-guide-head">
-                    <span class="home-guide-source">
-                        {#if SOURCE_ICONS[middle.guide.source]}
-                            <img class="home-guide-source-icon" src={SOURCE_ICONS[middle.guide.source]} alt="">
-                        {/if}
-                        {sourceLabel(middle.guide.source)} Guide
-                    </span>
-                    <span class="home-guide-title">{middle.guide.title}</span>
-                    <span class="home-guide-meta">{middle.name}  ·  Continue reading →</span>
-                </div>
-                <div class="home-guide-shot" class:home-guide-shot--fallback={!middle.guide.screenshot}
-                     style="background-image:url('{middle.guide.screenshot ?? middle.header}')"></div>
-            </a>
+            <HomeGuideCard appid={middle.appid} name={middle.name} header={middle.header} guide={middle.guide} />
         {:else}
             <div class="home-card home-card--stats">
                 <div class="home-card-body home-stats">

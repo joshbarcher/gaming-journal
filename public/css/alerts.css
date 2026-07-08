@@ -191,7 +191,7 @@
     .alerts-section { padding: 0 24px 40px; }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .page-header:has(+ .alerts-section),
     .page-header:has(+ .alerts-empty) { padding: 28px 20px 20px; }
     .alerts-empty   { padding: 28px 20px; }

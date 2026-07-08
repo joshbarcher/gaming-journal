@@ -16,7 +16,7 @@
     .settings-body { padding: 24px; }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .page-header:has(+ .settings-body) { padding: 24px 20px 16px; }
     .settings-body { padding: 20px; }
 }

@@ -2,6 +2,8 @@
 
 The persistent left navigation bar rendered in `+layout.svelte`. Contains the Now Playing / Last Session card, pinned community strip, all nav links with count badges, and the History backdrop. Driven by a reactive `store` singleton populated by pollers in the layout. Supports desktop collapse to icon-only mode, persisted across sessions.
 
+**Sale Alerts backdrop:** when there are on-sale games (`store.saleAlerts`), the Sale Alerts nav item drops its count badge and instead shows a **game backdrop + small `X%` corner tag** — the same right-aligned masked-image treatment as the History item (`.sidebar-alerts-backdrop` mirrors `.sidebar-history-backdrop`; the tag is `.sidebar-alerts-cut`, absolute top-right). **One game is shown for the whole wall-clock hour**, then a different one is picked — the choice is derived from the hour bucket (`Math.floor(Date.now()/3_600_000)` → seeded index into the appid-sorted list), so it's **stable across page navigations** and not a per-load random or short timer. A 60 s interval advances `bucket` when the hour rolls over; the `{#key currentSale.appid}` remount replays the `sidebar-alerts-fade` fade-in on that change. `saleAlerts` is seeded from `+layout.server.ts` (SSR) and refreshed by the 15-min `/api/alerts` poll. Falls back to the plain count badge only if the list is empty.
+
 ## Key files
 
 | File | Role |
@@ -22,7 +24,8 @@ The persistent left navigation bar rendered in `+layout.svelte`. Contains the No
 |-------|------|---------|
 | `nowPlaying` | `NowPlayingInfo \| null` | Currently playing game |
 | `lastPlayed` | `LastPlayedInfo \| null` | Last session (shown when not playing) |
-| `alertsCount` | `number` | On-sale wishlist games |
+| `alertsCount` | `number` | On-sale wishlist games (count) |
+| `saleAlerts` | `{ appid, cut }[]` | On-sale games — drives the rotating Sale Alerts backdrop + `−X%` |
 | `historyAppid` | `number \| null` | Drives History button backdrop image |
 | `counts` | `SidebarCounts` | Badge counts per collection |
 | `pin` | `PinState \| null` | Pinned community feed game |

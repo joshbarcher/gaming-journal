@@ -253,7 +253,7 @@
     }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .disc-wrap {
         padding: 20px 20px 0;
     }

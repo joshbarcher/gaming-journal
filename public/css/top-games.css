@@ -248,7 +248,7 @@
     .tg-table { padding: 0 24px 40px; }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .page-header:has(.tg-title) { padding: 28px 20px 20px; margin-bottom: 14px; }
     .tg-table { padding: 0 20px 32px; }
     .tg-header,

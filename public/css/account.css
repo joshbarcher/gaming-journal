@@ -83,7 +83,7 @@
     padding: 0 40px;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 767px) {
     .acct-stats-strip { grid-template-columns: repeat(3, 1fr); }
 }
 
@@ -306,7 +306,7 @@
     .acct-section        { padding: 0 24px; }
 }
 
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .acct-hero          { padding: 24px 20px 16px; }
     .acct-stats-strip   { padding: 0 20px; }
     .acct-section        { padding: 0 20px; }

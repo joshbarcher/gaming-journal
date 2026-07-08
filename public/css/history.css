@@ -278,7 +278,7 @@
 /* ── Phone: tighter still ────────────────────────────────────────────────────────
    < 800px: S25 landscape (780px) and portrait (360px)
 ────────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 799px) {
+@media (max-width: 767px) {
     .history-header    { padding: 24px 20px 20px; margin-bottom: 20px; }
     .history-recent    { padding: 0 20px 20px; }
     .history-rest-sep  { padding: 0 20px 14px; }

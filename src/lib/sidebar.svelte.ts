@@ -28,6 +28,7 @@ class SidebarStore {
     nowPlaying   = $state<NowPlayingInfo | null>(null)
     lastPlayed   = $state<LastPlayedInfo | null>(null)
     alertsCount  = $state(0)
+    saleAlerts   = $state<{ appid: number; cut: number }[]>([])
     historyAppid = $state<number | null>(null)
     counts       = $state<SidebarCounts>({ library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, franchises: 0 })
     pin          = $state<PinState | null>(null)
