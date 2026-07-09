@@ -32,7 +32,7 @@ export type ContentBlock =
     | { type: 'section'; level: number; heading: string; id: string; children?: ContentBlock[] }
     | { type: 'heading'; level: number; text: string }
     | { type: 'paragraph'; html: string }
-    | { type: 'list'; ordered?: boolean; items: ListItem[] }
+    | { type: 'list'; ordered?: boolean; variant?: 'jumplinks'; items: ListItem[] }
     | { type: 'image'; localSrc?: string | null; src?: string; alt?: string; caption?: string }
     | { type: 'table'; caption?: string; headers?: (TableCell | null)[]; rows: (TableCell | null)[][] }
 
@@ -49,7 +49,9 @@ function blockLabel(block: ContentBlock): string {
             case 'section': return block.heading
             case 'heading': return block.text
             case 'paragraph': return stripHtml(block.html)
-            case 'list': return block.items[0] ? `List: ${stripHtml(block.items[0].text)}` : 'List'
+            case 'list':
+                if (block.variant === 'jumplinks') return 'Jump links'
+                return block.items[0] ? `List: ${stripHtml(block.items[0].text)}` : 'List'
             case 'image': return block.caption || block.alt || 'Image'
             case 'table': return block.caption || 'Table'
         }
@@ -181,7 +183,9 @@ function Blocks({ blocks, imgUrl, onImagePress, onSectionRef, onBlockRef, onBloc
                     )
                 }
                 if (block.type === 'list') {
-                    return wrap(<ListBlock ordered={!!block.ordered} items={block.items} contentWidth={contentWidth} />)
+                    return block.variant === 'jumplinks'
+                        ? wrap(<JumpLinksBlock items={block.items} onLinkPress={onLinkPress} />)
+                        : wrap(<ListBlock ordered={!!block.ordered} items={block.items} contentWidth={contentWidth} />)
                 }
                 if (block.type === 'image') {
                     const url = block.localSrc ? imgUrl(block.localSrc) : (block.src ?? '')
@@ -254,6 +258,36 @@ function ListItemRow({ item, ordered, num, contentWidth }: { item: ListItem; ord
     )
 }
 
+// An in-page TOC (list block with variant:'jumplinks'). Every item's text is exactly one
+// `<a href="#fragment">Label</a>`, so the pills are built from a regex rather than routed
+// through RenderHTMLSource — a wrapping row of Pressables can't be expressed as an HTML
+// snippet, and each pill needs its own press target.
+const JUMP_LINK = /^<a\s+href="(#[^"]+)"[^>]*>([\s\S]*)<\/a>$/i
+
+const ENTITIES: Record<string, string> = {
+    '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+}
+
+function JumpLinksBlock({ items, onLinkPress }: { items: ListItem[]; onLinkPress?: (href: string) => void }) {
+    const links = items.flatMap(item => {
+        const match = item.text.trim().match(JUMP_LINK)
+        if (!match) return []
+        const label = stripHtml(match[2]).replace(/&[a-z]+;|&#\d+;/gi, e => ENTITIES[e.toLowerCase()] ?? e)
+        return label ? [{ href: match[1], label }] : []
+    })
+    if (!links.length) return null
+
+    return (
+        <View style={styles.jumpLinks}>
+            {links.map((link, i) => (
+                <Pressable key={i} style={styles.jumpLink} onPress={() => onLinkPress?.(link.href)}>
+                    <Text style={styles.jumpLinkText}>{link.label}</Text>
+                </Pressable>
+            ))}
+        </View>
+    )
+}
+
 function ListBlock({ ordered, items, contentWidth }: { ordered: boolean; items: ListItem[]; contentWidth: number }) {
     return (
         <View style={styles.list}>
@@ -314,6 +348,12 @@ const styles = StyleSheet.create({
     listMarker: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 14, width: 18 },
     listItemBody: { flex: 1 },
     nestedList: { marginTop: 4, marginLeft: spacing.sm, gap: 4 },
+    jumpLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.sm },
+    jumpLink: {
+        paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999,
+        borderWidth: 1, borderColor: 'rgba(201, 168, 76, 0.28)', backgroundColor: colors.accentBg,
+    },
+    jumpLinkText: { color: colors.accent, fontFamily: fonts.ui, fontSize: 12.5, lineHeight: 17 },
     // Real bug caught during verification: `alignItems:'center'` here made this View's children
     // size-to-content instead of stretching to the parent's width — with the Image's own
     // `width:'100%'` then resolving against that undetermined size, both the wrapper and the

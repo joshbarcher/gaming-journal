@@ -25,7 +25,13 @@ const ListItemSchema: z.ZodType<{ text: string; children?: { ordered: boolean; i
 const baseBlock = {
     paragraph: z.object({ type: z.literal('paragraph'), html: z.string() }),
     heading: z.object({ type: z.literal('heading'), level: z.number(), text: z.string() }),
-    list: z.object({ type: z.literal('list'), ordered: z.boolean().optional(), items: z.array(ListItemSchema) }),
+    // `variant: 'jumplinks'` marks an in-page TOC — every item is a lone `#fragment`
+    // anchor. Renderers lay it out as horizontal pills; other consumers treat it as a
+    // plain list. Emitted only by sources that opt in (adapter exports `jumpLinks`).
+    list: z.object({
+        type: z.literal('list'), ordered: z.boolean().optional(),
+        variant: z.literal('jumplinks').optional(), items: z.array(ListItemSchema),
+    }),
     image: z.object({
         type: z.literal('image'), localSrc: z.string().nullable().optional(),
         src: z.string().optional(), alt: z.string().optional(), caption: z.string().optional(),

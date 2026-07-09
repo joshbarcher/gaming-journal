@@ -22,6 +22,7 @@
         text?: string
         html?: string
         ordered?: boolean
+        variant?: 'jumplinks'
         items?: ListItem[]
         src?: string
         localSrc?: string | null
@@ -104,6 +105,16 @@
     {:else if block.type === 'paragraph'}
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         <p class="gv-p">{@html block.html}</p>
+
+    {:else if block.type === 'list' && block.variant === 'jumplinks'}
+        <!-- One DOM element, like every other block — guide-blocks-search maps
+             block index to child index and would misresolve a fragment here. -->
+        <nav class="gv-jumplinks">
+            {#each block.items ?? [] as item}
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                {@html item.text}
+            {/each}
+        </nav>
 
     {:else if block.type === 'list'}
         {@render listItems(block.items ?? [], block.ordered ?? false)}

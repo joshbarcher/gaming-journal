@@ -190,6 +190,36 @@
     margin-bottom: 4px;
 }
 
+/* ── Jump links ──────────────────────────────────────────────────────────────
+   An in-page TOC (list block with variant:'jumplinks'). Laid out as wrapping
+   pills so a long TOC costs one or two rows instead of a full screen. */
+
+.gv-jumplinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 14px;
+}
+
+.gv-jumplinks a {
+    display: inline-block;
+    padding: 5px 11px;
+    border: 1px solid rgba(201, 168, 76, 0.28);
+    border-radius: 999px;
+    background: rgba(201, 168, 76, 0.09);
+    color: var(--clr-accent);
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-decoration: none;
+    transition: background 120ms ease, border-color 120ms ease;
+}
+
+.gv-jumplinks a:hover {
+    background: rgba(201, 168, 76, 0.18);
+    border-color: rgba(201, 168, 76, 0.5);
+    text-decoration: none;
+}
+
 /* ── Images ──────────────────────────────────────────────────────────────── */
 
 .gv-figure {
