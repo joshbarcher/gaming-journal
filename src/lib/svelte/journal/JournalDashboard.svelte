@@ -47,8 +47,8 @@
     let guideModalOpen = $state(false)
     let searchingSet   = $state<Set<string>>(new Set())
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker' }
-    const SOURCE_ICONS:  Record<string, string> = { gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp', steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp', gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp', neoseeker: '/images/guides/neoseeker.webp' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker', thegamer: 'TheGamer' }
+    const SOURCE_ICONS:  Record<string, string> = { gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp', steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp', gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp', neoseeker: '/images/guides/neoseeker.webp', thegamer: '/images/guides/thegamer.webp' }
 
     async function handleGuideDownloaded(_guideId: string) {
         const g = await fetch(`/relay/api/guides/${appid}`).then(r => r.ok ? r.json() : []).catch(() => [])

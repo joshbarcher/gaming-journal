@@ -11,6 +11,8 @@
         game8:      'Game8',
         gamerguides:'Gamer Guides',
         fandom:     'Fandom',
+        neoseeker:  'Neoseeker',
+        thegamer:   'TheGamer',
     }
 
     const active    = $derived(jobStore.jobs.filter(j => j.status === 'running' || j.status === 'pending'))

@@ -43,8 +43,8 @@
         error?: string
     }
 
-    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker' }
-    const SOURCE_ICONS:  Record<string, string> = { gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp', steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp', gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp', neoseeker: '/images/guides/neoseeker.webp' }
+    const SOURCE_LABELS: Record<string, string> = { gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8', gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker', thegamer: 'TheGamer' }
+    const SOURCE_ICONS:  Record<string, string> = { gamefaqs: '/images/guides/gamefaqs.webp', ign: '/images/guides/ign.webp', steam: '/images/guides/steam.webp', game8: '/images/guides/game8.webp', gamerguides: '/images/guides/gamerguides.webp', fandom: '/images/guides/fandom.webp', neoseeker: '/images/guides/neoseeker.webp', thegamer: '/images/guides/thegamer.webp' }
 
     const ALL_SOURCES = Object.keys(SOURCE_LABELS)
 
@@ -147,6 +147,10 @@
             }
             if (u.hostname.includes('neoseeker.com')) {
                 return u.pathname.match(/\/([a-z0-9-]+)\/walkthrough/i)?.[1] ?? null
+            }
+            if (u.hostname.includes('thegamer.com')) {
+                const slug = u.pathname.match(/^\/([a-z0-9-]+)\/?$/i)?.[1]?.toLowerCase() ?? null
+                return (slug && !['tag', 'author', 'category', 'search'].includes(slug)) ? slug : null
             }
         } catch { /* fall through */ }
         return url.match(/\/faqs\/(\d+)/)?.[1]

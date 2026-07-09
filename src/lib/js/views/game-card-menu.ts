@@ -8,7 +8,7 @@ const HIDDEN_STORES = new Set(['gamesplanet uk', 'gamesplanet fr', 'gamesplanet 
 
 const GUIDE_SOURCE_LABELS: Record<string, string> = {
     gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8',
-    gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker',
+    gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker', thegamer: 'TheGamer',
 }
 
 interface DownloadedGuide {
