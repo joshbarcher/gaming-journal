@@ -1,3 +1,4 @@
+// @ts-nocheck -- vendored drop-in; not authored against any consumer's strict/checkJs config.
 /**
  * @fileoverview Zero-dependency SLOC (source lines of code) counter for Node.js
  * ESM apps, plus the shared `/sloc` endpoint contract for the process-mgr fleet.
@@ -155,6 +156,12 @@
  *     { lines, code, comment, blank }. Exported for unit testing and for apps
  *     that want custom file-selection logic on top of the same classifier.
  *
+ *   DASHBOARD_STYLE (string, the raw CSS)
+ *     Exported so a fleet-wide aggregator view (something only the process-mgr
+ *     side needs — it queries every app's own /sloc, this file doesn't) can
+ *     reuse the identical look without duplicating the CSS. Not needed to just
+ *     run /sloc + /sloc/dashboard on a single server.
+ *
  * options (both computeSloc and createSlocRoute accept these):
  *   ignoreDirs   string[]  Directory names to skip entirely. Default: DEFAULT_IGNORE_DIRS.
  *   ignoreFiles  string[]  File basenames to skip. Default: DEFAULT_IGNORE_FILES.
@@ -234,7 +241,7 @@
  */
 
 import { readdir, readFile } from 'node:fs/promises';
-import { join, extname, relative, sep } from 'node:path';
+import { join, extname, relative, sep, dirname, resolve } from 'node:path';
 
 // ── Comment syntax table ─────────────────────────────────────────────────────
 
@@ -262,6 +269,10 @@ export const DEFAULT_IGNORE_DIRS = [
     'node_modules', '.git', '.hg', '.svn',
     'dist', 'build', 'out', 'coverage', '.next', '.nuxt', '.turbo', '.cache',
     '.vscode', '.idea', 'tmp', 'vendor', 'logs',
+    '.venv', 'venv', '__pycache__',            // Python virtualenvs / bytecode
+    '.svelte-kit', '.expo', '.astro', '.output', // framework build/sync output
+    'test-results', 'playwright-report',         // e2e run artifacts
+    '.claude',                                    // Claude Code tooling (settings, worktrees)
 ];
 
 export const DEFAULT_IGNORE_FILES = [
@@ -355,32 +366,60 @@ function ancestorFolders(relPath) {
     return folders;
 }
 
+// ── Config discovery (sloc.config.json) ──────────────────────────────────────
+//
+// A project can record its source layout in a `sloc.config.json` at its repo
+// root instead of passing ignore/root options inline. This lets a multi-package
+// repo (or any project with code that isn't the single dir the server runs from
+// — workers, a native/mobile app, a shared lib) declare every source root so its
+// /sloc reports the WHOLE project, not just the process's own directory.
+//
+//   {
+//     "roots": [
+//       "index-server",                                       // string shorthand
+//       { "path": "svelte-ui",  "ignoreDirs": [".svelte-kit"] },
+//       { "path": "native-app", "ignoreDirs": ["android", "ios", ".expo"] }
+//     ],
+//     "ignoreDirs":  ["apps", "logs"],   // added to the built-in defaults, repo-wide
+//     "ignoreFiles": [],                 // added to the built-in defaults, repo-wide
+//     "extensions":  [...]               // optional: replaces DEFAULT_EXTENSIONS
+//   }
+//
+// Roots and their ignoreDirs are resolved relative to the config file's own
+// directory. computeSloc auto-discovers the file by walking up from the dir it's
+// asked to scan, stopping at the repo boundary (the first dir containing .git) so
+// a stray config above the repo can't be picked up. Pass `useConfig: false` to
+// scan the given dir literally and ignore any config.
+
+async function isRepoRoot(dir) {
+    try { await readdir(join(dir, '.git')); return true; } catch { /* not a dir */ }
+    try { await readFile(join(dir, '.git'), 'utf-8'); return true; } catch { /* not a gitlink */ }
+    return false;
+}
+
+async function findSlocConfig(startDir) {
+    let dir = resolve(startDir);
+    for (;;) {
+        try {
+            const data = JSON.parse(await readFile(join(dir, 'sloc.config.json'), 'utf-8'));
+            if (data && Array.isArray(data.roots)) return { dir, config: data };
+        } catch { /* no (valid) config here — keep looking */ }
+
+        // Don't walk above the repo the start dir lives in.
+        if (await isRepoRoot(dir)) return null;
+        const parent = dirname(dir);
+        if (parent === dir) return null;
+        dir = parent;
+    }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/**
- * Walk rootDir and compute SLOC totals, broken down by extension and by folder.
- * @param {string} rootDir - Absolute path to the project root to scan.
- * @param {object} [options]
- * @param {string[]} [options.ignoreDirs]
- * @param {string[]} [options.ignoreFiles]
- * @param {string[]} [options.extensions]
- * @param {boolean} [options.detail] - Include a per-file `files` array.
- * @returns {Promise<object>} See the required response shape documented above.
- */
-export async function computeSloc(rootDir, options = {}) {
-    const {
-        ignoreDirs = DEFAULT_IGNORE_DIRS,
-        ignoreFiles = DEFAULT_IGNORE_FILES,
-        extensions = DEFAULT_EXTENSIONS,
-        detail = false,
-    } = options;
-
-    const totals = emptyCounts();
-    const byExtension = {};
-    const byFolder = {};
-    const files = [];
-
-    for await (const filePath of walk(rootDir, ignoreDirs, ignoreFiles)) {
+// Scan a single directory into shared accumulators. `pathPrefix` (a project-root
+// path in a multi-root scan) is prepended to each file's project-relative path so
+// byFolder buckets group under their root.
+async function scanInto(dir, { ignoreDirs, ignoreFiles, extensions, pathPrefix }, acc) {
+    for await (const filePath of walk(dir, ignoreDirs, ignoreFiles)) {
         const ext = extname(filePath).toLowerCase();
         if (!extensions.includes(ext)) continue;
 
@@ -392,23 +431,82 @@ export async function computeSloc(rootDir, options = {}) {
         }
 
         const stats = classifyLines(content, COMMENT_SYNTAX[ext]);
-        const relPath = relative(rootDir, filePath).split(sep).join('/');
+        let relPath = relative(dir, filePath).split(sep).join('/');
+        if (pathPrefix) relPath = `${pathPrefix}/${relPath}`;
 
-        addCounts(totals, stats);
-        addCounts(byExtension[ext] ??= emptyCounts(), stats);
+        addCounts(acc.totals, stats);
+        addCounts(acc.byExtension[ext] ??= emptyCounts(), stats);
         for (const folder of ancestorFolders(relPath)) {
-            addCounts(byFolder[folder] ??= emptyCounts(), stats);
+            addCounts(acc.byFolder[folder] ??= emptyCounts(), stats);
         }
 
-        if (detail) files.push({ path: relPath, ext, ...stats });
+        if (acc.detail) acc.files.push({ path: relPath, ext, ...stats });
     }
+}
+
+/**
+ * Compute SLOC totals, broken down by extension and by folder. If a
+ * `sloc.config.json` is found at or above `rootDir` (within the same repo), its
+ * declared source roots are scanned and the report covers the whole project;
+ * otherwise `rootDir` itself is walked. The result always includes `root` — the
+ * absolute path the report is anchored at (the config's dir, or `rootDir`) — so
+ * aggregators can dedupe by project.
+ * @param {string} rootDir - Absolute path to scan (or to discover a config from).
+ * @param {object} [options]
+ * @param {string[]} [options.ignoreDirs]
+ * @param {string[]} [options.ignoreFiles]
+ * @param {string[]} [options.extensions]
+ * @param {boolean} [options.detail] - Include a per-file `files` array.
+ * @param {boolean} [options.useConfig=true] - Auto-discover sloc.config.json.
+ * @returns {Promise<object>} See the required response shape documented above (plus `root`).
+ */
+export async function computeSloc(rootDir, options = {}) {
+    const {
+        ignoreDirs = DEFAULT_IGNORE_DIRS,
+        ignoreFiles = DEFAULT_IGNORE_FILES,
+        extensions = DEFAULT_EXTENSIONS,
+        detail = false,
+        useConfig = true,
+    } = options;
+
+    const acc = { totals: emptyCounts(), byExtension: {}, byFolder: {}, files: [], detail };
+    const found = useConfig ? await findSlocConfig(rootDir) : null;
+
+    if (found) {
+        const cfg = found.config;
+        const baseIgnoreDirs = cfg.ignoreDirs ? [...ignoreDirs, ...cfg.ignoreDirs] : ignoreDirs;
+        const baseIgnoreFiles = cfg.ignoreFiles ? [...ignoreFiles, ...cfg.ignoreFiles] : ignoreFiles;
+        const exts = cfg.extensions ?? extensions;
+
+        for (const rootSpec of cfg.roots) {
+            const spec = typeof rootSpec === 'string' ? { path: rootSpec } : rootSpec;
+            const dir = join(found.dir, spec.path);
+            const rootIgnoreDirs = spec.ignoreDirs ? [...baseIgnoreDirs, ...spec.ignoreDirs] : baseIgnoreDirs;
+            const rootIgnoreFiles = spec.ignoreFiles ? [...baseIgnoreFiles, ...spec.ignoreFiles] : baseIgnoreFiles;
+            const prefix = (spec.path === '.' || spec.path === '') ? '' : spec.path.split(sep).join('/').replace(/\/+$/, '');
+            await scanInto(dir, { ignoreDirs: rootIgnoreDirs, ignoreFiles: rootIgnoreFiles, extensions: exts, pathPrefix: prefix }, acc);
+        }
+
+        return {
+            generatedAt: new Date().toISOString(),
+            root: found.dir,
+            roots: cfg.roots.map((r) => (typeof r === 'string' ? r : r.path)),
+            totals: acc.totals,
+            byExtension: acc.byExtension,
+            byFolder: acc.byFolder,
+            ...(detail ? { files: acc.files } : {}),
+        };
+    }
+
+    await scanInto(rootDir, { ignoreDirs, ignoreFiles, extensions, pathPrefix: '' }, acc);
 
     return {
         generatedAt: new Date().toISOString(),
-        totals,
-        byExtension,
-        byFolder,
-        ...(detail ? { files } : {}),
+        root: resolve(rootDir),
+        totals: acc.totals,
+        byExtension: acc.byExtension,
+        byFolder: acc.byFolder,
+        ...(detail ? { files: acc.files } : {}),
     };
 }
 
@@ -510,7 +608,12 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-const DASHBOARD_STYLE = `
+// Exported (unlike the rest of this section) because it's pure presentation —
+// zero coupling to computeSloc's data shape — so a process-mgr-style
+// aggregator view can reuse the same look for a fleet-wide page without
+// duplicating ~140 lines of CSS. Every other server that just copies this
+// file for its own /sloc + /sloc/dashboard can ignore this export entirely.
+export const DASHBOARD_STYLE = `
 :root {
   --sloc-page: #f9f9f7;
   --sloc-surface: #fcfcfb;

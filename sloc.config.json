@@ -1,0 +1,7 @@
+{
+  "_comment": "SvelteKit web app plus a nested react-native mobile/TV app. The web root ('.') excludes react-native so the native app is counted once, under its own root with its generated android/ios (and default .expo) excluded.",
+  "roots": [
+    { "path": ".", "ignoreDirs": ["react-native"] },
+    { "path": "react-native", "ignoreDirs": ["android", "ios"] }
+  ]
+}
