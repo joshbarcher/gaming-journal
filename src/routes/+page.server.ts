@@ -77,7 +77,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 function makeShouldShow(flags: FlagsStore, settings: Settings) {
     return function shouldShow(appid: number | string): boolean {
         const f = flags[String(appid)] ?? {}
-        if (f.software)                               return false
+        if (f.software  && !settings.showSoftware)   return false
         if (f.childLock && !settings.showChildLocked) return false
         if (f.filtered  && !settings.showFiltered)   return false
         return true
@@ -144,7 +144,7 @@ export async function load(): Promise<HomeData> {
         fetchJson<HomePoster[]>(`${base}/api/games/posters?source=wishlist&n=50`),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
         getAllFlags().catch(() => ({} as FlagsStore)),
-        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true } as Settings)),
+        getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, showSoftware: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true } as Settings)),
     ])
 
     const shouldShow = makeShouldShow(flags, settings)

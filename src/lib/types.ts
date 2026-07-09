@@ -146,6 +146,7 @@ export type FlagsStore = Record<string, Flags>
 export interface Settings {
     showChildLocked:        boolean
     showFiltered:           boolean
+    showSoftware:           boolean
     hideUnavailable:        boolean
     titleBlocklist:         string[]
     discoverFiltersEnabled: boolean

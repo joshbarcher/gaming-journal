@@ -11,7 +11,7 @@ export async function loadGameFilter(): Promise<(appid: string | number) => bool
             const f = allFlags[String(appid)] ?? {}
             if (f.childLock && !settings.showChildLocked) return false
             if (f.filtered  && !settings.showFiltered)   return false
-            if (f.software)                               return false
+            if (f.software  && !settings.showSoftware)   return false
             return true
         }
     } catch {

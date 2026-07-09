@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte'
+    import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { SteamGame } from '../../types.js'
 
     const TIERS = [
@@ -36,9 +37,10 @@
 
     onMount(async () => {
         try {
-            const [flagsRes, gamesRes] = await Promise.all([
+            const [flagsRes, gamesRes, shouldShow] = await Promise.all([
                 fetch('/api/flags'),
                 fetch('/relay/api/steam/games'),
+                loadGameFilter(),
             ])
             if (!flagsRes.ok) throw new Error(`Flags HTTP ${flagsRes.status}`)
             if (!gamesRes.ok) throw new Error(`Games HTTP ${gamesRes.status}`)
@@ -47,7 +49,7 @@
             const gamesRaw = await gamesRes.json()
             const owned    = Array.isArray(gamesRaw) ? gamesRaw : (gamesRaw.games ?? [])
             const ownedMap = new Map<number, SteamGame>(owned.map((g: SteamGame) => [g.appid, g]))
-            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.completed).map(([id]) => Number(id))
+            const ids      = Object.entries(flags as Record<string, any>).filter(([, f]) => f.completed).map(([id]) => Number(id)).filter(appid => shouldShow(appid))
 
             if (!ids.length) { loading = false; return }
 

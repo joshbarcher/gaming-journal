@@ -53,6 +53,11 @@ describe('Settings component', () => {
         await waitFor(() => expect(getByText('Show Filtered Games')).toBeTruthy())
     })
 
+    it('renders the Show Software & Tools toggle', async () => {
+        const { getByText } = render(Settings)
+        await waitFor(() => expect(getByText('Show Software & Tools')).toBeTruthy())
+    })
+
     it('renders the Show Unavailable Games toggle', async () => {
         const { getByText } = render(Settings)
         await waitFor(() => expect(getByText('Show Unavailable Games')).toBeTruthy())

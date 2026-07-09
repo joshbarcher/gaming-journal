@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte'
+    import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { LocalReview, SteamGame } from '../../types.js'
 
     let allEntries = $state<[string, LocalReview][]>([])
@@ -32,13 +33,16 @@
     })
 
     onMount(async () => {
-        let reviews = {}
+        let reviews: Record<string, LocalReview> = {}
         let gm: Record<string, any> = {}
+        let shouldShow: (appid: string | number) => boolean = () => true
         try {
-            const [reviewsRes, gamesRes] = await Promise.all([
+            const [reviewsRes, gamesRes, filterFn] = await Promise.all([
                 fetch('/api/local-reviews'),
                 fetch('/relay/api/steam/games'),
+                loadGameFilter(),
             ])
+            shouldShow = filterFn
             if (reviewsRes.ok) reviews = await reviewsRes.json()
             if (gamesRes.ok) {
                 const raw = await gamesRes.json()
@@ -51,7 +55,7 @@
             return
         }
         gamesMap   = gm
-        allEntries = Object.entries(reviews)
+        allEntries = Object.entries(reviews).filter(([appid]) => shouldShow(Number(appid)))
         loading    = false
     })
 </script>

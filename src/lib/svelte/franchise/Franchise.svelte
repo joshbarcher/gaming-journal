@@ -3,6 +3,7 @@
     import { api } from '../../js/api.js'
     import { showError, confirmDialog } from '../../js/dialog.js'
     import { navigate } from '../../js/router.js'
+    import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { Franchise, FranchiseEntry, SteamGame, FlagsStore } from '../../types.js'
 
     let { franchiseId } = $props()
@@ -274,10 +275,11 @@
 
     onMount(async () => {
         try {
-            const [fr, flagsData, gamesData] = await Promise.all([
+            const [fr, flagsData, gamesData, shouldShow] = await Promise.all([
                 api.franchises.get(franchiseId),
                 fetch('/api/flags').then(r => r.json()).catch(() => ({})),
                 fetch('/relay/api/games').then(r => r.json()).catch(() => []),
+                loadGameFilter(),
             ])
             if (!fr) throw new Error('Franchise not found')
             franchise   = fr
@@ -285,7 +287,7 @@
             const games = Array.isArray(gamesData) ? gamesData : []
             ownedMap    = new Map(games.filter(g => g.source !== 'wishlist').map(g => [g.appid, g]))
             wishlistMap = new Map(games.filter(g => g.source === 'wishlist' || g.source === 'both').map(g => [g.appid, g]))
-            entries     = [...fr.entries]
+            entries     = fr.entries.filter((e: FranchiseEntry) => shouldShow(e.appid))
         } catch (err) {
             error = (err as Error).message
         } finally {

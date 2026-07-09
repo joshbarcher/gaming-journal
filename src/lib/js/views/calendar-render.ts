@@ -76,7 +76,7 @@ export function buildDayMap(
     const raw = new Map<string, Map<number, DayEntry>>()
     for (const [appidStr, game] of Object.entries(sessions)) {
         const f = flags[appidStr] ?? flags[Number(appidStr)] ?? {}
-        if (f.software)                              continue
+        if (f.software  && !settings.showSoftware)    continue
         if (f.childLock && !settings.showChildLocked) continue
         if (f.filtered  && !settings.showFiltered)    continue
         const appid = Number(appidStr)
