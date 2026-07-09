@@ -225,28 +225,58 @@
     let ctxMenu = $state<{ x: number; y: number; blockPath: number[]; label: string } | null>(null)
     let pendingPinPath = $state<number[] | null>(null)
 
-    function loadPins() {
+    const pinsApiUrl = `/relay/api/guides/${appid}/${source}/${encodeURIComponent(guideId)}/pins`
+
+    // Legacy per-browser pins from before pins moved server-side. Read once so they can be
+    // migrated up to the server, then cleared.
+    function readLegacyLocalPins(): PinStore {
         try {
             const raw = localStorage.getItem(pinsKey)
-            if (!raw) { pins = []; return }
-            const stored: PinStore = JSON.parse(raw)
-            const currentParsedAt = meta?.parsedAt ?? null
-            // If parsedAt changed the guide was re-downloaded — pins are stale
-            if (currentParsedAt && stored.parsedAt && stored.parsedAt !== currentParsedAt) {
-                pins = []
-                localStorage.removeItem(pinsKey)
-                staleNotice = true
-            } else {
-                pins = stored.pins ?? []
+            if (!raw) return { parsedAt: null, pins: [] }
+            const s = JSON.parse(raw)
+            return { parsedAt: s.parsedAt ?? null, pins: Array.isArray(s.pins) ? s.pins : [] }
+        } catch { return { parsedAt: null, pins: [] } }
+    }
+
+    async function loadPins() {
+        let server: PinStore = { parsedAt: null, pins: [] }
+        try {
+            const res = await fetch(pinsApiUrl)
+            if (res.ok) server = await res.json()
+        } catch { /* offline — fall through to empty/legacy */ }
+
+        let list        = Array.isArray(server.pins) ? server.pins : []
+        let listParsedAt = server.parsedAt ?? null
+
+        // One-time migration: if the server has none yet, adopt any legacy localStorage pins.
+        if (list.length === 0) {
+            const legacy = readLegacyLocalPins()
+            if (legacy.pins.length) {
+                list = legacy.pins
+                listParsedAt = legacy.parsedAt
+                savePins(list)
             }
-        } catch { pins = [] }
+            try { localStorage.removeItem(pinsKey) } catch {}
+        }
+
+        // If the guide was re-downloaded since these pins were saved, their blockPaths may no
+        // longer line up — clear them and flag the notice (semantics unchanged).
+        const currentParsedAt = meta?.parsedAt ?? null
+        if (currentParsedAt && listParsedAt && listParsedAt !== currentParsedAt) {
+            pins = []
+            savePins([])
+            staleNotice = true
+        } else {
+            pins = list
+        }
     }
 
     function savePins(updated: Pin[]) {
-        try {
-            const store: PinStore = { parsedAt: meta?.parsedAt ?? null, pins: updated }
-            localStorage.setItem(pinsKey, JSON.stringify(store))
-        } catch {}
+        fetch(pinsApiUrl, {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ parsedAt: meta?.parsedAt ?? null, pins: updated }),
+        }).catch(() => {})
     }
 
     function deletePin(id: string) {
@@ -643,7 +673,7 @@
         try {
             await loadMeta()
             fetch(`/relay/api/guides/${appid}/${source}/${guideId}/mark-used`, { method: 'POST' }).catch(() => {})
-            loadPins()
+            await loadPins()
             if (section) {
                 await loadSection(section)
             }
