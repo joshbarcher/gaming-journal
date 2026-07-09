@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
             exclude:     ['src/tests/e2e/**', 'node_modules/**'],
             coverage: {
                 provider: 'v8',
+                reporter: ['text', 'html', 'json-summary'],
                 include:  ['src/lib/**'],
                 exclude:  ['src/lib/**/*.svelte', 'src/tests/**'],
             },

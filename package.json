@@ -8,6 +8,7 @@
         "preview": "node --env-file .env build/index.js",
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
+        "posttest:coverage": "node coverage.js --snapshot",
         "test:watch": "vitest",
         "typecheck": "svelte-check --tsconfig ./tsconfig.json",
         "verify-contracts": "tsx scripts/verify-contracts.ts"

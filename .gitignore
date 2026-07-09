@@ -7,6 +7,10 @@ build.old/
 dist/
 package-lock.json
 
+# Coverage — the generated report dir is ignored (anchored so it does NOT match
+# the SvelteKit route dir src/routes/coverage/); the committed snapshot is not.
+/coverage/
+
 # Env - .env/.env.production are committed (see docs/local-vs-nas-data-dir.md
 # in course-journal for the pattern); .env.local is the escape hatch for an
 # actual secret, should one ever be needed.
