@@ -90,6 +90,11 @@
             return
         }
 
+        // Links out to the live source (gv-link-external) — let the browser open them.
+        // Checked before the fragment logic below, which would otherwise treat the
+        // "#Section" in a URL like https://…/wiki/Title#Section as an in-page anchor.
+        if (/^[a-z][a-z0-9+\-.]*:\/\//i.test(href)) return
+
         const hashIdx = href.indexOf('#')
         if (hashIdx === -1) return
         e.preventDefault()

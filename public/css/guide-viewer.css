@@ -599,8 +599,12 @@
     cursor: help;
 }
 
-/* Links to wiki pages not included in the downloaded guide — opens live wiki */
-.gv-link-external {
+/* Links to pages not included in the downloaded guide — opens the live source.
+   Needs the `.gv-p a` / `.gv-list a` prefixes to outrank the accent colour those
+   rules set; a bare `.gv-link-external` loses on specificity and only the ↗ shows. */
+.gv-link-external,
+.gv-p a.gv-link-external,
+.gv-list a.gv-link-external {
     color: #7eb8f5;
     text-decoration: underline;
     text-decoration-color: rgba(126, 184, 245, 0.4);
