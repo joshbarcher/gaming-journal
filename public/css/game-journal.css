@@ -2235,22 +2235,20 @@ div.gj-ach-badge {
 /* ── Guides modal — multi-source tabs ─────────────────────────────────────── */
 
 .gm-source-tabs {
-    display: flex;
-    align-items: center;
-    padding: 0 18px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 4px 18px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
     gap: 2px;
 }
-
-.gm-source-tabs::-webkit-scrollbar { display: none; }
 
 .gm-source-tab {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
+    min-width: 0;
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
@@ -2262,8 +2260,6 @@ div.gj-ach-badge {
     padding: 8px 10px;
     transition: color 0.15s, border-color 0.15s;
     white-space: nowrap;
-    margin-bottom: -1px;
-    flex-shrink: 0;
 }
 
 .gm-source-tab:hover { color: var(--clr-text); }
@@ -2311,11 +2307,11 @@ div.gj-ach-badge {
 }
 
 .gm-source-tabs-end {
-    margin-left: auto;
-    padding-left: 8px;
-    flex-shrink: 0;
+    grid-column: 1 / -1;
     display: flex;
+    justify-content: flex-end;
     align-items: center;
+    padding: 4px 0;
 }
 
 .gm-refresh-all-btn {
