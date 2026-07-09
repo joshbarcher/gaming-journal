@@ -42,7 +42,9 @@
 
     function imgUrl(localSrc: string): string {
         const filename = localSrc.replace(/^img\//, '').replace(/\.[^.]+$/, '.webp')
-        const sectionEncoded = encodeURIComponent(section)
+        // `section` can carry a #anchor when navigated via an anchored link; the
+        // image lives under the base-slug directory, so drop the fragment.
+        const sectionEncoded = encodeURIComponent(section.split('#')[0])
         return `/relay/guides-img/${steamId}/${source}/${guideId}/${sectionEncoded}/img/${filename}`
     }
 </script>
