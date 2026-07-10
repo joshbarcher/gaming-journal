@@ -18,28 +18,37 @@ export function GuideTocHost() {
     const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
     const [pinsOpen, setPinsOpen] = useState(true)
 
-    // Port of autoOpenGroupFor(): open whichever group directly contains the current slug (as
-    // itself or a child) each time the drawer opens for a given page — not all groups, just the
-    // relevant one(s), matching the web exactly.
+    // Port of autoOpenGroupFor(): open every group on the path to the current slug — groups nest
+    // (IGN: Walkthrough › Calendar › June) — each time the drawer opens for a given page. Not all
+    // groups, just the ancestors, matching the web exactly.
     useEffect(() => {
         if (!visible || !meta?.navTree) return
-        const toOpen: string[] = []
-        for (const item of (meta.navTree as NavItem[])) {
-            if (item.type === 'group' && (item.slug === currentSlug || item.children?.some(c => c.type === 'link' && c.slug === currentSlug))) {
-                toOpen.push(item.label)
+
+        function pathTo(items: NavItem[]): string[] | null {
+            for (const item of items) {
+                if (item.type === 'group') {
+                    if (item.slug === currentSlug) return [groupKey(item)]
+                    const below = pathTo((item.children ?? []) as NavItem[])
+                    if (below) return [groupKey(item), ...below]
+                } else if ((item as any).slug === currentSlug) {
+                    return []
+                }
             }
+            return null
         }
-        if (toOpen.length) setOpenGroups(prev => new Set([...prev, ...toOpen]))
+
+        const toOpen = pathTo(meta.navTree as NavItem[])
+        if (toOpen?.length) setOpenGroups(prev => new Set([...prev, ...toOpen]))
         // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the drawer opens or the target page changes
     }, [visible, currentSlug])
 
     if (!visible || !appid || !meta) return null
 
-    function toggleGroup(label: string) {
+    function toggleGroup(key: string) {
         setOpenGroups(prev => {
             const next = new Set(prev)
-            if (next.has(label)) next.delete(label)
-            else next.add(label)
+            if (next.has(key)) next.delete(key)
+            else next.add(key)
             return next
         })
     }
@@ -138,11 +147,16 @@ export function GuideTocHost() {
     )
 }
 
+// Groups nest, so labels alone can collide across branches — key by slug when present.
+function groupKey(item: any): string {
+    return item.slug ?? item.label
+}
+
 function NavRow({ item, currentSlug, openGroups, onToggleGroup, onNav, depth }: {
     item: NavItem
     currentSlug: string | null
     openGroups: Set<string>
-    onToggleGroup: (label: string) => void
+    onToggleGroup: (key: string) => void
     onNav: (slug: string) => void
     depth: number
 }) {
@@ -158,10 +172,11 @@ function NavRow({ item, currentSlug, openGroups, onToggleGroup, onNav, depth }: 
     }
     // group — header only ever toggles open/closed, never navigates directly, matching
     // `.gv-toc-group-hd`'s real onclick (toggleGroup only, even when item.slug exists).
-    const open = openGroups.has(item.label)
+    const key  = groupKey(item)
+    const open = openGroups.has(key)
     return (
-        <View>
-            <Pressable style={styles.groupHd} onPress={() => onToggleGroup(item.label)}>
+        <View style={depth > 0 && styles.groupNested}>
+            <Pressable style={styles.groupHd} onPress={() => onToggleGroup(key)}>
                 <Text style={styles.groupHdText}>{open ? '▾' : '▸'} {item.label}</Text>
             </Pressable>
             {open && item.children?.map((child, i) => (
@@ -189,6 +204,7 @@ const styles = StyleSheet.create({
     linkText: { color: colors.text, fontFamily: fonts.ui, fontSize: 14 },
     linkTextActive: { color: colors.accent, fontFamily: fonts.uiBold },
     groupHd: { paddingVertical: spacing.sm, paddingHorizontal: spacing.xs },
+    groupNested: { paddingLeft: spacing.md },
     groupHdText: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 14 },
     author: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12, marginTop: spacing.md, textAlign: 'center' },
     staleBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(230,180,60,0.15)', borderRadius: 4, padding: spacing.xs, marginBottom: spacing.sm },

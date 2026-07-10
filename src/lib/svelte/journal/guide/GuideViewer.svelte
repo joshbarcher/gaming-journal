@@ -165,21 +165,39 @@
 
     let openGroups = $state<Set<string>>(new Set())
 
-    function toggleGroup(label: string) {
+    // Groups nest, so labels alone can collide across branches — key by slug when present.
+    function groupKey(item: any): string {
+        return item.slug ?? item.label
+    }
+
+    function toggleGroup(key: string) {
         const next = new Set(openGroups)
-        if (next.has(label)) next.delete(label)
-        else next.add(label)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
         openGroups = next
     }
 
+    // Open every group on the path to `slug`, at any depth.
     function autoOpenGroupFor(slug: string) {
         const tree = filteredNavTree
         if (!tree) return
-        const toOpen = (tree as any[])
-            .filter(item => item.type === 'group' &&
-                (item.slug === slug || item.children?.some((c: any) => c.slug === slug)))
-            .map(item => item.label)
-        if (toOpen.length) openGroups = new Set([...openGroups, ...toOpen])
+
+        function pathTo(items: any[]): string[] | null {
+            for (const item of items) {
+                if (item.type === 'group') {
+                    // Viewing a group's own page opens that group too.
+                    if (item.slug === slug) return [groupKey(item)]
+                    const below = pathTo(item.children ?? [])
+                    if (below) return [groupKey(item), ...below]
+                } else if (item.slug === slug) {
+                    return []
+                }
+            }
+            return null
+        }
+
+        const toOpen = pathTo(tree as any[])
+        if (toOpen?.length) openGroups = new Set([...openGroups, ...toOpen])
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────
@@ -765,14 +783,16 @@
         // raw slugs for sources with numeric IDs (e.g. Game8 archive IDs).
         const tree = meta.navTree as any[] | null
         if (tree) {
-            for (const item of tree) {
-                if (item.type === 'link' && item.slug === currentSlug) return item.label as string
-                if (item.type === 'group') {
-                    for (const child of (item.children ?? []) as any[]) {
-                        if (child.slug === currentSlug) return child.label as string
-                    }
+            const find = (items: any[]): string | null => {
+                for (const item of items) {
+                    if (item.slug === currentSlug) return item.label as string
+                    const below = item.children ? find(item.children as any[]) : null
+                    if (below) return below
                 }
+                return null
             }
+            const label = find(tree)
+            if (label) return label
         }
         const pages = meta.pages ?? meta.nav ?? []
         return pages.find((p: any) => p.slug === currentSlug)?.label ?? currentSlug
@@ -949,36 +969,37 @@
                         {/if}
 
                         <!-- ── TOC nav tree ── -->
+                        <!-- Recursive: IGN nests groups inside groups (Walkthrough › Calendar › June). -->
+                        {#snippet tocItems(items: any[], depth: number)}
+                            {#each items as item}
+                                {#if item.type === 'label'}
+                                    <span class="gv-toc-label">{item.label}</span>
+                                {:else if item.type === 'link'}
+                                    <button
+                                        class="gv-toc-link"
+                                        class:gv-toc-link--child={depth > 0}
+                                        class:gv-toc-link--active={isActive(item.slug)}
+                                        onclick={() => navTo(item.slug)}
+                                    >{item.label}</button>
+                                {:else if item.type === 'group'}
+                                    {@const key = groupKey(item)}
+                                    <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(key)}>
+                                        <button class="gv-toc-group-hd" onclick={() => toggleGroup(key)}>
+                                            {item.label}
+                                        </button>
+                                        {#if openGroups.has(key)}
+                                            <div class="gv-toc-group-body">
+                                                {@render tocItems(item.children ?? [], depth + 1)}
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            {/each}
+                        {/snippet}
+
                         {#if filteredNavTree?.length}
                             <nav class="gv-toc">
-                                {#each filteredNavTree as item}
-                                    {#if item.type === 'label'}
-                                        <span class="gv-toc-label">{item.label}</span>
-                                    {:else if item.type === 'link'}
-                                        <button
-                                            class="gv-toc-link"
-                                            class:gv-toc-link--active={isActive(item.slug)}
-                                            onclick={() => navTo(item.slug)}
-                                        >{item.label}</button>
-                                    {:else if item.type === 'group'}
-                                        <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(item.label)}>
-                                            <button class="gv-toc-group-hd" onclick={() => toggleGroup(item.label)}>
-                                                {item.label}
-                                            </button>
-                                            {#if openGroups.has(item.label)}
-                                                <div class="gv-toc-group-body">
-                                                    {#each item.children as child}
-                                                        <button
-                                                            class="gv-toc-link gv-toc-link--child"
-                                                            class:gv-toc-link--active={isActive(child.slug)}
-                                                            onclick={() => navTo(child.slug)}
-                                                        >{child.label}</button>
-                                                    {/each}
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    {/if}
-                                {/each}
+                                {@render tocItems(filteredNavTree, 0)}
                             </nav>
                         {:else}
                             <nav class="gv-toc">

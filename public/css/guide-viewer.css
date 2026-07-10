@@ -552,6 +552,32 @@
     background: var(--clr-bg);
 }
 
+/* Nested groups (IGN: Walkthrough › Calendar › June) — lighter than a top-level
+   group so depth reads at a glance instead of stacking identical gold boxes. */
+.gv-toc-group-body .gv-toc-group {
+    margin-top: 3px;
+}
+
+.gv-toc-group-body .gv-toc-group-hd {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 8px;
+    background: none;
+    border-color: rgba(201, 168, 76, 0.16);
+    color: color-mix(in srgb, var(--clr-accent) 80%, var(--clr-text) 20%);
+}
+
+.gv-toc-group-body .gv-toc-group-hd:hover,
+.gv-toc-group-body .gv-toc-group--open .gv-toc-group-hd {
+    background: rgba(201, 168, 76, 0.05);
+    border-color: rgba(201, 168, 76, 0.3);
+}
+
+.gv-toc-group-body .gv-toc-group-body {
+    border-color: rgba(201, 168, 76, 0.18);
+    background: none;
+}
+
 /* ── Inline markup from guide HTML ───────────────────────────────────────── */
 
 .gv-p a,
