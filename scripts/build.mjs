@@ -86,25 +86,56 @@ const OLD = path.join(dir, 'build.old');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// On Windows, a directory rename can transiently EPERM/EBUSY - either
-// something else (an editor's file watcher, an AV real-time scan, a search
-// indexer) briefly opened a file inside it right after vite wrote it, or
-// NTFS just hasn't finished releasing a path's metadata after it was
-// deleted/replaced moments earlier. Neither is a real lock; both clear on
-// their own within a few seconds. Harmless to retry the same way on
-// Linux, where this doesn't happen - rename either succeeds immediately
-// or fails for a real reason, in which case this still surfaces that
-// error after retrying.
+const isLockError = (err) => err.code === 'EPERM' || err.code === 'EBUSY';
+
+// On Windows a directory cannot be renamed while any process holds an open
+// handle to it or to a directory beneath it, and the rename fails with
+// EPERM/EBUSY. Two very different things produce that same code:
+//
+//   Transient - an AV real-time scan or a search indexer briefly opened a
+//   file vite just wrote, or NTFS hasn't finished releasing a path's
+//   metadata. These clear on their own within a few seconds, which is what
+//   retrying buys us.
+//
+//   Persistent - a long-lived directory watcher, almost always a `vite dev`
+//   server still running against this project, or an Explorer window or
+//   shell sitting inside the directory. No amount of retrying will help;
+//   the holder has to be stopped.
+//
+// Retrying is harmless on Linux, where neither case happens - rename either
+// succeeds immediately or fails for a real reason, which still surfaces
+// after the retries.
 async function renameWithRetry(from, to, attempts = 20, delayMs = 300) {
     for (let i = 0; i < attempts; i++) {
         try {
             renameSync(from, to);
             return;
         } catch (err) {
-            if ((err.code !== 'EPERM' && err.code !== 'EBUSY') || i === attempts - 1) throw err;
+            if (!isLockError(err)) throw err;
+            if (i === attempts - 1) throw lockError(from, to, err, attempts, delayMs);
             await sleep(delayMs);
         }
     }
+}
+
+// A bare `EPERM: operation not permitted, rename` says nothing about why,
+// and the retry loop means it only appears after several silent seconds -
+// long enough to read as a hang. Say what actually holds the directory and
+// what state the tree was left in.
+function lockError(from, to, cause, attempts, delayMs) {
+    const seconds = ((attempts * delayMs) / 1000).toFixed(1);
+    return new Error(
+        `${cause.code} renaming ${path.basename(from)} -> ${path.basename(to)} ` +
+            `after ${attempts} attempts over ${seconds}s.\n\n` +
+            `Some process holds an open handle on ${path.basename(from)} or a directory ` +
+            `inside it. Retrying only clears transient holders (AV scan, search indexer); ` +
+            `this one is persistent.\n\n` +
+            `The usual culprit is a \`vite dev\` / \`npm run dev\` server still running ` +
+            `against this project, or an Explorer window or shell sitting inside the ` +
+            `directory. Stop it and re-run \`npm run build\`.\n\n` +
+            `To identify the holder:  handle64.exe "${from}"   (Sysinternals)`,
+        { cause },
+    );
 }
 
 rmSync(path.join(dir, '.svelte-kit'), { recursive: true, force: true });
@@ -122,6 +153,30 @@ execSync(`"${process.execPath}" "${path.join(dir, 'node_modules/vite/bin/vite.js
     env: { ...process.env, BUILD_OUT_DIR: 'build.staging' },
 });
 
+// The swap is two renames, and only the first one is guaranteed to be
+// undoable. If `build.staging` -> `build` fails - and it can, because
+// staging is a freshly-written tree and so exactly the kind a watcher or
+// scanner latches onto - we've already moved `build` out of the way, and
+// bailing here would leave no `build/` at all: a running server starts
+// 404ing every asset it hasn't already cached. Put it back before rethrowing
+// so a failed swap is always a no-op rather than an outage.
 if (existsSync(LIVE)) await renameWithRetry(LIVE, OLD);
-await renameWithRetry(STAGING, LIVE);
+try {
+    await renameWithRetry(STAGING, LIVE);
+} catch (err) {
+    if (!existsSync(LIVE) && existsSync(OLD)) {
+        try {
+            renameSync(OLD, LIVE);
+        } catch (rollbackErr) {
+            throw new Error(
+                `${err.message}\n\n` +
+                    `Rollback also failed: could not restore build.old -> build ` +
+                    `(${rollbackErr.code}). The live build/ directory is MISSING. ` +
+                    `Restore it by hand: rename build.old to build.`,
+                { cause: err },
+            );
+        }
+    }
+    throw err;
+}
 rmSync(OLD, { recursive: true, force: true });
