@@ -1280,9 +1280,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
     gap: 6px;
+    /* Default `stretch` — every tile matches the tallest in its row, so a long
+       note never leaves its neighbours as stubs. */
+    align-items: stretch;
 }
-
-.pcgw-feature-grid { align-items: start; }
 
 .pcgw-feature-tile {
     display: flex;
