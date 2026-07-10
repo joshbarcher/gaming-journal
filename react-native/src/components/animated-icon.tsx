@@ -33,7 +33,7 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = <Image style={styles.splashLogo} contentFit="contain" source={require('@/assets/images/logo.webp')} />;
 
   return animate ? (
     <Animated.View
@@ -130,6 +130,10 @@ const styles = StyleSheet.create({
   image: {
     width: 76,
     height: 71,
+  },
+  splashLogo: {
+    width: 140,
+    height: 140,
   },
   background: {
     borderRadius: 40,
