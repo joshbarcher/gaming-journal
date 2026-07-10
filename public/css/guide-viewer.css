@@ -572,12 +572,15 @@
     color: var(--clr-text);
 }
 
+/* <em> is emphasis. It was painted --clr-text-muted, which de-emphasised it and computed
+   to 3.2:1 against the guide background — under the 4.5 AA floor, and unreadable next to
+   the warm dark bg. The secondary accent emphasises instead, at 9.2:1. */
 .gv-p em,
 .gv-p i,
 .gv-list em,
 .gv-list i {
     font-style: italic;
-    color: var(--clr-text-muted);
+    color: var(--clr-accent-2);
 }
 
 /* Text that was an outbound link before the parser stripped the anchor. Emphasis, not

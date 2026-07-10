@@ -11,9 +11,10 @@
     --clr-accent:       #c9a84c;
     --clr-accent-bg:    rgba(201, 168, 76, 0.08);
     /* Secondary accent: emphasis that is not a link. Warm enough to sit beside the gold
-       accent, far enough in hue not to read as one. */
-    --clr-accent-2:     #cf8873;
-    --clr-accent-2-bg:  rgba(207, 136, 115, 0.10);
+       accent, ~30° off in hue so it never reads as one. 9.2:1 on --clr-bg; the muted grey
+       it replaced for <em> was 3.2:1, under the 4.5 AA floor. */
+    --clr-accent-2:     #e0a996;
+    --clr-accent-2-bg:  rgba(224, 169, 150, 0.10);
     --clr-progress:     #4ecdc4;
     --clr-progress-bg:  rgba(78, 205, 196, 0.12);
     --font-title:       'Cinzel', Georgia, 'Times New Roman', serif;

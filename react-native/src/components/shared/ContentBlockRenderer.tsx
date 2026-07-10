@@ -338,6 +338,9 @@ const tagsStyles = {
     a: { color: colors.accent, textDecorationLine: 'underline' as const },
     strong: { fontFamily: fonts.uiBold },
     b: { fontFamily: fonts.uiBold },
+    // Emphasis, not de-emphasis — mirrors guide-viewer.css.
+    em: { color: colors.accent2 },
+    i: { color: colors.accent2 },
 }
 
 // `.gv-keyword` wraps text the parser stripped an outbound anchor from. Styled as
