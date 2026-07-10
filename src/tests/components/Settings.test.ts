@@ -43,24 +43,24 @@ describe('Settings component', () => {
         await waitFor(() => expect(getByText('Wishlist')).toBeTruthy())
     })
 
-    it('renders the Show Child Locked Games toggle', async () => {
+    it('renders the Hide Child Locked Games toggle', async () => {
         const { getByText } = render(Settings)
-        await waitFor(() => expect(getByText('Show Child Locked Games')).toBeTruthy())
+        await waitFor(() => expect(getByText('Hide Child Locked Games')).toBeTruthy())
     })
 
-    it('renders the Show Filtered Games toggle', async () => {
+    it('renders the Hide Filtered Games toggle', async () => {
         const { getByText } = render(Settings)
-        await waitFor(() => expect(getByText('Show Filtered Games')).toBeTruthy())
+        await waitFor(() => expect(getByText('Hide Filtered Games')).toBeTruthy())
     })
 
-    it('renders the Show Software & Tools toggle', async () => {
+    it('renders the Hide Software & Tools toggle', async () => {
         const { getByText } = render(Settings)
-        await waitFor(() => expect(getByText('Show Software & Tools')).toBeTruthy())
+        await waitFor(() => expect(getByText('Hide Software & Tools')).toBeTruthy())
     })
 
-    it('renders the Show Unavailable Games toggle', async () => {
+    it('renders the Hide Unavailable Games toggle', async () => {
         const { getByText } = render(Settings)
-        await waitFor(() => expect(getByText('Show Unavailable Games')).toBeTruthy())
+        await waitFor(() => expect(getByText('Hide Unavailable Games')).toBeTruthy())
     })
 
     it('shows error state when fetch fails', async () => {

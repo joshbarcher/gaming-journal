@@ -19,11 +19,11 @@ import type { Settings } from 'gaming-journal-contracts/settings'
 // Optimistic update with rollback on every toggle (`onToggle`/`saveBlocklist` in the real
 // component) — update local state immediately, PATCH, revert to the pre-change value on failure.
 //
-// **`hideUnavailable` inversion, replicated exactly, not "fixed"**: the UI toggle reads "Show
-// Unavailable Games" but the underlying field means the opposite — checked (show unavailable = on)
-// → `hideUnavailable: false`; unchecked → `hideUnavailable: true`. The real component's own
-// `onToggle` special-cases this one key (`key === 'hideUnavailable' ? !checked : checked`) —
-// ported that exact inversion, applied to no other setting.
+// **Unified toggle polarity — ON = hide, OFF = show, across every content filter.** Some settings
+// are stored as "show X" (true = visible), so those rows pass `invert=true` to `onToggle` and the
+// switch renders the negation of the stored value (`value={!settings.showChildLocked}`). Settings
+// already stored as "hide X" (e.g. `hideUnavailable`, true = hidden) pass no invert flag. This
+// mirrors the web `Settings.svelte`, whose `onToggle(key, checked, invert)` uses the same rule.
 //
 // **Dual write for the title blocklist, replicated exactly**: every blocklist change PATCHes
 // `/api/settings` AND mirrors the full list to the AsyncStorage key `disc-title-blocklist` (the RN
@@ -62,9 +62,12 @@ export default function SettingsScreen() {
         }
     }, [flagsQuery.data])
 
-    async function onToggle(key: keyof Settings, checked: boolean) {
+    // Every content-filter toggle in the UI means the same thing: ON = hide, OFF = show.
+    // Some underlying settings are stored the opposite way ("show X" = true means visible),
+    // so those rows pass invert=true — the UI switch is the negation of the stored value.
+    async function onToggle(key: keyof Settings, checked: boolean, invert = false) {
         const prev = settings[key]
-        const nextValue = key === 'hideUnavailable' ? !checked : checked
+        const nextValue = invert ? !checked : checked
         setSettings(s => ({ ...s, [key]: nextValue }))
         try {
             await patchSettings({ [key]: nextValue })
@@ -129,22 +132,22 @@ export default function SettingsScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Content Filters</Text>
                         <Text style={styles.sectionDesc}>
-                            Games flagged as Child Lock or Filtered are hidden from all lists by default. Toggle these on to reveal them.
+                            Every toggle here works the same way: on hides, off shows. Games flagged as Child Lock or Filtered are hidden by default — turn a toggle off to reveal them.
                         </Text>
 
                         <ToggleRow
-                            label="Show Child Locked Games"
+                            label="Hide Child Locked Games"
                             count={flagCounts.childLocked}
-                            desc="Reveal games flagged with the child lock in library, wishlist, and all other lists."
-                            value={!!settings.showChildLocked}
-                            onChange={(v) => onToggle('showChildLocked', v)}
+                            desc="Hide games flagged with the child lock from library, wishlist, and all other lists."
+                            value={!settings.showChildLocked}
+                            onChange={(v) => onToggle('showChildLocked', v, true)}
                         />
                         <ToggleRow
-                            label="Show Filtered Games"
+                            label="Hide Filtered Games"
                             count={flagCounts.filtered}
-                            desc="Reveal games flagged as filtered (political themes, personal preference, etc.)."
-                            value={!!settings.showFiltered}
-                            onChange={(v) => onToggle('showFiltered', v)}
+                            desc="Hide games flagged as filtered (political themes, personal preference, etc.)."
+                            value={!settings.showFiltered}
+                            onChange={(v) => onToggle('showFiltered', v, true)}
                         />
                         <ToggleRow
                             label="Enable Discovery Filters"
@@ -203,9 +206,9 @@ export default function SettingsScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Wishlist</Text>
                         <ToggleRow
-                            label="Show Unavailable Games"
-                            desc="Show wishlist items that are no longer available on the Steam store."
-                            value={!settings.hideUnavailable}
+                            label="Hide Unavailable Games"
+                            desc="Hide wishlist items that are no longer available on the Steam store."
+                            value={!!settings.hideUnavailable}
                             onChange={(v) => onToggle('hideUnavailable', v)}
                         />
                     </View>

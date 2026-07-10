@@ -52,5 +52,5 @@ ITAD data is fetched per-game by the relay and may not be available for all titl
 
 ## Gotchas
 
-- **`hideUnavailable` inverted toggle**: the Settings page has a "Show Unavailable Games" toggle (`hideUnavailable = !checked`), while the wishlist page has a "Hide Unavailable" button that sets `hideUnavailable = true`. The Settings value persists; the wishlist button is session-only.
+- **`hideUnavailable` set in two places**: the Settings page has a "Hide Unavailable Games" toggle (ON = hide, stored directly as `hideUnavailable = checked`), while the wishlist page has a "Hide Unavailable" button that sets `hideUnavailable = true`. The Settings value persists; the wishlist button is session-only.
 - **Sort by Release Date**: coming-soon games with no known date sort as `9999-99-99` (last when ascending, first when descending). Games with `store.comingSoon = true` but no ISO date also sort as `9999-99-99`.

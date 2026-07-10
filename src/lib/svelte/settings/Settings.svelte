@@ -31,9 +31,12 @@
         loading = false
     })
 
-    async function onToggle(key: keyof Settings, checked: boolean) {
+    // Every content-filter toggle in the UI means the same thing: ON = hide, OFF = show.
+    // Some underlying settings are stored the opposite way ("show X" = true means visible),
+    // so those rows pass invert=true — the UI checkbox is the negation of the stored value.
+    async function onToggle(key: keyof Settings, checked: boolean, invert = false) {
         const prev = settings[key]
-        settings[key] = key === 'hideUnavailable' ? !checked : checked
+        settings[key] = invert ? !checked : checked
         try {
             const res = await fetch('/api/settings', {
                 method:  'PATCH',
@@ -86,23 +89,23 @@
         <section class="settings-section">
             <h2 class="settings-section-title">Content Filters</h2>
             <p class="settings-section-desc">
-                Games flagged as Child Lock or Filtered are hidden from all lists by default.
-                Toggle these on to reveal them.
+                Every toggle here works the same way: <strong>on hides, off shows</strong>.
+                Games flagged as Child Lock or Filtered are hidden by default — turn a toggle off to reveal them.
             </p>
 
             <label class="settings-toggle-row">
                 <div class="settings-toggle-text">
                     <span class="settings-toggle-label">
-                        Show Child Locked Games
+                        Hide Child Locked Games
                         {#if flagCounts.childLocked > 0}
                             <span class="settings-filter-count">{flagCounts.childLocked} game{flagCounts.childLocked === 1 ? '' : 's'}</span>
                         {/if}
                     </span>
-                    <span class="settings-toggle-desc">Reveal games flagged with the child lock in library, wishlist, and all other lists.</span>
+                    <span class="settings-toggle-desc">Hide games flagged with the child lock from library, wishlist, and all other lists.</span>
                 </div>
                 <div class="settings-toggle-switch">
-                    <input type="checkbox" checked={settings.showChildLocked}
-                           onchange={(e) => onToggle('showChildLocked', e.currentTarget.checked)}>
+                    <input type="checkbox" checked={!settings.showChildLocked}
+                           onchange={(e) => onToggle('showChildLocked', e.currentTarget.checked, true)}>
                     <span class="settings-toggle-track"></span>
                 </div>
             </label>
@@ -110,28 +113,28 @@
             <label class="settings-toggle-row">
                 <div class="settings-toggle-text">
                     <span class="settings-toggle-label">
-                        Show Filtered Games
+                        Hide Filtered Games
                         {#if flagCounts.filtered > 0}
                             <span class="settings-filter-count">{flagCounts.filtered} game{flagCounts.filtered === 1 ? '' : 's'}</span>
                         {/if}
                     </span>
-                    <span class="settings-toggle-desc">Reveal games flagged as filtered (political themes, personal preference, etc.).</span>
+                    <span class="settings-toggle-desc">Hide games flagged as filtered (political themes, personal preference, etc.).</span>
                 </div>
                 <div class="settings-toggle-switch">
-                    <input type="checkbox" checked={settings.showFiltered}
-                           onchange={(e) => onToggle('showFiltered', e.currentTarget.checked)}>
+                    <input type="checkbox" checked={!settings.showFiltered}
+                           onchange={(e) => onToggle('showFiltered', e.currentTarget.checked, true)}>
                     <span class="settings-toggle-track"></span>
                 </div>
             </label>
 
             <label class="settings-toggle-row">
                 <div class="settings-toggle-text">
-                    <span class="settings-toggle-label">Show Software &amp; Tools</span>
-                    <span class="settings-toggle-desc">Reveal apps flagged as Software / Tool (e.g. Wallpaper Engine). These are hidden from all lists by default so they don't clutter your game collection.</span>
+                    <span class="settings-toggle-label">Hide Software &amp; Tools</span>
+                    <span class="settings-toggle-desc">Hide apps flagged as Software / Tool (e.g. Wallpaper Engine) so they don't clutter your game collection.</span>
                 </div>
                 <div class="settings-toggle-switch">
-                    <input type="checkbox" checked={settings.showSoftware}
-                           onchange={(e) => onToggle('showSoftware', e.currentTarget.checked)}>
+                    <input type="checkbox" checked={!settings.showSoftware}
+                           onchange={(e) => onToggle('showSoftware', e.currentTarget.checked, true)}>
                     <span class="settings-toggle-track"></span>
                 </div>
             </label>
@@ -206,11 +209,11 @@
             <h2 class="settings-section-title">Wishlist</h2>
             <label class="settings-toggle-row">
                 <div class="settings-toggle-text">
-                    <span class="settings-toggle-label">Show Unavailable Games</span>
-                    <span class="settings-toggle-desc">Show wishlist items that are no longer available on the Steam store.</span>
+                    <span class="settings-toggle-label">Hide Unavailable Games</span>
+                    <span class="settings-toggle-desc">Hide wishlist items that are no longer available on the Steam store.</span>
                 </div>
                 <div class="settings-toggle-switch">
-                    <input type="checkbox" checked={!settings.hideUnavailable}
+                    <input type="checkbox" checked={settings.hideUnavailable}
                            onchange={(e) => onToggle('hideUnavailable', e.currentTarget.checked)}>
                     <span class="settings-toggle-track"></span>
                 </div>
