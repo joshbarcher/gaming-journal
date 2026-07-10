@@ -1,9 +1,10 @@
 export interface MenuItem {
     label:     string
-    action?:   () => void
+    action?:   (checked?: boolean) => void | Promise<void>
     danger?:   boolean
     disabled?: boolean
     external?: boolean // shows a "opens in new tab" affordance
+    checked?:  boolean // when a boolean, renders a toggle with a checkmark; clicking flips it and keeps the menu open
     submenu?:  ContextMenuItem[] | (() => Promise<ContextMenuItem[]>)
 }
 
@@ -11,6 +12,9 @@ export type ContextMenuItem = MenuItem | 'separator'
 
 // lucide "external-link" icon — fixed markup, never built from untrusted data
 const EXTERNAL_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`
+
+// lucide "check" icon — fixed markup, shown only when a checkable item is on
+const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
 
 function _externalIcon(): Element {
     const wrapper = document.createElement('div')
@@ -51,12 +55,24 @@ function _buildLevel(items: ContextMenuItem[], depth: number): HTMLElement {
             continue
         }
 
+        const isCheckable = typeof item.checked === 'boolean'
+
         const btn = document.createElement('button')
         btn.className = 'ctx-menu-item'
             + (item.danger ? ' ctx-menu-item--danger' : '')
             + (item.submenu ? ' ctx-menu-item--has-submenu' : '')
             + (item.external ? ' ctx-menu-item--external' : '')
-        if (item.external) {
+            + (isCheckable ? ' ctx-menu-item--checkable' : '')
+            + (isCheckable && item.checked ? ' ctx-menu-item--checked' : '')
+        if (isCheckable) {
+            const check = document.createElement('span')
+            check.className = 'ctx-menu-check'
+            check.innerHTML = CHECK_ICON_SVG
+            const labelSpan = document.createElement('span')
+            labelSpan.textContent = item.label
+            btn.appendChild(check)
+            btn.appendChild(labelSpan)
+        } else if (item.external) {
             const labelSpan = document.createElement('span')
             labelSpan.textContent = item.label
             btn.appendChild(labelSpan)
@@ -74,6 +90,21 @@ function _buildLevel(items: ContextMenuItem[], depth: number): HTMLElement {
             })
             btn.addEventListener('mouseleave', () => { if (openTimer) clearTimeout(openTimer) })
             btn.addEventListener('click', e => { e.stopPropagation(); _openSubmenu(btn, depth, item.submenu!) })
+        } else if (isCheckable) {
+            // Toggle in place and keep the menu open so several can be set in one pass.
+            btn.addEventListener('mouseenter', () => _collapseTo(depth))
+            btn.addEventListener('click', async e => {
+                e.stopPropagation()
+                const next = !item.checked
+                item.checked = next
+                btn.classList.toggle('ctx-menu-item--checked', next)
+                try {
+                    await item.action?.(next)
+                } catch {
+                    item.checked = !next
+                    btn.classList.toggle('ctx-menu-item--checked', !next)
+                }
+            })
         } else if (item.action) {
             btn.addEventListener('mouseenter', () => _collapseTo(depth))
             btn.addEventListener('click', () => { _removeAll(); item.action!() })
