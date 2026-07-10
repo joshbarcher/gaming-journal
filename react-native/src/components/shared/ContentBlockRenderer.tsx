@@ -101,7 +101,7 @@ export function ContentBlockRenderer({
     const { width: windowWidth } = useWindowDimensions()
     const width = contentWidth ?? windowWidth
     return (
-        <TRenderEngineProvider baseStyle={baseHtmlStyle} tagsStyles={tagsStyles}>
+        <TRenderEngineProvider baseStyle={baseHtmlStyle} tagsStyles={tagsStyles} classesStyles={classesStyles}>
             <RenderHTMLConfigProvider renderersProps={{
                 // **Real bug found during the Guide Viewer item's interactive verification**: the
                 // library's own `ARenderer` passes a *normalized* href as the 2nd onPress arg (via
@@ -116,7 +116,7 @@ export function ContentBlockRenderer({
                 a: { onPress: (_e, _normalizedHref, attributes) => onLinkPress?.(attributes.href) },
             }}>
                 <Blocks
-                    blocks={blocks} imgUrl={imgUrl} onImagePress={onImagePress} onSectionRef={onSectionRef}
+                    blocks={blocks} imgUrl={imgUrl} onImagePress={onImagePress} onLinkPress={onLinkPress} onSectionRef={onSectionRef}
                     onBlockRef={onBlockRef} onBlockLongPress={onBlockLongPress} pinnedPath={pinnedPath ?? null}
                     contentWidth={width} path={[]}
                 />
@@ -125,10 +125,13 @@ export function ContentBlockRenderer({
     )
 }
 
-function Blocks({ blocks, imgUrl, onImagePress, onSectionRef, onBlockRef, onBlockLongPress, pinnedPath, contentWidth, path }: {
+function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlockRef, onBlockLongPress, pinnedPath, contentWidth, path }: {
     blocks: ContentBlock[]
     imgUrl: (localSrc: string) => string
     onImagePress: (url: string) => void
+    // Jump-link pills are Pressables, not <a> tags, so they can't go through the
+    // RenderHTMLConfigProvider `a` handler — the callback has to reach them directly.
+    onLinkPress?: (href: string) => void
     onSectionRef?: (id: string, node: View | null) => void
     onBlockRef?: (path: number[], node: View | null) => void
     onBlockLongPress?: (path: number[], label: string) => void
@@ -162,7 +165,7 @@ function Blocks({ blocks, imgUrl, onImagePress, onSectionRef, onBlockRef, onBloc
                         <View style={styles.section} ref={onSectionRef ? (node) => onSectionRef(block.id, node) : undefined}>
                             <Heading level={block.level} text={block.heading} />
                             {!!block.children?.length && (
-                                <Blocks blocks={block.children} imgUrl={imgUrl} onImagePress={onImagePress} onSectionRef={onSectionRef}
+                                <Blocks blocks={block.children} imgUrl={imgUrl} onImagePress={onImagePress} onLinkPress={onLinkPress} onSectionRef={onSectionRef}
                                     onBlockRef={onBlockRef} onBlockLongPress={onBlockLongPress} pinnedPath={pinnedPath} contentWidth={contentWidth} path={myPath} />
                             )}
                         </View>,
@@ -335,6 +338,12 @@ const tagsStyles = {
     a: { color: colors.accent, textDecorationLine: 'underline' as const },
     strong: { fontFamily: fonts.uiBold },
     b: { fontFamily: fonts.uiBold },
+}
+
+// `.gv-keyword` wraps text the parser stripped an outbound anchor from. Styled as
+// emphasis in the second accent, not as a link. Mirrors guide-viewer.css.
+const classesStyles = {
+    'gv-keyword': { color: colors.accent2 },
 }
 
 const styles = StyleSheet.create({

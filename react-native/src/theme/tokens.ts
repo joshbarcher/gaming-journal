@@ -17,6 +17,8 @@ export const colors = {
     textMuted:  'rgba(237, 233, 223, 0.38)',
     accent:     '#c9a84c',
     accentBg:   'rgba(201, 168, 76, 0.08)',
+    // Secondary accent: emphasis that is not a link (see .gv-keyword).
+    accent2:    '#cf8873',
     progress:   '#4ecdc4',
     progressBg: 'rgba(78, 205, 196, 0.12)',
 } as const

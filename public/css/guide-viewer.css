@@ -580,6 +580,22 @@
     color: var(--clr-text-muted);
 }
 
+/* Text that was an outbound link before the parser stripped the anchor. Emphasis, not
+   de-emphasis — it reads as a keyword in the prose.
+
+   The `em`/`i` selectors are not optional: TheGamer italicises game titles inside these
+   links, and `.gv-p em` (0,1,1) outranks a bare `.gv-keyword` (0,1,0), so the italic run
+   would keep the muted grey and the span would look half-styled. */
+.gv-keyword,
+.gv-p .gv-keyword,
+.gv-list .gv-keyword,
+.gv-p .gv-keyword em,
+.gv-p .gv-keyword i,
+.gv-list .gv-keyword em,
+.gv-list .gv-keyword i {
+    color: var(--clr-accent-2);
+}
+
 .gv-p code,
 .gv-list code {
     font-family: monospace;
