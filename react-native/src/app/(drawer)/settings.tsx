@@ -150,8 +150,8 @@ export default function SettingsScreen() {
                             onChange={(v) => onToggle('showFiltered', v, true)}
                         />
                         <ToggleRow
-                            label="Enable Discovery Filters"
-                            desc="Apply the title blocklist to the Discovery page and home page mosaic. Turn off to see all results unfiltered."
+                            label="Hide Filtered Discovery Games"
+                            desc="Hide games matching your Discovery Title Filter from the Discovery page and home page mosaic. Turn off to see all results unfiltered."
                             value={!!settings.discoverFiltersEnabled}
                             onChange={(v) => onToggle('discoverFiltersEnabled', v)}
                         />

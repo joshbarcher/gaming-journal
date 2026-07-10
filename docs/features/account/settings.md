@@ -33,7 +33,7 @@ Changes are saved immediately via `PATCH /api/settings` with the changed key. On
 | Hide Child Locked Games | `showChildLocked` | inverted | Hides games with `flag.childLock` in library, wishlist, all collection pages |
 | Hide Filtered Games | `showFiltered` | inverted | Hides games with `flag.filtered` (personal preference exclusions) |
 | Hide Software & Tools | `showSoftware` | inverted | Hides apps flagged Software / Tool (e.g. Wallpaper Engine) |
-| Enable Discovery Filters | `discoverFiltersEnabled` | direct | Applies title blocklist to Discover page and home mosaic |
+| Hide Filtered Discovery Games | `discoverFiltersEnabled` | direct | Applies title blocklist (hides matches) on Discover page and home mosaic |
 | Hide Adult-Only Content | `hideAdultContent` | direct | Hides Steam Adult-Only Sexual Content from Discover and home mosaic |
 
 Each flag-backed toggle shows a count badge (e.g., "3 games") when games would be affected. Counts come from iterating the flags object loaded on mount.

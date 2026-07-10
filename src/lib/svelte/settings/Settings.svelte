@@ -141,8 +141,8 @@
 
             <label class="settings-toggle-row">
                 <div class="settings-toggle-text">
-                    <span class="settings-toggle-label">Enable Discovery Filters</span>
-                    <span class="settings-toggle-desc">Apply the title blocklist to the Discovery page and home page mosaic. Turn off to see all results unfiltered.</span>
+                    <span class="settings-toggle-label">Hide Filtered Discovery Games</span>
+                    <span class="settings-toggle-desc">Hide games matching your Discovery Title Filter from the Discovery page and home page mosaic. Turn off to see all results unfiltered.</span>
                 </div>
                 <div class="settings-toggle-switch">
                     <input type="checkbox" checked={settings.discoverFiltersEnabled}
