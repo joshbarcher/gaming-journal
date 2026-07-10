@@ -24,6 +24,7 @@
         save:     `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>`,
         shield:   `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
         wrench:   `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+        alert:    `<svg class="pcgw-icon" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
         extLink:  `<svg class="pcgw-icon pcgw-icon--xs" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
     }
 
@@ -50,11 +51,20 @@
     const PLATFORM_ROWS = [['xboxPrompts','Xbox prompts'],['impulseTriggers','Impulse triggers'],['playstationPrompts','PlayStation prompts'],['lightBar','Light bar'],['adaptiveTriggers','Adaptive triggers'],['dualSenseHaptics','DualSense haptics'],['motionSensors','Motion sensors'],['steamDeckPrompts','Steam Deck prompts'],['touchscreen','Touchscreen']]
     const CLOUD_ROWS    = [['steam','Steam'],['gogGalaxy','GOG Galaxy'],['epicGames','Epic Games'],['eaApp','EA App'],['xbox','Xbox'],['ubisoftConnect','Ubisoft Connect'],['xboxCloud','Xbox Cloud'],['oneDrive','OneDrive']]
 
-    function badge(val: string | undefined): { type: 'yes' | 'no' | 'hack' } | null {
-        if (val === 'true')     return { type: 'yes' }
-        if (val === 'false')    return { type: 'no' }
-        if (val === 'hackable') return { type: 'hack' }
-        return null
+    type BadgeType = 'yes' | 'no' | 'hack' | 'limited' | 'info'
+
+    /**
+     * Map a PCGW rating to a badge. Beyond the three booleans, PCGW uses free text
+     * ("limited", "always on") — surfacing it verbatim beats hiding the whole row,
+     * which is what dropping unrecognised values used to do.
+     */
+    function badge(val: string | undefined | null): { type: BadgeType; text: string } | null {
+        if (val == null || val === '') return null
+        if (val === 'true')     return { type: 'yes',     text: 'Yes' }
+        if (val === 'false')    return { type: 'no',      text: 'No' }
+        if (val === 'hackable') return { type: 'hack',    text: 'Hackable' }
+        if (val === 'limited')  return { type: 'limited', text: 'Limited' }
+        return { type: 'info', text: val.charAt(0).toUpperCase() + val.slice(1) }
     }
 
     interface Props {
@@ -73,12 +83,15 @@
         try { await onRefresh() } finally { refreshing = false }
     }
 
-    let v    = $derived(pcgwData?.video     ?? {})
+    let v    = $derived((pcgwData?.video ?? {}) as Record<string, any>)
     let inp  = $derived(pcgwData?.input     ?? {} as any)
-    let cl   = $derived(pcgwData?.cloud     ?? {})
+    let cl   = $derived((pcgwData?.cloud ?? {}) as Record<string, any>)
     let av   = $derived(pcgwData?.availability ?? {})
     let paths = $derived(pcgwData?.paths    ?? {})
     let fixes = $derived(pcgwData?.fixes    ?? [])
+
+    let videoNotes = $derived(pcgwData?.video?.notes ?? {})
+    let cloudNotes = $derived(pcgwData?.cloud?.notes ?? {})
 
     let activeVideoFeatures = $derived(VIDEO_FEATURES.filter(f => v[f.key] != null))
     let mouseRows  = $derived(MOUSE_ROWS.filter(([k]) => inp.mouse?.[k] != null))
@@ -86,6 +99,23 @@
     let ctrlRows   = $derived([...CTRL_ROWS, ...PLATFORM_ROWS].filter(([k]) => inp.controller?.[k] != null || inp.platform?.[k] != null))
     let drmChips   = $derived(av.drm ?? [])
     let cloudRows  = $derived(CLOUD_ROWS.filter(([k]) => cl[k] != null))
+
+    // Preserve PCGW's own ordering, but surface unresolved issues before tweaks —
+    // a known-broken feature matters more than an optional improvement.
+    const GROUP_ORDER = ['Issues unresolved', 'Issues fixed', 'Essential improvements']
+    let fixGroups = $derived.by(() => {
+        const byGroup = new Map<string, typeof fixes>()
+        for (const f of fixes) {
+            const g = f.group || 'Fixes & Tweaks'
+            if (!byGroup.has(g)) byGroup.set(g, [])
+            byGroup.get(g)!.push(f)
+        }
+        const rank = (g: string) => {
+            const i = GROUP_ORDER.indexOf(g)
+            return i === -1 ? GROUP_ORDER.length : i
+        }
+        return [...byGroup].sort(([a], [b]) => rank(a) - rank(b))
+    })
 </script>
 
 {#if pcgwData?.found}
@@ -105,11 +135,17 @@
                 <div class="pcgw-feature-grid">
                     {#each activeVideoFeatures as f}
                         {@const b = badge(v[f.key])}
+                        {@const note = videoNotes[f.key]}
                         {#if b}
-                            <div class="pcgw-feature-tile">
-                                {@html PI[f.icon]}
-                                <span class="pcgw-tile-label">{f.label}</span>
-                                <span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span>
+                            <div class="pcgw-feature-tile" class:pcgw-feature-tile--noted={note}>
+                                <div class="pcgw-tile-head">
+                                    {@html PI[f.icon]}
+                                    <span class="pcgw-tile-label">{f.label}</span>
+                                    <span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span>
+                                </div>
+                                {#if note}
+                                    <p class="pcgw-tile-note">{@html note}</p>
+                                {/if}
                             </div>
                         {/if}
                     {/each}
@@ -127,7 +163,7 @@
                             <div class="pcgw-card-title">{@html PI.mouse}Mouse</div>
                             {#each mouseRows as [k, label]}
                                 {@const b = badge(inp.mouse[k])}
-                                {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
+                                {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span></div>{/if}
                             {/each}
                         </div>
                     {/if}
@@ -136,7 +172,7 @@
                             <div class="pcgw-card-title">{@html PI.keyboard}Keyboard</div>
                             {#each kbRows as [k, label]}
                                 {@const b = badge(inp.keyboard[k])}
-                                {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
+                                {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span></div>{/if}
                             {/each}
                         </div>
                     {/if}
@@ -147,14 +183,14 @@
                                 {#each ctrlRows.slice(0, 5) as [k, label]}
                                     {@const src = inp.controller?.[k] ?? inp.platform?.[k]}
                                     {@const b = badge(src)}
-                                    {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
+                                    {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span></div>{/if}
                                 {/each}
                                 {#if ctrlRows.length > 5}
                                     <div class="pcgw-ctrl-extra" class:pcgw-ctrl-extra--open={ctrlExpanded}>
                                         {#each ctrlRows.slice(5) as [k, label]}
                                             {@const src = inp.controller?.[k] ?? inp.platform?.[k]}
                                             {@const b = badge(src)}
-                                            {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
+                                            {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span></div>{/if}
                                         {/each}
                                     </div>
                                     <button class="pcgw-ctrl-toggle" onclick={() => ctrlExpanded = !ctrlExpanded}>
@@ -186,7 +222,10 @@
                             <div class="pcgw-card-title">{@html PI.cloud}Cloud Saves</div>
                             {#each cloudRows as [k, label]}
                                 {@const b = badge(cl[k])}
-                                {#if b}<div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.type === 'yes' ? 'Yes' : b.type === 'no' ? 'No' : 'Hackable'}</span></div>{/if}
+                                {#if b}
+                                    <div class="pcgw-row"><span class="pcgw-row-label">{label}</span><span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span></div>
+                                    {#if cloudNotes[k]}<p class="pcgw-row-note">{@html cloudNotes[k]}</p>{/if}
+                                {/if}
                             {/each}
                         </div>
                     {/if}
@@ -214,19 +253,23 @@
             </div>
         </div>
 
-        <!-- Fixes & Tweaks -->
-        {#if fixes.length}
+        <!-- Fixes, tweaks & known issues, grouped by their PCGW heading -->
+        {#each fixGroups as [groupName, groupFixes] (groupName)}
+            {@const unresolved = groupName === 'Issues unresolved'}
             <div class="pcgw-block">
-                <h3 class="pcgw-block-title">{@html PI.wrench}Fixes &amp; Tweaks</h3>
+                <h3 class="pcgw-block-title" class:pcgw-block-title--warn={unresolved}>
+                    {@html unresolved ? PI.alert : PI.wrench}{groupName}
+                </h3>
                 <div class="pcgw-fixes">
-                    {#each fixes as f}
-                        <details class="pcgw-fix">
-                            <summary>{@html PI.wrench}{f.title}</summary>
+                    <!-- unkeyed: PCGW titles are not guaranteed unique within a group -->
+                    {#each groupFixes as f}
+                        <details class="pcgw-fix" class:pcgw-fix--warn={unresolved} open={unresolved}>
+                            <summary>{@html unresolved ? PI.alert : PI.wrench}{f.title}</summary>
                             <div class="pcgw-fix-body">{@html f.html}</div>
                         </details>
                     {/each}
                 </div>
             </div>
-        {/if}
+        {/each}
     </section>
 {/if}

@@ -1282,14 +1282,27 @@
     gap: 6px;
 }
 
+.pcgw-feature-grid { align-items: start; }
+
 .pcgw-feature-tile {
     display: flex;
-    align-items: center;
-    gap: 9px;
+    flex-direction: column;
+    gap: 7px;
     padding: 9px 12px;
     background: var(--clr-bg-raised);
     border: 1px solid var(--clr-border);
     border-radius: var(--radius);
+}
+
+.pcgw-tile-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+/* Rows carrying wiki notes get two tracks so the prose has somewhere to go. */
+@media (min-width: 640px) {
+    .pcgw-feature-tile--noted { grid-column: span 2; }
 }
 
 .pcgw-tile-label {
@@ -1297,6 +1310,29 @@
     font-size: 12px;
     color: var(--clr-text);
 }
+
+/* Free-text notes from PCGW's third column (mod links, caveats, preset lists) */
+.pcgw-tile-note,
+.pcgw-row-note {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--clr-text-muted);
+}
+.pcgw-tile-note { padding-left: calc(15px + 9px); }   /* clear the tile icon */
+.pcgw-row-note  { margin: -2px 0 6px; }
+
+.pcgw-tile-note a,
+.pcgw-row-note a {
+    color: var(--clr-accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(201, 168, 76, 0.35);
+}
+.pcgw-tile-note a:hover,
+.pcgw-row-note a:hover { border-bottom-color: var(--clr-accent); }
+
+.pcgw-tile-note b,
+.pcgw-tile-note strong { color: var(--clr-text); font-weight: 600; }
 
 /* Badges */
 .pcgw-badge {
@@ -1307,10 +1343,11 @@
     white-space: nowrap;
     flex-shrink: 0;
 }
-.pcgw-badge--yes  { background: rgba(92, 186, 92, 0.15);   color: #5cba5c; }
-.pcgw-badge--no   { background: rgba(255, 255, 255, 0.05); color: var(--clr-text-muted); }
-.pcgw-badge--hack { background: rgba(201, 168, 76, 0.15);  color: var(--clr-accent); }
-.pcgw-badge--info { background: rgba(255, 255, 255, 0.08); color: var(--clr-text); font-weight: 500; }
+.pcgw-badge--yes     { background: rgba(92, 186, 92, 0.15);   color: #5cba5c; }
+.pcgw-badge--no      { background: rgba(255, 255, 255, 0.05); color: var(--clr-text-muted); }
+.pcgw-badge--hack    { background: rgba(201, 168, 76, 0.15);  color: var(--clr-accent); }
+.pcgw-badge--limited { background: rgba(224, 169, 150, 0.14); color: var(--clr-accent-2); }
+.pcgw-badge--info    { background: rgba(255, 255, 255, 0.08); color: var(--clr-text); font-weight: 500; }
 
 /* Input + availability cards */
 .pcgw-input-grid,
@@ -1435,6 +1472,14 @@
     transition: border-color var(--transition);
 }
 .pcgw-fix[open] { border-color: var(--clr-border-hi); }
+
+/* Known-broken features read as a caution, not a tweak you might opt into.
+   Icons inherit via .pcgw-icon { stroke: currentColor }. */
+.pcgw-block-title--warn { color: var(--clr-accent-2); }
+
+.pcgw-fix--warn         { border-color: rgba(224, 169, 150, 0.30); }
+.pcgw-fix--warn[open]   { border-color: rgba(224, 169, 150, 0.45); }
+.pcgw-fix--warn summary { color: var(--clr-accent-2); }
 
 .pcgw-fix summary {
     display: flex;

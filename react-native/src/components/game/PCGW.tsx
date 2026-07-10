@@ -6,10 +6,12 @@ import { stripHtml } from '@/utils/gameRender'
 import type { Pcgw } from 'gaming-journal-contracts/pcgw'
 
 // Port of PCGW.svelte. Renders only if pcgwData?.found. badge() semantics ported exactly: "true"→
-// Yes, "false"→No, "hackable"→Hackable, any other string (e.g. "always on", "limited" — both
-// real values confirmed live) → no badge at all, so that row/tile silently disappears — a real
-// quirk of the source data, not a bug to "fix" here.
-const VIDEO_FEATURES: { key: keyof NonNullable<Pcgw['video']>; label: string }[] = [
+// Yes, "false"→No, "hackable"→Hackable, "limited"→Limited, and any other free text (e.g.
+// "always on") is shown verbatim. Dropping unrecognised values used to hide the whole row, taking
+// its notes with it — which is where PCGW puts the detail that matters.
+type VideoKey = Exclude<keyof NonNullable<Pcgw['video']>, 'notes'>
+
+const VIDEO_FEATURES: { key: VideoKey; label: string }[] = [
     { key: 'widescreen', label: 'Widescreen' }, { key: 'ultrawide', label: 'Ultrawide' },
     { key: 'uhd4k', label: '4K UHD' }, { key: 'hdr', label: 'HDR' },
     { key: 'fps60', label: '60 FPS' }, { key: 'fps120', label: '120 FPS' },
@@ -21,11 +23,15 @@ const CTRL_ROWS = ['support', 'fullSupport', 'remapping', 'sensitivity', 'yInver
 const PLATFORM_ROWS = ['xboxPrompts', 'impulseTriggers', 'playstationPrompts', 'lightBar', 'adaptiveTriggers', 'dualSenseHaptics', 'motionSensors', 'steamDeckPrompts', 'steamInputModes', 'officialPresets', 'touchscreen', 'trackedMotion']
 const CLOUD_KEYS = ['steam', 'gogGalaxy', 'epicGames', 'eaApp', 'xbox', 'ubisoftConnect', 'xboxCloud', 'oneDrive']
 
-function badge(val: string | null | undefined): { type: 'yes' | 'no' | 'hack'; text: string } | null {
+type BadgeType = 'yes' | 'no' | 'hack' | 'limited' | 'info'
+
+function badge(val: string | null | undefined): { type: BadgeType; text: string } | null {
+    if (val == null || val === '') return null
     if (val === 'true') return { type: 'yes', text: 'Yes' }
     if (val === 'false') return { type: 'no', text: 'No' }
     if (val === 'hackable') return { type: 'hack', text: 'Hackable' }
-    return null
+    if (val === 'limited') return { type: 'limited', text: 'Limited' }
+    return { type: 'info', text: val.charAt(0).toUpperCase() + val.slice(1) }
 }
 function labelize(key: string) {
     return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())
@@ -35,9 +41,9 @@ export function PCGW({ data, refreshing, onRefresh }: { data: Pcgw | null | unde
     const [ctrlExpanded, setCtrlExpanded] = useState(false)
     if (!data?.found) return null
 
+    const videoNotes = data.video?.notes ?? {}
     const videoTiles = VIDEO_FEATURES
-        .filter(f => data.video?.[f.key] != null)
-        .map(f => ({ ...f, b: badge(data.video?.[f.key]) }))
+        .map(f => ({ ...f, b: badge(data.video?.[f.key]), note: videoNotes[f.key] }))
         .filter(f => f.b)
 
     const mouseRows = Object.entries(data.input?.mouse ?? {}).filter(([, v]) => v != null)
@@ -47,11 +53,22 @@ export function PCGW({ data, refreshing, onRefresh }: { data: Pcgw | null | unde
         .filter(([, v]) => v != null)
     const ctrlVisible = ctrlExpanded ? ctrlAll : ctrlAll.slice(0, 5)
 
-    const cloudRows = CLOUD_KEYS.map(k => [k, data.cloud?.[k]] as const).filter(([, v]) => v != null)
+    const cloudRows = CLOUD_KEYS
+        .map(k => [k, data.cloud?.[k] as string | null | undefined] as const)
+        .filter(([, v]) => v != null)
     const drmChips = data.availability?.drm ?? []
     const savePaths = Object.entries(data.paths?.saveGame ?? {})
     const configPaths = Object.entries(data.paths?.config ?? {})
-    const fixes = data.fixes ?? []
+    // Unresolved issues before optional tweaks — a broken feature outranks a nice-to-have.
+    const GROUP_ORDER = ['Issues unresolved', 'Issues fixed', 'Essential improvements']
+    const fixGroups = [...(data.fixes ?? []).reduce((m, f) => {
+        const g = f.group || 'Fixes & Tweaks'
+        return m.set(g, [...(m.get(g) ?? []), f])
+    }, new Map<string, NonNullable<Pcgw['fixes']>>())]
+        .sort(([a], [b]) => {
+            const rank = (g: string) => (GROUP_ORDER.indexOf(g) + 1 || GROUP_ORDER.length + 1)
+            return rank(a) - rank(b)
+        })
 
     return (
         <View style={styles.section}>
@@ -71,9 +88,12 @@ export function PCGW({ data, refreshing, onRefresh }: { data: Pcgw | null | unde
                 <Block title="Video & Display">
                     <View style={styles.grid}>
                         {videoTiles.map(f => (
-                            <View key={f.key} style={styles.tile}>
-                                <Text style={styles.tileLabel}>{f.label}</Text>
-                                <BadgeText b={f.b!} />
+                            <View key={f.key} style={[styles.tile, f.note && styles.tileNoted]}>
+                                <View style={styles.tileHead}>
+                                    <Text style={styles.tileLabel}>{f.label}</Text>
+                                    <BadgeText b={f.b!} />
+                                </View>
+                                {f.note && <Text style={styles.tileNote}>{stripHtml(f.note)}</Text>}
                             </View>
                         ))}
                     </View>
@@ -115,11 +135,11 @@ export function PCGW({ data, refreshing, onRefresh }: { data: Pcgw | null | unde
                 </Block>
             )}
 
-            {fixes.length > 0 && (
-                <Block title="Fixes & Tweaks">
-                    {fixes.map((f, i) => <FixItem key={i} title={f.title} html={f.html} />)}
+            {fixGroups.map(([groupName, groupFixes]) => (
+                <Block key={groupName} title={groupName}>
+                    {groupFixes.map((f, i) => <FixItem key={i} title={f.title} html={f.html} />)}
                 </Block>
-            )}
+            ))}
         </View>
     )
 }
@@ -133,9 +153,12 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
     )
 }
 
-function BadgeText({ b }: { b: { type: 'yes' | 'no' | 'hack'; text: string } }) {
-    const color = b.type === 'yes' ? '#4caf72' : b.type === 'no' ? '#e05252' : '#e0a052'
-    return <Text style={[styles.badgeText, { color }]}>{b.text}</Text>
+const BADGE_COLORS: Record<BadgeType, string> = {
+    yes: '#4caf72', no: '#e05252', hack: '#e0a052', limited: '#e0a996', info: colors.text,
+}
+
+function BadgeText({ b }: { b: { type: BadgeType; text: string } }) {
+    return <Text style={[styles.badgeText, { color: BADGE_COLORS[b.type] }]}>{b.text}</Text>
 }
 
 function SubGroup({ label, rows }: { label: string; rows: readonly (readonly [string, string | null | undefined])[] }) {
@@ -190,6 +213,10 @@ const styles = StyleSheet.create({
     blockTitle: { color: colors.textMuted, fontFamily: fonts.uiBold, fontSize: 11, textTransform: 'uppercase', marginBottom: spacing.xs },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
     tile: { width: 100, backgroundColor: colors.bgRaised, borderRadius: radius, padding: spacing.xs, gap: 2 },
+    // Tiles carrying wiki notes take the full row so the prose isn't a 100px column.
+    tileNoted: { width: '100%' },
+    tileHead: { gap: 2 },
+    tileNote: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, lineHeight: 16, marginTop: 4 },
     tileLabel: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 10 },
     badgeText: { fontFamily: fonts.uiBold, fontSize: 12 },
     subGroup: { marginBottom: spacing.sm },

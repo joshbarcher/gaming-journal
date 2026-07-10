@@ -357,11 +357,19 @@ export interface ProtonData {
 
 // ── PCGamingWiki ──────────────────────────────────────────────────────────────
 
+/** Per-row free text from a PCGW table's notes cell, as trusted HTML. */
+export type PcgwNotes = Record<string, string>
+
 export interface PcgwInput {
     mouse?:      Record<string, string>
     keyboard?:   Record<string, string>
     controller?: Record<string, string>
     platform?:   Record<string, string>
+    notes?:      Record<string, PcgwNotes>
+}
+
+export interface PcgwVideo extends Record<string, string | PcgwNotes | undefined> {
+    notes?: PcgwNotes
 }
 
 export interface PcgwPaths {
@@ -370,15 +378,17 @@ export interface PcgwPaths {
 }
 
 export interface PcgwFix {
-    title: string
-    html:  string
+    title:  string
+    /** Enclosing <h2>, e.g. "Issues unresolved". Null when the fix heading is itself an h2. */
+    group?: string | null
+    html:   string
 }
 
 export interface PcgwData {
     found?:        boolean
-    video?:        Record<string, string>
+    video?:        PcgwVideo
     input?:        PcgwInput
-    cloud?:        Record<string, string>
+    cloud?:        Record<string, string> & { notes?: PcgwNotes }
     availability?: { drm?: string[] }
     paths?:        PcgwPaths
     fixes?:        PcgwFix[]
