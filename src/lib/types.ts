@@ -446,6 +446,25 @@ export interface NexusModsPage {
     mods:        NexusMod[]
 }
 
+// A structured description block (from the relay's shared guide content-parser).
+export interface NexusListItem {
+    text:      string
+    children?: { ordered: boolean; items: NexusListItem[] }
+}
+export interface NexusBlock {
+    type:     'heading' | 'paragraph' | 'list' | 'image' | 'table'
+    level?:   number
+    text?:    string
+    html?:    string
+    ordered?: boolean
+    items?:   NexusListItem[]
+    src?:     string
+    alt?:     string
+    caption?: string
+    headers?: unknown
+    rows?:    unknown
+}
+
 // Rich single-mod detail (GET /relay/api/nexus/:appid/mod/:modId)
 export interface NexusModDetail {
     appid:                 number
@@ -476,6 +495,7 @@ export interface NexusModDetail {
     updatedAt?:            string | null
     url:                   string
     fetchedAt?:            string
+    descriptionBlocks?:    NexusBlock[]
 }
 
 // ── Steam reviews ─────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
     import { onMount } from 'svelte'
     import type { NexusModDetail } from '../../types.js'
     import Breadcrumb from '../Breadcrumb.svelte'
-    import { nexusBBCodeToHtml } from '../../js/nexusBBCode.js'
+    import NexusBlocks from './NexusBlocks.svelte'
     import { fmtCompact, fmtSize, nexusImage, nexusImgError } from '../../js/nexusFormat.js'
 
     let { appid, modId } = $props()
@@ -35,8 +35,8 @@
         catch { return '' }
     }
 
-    let descHtml = $derived(nexusBBCodeToHtml(detail?.description))
-    let heroSrc  = $derived(detail ? nexusImage(detail) : '')
+    let blocks  = $derived(detail?.descriptionBlocks ?? [])
+    let heroSrc = $derived(detail ? nexusImage(detail) : '')
 </script>
 
 <svelte:head><title>{detail?.name ?? 'Mod'} — {gameName}</title></svelte:head>
@@ -88,10 +88,10 @@
             </div>
         {/if}
 
-        {#if descHtml}
+        {#if blocks.length}
             <section class="nxd-desc">
                 <h2 class="game-section-title">Description</h2>
-                <div class="nxd-desc-body">{@html descHtml}</div>
+                <div class="nxd-desc-body"><NexusBlocks {blocks} /></div>
             </section>
         {/if}
     {/if}
