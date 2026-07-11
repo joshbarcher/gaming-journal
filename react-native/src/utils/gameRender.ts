@@ -4,7 +4,7 @@
 // franchises' fmtHours which takes minutes too).
 import type { GameStore } from 'gaming-journal-contracts/gameDetail'
 
-export function releaseStatus(store: GameStore | undefined): string {
+export function releaseStatus(store: GameStore | null | undefined): string {
     if (!store || store.unavailable) return 'unknown'
     if ((store.categories ?? []).includes('Early Access')) return 'early_access'
     const dateStr = (store.releaseDate ?? '').trim()

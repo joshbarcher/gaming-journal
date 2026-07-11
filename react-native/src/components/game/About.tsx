@@ -6,7 +6,7 @@ import { stripHtml } from '@/utils/gameRender'
 // Port of About.svelte — renders only if store.detailedDescription is truthy, matching the web
 // exactly. Rich HTML rendering deferred to Phase 3's ContentBlockRenderer (see utils/gameRender.ts
 // stripHtml note) — shows plain text for now.
-export function About({ detailedDescription }: { detailedDescription: string | undefined }) {
+export function About({ detailedDescription }: { detailedDescription: string | null | undefined }) {
     if (!detailedDescription) return null
     return (
         <View style={styles.section}>

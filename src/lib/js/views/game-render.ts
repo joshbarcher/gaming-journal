@@ -117,5 +117,11 @@ export function renderNewsHtml(raw: string | null | undefined): string {
     // Drop any remaining known Steam tags we don't render (spoiler/noparse/tables/hr/…)
     s = s.replace(/\[\/?(?:spoiler|noparse|table|tr|td|th|hr)[^\]]*\]/gi, '')
 
+    // Steam sprinkles a lone backslash (as its own paragraph, sometimes wrapped in [b]) to
+    // force a blank spacer line. Drop the stray backslash but keep the surrounding empty
+    // element / line so the intended spacing survives.
+    s = s.replace(/(>)\s*\\+\s*(<)/g, '$1$2')
+    s = s.replace(/^[ \t]*\\+[ \t]*$/gm, '')
+
     return s
 }
