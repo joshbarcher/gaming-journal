@@ -831,26 +831,32 @@
 /* ── Active (currently playing) session card ──────────────────────────────────── */
 
 .gj-card--active-session {
-    border-color: rgba(80, 200, 120, 0.35);
-    background: rgba(80, 200, 120, 0.04);
-    /* Static (non-animated) green glow marking the live session. */
-    box-shadow: 0 0 16px 2px rgba(80, 200, 120, 0.20);
+    border-color: rgba(201, 168, 76, 0.5);
+    background: rgba(201, 168, 76, 0.035);
+    /* Gold throb — same hue as the sidebar Now Playing card, but gentler:
+       slower, lower peak spread/opacity. Draws the eye without demanding it. */
+    animation: gj-active-glow 3.6s ease-in-out infinite;
+}
+
+@keyframes gj-active-glow {
+    0%, 100% {
+        box-shadow:   0 0 7px 1px rgba(201, 168, 76, 0.12);
+        border-color: rgba(201, 168, 76, 0.40);
+    }
+    50% {
+        box-shadow:   0 0 16px 3px rgba(201, 168, 76, 0.32);
+        border-color: rgba(201, 168, 76, 0.70);
+    }
 }
 
 .gj-active-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #50c878;
+    background: #c9a84c;
     flex-shrink: 0;
-    box-shadow: 0 0 0 0 rgba(80, 200, 120, 0.5);
-    animation: gj-dot-pulse 2s ease-in-out infinite;
-}
-
-@keyframes gj-dot-pulse {
-    0%   { box-shadow: 0 0 0 0   rgba(80, 200, 120, 0.5); }
-    60%  { box-shadow: 0 0 0 5px rgba(80, 200, 120, 0);   }
-    100% { box-shadow: 0 0 0 0   rgba(80, 200, 120, 0);   }
+    /* Static gold — the card glow carries the motion now. */
+    box-shadow: 0 0 6px 1px rgba(201, 168, 76, 0.5);
 }
 
 /* ── Session card ─────────────────────────────────────────────────────────────── */
