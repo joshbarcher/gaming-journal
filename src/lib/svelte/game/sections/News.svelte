@@ -8,7 +8,9 @@
     let { news, game }: Props = $props()
 
     let items   = $derived(news?.items ?? [])
-    let top     = $derived(items.slice(0, 6))
+    // A single, always-full row of the most recent articles (4 → 2 → 1 columns);
+    // the rest live on the full News page.
+    let top     = $derived(items.slice(0, 4))
     let newsUrl = $derived(`/game/${game.appid}/news`)
 </script>
 
@@ -18,7 +20,7 @@
             News
             <a class="nxm-all-link" href={newsUrl}>All {items.length} ›</a>
         </h2>
-        <div class="nws-grid">
+        <div class="nws-grid nws-grid--recent">
             {#each top as item (item.gid)}
                 <NewsCard {item} appid={game.appid} />
             {/each}

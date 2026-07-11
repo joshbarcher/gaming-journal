@@ -2904,6 +2904,10 @@
 /* ── News cards (game-page section + full page) ─────────────────────────────────── */
 .nws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .nws-grid--page { gap: 18px; }
+/* Section preview: one deliberate, always-full row (columns divide the 4 shown evenly). */
+.nws-grid--recent { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1180px) { .nws-grid--recent { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px)  { .nws-grid--recent { grid-template-columns: 1fr; } }
 
 .nws-card {
     display: flex; flex-direction: column;
