@@ -405,7 +405,9 @@ export interface NexusMod {
     author?:         string | null
     uploaderName?:   string | null
     uploaderAvatar?: string | null
+    fileSize?:       number | null   // KB
     imageUrl?:       string | null   // Nexus CDN — fallback only
+    imageLargeUrl?:  string | null
     thumbUrl?:       string | null   // Nexus CDN — fallback only
     localImage?:     string | null   // /images/nexus/… served via /relay — preferred
     localThumb?:     string | null
@@ -428,6 +430,52 @@ export interface NexusData {
     totalMods?:  number
     fetchedAt?:  string
     mods:        NexusMod[]
+}
+
+// One page of the full mods list (GET /relay/api/nexus/:appid/mods)
+export interface NexusModsPage {
+    appid:       number
+    domainName?: string | null
+    nexusName?:  string | null
+    gameUrl?:    string | null
+    sort:        string
+    q:           string
+    offset:      number
+    limit:       number
+    totalCount:  number
+    mods:        NexusMod[]
+}
+
+// Rich single-mod detail (GET /relay/api/nexus/:appid/mod/:modId)
+export interface NexusModDetail {
+    appid:                 number
+    modId:                 number
+    gameId?:               number | null
+    name:                  string
+    summary?:              string | null
+    description?:          string | null   // BBCode + embedded HTML
+    version?:              string | null
+    author?:               string | null
+    fileSize?:             number | null   // KB
+    downloads:             number
+    endorsements:          number
+    adult:                 boolean
+    status?:               string | null
+    supportsVortex?:       boolean
+    directDownloadEnabled?: boolean
+    category?:             string | null
+    uploaderName?:         string | null
+    uploaderAvatar?:       string | null
+    uploaderId?:           number | null
+    tags:                  string[]
+    imageUrl?:             string | null
+    imageLargeUrl?:        string | null
+    thumbUrl?:             string | null
+    localImage?:           string | null
+    createdAt?:            string | null
+    updatedAt?:            string | null
+    url:                   string
+    fetchedAt?:            string
 }
 
 // ── Steam reviews ─────────────────────────────────────────────────────────────
