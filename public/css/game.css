@@ -2714,3 +2714,89 @@
     .game-hero-right .game-panel-badges { display: none; }
     .hero-mobile-score-strip .update-badge { display: none; }
 }
+
+/* ── NexusMods mods ───────────────────────────────────────────────────────────── */
+.nxm-ext-link {
+    display: inline-flex;
+    margin-left: 8px;
+    color: var(--clr-text-muted);
+    opacity: 0.7;
+    transition: opacity 0.15s, color 0.15s;
+}
+.nxm-ext-link:hover { opacity: 1; color: var(--clr-accent); }
+.nxm-ext-link svg   { width: 13px; height: 13px; }
+
+.nxm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+}
+
+.nxm-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--clr-bg-raised);
+    border: 1px solid var(--clr-border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--clr-text);
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.nxm-card:hover {
+    border-color: var(--clr-border-act);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.nxm-thumb {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: var(--clr-bg-hover);
+    overflow: hidden;
+}
+.nxm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Adult mods are blurred by default (respecting the app's content-sensitivity),
+   revealed on hover. The 18+ badge stays visible either way. */
+.nxm-thumb--adult img { filter: blur(16px); transform: scale(1.12); transition: filter 0.2s; }
+.nxm-card:hover .nxm-thumb--adult img { filter: blur(0); transform: scale(1); }
+
+.nxm-adult {
+    position: absolute; top: 6px; left: 6px;
+    background: var(--clr-review-neg); color: #fff;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 2px 5px; border-radius: 4px;
+}
+.nxm-cat {
+    position: absolute; bottom: 6px; left: 6px;
+    max-width: calc(100% - 12px);
+    background: rgba(0, 0, 0, 0.68); color: var(--clr-text);
+    font-size: 10px; letter-spacing: 0.02em;
+    padding: 2px 7px; border-radius: 999px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.nxm-body { padding: 10px 11px 11px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.nxm-name {
+    font-size: 13px; font-weight: 600; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.nxm-stats { margin-top: auto; display: flex; gap: 14px; color: var(--clr-text-muted); font-size: 11px; }
+.nxm-stat  { display: inline-flex; align-items: center; gap: 4px; }
+.nxm-stat svg { width: 12px; height: 12px; }
+.nxm-stat--endorse { color: var(--clr-accent); }   /* endorsements in the signature gold */
+
+.nxm-more {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 18px;
+    font-size: 12px; letter-spacing: 0.02em;
+    color: var(--clr-accent); text-decoration: none;
+    opacity: 0.9; transition: opacity 0.15s;
+}
+.nxm-more:hover { opacity: 1; text-decoration: underline; }
+.nxm-more svg { width: 12px; height: 12px; }
+
+@media (max-width: 560px) {
+    .nxm-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+}

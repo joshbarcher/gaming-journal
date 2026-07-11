@@ -17,4 +17,5 @@ export const GAME_SECTIONS: GameSection[] = [
     { id: 'game-sec-prices',            label: 'Prices' },
     { id: 'game-sec-protondb',          label: 'Linux Compat.' },
     { id: 'game-sec-pcgw',              label: 'PCGamingWiki' },
+    { id: 'game-sec-nexus',             label: 'Nexus Mods' },
 ]

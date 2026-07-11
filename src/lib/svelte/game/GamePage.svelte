@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
     import { page } from '$app/state'
-    import type { SteamGame, CommunityReviews, SteamUserReviewEntry, PlayerCounts, Flags, LocalReview, Trailer, ItadData, ProtonData, PcgwData, NewsData } from '../../types.js'
+    import type { SteamGame, CommunityReviews, SteamUserReviewEntry, PlayerCounts, Flags, LocalReview, Trailer, ItadData, ProtonData, PcgwData, NewsData, NexusData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { navigate } from '../../js/router.js'
     import { openReviewModal } from '../../js/review-modal.js'
@@ -22,6 +22,7 @@
     import ItadPrices from './sections/ItadPrices.svelte'
     import ProtonDB from './sections/ProtonDB.svelte'
     import PCGW from './sections/PCGW.svelte'
+    import NexusMods from './sections/NexusMods.svelte'
 
     let { appid } = $props()
 
@@ -54,10 +55,12 @@
     let protonData  = $state<ProtonData | null | undefined>(undefined)
     let pcgwData    = $state<PcgwData | null | undefined>(undefined)
     let newsData    = $state<NewsData | null | undefined>(undefined)
+    let nexusData   = $state<NexusData | null | undefined>(undefined)
     let bgPending    = $state(0)
     let hltbNeeded   = $state(false)
     let itadNeeded   = $state(false)
     let pcgwNeeded   = $state(false)
+    let nexusNeeded  = $state(false)
     let phase2Active = $state(false)
 
     interface Section { label: string; done: boolean }
@@ -68,6 +71,7 @@
             ...(pcgwNeeded ? [{ label: 'PCGW',   done: pcgwData   !== undefined }] : []),
             { label: 'Proton', done: protonData !== undefined },
             { label: 'News',   done: newsData   !== undefined },
+            ...(nexusNeeded ? [{ label: 'Mods',  done: nexusData  !== undefined }] : []),
         ]
     )
 
@@ -164,6 +168,12 @@
         pcgwData = data?.found ? data : null
     }
 
+    async function refreshNexus() {
+        const name = encodeURIComponent(game?.name ?? '')
+        const { data } = await workerMgr.sync(`/relay/api/nexus/sync/${appid}?force=true&name=${name}`, `/relay/api/nexus/${appid}`)
+        nexusData = (data?.domainName && data.mods?.length) ? data : null
+    }
+
     // ── Community btn navigation ──────────────────────────────────────────────
     function handleCommunityClick(e: MouseEvent) {
         e.preventDefault()
@@ -233,12 +243,14 @@
         const hasHltb = notSoon && !game.hltb?.matched
         const hasItad = true
         const hasPcgw = notSoon
+        const hasNexus = notSoon
         const hasAbout = !game.store?.detailedDescription && game.store && !game.store.unavailable && !isDisc
 
         let pending = 5 // protondb, news, reddit, community-sync always count (even if skipped below)
         if (hasHltb)         pending++
         if (hasItad)         pending++
         if (hasPcgw)         pending++
+        if (hasNexus)        pending++
         if (hasAbout)        pending++
         if (!needsCommunitySync) pending-- // reddit + community sync: community-sync only if needed
         bgPending = pending
@@ -246,6 +258,7 @@
         hltbNeeded   = hasHltb
         itadNeeded   = hasItad
         pcgwNeeded   = hasPcgw
+        nexusNeeded  = hasNexus
         phase2Active = true
 
         const dec = () => { bgPending = Math.max(0, bgPending - 1) }
@@ -311,6 +324,18 @@
             } catch { newsData = null }
             finally { dec() }
         })()
+
+        // NexusMods — on-demand pull; worker polls the 202 until the relay finishes.
+        // No backfill exists for Nexus, so the fetch is what populates the section.
+        if (hasNexus) {
+            ;(async () => {
+                try {
+                    const { data } = await workerMgr.fetch(`/relay/api/nexus/${appid}?fetch=true&name=${name}`)
+                    nexusData = (data?.domainName && data.mods?.length) ? data : null
+                } catch { nexusData = null }
+                finally { dec() }
+            })()
+        }
 
         // Reddit cache warm (silent, no section)
         ;(async () => {
@@ -513,6 +538,16 @@
             {:else if pcgwNeeded}
                 <section class="game-section" id="game-sec-pcgw">
                     <h2 class="game-section-title">PCGamingWiki</h2>
+                    <div class="game-sec-pending"><div class="community-loader"></div></div>
+                </section>
+            {/if}
+
+            <!-- NexusMods (background-loaded) -->
+            {#if nexusData !== undefined}
+                <NexusMods {nexusData} {game} onRefresh={refreshNexus} />
+            {:else if nexusNeeded}
+                <section class="game-section" id="game-sec-nexus">
+                    <h2 class="game-section-title">Mods</h2>
                     <div class="game-sec-pending"><div class="community-loader"></div></div>
                 </section>
             {/if}

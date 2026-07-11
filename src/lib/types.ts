@@ -395,6 +395,41 @@ export interface PcgwData {
     pageUrl?:      string
 }
 
+// ── NexusMods ───────────────────────────────────────────────────────────────────
+
+export interface NexusMod {
+    modId:           number
+    name:            string
+    summary?:        string | null
+    version?:        string | null
+    author?:         string | null
+    uploaderName?:   string | null
+    uploaderAvatar?: string | null
+    imageUrl?:       string | null   // Nexus CDN — fallback only
+    thumbUrl?:       string | null   // Nexus CDN — fallback only
+    localImage?:     string | null   // /images/nexus/… served via /relay — preferred
+    localThumb?:     string | null
+    downloads:       number
+    endorsements:    number
+    adult:           boolean
+    category?:       string | null
+    createdAt?:      string | null
+    updatedAt?:      string | null
+    url:             string
+}
+
+export interface NexusData {
+    appid:       number
+    steamName?:  string | null
+    domainName?: string | null   // null when the game isn't on Nexus (sentinel)
+    gameId?:     number | null
+    nexusName?:  string | null
+    gameUrl?:    string | null
+    totalMods?:  number
+    fetchedAt?:  string
+    mods:        NexusMod[]
+}
+
 // ── Steam reviews ─────────────────────────────────────────────────────────────
 
 export interface SteamReviewAuthor {
