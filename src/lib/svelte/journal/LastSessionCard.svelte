@@ -8,8 +8,7 @@
         displayAchList: AchievementItem[]
         appid:          string | number
         // When the game is the current now-playing title, the dashboard passes
-        // the live session in so this card flips to "Current Session" with a
-        // running timer instead of showing the last ended session.
+        // the live session in so this card flips to the "Playing Now" state.
         isActive?:      boolean
         activeElapsed?: string
         activeAchs?:    SessionAchievement[]
@@ -32,61 +31,42 @@
     })
 </script>
 
-<div class="gj-card gj-card--game-bg" class:gj-card--live={isActive}
-     style="--gj-game-bg: url('/relay/images/steam/games/{appid}/header.jpg'); min-height: 160px">
-    <div class="gj-card-header">
-        <span class="gj-card-title">
-            {#if isActive}<span class="gj-live-dot" aria-hidden="true"></span>Current Session{:else}Last Session{/if}
-        </span>
-        {#if isActive}
-            <span class="gj-session-date-chip gj-session-date-chip--live">Now</span>
-        {:else if last}
-            <span class="gj-session-date-chip">{fmtDate(last.startedAt)}</span>
-        {/if}
-    </div>
-
-    {#if isActive}
+{#if isActive}
+    <!-- Currently playing: the green "active session" treatment — the
+         pre-migration look (gj-card--active-session in game-journal.css), a
+         solid tinted card rather than the deemphasized game-header background. -->
+    <div class="gj-card gj-card--active-session" style="min-height: 160px">
+        <div class="gj-card-header">
+            <span class="gj-card-title">Playing Now</span>
+            <span class="gj-active-dot"></span>
+        </div>
         <div class="gj-session-stat">
             <span class="gj-session-big">{activeElapsed}</span>
-            <span class="gj-session-sublabel">this session</span>
+            <span class="gj-session-sublabel">so far</span>
         </div>
         {#if activeAchs.length}
             <p class="gj-ach-recent-label">Earned ({activeAchs.length})</p>
         {/if}
         <SessionAchievements achs={activeAchs} {achMap} noDataMsg="No achievements yet this session" />
-    {:else if !last}
-        <p class="gj-no-data">No sessions recorded yet</p>
-    {:else}
-        <div class="gj-session-stat">
-            <span class="gj-session-big">{duration}</span>
-            <span class="gj-session-sublabel">played</span>
+    </div>
+{:else}
+    <div class="gj-card gj-card--game-bg"
+         style="--gj-game-bg: url('/relay/images/steam/games/{appid}/header.jpg'); min-height: 160px">
+        <div class="gj-card-header">
+            <span class="gj-card-title">Last Session</span>
+            {#if last}<span class="gj-session-date-chip">{fmtDate(last.startedAt)}</span>{/if}
         </div>
-        {#if (last.achievements ?? []).length}
-            <p class="gj-ach-recent-label">Earned ({last.achievements!.length})</p>
+        {#if !last}
+            <p class="gj-no-data">No sessions recorded yet</p>
+        {:else}
+            <div class="gj-session-stat">
+                <span class="gj-session-big">{duration}</span>
+                <span class="gj-session-sublabel">played</span>
+            </div>
+            {#if (last.achievements ?? []).length}
+                <p class="gj-ach-recent-label">Earned ({last.achievements!.length})</p>
+            {/if}
+            <SessionAchievements achs={last.achievements ?? []} {achMap} />
         {/if}
-        <SessionAchievements achs={last.achievements ?? []} {achMap} />
-    {/if}
-</div>
-
-<style>
-    /* Live "Current Session" affordances — scoped; only this card uses them. */
-    .gj-card-title { display: inline-flex; align-items: center; gap: 0.45rem; }
-
-    .gj-live-dot {
-        width: 8px; height: 8px; border-radius: 50%;
-        background: #4ade80;
-        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55);
-        animation: gj-live-pulse 2s ease-out infinite;
-        flex: none;
-    }
-    @keyframes gj-live-pulse {
-        0%   { box-shadow: 0 0 0 0   rgba(74, 222, 128, 0.5); }
-        70%  { box-shadow: 0 0 0 7px rgba(74, 222, 128, 0);   }
-        100% { box-shadow: 0 0 0 0   rgba(74, 222, 128, 0);   }
-    }
-
-    .gj-session-date-chip--live {
-        color: #4ade80;
-        border-color: rgba(74, 222, 128, 0.4);
-    }
-</style>
+    </div>
+{/if}
