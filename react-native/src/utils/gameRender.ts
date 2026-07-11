@@ -39,7 +39,9 @@ export function scoreColor(n: number | null | undefined): { clr: string; bg: str
     return { clr: '#e05050', bg: 'rgba(224,80,80,0.13)' }
 }
 
-const BB_RE = /\[(?:b|i|u|s|h[1-6]|url|img|list|quote|code|spoiler|strike)[=\]]/i
+// Keep in sync with web src/lib/js/views/game-render.ts — the attribute run before `]`/`=`
+// catches Steam's attribute-form tags ([img src="…"], [dynamiclink href="…"]) too.
+const BB_RE = /\[(?:b|i|u|s|h[1-6]|url|img|list|olist|quote|code|spoiler|strike|dynamiclink|previewyoutube)(?:\s|=|\])/i
 export function newsBBCodeDirty(news: { items?: { contents?: string }[] } | null | undefined): boolean {
     return news?.items?.some(item => BB_RE.test(item.contents ?? '')) ?? false
 }

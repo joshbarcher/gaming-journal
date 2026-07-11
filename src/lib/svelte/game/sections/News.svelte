@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { NewsData, NewsItem } from '../../../types.js'
+    import { renderNewsHtml } from '../../../js/views/game-render.js'
 
     interface Props { news?: NewsData | null }
     let { news }: Props = $props()
@@ -7,6 +8,7 @@
     let items = $derived(news?.items ?? [])
     let activeIdx = $state(0)
     let activeItem = $derived(items[activeIdx] ?? null)
+    let activeHtml = $derived(renderNewsHtml(activeItem?.contents))
 
     const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -49,7 +51,7 @@
                         {/if}
                     </div>
                     <h3 class="news-panel-title">{activeItem.title}</h3>
-                    <div class="news-panel-body">{@html activeItem.contents ?? ''}</div>
+                    <div class="news-panel-body">{@html activeHtml}</div>
                 </div>
             {/if}
         </div>
