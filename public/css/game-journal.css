@@ -832,7 +832,12 @@
 
 .gj-card--active-session {
     border-color: rgba(80, 200, 120, 0.35);
-    background: rgba(80, 200, 120, 0.04);
+    /* Green tint composited OVER the solid raised background — using the bare
+       rgba alone replaces --clr-bg-raised and leaves the card transparent over
+       the journal's game banner. */
+    background:
+        linear-gradient(rgba(80, 200, 120, 0.07), rgba(80, 200, 120, 0.07)),
+        var(--clr-bg-raised);
 }
 
 .gj-active-dot {
