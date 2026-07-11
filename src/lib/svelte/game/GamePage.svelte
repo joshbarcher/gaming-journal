@@ -496,7 +496,7 @@
 
             <!-- News (background-loaded) -->
             {#if newsData !== undefined}
-                <News news={newsData} />
+                <News news={newsData} {game} />
             {/if}
 
             <!-- Local Review -->

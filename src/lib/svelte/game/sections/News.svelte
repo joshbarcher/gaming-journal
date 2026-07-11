@@ -1,59 +1,28 @@
 <script lang="ts">
-    import type { NewsData, NewsItem } from '../../../types.js'
-    import { renderNewsHtml } from '../../../js/views/game-render.js'
+    import type { SteamGame, NewsData } from '../../../types.js'
+    import NewsCard from '../NewsCard.svelte'
 
-    interface Props { news?: NewsData | null }
-    let { news }: Props = $props()
+    const SVG_ARROW = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`
 
-    let items = $derived(news?.items ?? [])
-    let activeIdx = $state(0)
-    let activeItem = $derived(items[activeIdx] ?? null)
-    let activeHtml = $derived(renderNewsHtml(activeItem?.contents))
+    interface Props { news?: NewsData | null; game: SteamGame }
+    let { news, game }: Props = $props()
 
-    const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-
-    function fmtDate(ts: number | undefined) {
-        return ts ? fmt.format(new Date(ts * 1000)) : ''
-    }
+    let items   = $derived(news?.items ?? [])
+    let top     = $derived(items.slice(0, 6))
+    let newsUrl = $derived(`/game/${game.appid}/news`)
 </script>
 
 {#if items.length}
     <section class="game-section game-news" id="game-sec-news">
-        <h2 class="game-section-title">News</h2>
-        <div class="news-layout">
-            <div class="news-list">
-                {#each items as item, i}
-                    <button
-                        class="news-item"
-                        class:news-item--active={i === activeIdx}
-                        onclick={() => activeIdx = i}
-                    >
-                        <span class="news-item-feed">{item.feedlabel}</span>
-                        <span class="news-item-title">{item.title}</span>
-                        <span class="news-item-date">{fmtDate(item.date)}</span>
-                    </button>
-                {/each}
-            </div>
-            <select class="news-select" bind:value={activeIdx}>
-                {#each items as item, i}
-                    <option value={i}>{item.feedlabel} — {item.title}</option>
-                {/each}
-            </select>
-            {#if activeItem}
-                <div class="news-panel">
-                    <div class="news-panel-meta">
-                        <span class="news-panel-feed">{activeItem.feedlabel}</span>
-                        <span class="news-panel-date">{fmtDate(activeItem.date)}</span>
-                        {#if activeItem.url}
-                            <a class="news-panel-link" href={activeItem.url} target="_blank" rel="noopener noreferrer">
-                                Read full article ↗
-                            </a>
-                        {/if}
-                    </div>
-                    <h3 class="news-panel-title">{activeItem.title}</h3>
-                    <div class="news-panel-body">{@html activeHtml}</div>
-                </div>
-            {/if}
+        <h2 class="game-section-title">
+            News
+            <a class="nxm-all-link" href={newsUrl}>All {items.length} ›</a>
+        </h2>
+        <div class="nws-grid">
+            {#each top as item (item.gid)}
+                <NewsCard {item} appid={game.appid} />
+            {/each}
         </div>
+        <a class="nxm-more" href={newsUrl}>All news {@html SVG_ARROW}</a>
     </section>
 {/if}

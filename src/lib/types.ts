@@ -335,15 +335,37 @@ export interface PlayerCounts {
 // ── News ──────────────────────────────────────────────────────────────────────
 
 export interface NewsItem {
-    date?:     number
-    feedlabel: string
-    title:     string
-    contents?: string
-    url?:      string
+    gid?:          string
+    date?:         number
+    feedlabel:     string
+    feedname?:     string
+    author?:       string
+    title:         string
+    contents?:     string
+    url?:          string
+    is_external_url?: boolean
+    previewImage?: string | null
+    excerpt?:      string
 }
 
 export interface NewsData {
+    appid?: number
     items?: NewsItem[]
+}
+
+// Single news article with a parsed body (GET /relay/api/news/:appid/:gid)
+export interface NewsArticle {
+    gid?:          string
+    date?:         number
+    feedlabel?:    string
+    feedname?:     string
+    author?:       string
+    title:         string
+    url?:          string
+    is_external_url?: boolean
+    previewImage?: string | null
+    excerpt?:      string
+    blocks:        NexusBlock[]
 }
 
 // ── ProtonDB ──────────────────────────────────────────────────────────────────

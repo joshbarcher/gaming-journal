@@ -2,7 +2,7 @@
     import { onMount } from 'svelte'
     import type { NexusModDetail } from '../../types.js'
     import Breadcrumb from '../Breadcrumb.svelte'
-    import NexusBlocks from './NexusBlocks.svelte'
+    import ContentBlocks from './ContentBlocks.svelte'
     import { fmtCompact, fmtSize, nexusImage, nexusImgError } from '../../js/nexusFormat.js'
 
     let { appid, modId } = $props()
@@ -91,7 +91,7 @@
         {#if blocks.length}
             <section class="nxd-desc">
                 <h2 class="game-section-title">Description</h2>
-                <div class="nxd-desc-body"><NexusBlocks {blocks} /></div>
+                <div class="nxd-desc-body"><ContentBlocks {blocks} /></div>
             </section>
         {/if}
     {/if}
