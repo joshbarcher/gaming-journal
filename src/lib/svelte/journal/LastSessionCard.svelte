@@ -32,10 +32,11 @@
 </script>
 
 {#if isActive}
-    <!-- Currently playing: the green "active session" treatment — the
-         pre-migration look (gj-card--active-session in game-journal.css), a
-         solid tinted card rather than the deemphasized game-header background. -->
-    <div class="gj-card gj-card--active-session" style="min-height: 160px">
+    <!-- Currently playing: bright game-header background with a directional
+         scrim for text legibility (same treatment as the sidebar now-playing
+         card), plus the green "active" border + pulsing dot. -->
+    <div class="gj-card gj-card--active-session gj-card--playing-bg"
+         style="--gj-game-bg: url('/relay/images/steam/games/{appid}/header.jpg'); min-height: 160px">
         <div class="gj-card-header">
             <span class="gj-card-title">Playing Now</span>
             <span class="gj-active-dot"></span>
@@ -70,3 +71,36 @@
         {/if}
     </div>
 {/if}
+
+<style>
+    /* Bright game-header background for the live session card, with a
+       left-weighted scrim so the timer/label stay readable over the art. */
+    .gj-card--playing-bg { position: relative; overflow: hidden; }
+
+    .gj-card--playing-bg::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: var(--gj-game-bg, none) center top / cover no-repeat;
+        pointer-events: none;
+    }
+
+    .gj-card--playing-bg::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background: linear-gradient(
+            105deg,
+            rgba(12, 18, 14, 0.94) 0%,
+            rgba(12, 18, 14, 0.72) 38%,
+            rgba(12, 18, 14, 0.32) 72%,
+            rgba(12, 18, 14, 0.10) 100%
+        );
+        pointer-events: none;
+    }
+
+    /* Lift the card's real content above the image + scrim layers. */
+    .gj-card--playing-bg > * { position: relative; z-index: 1; }
+</style>
