@@ -525,8 +525,16 @@
             {/if}
         </div>
 
-        <!-- Last Session (always shown) -->
-        <LastSessionCard sessions={gameSessions} displayAchList={displayAchList} {appid} />
+        <!-- Session card: flips to a live "Current Session" while this game is
+             the now-playing title, otherwise shows the last ended session. -->
+        <LastSessionCard
+            sessions={gameSessions}
+            displayAchList={displayAchList}
+            {appid}
+            isActive={!!activeSession}
+            activeElapsed={sessionElapsedText}
+            activeAchs={achDuring}
+        />
 
         <!-- Guides card: always col 3, always row-span 2. Always visible.
              Must come before HLTB in the DOM so auto-placement fills cols 1-2 around it. -->
