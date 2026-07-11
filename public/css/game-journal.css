@@ -833,6 +833,8 @@
 .gj-card--active-session {
     border-color: rgba(80, 200, 120, 0.35);
     background: rgba(80, 200, 120, 0.04);
+    /* Static (non-animated) green glow marking the live session. */
+    box-shadow: 0 0 16px 2px rgba(80, 200, 120, 0.20);
 }
 
 .gj-active-dot {
