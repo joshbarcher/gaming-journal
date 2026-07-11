@@ -36,6 +36,13 @@
 
     const activeTrackerJob = $derived(trackerSuggestJobStore.jobFor(String(appid)))
 
+    // Live tracker-suggest log: auto-scroll the textarea to the newest line.
+    let tsLogEl = $state<HTMLTextAreaElement | undefined>()
+    $effect(() => {
+        void activeTrackerJob?.log?.length // re-run as lines arrive
+        if (tsLogEl) tsLogEl.scrollTop = tsLogEl.scrollHeight
+    })
+
     // ── Guides ─────────────────────────────────────────────────────────────────
 
     interface DownloadedGuide { source: string; guideId: string; title: string; author: string | null; parsedAt: string | null; pageCount: number }
@@ -630,7 +637,22 @@
                     >✦</button>
                 {/if}
             </div>
-            {#if progressPages.length > 0}
+            {#if activeTrackerJob}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="ts-monitor" onclick={(e) => e.stopPropagation()}>
+                    <div class="ts-monitor-head">
+                        <span class="ts-monitor-status">
+                            {activeTrackerJob.status === 'pending' ? 'Queued…' : 'Generating trackers…'}
+                        </span>
+                        <span class="ts-monitor-pct">{activeTrackerJob.progress}%</span>
+                    </div>
+                    <div class="ts-progress-track">
+                        <div class="ts-progress-fill" style="width:{activeTrackerJob.progress}%"></div>
+                    </div>
+                    <textarea class="ts-log" readonly bind:this={tsLogEl}
+                              value={(activeTrackerJob.log ?? []).join('\n') || 'Starting…'}></textarea>
+                </div>
+            {:else if progressPages.length > 0}
                 <div class="gj-heat-grid" onmouseover={handleHeatOver} onmouseleave={() => { _lastHeatTip = null; hideTip() }}>
                     {#each progressPages as p}
                         {@const pct = pagePct(p)}

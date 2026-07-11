@@ -22,8 +22,11 @@
     const tsFinished = $derived(trackerSuggestJobStore.jobs.filter(j => j.status === 'done' || j.status === 'error' || j.status === 'cancelled').slice().reverse())
 
     onMount(() => {
+        // Guide jobs keep their own visibility-gated stream (unchanged).
+        // Tracker-suggest jobs are fed by the single app-wide shared monitor
+        // (opened in +layout.svelte, fanned out via BroadcastChannel), so this
+        // page just reads trackerSuggestJobStore — no per-page tracker stream.
         let guideEs: EventSource | null = null
-        let trackerEs: EventSource | null = null
 
         function openStreams() {
             if (!guideEs) {
@@ -32,17 +35,10 @@
                     try { jobStore.applyEvent(JSON.parse(e.data)) } catch { /* silent */ }
                 }
             }
-            if (!trackerEs) {
-                trackerEs = new EventSource('/relay/api/progress-suggest/jobs/stream')
-                trackerEs.onmessage = (e) => {
-                    try { trackerSuggestJobStore.applyEvent(JSON.parse(e.data)) } catch { /* silent */ }
-                }
-            }
         }
 
         function closeStreams() {
-            guideEs?.close();   guideEs   = null
-            trackerEs?.close(); trackerEs = null
+            guideEs?.close(); guideEs = null
         }
 
         function onVisibility() { document.hidden ? closeStreams() : openStreams() }

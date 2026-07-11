@@ -114,63 +114,86 @@ test('DownloadsPage opens EventSource streams on visit', async ({ page }) => {
     expect(trackerStream, 'Tracker jobs SSE stream was not opened').toBe(true)
 })
 
-// ── 6. DownloadsPage closes EventSource when tab hidden ───────────────────────
+// ── 6. DownloadsPage GUIDE stream closes when tab hidden, reopens on focus ─────
+// (The tracker-suggest stream is now an app-wide shared monitor opened once in
+// +layout — it is intentionally NOT gated on this page's visibility.)
 
-test('DownloadsPage EventSource closes on visibilitychange:hidden', async ({ page }) => {
-    const openedStreams  = []
-    const closedStreams  = []
-
-    page.on('request',  req  => { if (req.url().includes('/jobs/stream')) openedStreams.push(req.url()) })
-    page.on('response', resp => { if (resp.url().includes('/jobs/stream')) closedStreams.push(resp.url()) })
+test('DownloadsPage guide stream closes on visibilitychange:hidden and reopens', async ({ page }) => {
+    const guideOpens = []
+    page.on('request', req => { if (req.url().includes('guides/jobs/stream')) guideOpens.push(req.url()) })
 
     await page.goto('/downloads')
     await waitForLayout(page)
     await page.waitForTimeout(500)
 
-    expect(openedStreams.length, 'Streams should have opened').toBeGreaterThanOrEqual(2)
+    expect(guideOpens.length, 'guide stream should open on visit').toBeGreaterThanOrEqual(1)
 
-    // Simulate tab going hidden — EventSource should close
+    // Tab hidden — the guide stream should close…
     await page.evaluate(() => {
         Object.defineProperty(document, 'hidden', { value: true, configurable: true })
         document.dispatchEvent(new Event('visibilitychange'))
     })
     await page.waitForTimeout(300)
 
-    // Simulate tab becoming visible again — streams should reopen
+    // …and reopen when visible again.
     await page.evaluate(() => {
         Object.defineProperty(document, 'hidden', { value: false, configurable: true })
         document.dispatchEvent(new Event('visibilitychange'))
     })
     await page.waitForTimeout(500)
 
-    // After coming back visible, new SSE connections should have been opened
-    expect(openedStreams.length, 'Streams should reopen after becoming visible').toBeGreaterThanOrEqual(4)
+    expect(guideOpens.length, 'guide stream should reopen after becoming visible').toBeGreaterThanOrEqual(2)
 })
 
-// ── 7. Navigating away from DownloadsPage does not leave SSE open ─────────────
+// ── 7. Leaving DownloadsPage closes the guide stream ──────────────────────────
+// The tracker monitor is app-wide (one shared connection) so it legitimately
+// persists; only the guide stream is page-scoped.
 
-test('EventSource does not remain open after leaving DownloadsPage', async ({ page }) => {
-    const activeStreams = new Set()
-    page.on('request',  req  => { if (req.url().includes('/jobs/stream')) activeStreams.add(req.url()) })
-    page.on('requestfailed', req => { activeStreams.delete(req.url()) })
-
+test('guide stream does not reconnect after leaving DownloadsPage', async ({ page }) => {
     await page.goto('/downloads')
     await waitForLayout(page)
     await page.waitForTimeout(500)
-    expect(activeStreams.size).toBeGreaterThan(0)
 
-    // Navigate away
     await page.goto('/')
     await waitForLayout(page)
-    await page.waitForTimeout(500)
 
-    // No streaming requests should be pending on the home page
-    const pending = []
+    // Count guide-stream reconnects only AFTER we're on the home page.
+    const guidePending = []
     page.on('request', req => {
-        if (req.url().includes('/jobs/stream')) pending.push(req.url())
+        if (req.url().includes('guides/jobs/stream')) guidePending.push(req.url())
     })
-    await page.waitForTimeout(500)
-    expect(pending).toHaveLength(0)
+    await page.waitForTimeout(800)
+
+    expect(guidePending, 'guide stream must not reopen off the downloads page').toHaveLength(0)
+})
+
+// ── 7b. Two tabs share ONE tracker monitor connection ─────────────────────────
+
+test('a second tab does not open its own tracker stream (leader is shared)', async ({ browser }) => {
+    const ctx = await browser.newContext()
+
+    const tab1 = await ctx.newPage()
+    const tab1Streams = []
+    tab1.on('request', req => { if (req.url().includes('progress-suggest/jobs/stream')) tab1Streams.push(req.url()) })
+    await tab1.goto('/')
+    await waitForLayout(tab1)
+    await tab1.waitForTimeout(800)
+
+    // Tab 1 (the first/leader) opens the single tracker stream.
+    expect(tab1Streams.length, 'leader tab should open the tracker stream').toBeGreaterThanOrEqual(1)
+
+    const tab2 = await ctx.newPage()
+    const tab2Streams = []
+    tab2.on('request', req => { if (req.url().includes('progress-suggest/jobs/stream')) tab2Streams.push(req.url()) })
+    await tab2.goto('/')
+    await waitForLayout(tab2)
+    await tab2.waitForTimeout(800)
+
+    // Tab 2 is a follower — it must NOT open a second tracker stream; it receives
+    // updates from tab 1 over the BroadcastChannel.
+    expect(tab2Streams, 'follower tab must not open its own tracker stream').toHaveLength(0)
+
+    await ctx.close()
 })
 
 // ── 8. BroadcastChannel polling: only 2 relay requests per poll cycle ────────

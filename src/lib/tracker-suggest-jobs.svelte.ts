@@ -12,26 +12,113 @@ export interface TrackerSuggestJob {
     error:       string | null
 }
 
+const CHANNEL = 'tracker-jobs'          // cross-tab fan-out
+const LOCK    = 'tracker-stream-leader' // exactly one tab owns the EventSource
+const LOG_CAP = 300
+
 class TrackerSuggestJobStore {
     jobs = $state<TrackerSuggestJob[]>([])
+
+    #bc: BroadcastChannel | null = null
+    #started = false
+    #releaseLeader: (() => void) | null = null
 
     get activeCount() {
         return this.jobs.filter(j => j.status === 'pending' || j.status === 'running').length
     }
 
+    /** Hydrate from SSR data so a fresh/refreshed page shows in-flight jobs on first paint. */
+    seed(jobs: TrackerSuggestJob[] | null | undefined) {
+        if (Array.isArray(jobs)) this.jobs = jobs
+    }
+
     applyEvent(data: any) {
+        if (!data) return
+
+        // Full snapshot (sent by the relay on every EventSource connect).
         if (data.type === 'snapshot') {
             this.jobs = data.jobs ?? []
-        } else {
-            const idx = this.jobs.findIndex(j => j.id === data.id)
-            if (idx === -1) {
-                this.jobs = [...this.jobs, data]
-            } else {
-                const next = [...this.jobs]
-                next[idx] = data
-                this.jobs = next
-            }
+            return
         }
+
+        // Lightweight per-line log delta.
+        if (data.type === 'log') {
+            const idx = this.jobs.findIndex(j => j.id === data.id)
+            if (idx === -1) return
+            const job = this.jobs[idx]
+            const log = [...(job.log ?? []), data.line]
+            if (log.length > LOG_CAP) log.splice(0, log.length - LOG_CAP)
+            const next = [...this.jobs]
+            next[idx] = { ...job, log }
+            this.jobs = next
+            return
+        }
+
+        // Full job object (status/progress/trackers change).
+        const idx = this.jobs.findIndex(j => j.id === data.id)
+        if (idx === -1) {
+            this.jobs = [...this.jobs, data]
+        } else {
+            const next = [...this.jobs]
+            next[idx] = data
+            this.jobs = next
+        }
+    }
+
+    /**
+     * Open ONE shared live monitor for the whole browser, regardless of how many
+     * tabs are open. A single leader tab (elected via the Web Locks API) holds the
+     * only EventSource and re-broadcasts every update over a BroadcastChannel;
+     * every tab — including the leader — updates its store from that channel. If
+     * the leader tab closes, the lock auto-releases and another tab takes over.
+     *
+     * This keeps us to a single relay connection (and one undici hop on the
+     * SvelteKit->relay proxy) no matter the tab count — see docs/connections-update.md.
+     * Idempotent per tab; safe to call from every page's onMount.
+     */
+    connect() {
+        if (this.#started || typeof window === 'undefined') return
+        this.#started = true
+
+        try {
+            this.#bc = new BroadcastChannel(CHANNEL)
+            this.#bc.onmessage = (e) => this.applyEvent(e.data)
+        } catch { /* BroadcastChannel unavailable — leader still works, just no fan-out */ }
+
+        this.#becomeLeader()
+    }
+
+    #becomeLeader() {
+        if (typeof navigator !== 'undefined' && 'locks' in navigator) {
+            const ac = new AbortController()
+            navigator.locks
+                .request(LOCK, { mode: 'exclusive', signal: ac.signal }, () =>
+                    // Holding this promise open = holding the lock = being the leader.
+                    new Promise<void>((resolve) => {
+                        const es = this.#openStream()
+                        this.#releaseLeader = () => { es.close(); resolve() }
+                    })
+                )
+                .catch(() => { /* AbortError if a queued request is cancelled — fine */ })
+        } else {
+            // No Web Locks (old browser): this tab holds its own stream. Worst case
+            // is one connection per tab, i.e. the pre-existing behaviour.
+            const es = this.#openStream()
+            this.#releaseLeader = () => es.close()
+        }
+    }
+
+    #openStream(): EventSource {
+        const es = new EventSource('/relay/api/progress-suggest/jobs/stream')
+        es.onmessage = (e) => {
+            let data: any
+            try { data = JSON.parse(e.data) } catch { return }
+            this.applyEvent(data)         // leader's own store
+            this.#bc?.postMessage(data)   // fan out to every other tab
+        }
+        // EventSource auto-reconnects on drop; the relay re-sends a snapshot on
+        // reconnect, so state re-syncs without extra handling.
+        return es
     }
 
     async fetchAll() {
@@ -49,8 +136,7 @@ class TrackerSuggestJobStore {
         })
         if (!res.ok) throw new Error(`Enqueue failed: HTTP ${res.status}`)
         const job: TrackerSuggestJob = await res.json()
-        const idx = this.jobs.findIndex(j => j.id === job.id)
-        if (idx === -1) this.jobs = [...this.jobs, job]
+        this.applyEvent(job)
         return job
     }
 

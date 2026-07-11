@@ -4,6 +4,7 @@
     import Sidebar from '$lib/Sidebar.svelte'
     import GlobalSearch from '$lib/svelte/GlobalSearch.svelte'
     import { store, type NowPlayingInfo } from '$lib/sidebar.svelte.js'
+    import { trackerSuggestJobStore } from '$lib/tracker-suggest-jobs.svelte.js'
     import { scrollbar } from '$lib/actions/scrollbar.js'
     import { onGameCardContextMenu } from '$lib/js/views/game-card-menu.js'
 
@@ -90,6 +91,12 @@
         store.lastPlayed   = data.lastPlayed   ?? null
         applyNowPlaying((data.nowPlaying ?? null) as NowPlayingInfo | null)
         store.pin = (data.pin ?? null)
+
+        // Tracker-suggest jobs: seed from SSR (so a refresh shows in-flight jobs
+        // immediately) then open ONE shared live monitor for the whole browser —
+        // a single leader tab holds the EventSource and fans updates to all tabs.
+        trackerSuggestJobStore.seed(data.trackerJobs as any)
+        trackerSuggestJobStore.connect()
 
         // Alerts refresh every 15 min
         const alertsTimer = setInterval(async () => {

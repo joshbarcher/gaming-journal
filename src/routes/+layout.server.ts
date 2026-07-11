@@ -26,7 +26,7 @@ function fmtElapsed(startIso: string | null): string {
 }
 
 export async function load() {
-    const [flagsResult, pagesResult, franchisesResult, alertsResult, account, playtime, npResult, pinResult] =
+    const [flagsResult, pagesResult, franchisesResult, alertsResult, account, playtime, npResult, pinResult, trackerJobsResult] =
         await Promise.allSettled([
             getAllFlags(),
             Promise.resolve(getJournalService().getAll()),
@@ -36,6 +36,7 @@ export async function load() {
             safeRelayJson('/api/steam/playtime/last-played'),
             safeRelayJson('/api/steam/now-playing'),
             safeRelayJson('/api/pin'),
+            safeRelayJson('/api/progress-suggest/jobs'),
         ])
 
     const flags      = flagsResult.status      === 'fulfilled' ? flagsResult.value      : {}
@@ -46,6 +47,8 @@ export async function load() {
     const playtimeData = playtime.status  === 'fulfilled' ? playtime.value  : null
     const npData       = npResult.status  === 'fulfilled' ? npResult.value  : null
     const pinData      = pinResult.status === 'fulfilled' ? pinResult.value : null
+    const trackerJobs  = trackerJobsResult.status === 'fulfilled' && Array.isArray(trackerJobsResult.value)
+        ? trackerJobsResult.value : []
 
     // Collection counts
     const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 }
@@ -95,5 +98,6 @@ export async function load() {
         lastPlayed,
         nowPlaying,
         pin:          pinData as PinState | null,
+        trackerJobs,
     }
 }

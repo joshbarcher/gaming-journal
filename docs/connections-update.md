@@ -220,6 +220,38 @@ Mount burst: eliminated — data arrives with SSR HTML.
 Ongoing polling: 1–2 short-lived requests per minute total.  
 Connection pool pressure: effectively zero.
 
+---
+
+## Addendum (2026-07-11): tracker-suggest shared monitor
+
+The AI tracker-suggest download now needs to be **visible and live on the game
+page** (where you start it), not just the downloads page — and must survive a
+refresh and be watchable from any of N open tabs. Reopening a per-page
+EventSource for it would reintroduce the connection pressure this doc fixed, so
+the tracker stream moved to a **single leader-elected connection**:
+
+- **One leader tab** holds the only `EventSource('/relay/api/progress-suggest/jobs/stream')`.
+  Election is via the **Web Locks API** (`navigator.locks.request('tracker-stream-leader', {mode:'exclusive'})`) — the tab that holds the lock is the leader; if it closes, the lock auto-releases and another tab takes over.
+- The leader re-broadcasts every update over `BroadcastChannel('tracker-jobs')`.
+  **Every tab** (leader included) updates `trackerSuggestJobStore` from that channel.
+  → **12 tabs = 1 relay connection = 1 undici hop.**
+- **SSR seed:** `+layout.server.ts` fetches `/api/progress-suggest/jobs` server-side
+  and returns `trackerJobs`; `+layout.svelte` seeds the store before connecting, so
+  a refresh paints the in-flight job from the HTML with **zero** client fetches.
+- The relay broadcasts a lightweight `{type:'log',id,line}` **delta** per log line
+  (not the whole growing job) so the single connection stays cheap; late tabs still
+  get the full log via the connect snapshot.
+
+**Guides are unchanged** — the guide stream keeps its per-page,
+visibility-gated EventSource on DownloadsPage. Only the tracker stream is shared.
+
+Tradeoff vs. the "0 at rest" target above: the leader holds **1** idle tracker
+connection while the app is open. With leader election that's 1 connection total
+regardless of tab count (5 pool slots still free), so it does **not** reintroduce
+the exhaustion problem — the thing this doc actually guards against. A future
+refinement could drop the connection when no job is active and reopen on the next
+enqueue broadcast.
+
 ### Test coverage
 
 `src/tests/e2e/connections.test.js` covers all of the above behaviours end-to-end:
