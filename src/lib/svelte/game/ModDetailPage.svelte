@@ -37,6 +37,9 @@
     let imagesPending = $state(true)   // scrape not yet resolved (authorImagesAt unset)
     let pollExhausted = $state(false)  // gave up polling; scrape may still be queued
     async function pollAuthorImages(tries = 0) {
+        // Adult mods aren't scraped on view — their images come from the authenticated
+        // Settings backfill — so there's nothing to poll for.
+        if (detail?.adult) { imagesPending = false; return }
         if (detail?.authorImagesAt) { imagesPending = false; return }
         if (tries >= 20) { pollExhausted = true; return }   // ~60s of polling
         setTimeout(async () => {
@@ -61,6 +64,7 @@
     let blocks  = $derived(detail?.descriptionBlocks ?? [])
     let heroSrc = $derived(detail ? nexusImage(detail) : '')
     let gallery = $derived(detail?.gallery ?? [])
+    let isAdult = $derived(!!detail?.adult)
     function shotSrc(g: { url: string; localUrl?: string | null }) { return g.localUrl ? `/relay${g.localUrl}` : g.url }
     let gallerySrcs = $derived(gallery.map(shotSrc))
 </script>
@@ -118,7 +122,7 @@
             <h2 class="game-section-title">
                 Media
                 {#if gallery.length}<span class="nxd-media-count">{gallery.length}</span>{/if}
-                {#if imagesPending && !pollExhausted}<span class="nxd-media-status"><span class="nxd-media-spin"></span> fetching author images…</span>{/if}
+                {#if !isAdult && imagesPending && !pollExhausted}<span class="nxd-media-status"><span class="nxd-media-spin"></span> fetching author images…</span>{/if}
             </h2>
             {#if gallery.length}
                 <div class="game-shots-grid">
@@ -132,6 +136,8 @@
                         </div>
                     {/each}
                 </div>
+            {:else if isAdult}
+                <p class="nxd-media-note nxd-media-note--empty">Adult mod — its gallery is fetched during the authenticated backfill (Settings → Mod Images), not on view.</p>
             {:else if imagesPending && !pollExhausted}
                 <p class="nxd-media-note"><span class="nxd-media-spin"></span> Pulling images from Nexus — this can take a moment (they're fetched gently, one mod at a time).</p>
             {:else if pollExhausted}
