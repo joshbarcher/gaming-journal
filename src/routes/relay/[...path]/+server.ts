@@ -30,13 +30,18 @@ async function proxy({ request, url }: RequestEvent) {
     const headers = new Headers()
     if (request.headers.has('content-type')) headers.set('content-type', request.headers.get('content-type')!)
     if (request.headers.has('accept')) headers.set('accept', request.headers.get('accept')!)
+    // Forward Range so <video>/<audio> stream properly: without it the browser is
+    // handed one un-recoverable 200 for the whole file and aborts on any mid-stream
+    // hiccup ("Video playback aborted due to a network error"). With it, the relay
+    // (express.static) replies 206 and the browser can seek and re-request ranges.
+    if (request.headers.has('range')) headers.set('range', request.headers.get('range')!)
 
     try {
         const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer()
         const response = await fetch(targetUrl, { method: request.method, headers, body, dispatcher: isSSE ? _sseAgent : _apiAgent } as RequestInit)
 
         const responseHeaders = new Headers()
-        for (const key of ['content-type', 'content-length', 'cache-control']) {
+        for (const key of ['content-type', 'content-length', 'cache-control', 'accept-ranges', 'content-range']) {
             if (response.headers.has(key)) responseHeaders.set(key, response.headers.get(key)!)
         }
 
