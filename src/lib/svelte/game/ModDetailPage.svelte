@@ -5,6 +5,7 @@
     import ContentBlocks from './ContentBlocks.svelte'
     import { openLightbox } from '../../js/lightbox.js'
     import { fmtCompact, fmtSize, nexusImage, nexusImgError } from '../../js/nexusFormat.js'
+    import { adultContent } from '$lib/adult-content.svelte.js'
 
     let { appid, modId } = $props()
 
@@ -29,7 +30,7 @@
         } catch { error = true }
         finally { loading = false }
     }
-    onMount(load)
+    onMount(() => { adultContent.load(); load() })
 
     // The author-images tab is scraped in the background (serialized + gentle, so it can
     // take a while under load). Poll until it resolves, showing status the whole time.
@@ -81,7 +82,7 @@
     {:else}
         <header class="nxd-hero">
             {#if heroSrc}
-                <div class="nxd-hero-img" class:nxd-hero-img--adult={detail.adult}>
+                <div class="nxd-hero-img" class:nxd-hero-img--adult={detail.adult && adultContent.hide}>
                     <img src={heroSrc} alt="" onerror={(e) => nexusImgError(e, detail?.imageUrl ?? detail?.thumbUrl)}>
                     {#if detail.adult}<span class="nxm-adult nxd-adult">18+</span>{/if}
                 </div>

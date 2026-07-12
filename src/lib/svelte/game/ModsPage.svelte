@@ -4,6 +4,7 @@
     import Breadcrumb from '../Breadcrumb.svelte'
     import { getScrollInstance } from '$lib/actions/scrollbar.js'
     import { fmtCompact, fmtSize, nexusThumb, nexusImgError } from '../../js/nexusFormat.js'
+    import { adultContent } from '$lib/adult-content.svelte.js'
 
     let { appid } = $props()
 
@@ -163,6 +164,7 @@
     }
 
     onMount(() => {
+        adultContent.load()
         loadMeta()
         loadPage(true)
         const scrollEl = (getScrollInstance()?.elements().viewport as HTMLElement) ?? document.getElementById('main-content')
@@ -248,7 +250,7 @@
         {#each shown as mod (mod.modId)}
             <div class="nxm-card-wrap">
                 <a class="nxm-card" href={modUrl(mod)}>
-                    <div class="nxm-thumb" class:nxm-thumb--adult={mod.adult}>
+                    <div class="nxm-thumb" class:nxm-thumb--adult={mod.adult && adultContent.hide}>
                         {#if nexusThumb(mod)}
                             <img src={nexusThumb(mod)} alt="" loading="lazy" onerror={(e) => nexusImgError(e, mod.thumbUrl ?? mod.imageUrl)}>
                         {/if}

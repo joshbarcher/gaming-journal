@@ -1,6 +1,8 @@
 <script lang="ts">
+    import { onMount } from 'svelte'
     import type { SteamGame, NexusData, NexusMod } from '../../../types.js'
     import { fmtCompact, nexusThumb, nexusImgError } from '../../../js/nexusFormat.js'
+    import { adultContent } from '$lib/adult-content.svelte.js'
 
     const SVG_ARROW   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`
     const SVG_ENDORSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`
@@ -12,6 +14,8 @@
         onRefresh?: () => Promise<void>
     }
     let { nexusData, game, onRefresh }: Props = $props()
+
+    onMount(() => adultContent.load())
 
     let refreshing = $state(false)
     async function refresh() {
@@ -36,7 +40,7 @@
         <div class="nxm-grid">
             {#each mods as mod (mod.modId)}
                 <a class="nxm-card" href={modUrl(mod)}>
-                    <div class="nxm-thumb" class:nxm-thumb--adult={mod.adult}>
+                    <div class="nxm-thumb" class:nxm-thumb--adult={mod.adult && adultContent.hide}>
                         {#if nexusThumb(mod)}
                             <img src={nexusThumb(mod)} alt="" loading="lazy" onerror={(e) => nexusImgError(e, mod.thumbUrl ?? mod.imageUrl)}>
                         {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte'
     import type { Settings } from '../../types.js'
+    import { adultContent } from '$lib/adult-content.svelte.js'
 
     let loading    = $state(true)
     let error      = $state<string | null>(null)
@@ -37,6 +38,8 @@
     async function onToggle(key: keyof Settings, checked: boolean, invert = false) {
         const prev = settings[key]
         settings[key] = invert ? !checked : checked
+        // Keep the shared adult-content mirror in sync so mod thumbnails re-blur live.
+        if (key === 'hideAdultContent') adultContent.hide = settings[key] as boolean
         try {
             const res = await fetch('/api/settings', {
                 method:  'PATCH',
@@ -46,6 +49,7 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}`)
         } catch {
             settings[key] = prev
+            if (key === 'hideAdultContent') adultContent.hide = prev as boolean
         }
     }
 
