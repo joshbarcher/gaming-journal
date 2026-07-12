@@ -103,7 +103,7 @@
         else if (done) return
         loading = true
         try {
-            const url = `/relay/api/nexus/${appid}/mods?sort=${sort}&offset=${offset}&limit=${LIMIT}&q=${encodeURIComponent(activeQ)}`
+            const url = `/relay/api/nexus/${appid}/mods?sort=${sort}&offset=${offset}&limit=${LIMIT}&q=${encodeURIComponent(activeQ)}&adult=${adultMode}`
             const r = await fetch(url)
             if (!r.ok) throw new Error(`HTTP ${r.status}`)
             const pageData: NexusModsPage = await r.json()
@@ -154,7 +154,8 @@
     function onSortChange(e: Event)   { sort = (e.currentTarget as HTMLSelectElement).value; afterControlChange() }
     function onCategoryChange(e: Event){ category = (e.currentTarget as HTMLSelectElement).value; visibleCount = LIMIT }
     function onTagChange(e: Event)    { tag = (e.currentTarget as HTMLSelectElement).value; visibleCount = LIMIT }
-    function setAdult(mode: 'hide' | 'all' | 'only') { adultMode = mode; visibleCount = LIMIT }
+    // Live mode: adult is filtered server-side, so reload. Deep mode: client-side filter over the pulled set.
+    function setAdult(mode: 'hide' | 'all' | 'only') { adultMode = mode; afterControlChange() }
     function onSearchInput(e: Event) {
         query = (e.currentTarget as HTMLInputElement).value
         if (debounceT) clearTimeout(debounceT)
@@ -209,13 +210,11 @@
                     {#each tagOptions as [t, n]}<option value={t}>{t} ({n})</option>{/each}
                 </select>
             {/if}
-            {#if deep}
-                <div class="nxmp-seg" role="group" aria-label="Adult content filter">
-                    <button type="button" class:nxmp-seg--on={adultMode === 'hide'} onclick={() => setAdult('hide')} title="Hide adult mods">No 18+</button>
-                    <button type="button" class:nxmp-seg--on={adultMode === 'all'} onclick={() => setAdult('all')} title="Show adult and regular mods">All</button>
-                    <button type="button" class:nxmp-seg--on={adultMode === 'only'} onclick={() => setAdult('only')} title="Only adult mods">Only 18+</button>
-                </div>
-            {/if}
+            <div class="nxmp-seg" role="group" aria-label="Adult content filter">
+                <button type="button" class:nxmp-seg--on={adultMode === 'hide'} onclick={() => setAdult('hide')} title="Hide adult mods">No 18+</button>
+                <button type="button" class:nxmp-seg--on={adultMode === 'all'} onclick={() => setAdult('all')} title="Show adult and regular mods">All</button>
+                <button type="button" class:nxmp-seg--on={adultMode === 'only'} onclick={() => setAdult('only')} title="Only adult mods">Only 18+</button>
+            </div>
             <button class="nxmp-deep-btn" class:nxmp-deep-btn--on={deep} onclick={toggleDeep} title="Pull the full catalogue for rich local search">
                 {deep ? '● Deep search' : 'Deep search'}
             </button>
