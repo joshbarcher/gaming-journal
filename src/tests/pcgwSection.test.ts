@@ -39,7 +39,7 @@ describe('PCGW section — notes cells', () => {
 
     it('keeps the mod link inside the note clickable and off-site', () => {
         const { container } = renderSection()
-        const link = container.querySelector('.pcgw-tile-note a') as HTMLAnchorElement | null
+        const link = container.querySelector('.pcgw-frow-note a') as HTMLAnchorElement | null
         expect(link?.getAttribute('href')).toBe('https://www.nexusmods.com/mods/7')
     })
 
@@ -118,7 +118,7 @@ describe('PCGW section — legacy payloads', () => {
             video: { widescreen: 'true', hdr: 'false' },
             fixes: [],
         })
-        expect(container.querySelector('.pcgw-tile-note')).toBeNull()
+        expect(container.querySelector('.pcgw-frow-note')).toBeNull()
         expect(container.textContent).toContain('Widescreen')
         expect(container.querySelector('.pcgw-badge--no')?.textContent).toBe('No')
     })

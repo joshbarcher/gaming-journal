@@ -1276,64 +1276,48 @@
 }
 
 /* Video feature grid */
-.pcgw-feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
-    gap: 6px;
-    /* Default `stretch` — every tile matches the tallest in its row, so a long
-       note never leaves its neighbours as stubs. */
-    align-items: stretch;
-}
+/* Video & Display — compact feature rows. Two balanced columns via CSS multi-column
+   so a long note never forces empty space onto a neighbouring cell (the flaw of the
+   old tile grid); collapses to one column when narrow. */
+.pcgw-feature-rows { columns: 2; column-gap: 40px; }
+@media (max-width: 760px) { .pcgw-feature-rows { columns: 1; } }
 
-.pcgw-feature-tile {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    padding: 9px 12px;
-    background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius);
+.pcgw-frow {
+    break-inside: avoid;
+    padding: 10px 0;
+    border-top: 1px solid var(--clr-border);
 }
-
-.pcgw-tile-head {
+.pcgw-frow-head {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
 }
-
-/* Rows carrying wiki notes get two tracks so the prose has somewhere to go. */
-@media (min-width: 640px) {
-    .pcgw-feature-tile--noted { grid-column: span 2; }
-}
-
-.pcgw-tile-label {
-    flex: 1;
-    font-size: 12px;
-    color: var(--clr-text);
-}
+.pcgw-frow-head svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--clr-text-muted); }
+.pcgw-frow-label { flex: 1; font-size: 13px; color: var(--clr-text); }
+.pcgw-frow-head .pcgw-badge { margin-left: auto; }
 
 /* Free-text notes from PCGW's third column (mod links, caveats, preset lists) */
-.pcgw-tile-note,
+.pcgw-frow-note,
 .pcgw-row-note {
     margin: 0;
-    font-size: 11.5px;
-    line-height: 1.5;
+    font-size: 12px;
+    line-height: 1.55;
     color: var(--clr-text-muted);
 }
-.pcgw-tile-note { padding-left: calc(15px + 9px); }   /* clear the tile icon */
+.pcgw-frow-note { margin-top: 6px; padding-left: 25px; }   /* align under the label, clear of the icon */
 .pcgw-row-note  { margin: -2px 0 6px; }
 
-.pcgw-tile-note a,
+.pcgw-frow-note a,
 .pcgw-row-note a {
     color: var(--clr-accent);
     text-decoration: none;
     border-bottom: 1px solid rgba(201, 168, 76, 0.35);
 }
-.pcgw-tile-note a:hover,
+.pcgw-frow-note a:hover,
 .pcgw-row-note a:hover { border-bottom-color: var(--clr-accent); }
 
-.pcgw-tile-note b,
-.pcgw-tile-note strong { color: var(--clr-text); font-weight: 600; }
+.pcgw-frow-note b,
+.pcgw-frow-note strong { color: var(--clr-text); font-weight: 600; }
 
 /* Badges */
 .pcgw-badge {

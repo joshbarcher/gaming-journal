@@ -132,19 +132,19 @@
         {#if activeVideoFeatures.length}
             <div class="pcgw-block">
                 <h3 class="pcgw-block-title">{@html PI.monitor}Video &amp; Display</h3>
-                <div class="pcgw-feature-grid">
+                <div class="pcgw-feature-rows">
                     {#each activeVideoFeatures as f}
                         {@const b = badge(v[f.key])}
                         {@const note = videoNotes[f.key]}
                         {#if b}
-                            <div class="pcgw-feature-tile" class:pcgw-feature-tile--noted={note}>
-                                <div class="pcgw-tile-head">
+                            <div class="pcgw-frow">
+                                <div class="pcgw-frow-head">
                                     {@html PI[f.icon]}
-                                    <span class="pcgw-tile-label">{f.label}</span>
+                                    <span class="pcgw-frow-label">{f.label}</span>
                                     <span class="pcgw-badge pcgw-badge--{b.type}">{b.text}</span>
                                 </div>
                                 {#if note}
-                                    <p class="pcgw-tile-note">{@html note}</p>
+                                    <p class="pcgw-frow-note">{@html note}</p>
                                 {/if}
                             </div>
                         {/if}
