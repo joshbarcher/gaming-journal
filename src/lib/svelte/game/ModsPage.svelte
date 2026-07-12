@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte'
-    import type { NexusMod, NexusModsPage } from '../../types.js'
+    import type { NexusMod, NexusModsPage, NexusDeep } from '../../types.js'
     import Breadcrumb from '../Breadcrumb.svelte'
     import { getScrollInstance } from '$lib/actions/scrollbar.js'
     import { fmtCompact, fmtSize, nexusThumb, nexusImgError } from '../../js/nexusFormat.js'
@@ -21,32 +21,74 @@
     const SVG_ENDORSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`
     const SVG_DL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`
 
+    // ── Shared state ─────────────────────────────────────────────────────────────
     let gameName   = $state('')
-    let gameUrl    = $state('')
-    let mods       = $state<NexusMod[]>([])
-    let totalCount = $state(0)
     let sort       = $state('endorsements')
     let query      = $state('')     // raw input
     let activeQ    = $state('')     // debounced/applied
+    let deep       = $state(false)
+    let notOnNexus = $state(false)
+
+    // ── Live (normal) mode ────────────────────────────────────────────────────────
+    let mods       = $state<NexusMod[]>([])
+    let totalCount = $state(0)
     let offset     = $state(0)
     let loading    = $state(false)
     let done       = $state(false)
     let error      = $state(false)
-    let notOnNexus = $state(false)
+
+    // ── Deep mode ──────────────────────────────────────────────────────────────────
+    let deepMods    = $state<NexusMod[]>([])
+    let deepStatus  = $state<'idle' | 'running' | 'done' | 'error'>('idle')
+    let deepPulled  = $state(0)
+    let deepTotal   = $state(0)
+    let deepCapped  = $state(false)
+    let category    = $state('')
+    let hideAdult   = $state(false)
+    let visibleCount = $state(LIMIT)
+    let pollTimer: ReturnType<typeof setInterval> | null = null
 
     let sentinel: HTMLElement | null = null
     let io: IntersectionObserver | undefined
     let debounceT: ReturnType<typeof setTimeout> | null = null
 
+    // ── Deep: client-side filter + sort over the full pulled set ────────────────────
+    function sortMods(arr: NexusMod[], key: string): NexusMod[] {
+        const c = [...arr]
+        switch (key) {
+            case 'downloads': return c.sort((a, b) => b.downloads - a.downloads)
+            case 'updated':   return c.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+            case 'added':     return c.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+            case 'name':      return c.sort((a, b) => a.name.localeCompare(b.name))
+            case 'size':      return c.sort((a, b) => (b.fileSize ?? 0) - (a.fileSize ?? 0))
+            default:          return c.sort((a, b) => b.endorsements - a.endorsements)
+        }
+    }
+    let categories = $derived([...new Set(deepMods.map(m => m.category).filter(Boolean))].sort() as string[])
+    let deepFiltered = $derived.by(() => {
+        let arr = deepMods
+        const q = activeQ.toLowerCase()
+        if (q)         arr = arr.filter(m => m.name.toLowerCase().includes(q))
+        if (category)  arr = arr.filter(m => m.category === category)
+        if (hideAdult) arr = arr.filter(m => !m.adult)
+        return sortMods(arr, sort)
+    })
+    let deepVisible = $derived(deepFiltered.slice(0, visibleCount))
+
+    // What the grid renders + the header count.
+    let shown       = $derived(deep ? deepVisible : mods)
+    let headerCount = $derived(deep ? deepFiltered.length : totalCount)
+
+    // ── Data loading ─────────────────────────────────────────────────────────────
     async function loadMeta() {
         try {
             const r = await fetch(`/relay/api/nexus/${appid}`)
-            if (r.ok) { const e = await r.json(); gameName = e.steamName ?? e.nexusName ?? 'Game'; gameUrl = e.gameUrl ?? '' }
+            if (r.ok) { const e = await r.json(); gameName = e.steamName ?? e.nexusName ?? 'Game'; notOnNexus = e.domainName == null }
         } catch { /* breadcrumb falls back to "Game" */ }
     }
 
     async function loadPage(reset = false) {
-        if (loading) return
+        if (deep || loading) return
         if (reset) { offset = 0; mods = []; done = false; error = false }
         else if (done) return
         loading = true
@@ -64,22 +106,61 @@
         finally { loading = false }
     }
 
-    function onSortChange(e: Event) { sort = (e.currentTarget as HTMLSelectElement).value; loadPage(true) }
+    // ── Deep pull: start + poll ────────────────────────────────────────────────────
+    async function pollDeep() {
+        try {
+            const r = await fetch(`/relay/api/nexus/${appid}/deep`)
+            if (!r.ok) return
+            const d: NexusDeep = await r.json()
+            deepMods   = d.mods ?? []
+            deepPulled = d.pulled ?? deepMods.length
+            deepTotal  = d.total ?? 0
+            deepCapped = d.capped ?? false
+            // 'idle' just means the crawl hasn't flushed its first page yet — stay "running".
+            if (d.status && d.status !== 'idle') deepStatus = d.status
+            if (d.status === 'done' || d.status === 'error') stopPolling()
+        } catch { /* keep last snapshot */ }
+    }
+    function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } }
+    async function startDeep() {
+        deepStatus = 'running'
+        try { await fetch(`/relay/api/nexus/${appid}/deep`, { method: 'POST' }) } catch { /* poll will report */ }
+        await pollDeep()
+        if (!pollTimer) pollTimer = setInterval(pollDeep, 1500)   // poll until done/error stops it
+    }
+
+    function toggleDeep() {
+        deep = !deep
+        visibleCount = LIMIT
+        if (deep) { if (deepStatus === 'idle') startDeep(); else pollDeep() }
+        else stopPolling()
+    }
+
+    // Controls: reset the visible window (deep) or reload from the server (live).
+    function afterControlChange() {
+        visibleCount = LIMIT
+        if (!deep) loadPage(true)
+    }
+    function onSortChange(e: Event)   { sort = (e.currentTarget as HTMLSelectElement).value; afterControlChange() }
+    function onCategoryChange(e: Event){ category = (e.currentTarget as HTMLSelectElement).value; visibleCount = LIMIT }
     function onSearchInput(e: Event) {
         query = (e.currentTarget as HTMLInputElement).value
         if (debounceT) clearTimeout(debounceT)
-        debounceT = setTimeout(() => { activeQ = query.trim(); loadPage(true) }, 350)
+        debounceT = setTimeout(() => { activeQ = query.trim(); afterControlChange() }, deep ? 120 : 350)
     }
 
     onMount(() => {
         loadMeta()
         loadPage(true)
         const scrollEl = (getScrollInstance()?.elements().viewport as HTMLElement) ?? document.getElementById('main-content')
-        io = new IntersectionObserver(entries => { if (entries[0].isIntersecting) loadPage(false) },
-            { root: scrollEl ?? null, rootMargin: '700px' })
+        io = new IntersectionObserver(entries => {
+            if (!entries[0].isIntersecting) return
+            if (deep) { if (visibleCount < deepFiltered.length) visibleCount += LIMIT }
+            else loadPage(false)
+        }, { root: scrollEl ?? null, rootMargin: '700px' })
         if (sentinel) io.observe(sentinel)
     })
-    onDestroy(() => { io?.disconnect(); if (debounceT) clearTimeout(debounceT) })
+    onDestroy(() => { io?.disconnect(); stopPolling(); if (debounceT) clearTimeout(debounceT) })
 
     function bindSentinel(el: HTMLElement) { sentinel = el; io?.observe(el) }
     function modUrl(m: NexusMod) { return `/game/${appid}/mods/${m.modId}` }
@@ -95,28 +176,53 @@
     ]} />
 
     <header class="nxmp-head">
-        <h1 class="nxmp-title">Mods{#if totalCount} <span class="nxmp-count">{totalCount.toLocaleString()}</span>{/if}</h1>
+        <h1 class="nxmp-title">Mods{#if headerCount} <span class="nxmp-count">{headerCount.toLocaleString()}</span>{/if}</h1>
         <div class="nxmp-controls">
             <div class="nxmp-search">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="search" placeholder="Search mods…" value={query} oninput={onSearchInput} aria-label="Search mods" />
+                <input type="search" placeholder={deep ? 'Search all pulled mods…' : 'Search mods…'} value={query} oninput={onSearchInput} aria-label="Search mods" />
             </div>
             <select class="nxmp-sort" value={sort} onchange={onSortChange} aria-label="Sort mods">
                 {#each SORTS as s}<option value={s.key}>{s.label}</option>{/each}
             </select>
+            {#if deep && categories.length}
+                <select class="nxmp-sort" value={category} onchange={onCategoryChange} aria-label="Filter by category">
+                    <option value="">All categories</option>
+                    {#each categories as c}<option value={c}>{c}</option>{/each}
+                </select>
+                <label class="nxmp-toggle nxmp-toggle--sm"><input type="checkbox" bind:checked={hideAdult} /> Hide 18+</label>
+            {/if}
+            <button class="nxmp-deep-btn" class:nxmp-deep-btn--on={deep} onclick={toggleDeep} title="Pull the full catalogue for rich local search">
+                {deep ? '● Deep search' : 'Deep search'}
+            </button>
         </div>
     </header>
 
+    {#if deep}
+        <div class="nxmp-deepbar" class:nxmp-deepbar--capped={deepCapped}>
+            {#if deepStatus === 'running'}
+                <span class="nxmp-deep-spin"></span>
+                Deep search — pulled <strong>{deepPulled.toLocaleString()}</strong>{#if deepTotal} of {deepTotal.toLocaleString()}{/if}…
+            {:else if deepCapped}
+                ⚠ Reached the {(deepMods.length).toLocaleString()}-mod deep limit — this game has {deepTotal.toLocaleString()} mods. Sorted by endorsements; refine with search & filters.
+            {:else if deepStatus === 'done'}
+                ✓ Pulled all <strong>{deepMods.length.toLocaleString()}</strong> mods — search & filter the full set below.
+            {:else if deepStatus === 'error'}
+                Couldn’t complete the deep pull. Showing {deepMods.length.toLocaleString()} pulled so far.
+            {/if}
+        </div>
+    {/if}
+
     {#if notOnNexus}
         <p class="nxmp-empty">This game isn’t on Nexus Mods.</p>
-    {:else if error && mods.length === 0}
+    {:else if !deep && error && mods.length === 0}
         <p class="nxmp-empty">Couldn’t load mods. Try again later.</p>
-    {:else if !loading && mods.length === 0 && activeQ}
+    {:else if shown.length === 0 && activeQ}
         <p class="nxmp-empty">No mods match “{activeQ}”.</p>
     {/if}
 
     <div class="nxm-grid nxm-grid--page">
-        {#each mods as mod (mod.modId)}
+        {#each shown as mod (mod.modId)}
             <div class="nxm-card-wrap">
                 <a class="nxm-card" href={modUrl(mod)}>
                     <div class="nxm-thumb" class:nxm-thumb--adult={mod.adult}>
@@ -141,7 +247,7 @@
         {/each}
     </div>
 
-    {#if loading}
+    {#if (!deep && loading) || (deep && deepStatus === 'running')}
         <div class="nxmp-loading"><div class="community-loader"></div></div>
     {/if}
     <div class="nxmp-sentinel" use:bindSentinel></div>

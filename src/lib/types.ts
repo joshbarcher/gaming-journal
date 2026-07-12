@@ -487,6 +487,21 @@ export interface NexusBlock {
     rows?:    unknown
 }
 
+// Deep-pull dataset + progress (GET /relay/api/nexus/:appid/deep)
+export interface NexusDeep {
+    appid:       number
+    domainName?: string | null
+    nexusName?:  string | null
+    gameUrl?:    string | null
+    status:      'idle' | 'running' | 'done' | 'error'
+    pulled:      number
+    total:       number
+    capped:      boolean
+    cap?:        number
+    mods:        NexusMod[]
+    updatedAt?:  string
+}
+
 // Rich single-mod detail (GET /relay/api/nexus/:appid/mod/:modId)
 export interface NexusModDetail {
     appid:                 number
@@ -518,6 +533,8 @@ export interface NexusModDetail {
     url:                   string
     fetchedAt?:            string
     descriptionBlocks?:    NexusBlock[]
+    gallery?:              { url: string; localUrl?: string | null }[]
+    authorImagesAt?:       string
 }
 
 // ── Steam reviews ─────────────────────────────────────────────────────────────

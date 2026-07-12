@@ -3,6 +3,7 @@
     import type { NexusModDetail } from '../../types.js'
     import Breadcrumb from '../Breadcrumb.svelte'
     import ContentBlocks from './ContentBlocks.svelte'
+    import { openLightbox } from '../../js/lightbox.js'
     import { fmtCompact, fmtSize, nexusImage, nexusImgError } from '../../js/nexusFormat.js'
 
     let { appid, modId } = $props()
@@ -24,10 +25,27 @@
             if (!dRes.ok) throw new Error(`HTTP ${dRes.status}`)
             detail = await dRes.json()
             if (mRes.ok) { const e = await mRes.json(); gameName = e.steamName ?? e.nexusName ?? 'Game' }
+            pollAuthorImages()
         } catch { error = true }
         finally { loading = false }
     }
     onMount(load)
+
+    // The author-images tab is scraped in the background — poll a few times to fold the
+    // extra images into the gallery once they land, without blocking the first paint.
+    async function pollAuthorImages(tries = 0) {
+        if (tries >= 6 || detail?.authorImagesAt) return
+        setTimeout(async () => {
+            try {
+                const r = await fetch(`/relay/api/nexus/${appid}/mod/${modId}`)
+                if (r.ok) {
+                    const fresh: NexusModDetail = await r.json()
+                    if ((fresh.gallery?.length ?? 0) !== (detail?.gallery?.length ?? 0) || fresh.authorImagesAt) detail = fresh
+                }
+            } catch { /* ignore */ }
+            pollAuthorImages(tries + 1)
+        }, 3000)
+    }
 
     function fmtDate(s?: string | null) {
         if (!s) return ''
@@ -37,6 +55,9 @@
 
     let blocks  = $derived(detail?.descriptionBlocks ?? [])
     let heroSrc = $derived(detail ? nexusImage(detail) : '')
+    let gallery = $derived(detail?.gallery ?? [])
+    function shotSrc(g: { url: string; localUrl?: string | null }) { return g.localUrl ? `/relay${g.localUrl}` : g.url }
+    let gallerySrcs = $derived(gallery.map(shotSrc))
 </script>
 
 <svelte:head><title>{detail?.name ?? 'Mod'} — {gameName}</title></svelte:head>
@@ -86,6 +107,23 @@
             <div class="nxd-tags">
                 {#each detail.tags as tag}<span class="nxd-tag">{tag}</span>{/each}
             </div>
+        {/if}
+
+        {#if gallery.length}
+            <section class="nxd-media">
+                <h2 class="game-section-title">Media</h2>
+                <div class="game-shots-grid">
+                    {#each gallery as g, i}
+                        <div class="game-shot-item">
+                            <img class="game-shot-img" src={shotSrc(g)} alt="Screenshot" loading="lazy"
+                                role="button" tabindex="0"
+                                onclick={() => openLightbox(gallerySrcs, i)}
+                                onkeydown={(e) => e.key === 'Enter' && openLightbox(gallerySrcs, i)}
+                                onerror={(e) => { const el = (e.currentTarget as HTMLImageElement); if (el.src !== g.url) el.src = g.url; else (el.closest('.game-shot-item') as HTMLElement).style.display = 'none' }} />
+                        </div>
+                    {/each}
+                </div>
+            </section>
         {/if}
 
         {#if blocks.length}
