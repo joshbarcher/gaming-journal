@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte'
+    import { onMount, onDestroy } from 'svelte'
     import type { Settings } from '../../types.js'
     import { adultContent } from '$lib/adult-content.svelte.js'
 
@@ -10,6 +10,53 @@
 
     let showBlocklist = $state(false)
     let newTerm       = $state('')
+
+    // ── Nexus adult-mod image backfill (session + resumable job) ────────────────────
+    interface NexusSession { present: boolean; status: string; capturedAt?: string | null }
+    interface Backfill { status: string; total: number; done: number; added: number;
+                         currentGame?: string | null; pausedReason?: string | null }
+    let nexusSession = $state<NexusSession | null>(null)
+    let backfill     = $state<Backfill | null>(null)
+    let backfillBusy = $state(false)
+    let bfTimer: ReturnType<typeof setInterval> | null = null
+
+    const sessionActive = $derived(nexusSession?.present && nexusSession.status === 'active')
+    const bfRunning = $derived(backfill?.status === 'running' || backfill?.status === 'building')
+    const bfPct = $derived(backfill?.total ? Math.round((backfill.done / backfill.total) * 100) : 0)
+
+    async function loadNexusStatus() {
+        try {
+            const [s, b] = await Promise.all([
+                fetch('/relay/api/nexus/session').then(r => r.ok ? r.json() : null),
+                fetch('/relay/api/nexus/backfill').then(r => r.ok ? r.json() : null),
+            ])
+            nexusSession = s; backfill = b
+            if ((b?.status === 'running' || b?.status === 'building') && !bfTimer) startBfPoll()
+        } catch { /* leave as-is */ }
+    }
+    function startBfPoll() { bfTimer ??= setInterval(pollBackfill, 2000) }
+    function stopBfPoll()  { if (bfTimer) { clearInterval(bfTimer); bfTimer = null } }
+    async function pollBackfill() {
+        try {
+            const b = await fetch('/relay/api/nexus/backfill').then(r => r.ok ? r.json() : null)
+            if (b) backfill = b
+            if (b && b.status !== 'running' && b.status !== 'building') { stopBfPoll(); loadNexusStatus() }
+        } catch { /* keep last */ }
+    }
+    async function backfillAction(action: 'start' | 'pause') {
+        backfillBusy = true
+        try {
+            const r = await fetch('/relay/api/nexus/backfill', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }),
+            })
+            if (r.ok) { backfill = await r.json(); if (bfRunning) startBfPoll() }
+        } finally { backfillBusy = false }
+    }
+    function fmtDate(s?: string | null) {
+        if (!s) return ''
+        try { return new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) } catch { return '' }
+    }
+    onDestroy(stopBfPoll)
 
     onMount(async () => {
         try {
@@ -30,6 +77,7 @@
             error = (err as Error).message
         }
         loading = false
+        loadNexusStatus()
     })
 
     // Every content-filter toggle in the UI means the same thing: ON = hide, OFF = show.
@@ -223,5 +271,78 @@
                 </div>
             </label>
         </section>
+
+        <section class="settings-section">
+            <h2 class="settings-section-title">Mod Images (Nexus)</h2>
+            <p class="settings-section-desc">
+                Adult (18+) mods on Nexus are gated behind a login, so their image galleries can't be fetched
+                anonymously. Connect a Nexus session (with adult content enabled), then run a one-time backfill to
+                mirror every adult mod's images locally — after that they're served from your own server.
+            </p>
+
+            <div class="settings-toggle-row">
+                <div class="settings-toggle-text">
+                    <span class="settings-toggle-label">
+                        Nexus session
+                        {#if sessionActive}
+                            <span class="settings-filter-count nx-ok">Connected</span>
+                        {:else if nexusSession?.status === 'expired'}
+                            <span class="settings-filter-count nx-warn">Expired</span>
+                        {:else}
+                            <span class="settings-filter-count">Not connected</span>
+                        {/if}
+                    </span>
+                    <span class="settings-toggle-desc">
+                        {#if sessionActive}
+                            Captured {fmtDate(nexusSession?.capturedAt)}. Adult mod images can be fetched.
+                        {:else}
+                            Run <code>node scripts/capture-nexus-session.mjs</code> in the relay repo to log in and capture a session{#if nexusSession?.status === 'expired'}, then Resume below{/if}.
+                        {/if}
+                    </span>
+                </div>
+            </div>
+
+            <div class="settings-blocklist-row">
+                <div class="settings-toggle-text">
+                    <span class="settings-toggle-label">
+                        Adult image backfill
+                        {#if backfill && backfill.total}
+                            <span class="settings-filter-count">{backfill.done.toLocaleString()} / {backfill.total.toLocaleString()}</span>
+                        {/if}
+                    </span>
+                    <span class="settings-toggle-desc">
+                        {#if backfill?.status === 'building'}
+                            Enumerating adult mods across your games…
+                        {:else if backfill?.status === 'running'}
+                            Fetching{backfill.currentGame ? ` — ${backfill.currentGame}` : ''} · {backfill.added.toLocaleString()} images saved
+                        {:else if backfill?.status === 'paused'}
+                            Paused{backfill.pausedReason === 'session-expired' ? ' — session expired; reconnect, then Resume' : ''} · {backfill.done.toLocaleString()}/{backfill.total.toLocaleString()} done
+                        {:else if backfill?.status === 'done'}
+                            Done — {backfill.added.toLocaleString()} images across {backfill.total.toLocaleString()} adult mods
+                        {:else}
+                            Scrapes every adult mod's images (slow &amp; gentle, resumable). Needs a connected session.
+                        {/if}
+                    </span>
+                </div>
+                {#if bfRunning}
+                    <button class="settings-reveal-btn" disabled={backfillBusy} onclick={() => backfillAction('pause')}>Pause</button>
+                {:else}
+                    <button class="settings-reveal-btn" disabled={backfillBusy || !sessionActive} onclick={() => backfillAction('start')}>
+                        {backfill?.status === 'paused' ? 'Resume' : 'Start'}
+                    </button>
+                {/if}
+            </div>
+            {#if backfill && backfill.total > 0 && backfill.status !== 'idle'}
+                <div class="nx-progress"><div class="nx-progress-bar" style="width:{bfPct}%"></div></div>
+            {/if}
+        </section>
     </div>
 {/if}
+
+<style>
+    .nx-ok   { color: #1a160a; background: var(--clr-accent); }
+    .nx-warn { color: #1a160a; background: #e0a33a; }
+    .nx-progress { height: 6px; border-radius: 4px; background: var(--clr-bg-raised); overflow: hidden; margin-top: 10px; }
+    .nx-progress-bar { height: 100%; background: var(--clr-accent); transition: width 0.4s ease; }
+    .settings-toggle-desc code { background: var(--clr-bg-raised); padding: 1px 6px; border-radius: 4px; font-size: 0.92em; }
+</style>
