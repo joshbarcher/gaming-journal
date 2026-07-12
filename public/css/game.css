@@ -1319,6 +1319,55 @@
 .pcgw-frow-note b,
 .pcgw-frow-note strong { color: var(--clr-text); font-weight: 600; }
 
+/* ── Section status badges (glanceable feature support, links to the full page) ── */
+.pcgw-sbadges { display: flex; flex-wrap: wrap; gap: 16px 22px; }
+
+.pcgw-sbadge {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    width: 78px; text-decoration: none;
+}
+.pcgw-sbadge--on      { --badge-clr: #4ecb8d; }
+.pcgw-sbadge--neutral { --badge-clr: #e0a24a; }
+.pcgw-sbadge--off     { --badge-clr: #e0596e; }
+
+.pcgw-sbadge-circle {
+    position: relative;
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 35% 30%,
+        color-mix(in srgb, var(--badge-clr) 34%, #1a1a24),
+        color-mix(in srgb, var(--badge-clr) 13%, #0d0d14));
+    border: 2px solid color-mix(in srgb, var(--badge-clr) 55%, transparent);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--badge-clr) 24%, transparent),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.pcgw-sbadge:hover .pcgw-sbadge-circle {
+    transform: translateY(-2px);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--badge-clr) 40%, transparent),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.pcgw-sbadge-circle svg {
+    width: 24px; height: 24px; color: var(--badge-clr);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--badge-clr) 55%, transparent));
+}
+/* Off state recedes so supported features pop */
+.pcgw-sbadge--off .pcgw-sbadge-circle { opacity: 0.75; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); }
+
+.pcgw-sbadge-glyph {
+    position: absolute; bottom: -3px; right: -3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; line-height: 1;
+    background: var(--badge-clr); color: #12100a;
+    border: 2px solid var(--clr-bg);
+}
+.pcgw-sbadge-label {
+    font-size: 11px; text-align: center; line-height: 1.2;
+    color: var(--clr-text-muted); letter-spacing: 0.01em;
+}
+.pcgw-sbadge--on .pcgw-sbadge-label { color: var(--clr-text); }
+
 /* Badges */
 .pcgw-badge {
     font-size: 10px;

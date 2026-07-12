@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/svelte'
 
-import PCGW from '../lib/svelte/game/sections/PCGW.svelte'
-import type { PcgwData, SteamGame } from '../lib/types.js'
+// The detail (notes/fixes) now lives in PcgwDetail; the section is a badge strip.
+import PcgwDetail from '../lib/svelte/game/PcgwDetail.svelte'
+import type { PcgwData } from '../lib/types.js'
 
 // Shaped after the live relay payload for Assassin's Creed: Black Flag Resynced,
 // the page that exposed the notes/fixes gaps: its rating cells alone say nothing
 // about 30 FPS cutscenes or the broken DLSS implementation.
-const game = { appid: 3751950, name: "Assassin's Creed: Black Flag Resynced" } as SteamGame
 
 const pcgwData: PcgwData = {
     found:   true,
@@ -29,7 +29,7 @@ const pcgwData: PcgwData = {
     ],
 }
 
-const renderSection = (data: PcgwData = pcgwData) => render(PCGW, { props: { pcgwData: data, game } })
+const renderSection = (data: PcgwData = pcgwData) => render(PcgwDetail, { props: { pcgwData: data } })
 
 describe('PCGW section — notes cells', () => {
     it('renders the 60 FPS cutscene caveat', () => {
