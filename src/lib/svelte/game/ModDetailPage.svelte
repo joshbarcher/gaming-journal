@@ -31,16 +31,20 @@
     }
     onMount(load)
 
-    // The author-images tab is scraped in the background — poll a few times to fold the
-    // extra images into the gallery once they land, without blocking the first paint.
+    // The author-images tab is scraped in the background (serialized + gentle, so it can
+    // take a while under load). Poll until it resolves, showing status the whole time.
+    let imagesPending = $state(true)   // scrape not yet resolved (authorImagesAt unset)
+    let pollExhausted = $state(false)  // gave up polling; scrape may still be queued
     async function pollAuthorImages(tries = 0) {
-        if (tries >= 6 || detail?.authorImagesAt) return
+        if (detail?.authorImagesAt) { imagesPending = false; return }
+        if (tries >= 20) { pollExhausted = true; return }   // ~60s of polling
         setTimeout(async () => {
             try {
                 const r = await fetch(`/relay/api/nexus/${appid}/mod/${modId}`)
                 if (r.ok) {
                     const fresh: NexusModDetail = await r.json()
                     if ((fresh.gallery?.length ?? 0) !== (detail?.gallery?.length ?? 0) || fresh.authorImagesAt) detail = fresh
+                    if (fresh.authorImagesAt) { imagesPending = false; return }
                 }
             } catch { /* ignore */ }
             pollAuthorImages(tries + 1)
@@ -109,9 +113,13 @@
             </div>
         {/if}
 
-        {#if gallery.length}
-            <section class="nxd-media">
-                <h2 class="game-section-title">Media</h2>
+        <section class="nxd-media">
+            <h2 class="game-section-title">
+                Media
+                {#if gallery.length}<span class="nxd-media-count">{gallery.length}</span>{/if}
+                {#if imagesPending && !pollExhausted}<span class="nxd-media-status"><span class="nxd-media-spin"></span> fetching author images…</span>{/if}
+            </h2>
+            {#if gallery.length}
                 <div class="game-shots-grid">
                     {#each gallery as g, i}
                         <div class="game-shot-item">
@@ -123,8 +131,14 @@
                         </div>
                     {/each}
                 </div>
-            </section>
-        {/if}
+            {:else if imagesPending && !pollExhausted}
+                <p class="nxd-media-note"><span class="nxd-media-spin"></span> Pulling images from Nexus — this can take a moment (they're fetched gently, one mod at a time).</p>
+            {:else if pollExhausted}
+                <p class="nxd-media-note">Images are still being fetched in the background — refresh in a minute to see them.</p>
+            {:else}
+                <p class="nxd-media-note nxd-media-note--empty">No images available for this mod.</p>
+            {/if}
+        </section>
 
         {#if blocks.length}
             <section class="nxd-desc">
