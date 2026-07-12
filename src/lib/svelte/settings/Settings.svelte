@@ -15,8 +15,9 @@
     interface NexusSession { present: boolean; status: string; capturedAt?: string | null }
     interface Backfill { status: string; total: number; done: number; added: number;
                          currentGame?: string | null; pausedReason?: string | null }
+    interface Backfill2 { perGameCap?: number }
     let nexusSession = $state<NexusSession | null>(null)
-    let backfill     = $state<Backfill | null>(null)
+    let backfill     = $state<(Backfill & Backfill2) | null>(null)
     let backfillBusy = $state(false)
     let bfTimer: ReturnType<typeof setInterval> | null = null
 
@@ -320,7 +321,7 @@
                         {:else if backfill?.status === 'done'}
                             Done — {backfill.added.toLocaleString()} images across {backfill.total.toLocaleString()} adult mods
                         {:else}
-                            Scrapes every adult mod's images (slow &amp; gentle, resumable). Needs a connected session.
+                            Scrapes the top {(backfill?.perGameCap ?? 500).toLocaleString()} adult mods per game (slow &amp; gentle, resumable). Needs a connected session.
                         {/if}
                     </span>
                 </div>
