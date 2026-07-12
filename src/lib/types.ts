@@ -437,6 +437,7 @@ export interface NexusMod {
     endorsements:    number
     adult:           boolean
     category?:       string | null
+    tags?:           string[]
     createdAt?:      string | null
     updatedAt?:      string | null
     url:             string

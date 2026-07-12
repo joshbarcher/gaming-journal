@@ -44,7 +44,9 @@
     let deepTotal   = $state(0)
     let deepCapped  = $state(false)
     let category    = $state('')
-    let hideAdult   = $state(false)
+    let tag         = $state('')
+    // 3-state adult filter: 'hide' = no 18+, 'all' = 18+ and regular, 'only' = 18+ only.
+    let adultMode   = $state<'hide' | 'all' | 'only'>('all')
     let visibleCount = $state(LIMIT)
     let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -65,12 +67,20 @@
         }
     }
     let categories = $derived([...new Set(deepMods.map(m => m.category).filter(Boolean))].sort() as string[])
+    // Tags across the pulled set, most-common first (so "Costumes", "Scripts"… surface at the top).
+    let tagOptions = $derived.by(() => {
+        const counts = new Map<string, number>()
+        for (const m of deepMods) for (const t of (m.tags ?? [])) counts.set(t, (counts.get(t) ?? 0) + 1)
+        return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    })
     let deepFiltered = $derived.by(() => {
         let arr = deepMods
         const q = activeQ.toLowerCase()
         if (q)         arr = arr.filter(m => m.name.toLowerCase().includes(q))
         if (category)  arr = arr.filter(m => m.category === category)
-        if (hideAdult) arr = arr.filter(m => !m.adult)
+        if (tag)       arr = arr.filter(m => m.tags?.includes(tag))
+        if (adultMode === 'hide')      arr = arr.filter(m => !m.adult)
+        else if (adultMode === 'only') arr = arr.filter(m => m.adult)
         return sortMods(arr, sort)
     })
     let deepVisible = $derived(deepFiltered.slice(0, visibleCount))
@@ -143,6 +153,8 @@
     }
     function onSortChange(e: Event)   { sort = (e.currentTarget as HTMLSelectElement).value; afterControlChange() }
     function onCategoryChange(e: Event){ category = (e.currentTarget as HTMLSelectElement).value; visibleCount = LIMIT }
+    function onTagChange(e: Event)    { tag = (e.currentTarget as HTMLSelectElement).value; visibleCount = LIMIT }
+    function setAdult(mode: 'hide' | 'all' | 'only') { adultMode = mode; visibleCount = LIMIT }
     function onSearchInput(e: Event) {
         query = (e.currentTarget as HTMLInputElement).value
         if (debounceT) clearTimeout(debounceT)
@@ -190,7 +202,19 @@
                     <option value="">All categories</option>
                     {#each categories as c}<option value={c}>{c}</option>{/each}
                 </select>
-                <label class="nxmp-toggle nxmp-toggle--sm"><input type="checkbox" bind:checked={hideAdult} /> Hide 18+</label>
+            {/if}
+            {#if deep && tagOptions.length}
+                <select class="nxmp-sort" value={tag} onchange={onTagChange} aria-label="Filter by tag">
+                    <option value="">All tags</option>
+                    {#each tagOptions as [t, n]}<option value={t}>{t} ({n})</option>{/each}
+                </select>
+            {/if}
+            {#if deep}
+                <div class="nxmp-seg" role="group" aria-label="Adult content filter">
+                    <button type="button" class:nxmp-seg--on={adultMode === 'hide'} onclick={() => setAdult('hide')} title="Hide adult mods">No 18+</button>
+                    <button type="button" class:nxmp-seg--on={adultMode === 'all'} onclick={() => setAdult('all')} title="Show adult and regular mods">All</button>
+                    <button type="button" class:nxmp-seg--on={adultMode === 'only'} onclick={() => setAdult('only')} title="Only adult mods">Only 18+</button>
+                </div>
             {/if}
             <button class="nxmp-deep-btn" class:nxmp-deep-btn--on={deep} onclick={toggleDeep} title="Pull the full catalogue for rich local search">
                 {deep ? '● Deep search' : 'Deep search'}

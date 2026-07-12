@@ -2890,6 +2890,17 @@
 .nxmp-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--clr-text-muted); cursor: pointer; white-space: nowrap; }
 .nxmp-toggle input { accent-color: var(--clr-accent); }
 
+/* 3-state adult filter (No 18+ | All | Only 18+) */
+.nxmp-seg { display: inline-flex; border: 1px solid var(--clr-border); border-radius: 8px; overflow: hidden; background: var(--clr-bg-raised); }
+.nxmp-seg button {
+    background: transparent; border: 0; border-left: 1px solid var(--clr-border);
+    color: var(--clr-text-muted); font-size: 12.5px; padding: 9px 12px; cursor: pointer;
+    white-space: nowrap; transition: background 0.15s, color 0.15s;
+}
+.nxmp-seg button:first-child { border-left: 0; }
+.nxmp-seg button:hover { color: var(--clr-text); }
+.nxmp-seg button.nxmp-seg--on { background: var(--clr-accent); color: #1a160a; font-weight: 600; }
+
 .nxmp-deepbar {
     display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
     margin: 0 0 20px; padding: 11px 15px; border-radius: 9px;
