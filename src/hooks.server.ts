@@ -4,8 +4,24 @@ import logger from '$lib/server/logger.js'
 import { getJournalService } from '$lib/server/services/journalService.js'
 import { getFranchiseService } from '$lib/server/services/franchiseService.js'
 import { cleanupOwned } from '$lib/server/services/localWishlistService.js'
+import { installActivityTracker, recordRequest } from '../activity.js'
 
 logger.startup({ name: 'gaming-journal', version: '1.0.0' })
+
+// Fleet activity reporting (see activity.js + /activity route). Passive: no
+// nasDir → no filesystem scanning. Local JSON writes are counted in-process at
+// the ManagedFile choke point; mod downloads are proxied to relay-server (see
+// routes/relay/[...path]) so they register as network traffic here and as NAS
+// writes over there. This just tallies alongside work that already happens.
+installActivityTracker({ name: 'gaming-journal', root: process.cwd() })
+
+// Count every request except /activity* (so the endpoint + dashboard polling it
+// don't inflate their own numbers). One in-memory increment per request.
+export async function handle({ event, resolve }: { event: import('@sveltejs/kit').RequestEvent; resolve: (event: import('@sveltejs/kit').RequestEvent) => Promise<Response> }): Promise<Response> {
+    const res = await resolve(event)
+    if (!event.url.pathname.startsWith('/activity')) recordRequest(event.request, res)
+    return res
+}
 
 await getJournalService().load()
 await getFranchiseService().load()

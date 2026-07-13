@@ -1,5 +1,6 @@
 import fsp from "fs/promises"
 import path from "path"
+import { recordWrite } from "../../../../activity.js"
 
 export interface ManagedFileOptions<T> {
     filePath:             string
@@ -461,6 +462,9 @@ export class ManagedFile<T> {
                 try { await fh.close() } catch { /* ignore */ }
             }
             await fsp.rename(tmp, filePath)
+            // Fleet activity: count the NAS write we just made (see activity.js).
+            // Passive — in-memory tally alongside the write that already happened.
+            recordWrite(Buffer.byteLength(content), filePath)
         } catch (err) {
             try { await fsp.unlink(tmp) } catch { /* ignore */ }
             throw err
