@@ -300,6 +300,10 @@
         }
     }
 
+    // Bulk overwrite of the whole guide's pins. Reserved for the two operations that are
+    // genuinely wholesale: the one-time legacy-localStorage migration, and the deliberate
+    // stale-clear when the guide was re-downloaded. Normal add/remove must NOT use this —
+    // a full-array PUT from one tab's stale snapshot clobbers pins added in other tabs.
     function savePins(updated: Pin[]) {
         fetch(pinsApiUrl, {
             method:  'PUT',
@@ -308,10 +312,34 @@
         }).catch(() => {})
     }
 
-    function deletePin(id: string) {
-        const updated = pins.filter(p => p.id !== id)
-        pins = updated
-        savePins(updated)
+    // Adopt the authoritative list the relay returns after a delta mutation. Because the
+    // relay merges server-side, this also surfaces pins added by other tabs on this guide.
+    function reconcilePins(store: any) {
+        if (store && Array.isArray(store.pins)) pins = store.pins as Pin[]
+    }
+
+    // Add or replace a single pin via a server-side delta (PUT .../pins/:id). Optimistically
+    // patch local state for instant feedback, then reconcile with the relay's response.
+    async function upsertPinRemote(pin: Pin, optimistic: Pin[]) {
+        pins = optimistic
+        try {
+            const res = await fetch(`${pinsApiUrl}/${encodeURIComponent(pin.id)}`, {
+                method:  'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ pin, parsedAt: meta?.parsedAt ?? null }),
+            })
+            if (res.ok) reconcilePins(await res.json())
+        } catch { /* offline — keep the optimistic state */ }
+    }
+
+    // Remove a single pin by id via a server-side delta (DELETE .../pins/:id). Targets one
+    // pin, so it can never wipe pins this tab never saw.
+    async function deletePin(id: string) {
+        pins = pins.filter(p => p.id !== id)                  // optimistic
+        try {
+            const res = await fetch(`${pinsApiUrl}/${encodeURIComponent(id)}`, { method: 'DELETE' })
+            if (res.ok) reconcilePins(await res.json())
+        } catch { /* offline — keep the optimistic removal */ }
     }
 
     function navToPin(pin: Pin) {
@@ -560,13 +588,13 @@
             blockPath: ctxMenu.blockPath,
             label: ctxMenu.label,
         }
-        // One pin per page — replace if one already exists
-        const updated = existing
+        ctxMenu = null
+        // One pin per page: optimistically replace any local pin on this page. The relay
+        // enforces the same rule by slug, so a stale local snapshot can't create a duplicate.
+        const optimistic = existing
             ? pins.map(p => p.slug === baseSlug ? pin : p)
             : [...pins, pin]
-        pins = updated
-        savePins(updated)
-        ctxMenu = null
+        upsertPinRemote(pin, optimistic)
     }
 
     // ── Data loading ───────────────────────────────────────────────────────────
