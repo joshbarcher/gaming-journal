@@ -202,6 +202,12 @@
 
     // ── Navigation ─────────────────────────────────────────────────────────────
 
+    // Canonical URL for a guide section. Used both for programmatic navigation and
+    // as the `href` on TOC links so they support native "Open in new tab".
+    function sectionHref(slug: string): string {
+        return `/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}`
+    }
+
     function navTo(slug: string, blockPath?: number[]) {
         if (isMobile()) tocCollapsed = true
         if (blockPath?.length) {
@@ -212,7 +218,7 @@
             }
             pendingPinPath = blockPath
         }
-        goto(`/journal/${appid}/guides/${source}/${guideId}/${encodeURIComponent(slug)}`)
+        goto(sectionHref(slug))
     }
 
     function navToLanding() {
@@ -728,6 +734,10 @@
         const s = section
         if (loading || loadingSection || !meta) return
         if (s && s !== currentSlug) {
+            // TOC links are real anchors, so plain clicks route through SvelteKit
+            // rather than navTo() — collapse the mobile drawer here so it closes for
+            // every navigation source (TOC anchors, breadcrumbs, back/forward).
+            if (isMobile()) tocCollapsed = true
             const anchor = s.includes('#') ? s.split('#')[1] : null
             const sBase  = s.split('#')[0]
             const curBase = currentSlug?.split('#')[0] ?? ''
@@ -922,15 +932,23 @@
                         <div class="gv-tcc-rule"></div>
                     {/if}
                     {#each collapsedPages as item (item.slug + item.label)}
-                        <button
-                            class="gv-tcc-badge"
-                            class:gv-tcc-badge--active={item.navigable && isActive(item.slug)}
-                            class:gv-tcc-badge--group={item.isGroup}
-                            class:gv-tcc-badge--no-nav={!item.navigable}
-                            onclick={() => { if (item.navigable) navTo(item.slug); else tocCollapsed = false }}
-                            onmouseenter={(e) => showTocTooltip(e, item.fullLabel)}
-                            onmouseleave={hideTocTooltip}
-                        >{item.label}</button>
+                        {#if item.navigable}
+                            <a
+                                class="gv-tcc-badge"
+                                class:gv-tcc-badge--active={isActive(item.slug)}
+                                class:gv-tcc-badge--group={item.isGroup}
+                                href={sectionHref(item.slug)}
+                                onmouseenter={(e) => showTocTooltip(e, item.fullLabel)}
+                                onmouseleave={hideTocTooltip}
+                            >{item.label}</a>
+                        {:else}
+                            <button
+                                class="gv-tcc-badge gv-tcc-badge--group gv-tcc-badge--no-nav"
+                                onclick={() => tocCollapsed = false}
+                                onmouseenter={(e) => showTocTooltip(e, item.fullLabel)}
+                                onmouseleave={hideTocTooltip}
+                            >{item.label}</button>
+                        {/if}
                     {/each}
                 </div>
             {:else}
@@ -975,12 +993,12 @@
                                 {#if item.type === 'label'}
                                     <span class="gv-toc-label">{item.label}</span>
                                 {:else if item.type === 'link'}
-                                    <button
+                                    <a
                                         class="gv-toc-link"
                                         class:gv-toc-link--child={depth > 0}
                                         class:gv-toc-link--active={isActive(item.slug)}
-                                        onclick={() => navTo(item.slug)}
-                                    >{item.label}</button>
+                                        href={sectionHref(item.slug)}
+                                    >{item.label}</a>
                                 {:else if item.type === 'group'}
                                     {@const key = groupKey(item)}
                                     <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(key)}>
@@ -1004,11 +1022,11 @@
                         {:else}
                             <nav class="gv-toc">
                                 {#each (meta.pages ?? meta.nav ?? []) as item}
-                                    <button
+                                    <a
                                         class="gv-toc-link"
                                         class:gv-toc-link--active={isActive(item.slug)}
-                                        onclick={() => navTo(item.slug)}
-                                    >{item.label}</button>
+                                        href={sectionHref(item.slug)}
+                                    >{item.label}</a>
                                 {/each}
                             </nav>
                         {/if}

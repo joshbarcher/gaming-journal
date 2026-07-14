@@ -475,6 +475,7 @@
     text-align: left;
     background: none;
     border: none;
+    text-decoration: none;
     color: color-mix(in srgb, var(--clr-text-muted) 55%, var(--clr-text) 45%);
     font-size: 12px;
     line-height: 1.4;
@@ -1220,6 +1221,7 @@
     border: 1px solid var(--clr-border);
     border-radius: 4px;
     cursor: pointer;
+    text-decoration: none;
     color: var(--clr-text-muted);
     font-size: 10px;
     font-weight: 600;
