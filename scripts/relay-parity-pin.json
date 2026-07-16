@@ -1,0 +1,11 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T21:25:32.657Z",
+  "ok": [
+    "/api/pin"
+  ],
+  "diff": [],
+  "error": [],
+  "unresolved": []
+}

@@ -1,0 +1,11 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T21:28:06.092Z",
+  "ok": [
+    "/api/progress-suggest/jobs"
+  ],
+  "diff": [],
+  "error": [],
+  "unresolved": []
+}

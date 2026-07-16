@@ -38,6 +38,7 @@
         "@archerjb/ui-components": "^1.5.0",
         "cheerio": "^1.2.0",
         "fuse.js": "^7.4.2",
+        "minisearch": "^7.2.0",
         "overlayscrollbars": "^2.16.0",
         "overlayscrollbars-svelte": "^0.5.5",
         "puppeteer": "^25.3.0",

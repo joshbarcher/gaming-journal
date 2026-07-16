@@ -19,6 +19,9 @@ import { startProtonDbScheduler } from './protondb/protondb.service.js'
 import { startHltbRetryScheduler } from './hltb/hltb.service.js'
 import { build as buildCommunityReviewsCache } from './community-reviews/community-reviews.service.js'
 import { closeBrowser as closePcgwBrowser } from './pcgw/pcgw.service.js'
+import { startBrowser as startRedditBrowser, closeBrowser as closeRedditBrowser, startRedditSyncScheduler } from './reddit/reddit.service.js'
+import { startup as startPin } from './pin/pin.service.js'
+import { startNexusSyncScheduler } from './nexus/nexus.service.js'
 
 let _booted = false
 
@@ -32,8 +35,10 @@ export async function bootRelay() {
     buildCommunityReviewsCache().catch(err => logger.error('[relay-boot] Community reviews cache build failed', { err: err?.message }))
 
     // Unconditional: even a schedulers-off instance can lazily launch Chrome via
-    // an on-demand pcgw syncGame — the closer is a no-op if it never launched.
+    // an on-demand pcgw syncGame or reddit/imgur browser call — the closers are
+    // no-ops if nothing ever launched.
     registerCloser('pcgw-browser', closePcgwBrowser)
+    registerCloser('reddit-browser', closeRedditBrowser)
 
     if (!schedulersEnabled()) {
         logger.info('[relay-boot] schedulers disabled (ENABLE_SCHEDULERS != true) — serving reads only')
@@ -57,7 +62,14 @@ export async function bootRelay() {
     startScheduler('itad', startItadSyncScheduler)
     startScheduler('protondb', startProtonDbScheduler)
     startScheduler('hltb', startHltbRetryScheduler)
-    // Wave 2: (pending)
+    // Wave 2:
+    // Browser first, then the sync scheduler — mirrors relay server.js ordering.
+    startScheduler('reddit', () => startRedditBrowser().then(() => startRedditSyncScheduler()))
+    // Pin restore starts refresh timers that force reddit re-syncs (NAS writes),
+    // so it lives behind the harness even though relay ran it unconditionally —
+    // dev instances must not write the NAS.
+    startScheduler('pin', startPin)
+    startScheduler('nexus', startNexusSyncScheduler)
     // Wave 3: (pending)
     // Wave 4: play-log must load before the now-playing poller + account cache.
 }

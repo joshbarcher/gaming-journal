@@ -138,7 +138,8 @@ transform them; adapter-node externalizes node_modules for prod builds already.
 Merge into the journal's server env layering (`/home/jarcher/gaming-journal/.env*`, per
 `C:\dev\deployment.md` §4a/§6 conventions): `STEAM_API_KEY`, `STEAM_ID`,
 `STEAM_VANITY_URL`, `ITAD_API_KEY`, `ITAD_COUNTRY`, `ITAD_SYNC_INTERVAL_HOURS`,
-`IGDB_CLIENT_ID/SECRET`, `REDDIT_USER_AGENT`, `NEXUS_API_KEY`, `NEXUS_MOD_COUNT`,
+`IGDB_CLIENT_ID/SECRET`, `REDDIT_USER_AGENT`, `REDDIT_SYNC_INTERVAL_HOURS`,
+`NEXUS_API_KEY`, `NEXUS_MOD_COUNT`,
 `NEXUS_SYNC_INTERVAL_HOURS`, `USE_CLAUDE_CLI`, plus the new
 `ENABLE_SCHEDULERS` / `RELAY_FORWARD` knobs (key list verified against the box
 2026-07-16). `MAIL_*` stays with the relay.
@@ -243,6 +244,11 @@ Static media endpoints (`/relay/images/*`, `/relay/videos/*`, `/relay/guides-img
 downloads), `guides` (biggest single feature — minisearch index, image pipeline, parse
 tools), `progress-suggest` (SSE streaming through SvelteKit — verify streaming works
 through the adapter; it does, but test explicitly; needs `claude` CLI on the box).
+
+**Wave-3 debts recorded during Wave 2** (search "Wave 3" in-file comments too):
+- guides `mark-used` calls a no-op `invalidateHomeCache` until home ports — restore it.
+- guides IGN disambiguation reads `steam/store/<id>.json` directly instead of
+  `games.service.getOne` — swap back when games.service ports.
 
 ### Phase 4 — Wave 3: core Steam data
 

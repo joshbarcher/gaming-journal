@@ -1,0 +1,23 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T21:27:54.601Z",
+  "ok": [
+    "/api/nexus",
+    "/api/nexus/220",
+    "/api/nexus/544330",
+    "/api/nexus/4533800",
+    "/api/nexus/220/deep",
+    "/api/nexus/544330/deep",
+    "/api/nexus/4533800/deep",
+    "/api/nexus/1687950/mod/3",
+    "/api/nexus/220/mods",
+    "/api/nexus/544330/mods",
+    "/api/nexus/4533800/mods",
+    "/api/nexus/backfill",
+    "/api/nexus/session"
+  ],
+  "diff": [],
+  "error": [],
+  "unresolved": []
+}

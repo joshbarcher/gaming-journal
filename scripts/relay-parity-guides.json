@@ -1,0 +1,17 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T21:23:45.792Z",
+  "ok": [
+    "/api/guides/1113000",
+    "/api/guides/1113000/gamefaqs/81937/april",
+    "/api/guides/1113000/gamefaqs/81937/fulltext",
+    "/api/guides/1113000/gamefaqs/81937/meta",
+    "/api/guides/1113000/gamefaqs/81937/pins",
+    "/api/guides/1113000/search?q=boss",
+    "/api/guides/jobs"
+  ],
+  "diff": [],
+  "error": [],
+  "unresolved": []
+}
