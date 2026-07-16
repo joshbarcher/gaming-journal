@@ -22,6 +22,16 @@ import { closeBrowser as closePcgwBrowser } from './pcgw/pcgw.service.js'
 import { startBrowser as startRedditBrowser, closeBrowser as closeRedditBrowser, startRedditSyncScheduler } from './reddit/reddit.service.js'
 import { startup as startPin } from './pin/pin.service.js'
 import { startNexusSyncScheduler } from './nexus/nexus.service.js'
+import { startPoller as startFeaturedPoller } from './steam/featured-poller.js'
+import { build as buildUpcomingCache } from './steam/upcoming.service.js'
+import { loadAchievementsCache } from './steam/steam.service.js'
+import { buildApplist } from './steam/applist.service.js'
+import { backfillAll as backfillAdultContent } from './steam/adult-content.service.js'
+import { closeBrowser as closeScraperBrowser } from './steam/achievement-schema-scraper.js'
+import { build as buildGamesCache } from './games/games.service.js'
+import { build as buildWishlistCache } from './wishlist/wishlist.service.js'
+import { build as buildPlayerCountsCache } from './steam/player-counts.service.js'
+import { backfill as provisionBackfill, recheckUnavailableWishlistItems } from './provision.service.js'
 
 let _booted = false
 
@@ -33,12 +43,15 @@ export async function bootRelay() {
     // Relay server.js runs these in its listen callback regardless of any flag.
     // Safe in dev: read-only NAS scans, no writes, no ManagedFile handles.
     buildCommunityReviewsCache().catch(err => logger.error('[relay-boot] Community reviews cache build failed', { err: err?.message }))
+    buildUpcomingCache().catch(err => logger.error('[relay-boot] Upcoming cache build failed', { err: err?.message }))
+    loadAchievementsCache().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message }))
 
     // Unconditional: even a schedulers-off instance can lazily launch Chrome via
     // an on-demand pcgw syncGame or reddit/imgur browser call — the closers are
     // no-ops if nothing ever launched.
     registerCloser('pcgw-browser', closePcgwBrowser)
     registerCloser('reddit-browser', closeRedditBrowser)
+    registerCloser('scraper-browser', closeScraperBrowser)
 
     if (!schedulersEnabled()) {
         logger.info('[relay-boot] schedulers disabled (ENABLE_SCHEDULERS != true) — serving reads only')
@@ -70,6 +83,23 @@ export async function bootRelay() {
     // dev instances must not write the NAS.
     startScheduler('pin', startPin)
     startScheduler('nexus', startNexusSyncScheduler)
+    // Wave 3:
+    startScheduler('featured', startFeaturedPoller)
+    // applist build fetches + writes applist.json; the adult-content backfill is
+    // a long NAS-writing crawl — both prod-only, mirroring relay server.js order.
+    startScheduler('applist', () => buildApplist()
+        .then(() => backfillAdultContent().catch(err => logger.error('[relay-boot] Adult content backfill failed', { err: err?.message }))))
+    // Derived caches: gated (not unconditional like community-reviews/upcoming)
+    // because buildGamesCache's poster-pool refresh can WRITE poster-index.json.
+    // Local reads stay correct without them via the services' lazy ensureBuilt().
+    startScheduler('games-cache', buildGamesCache)
+    startScheduler('wishlist-cache', buildWishlistCache)
+    startScheduler('player-counts-cache', buildPlayerCountsCache)
+    // Provision backfill + wishlist recheck: full NAS-writing pipelines.
+    // SCHED_PROVISION=off until the combined Wave-3+4 window.
+    startScheduler('provision', () => provisionBackfill()
+        .then(() => recheckUnavailableWishlistItems())
+        .catch(err => logger.error('[relay-boot] Provision backfill failed', { err: err?.message })))
     // Wave 3: (pending)
     // Wave 4: play-log must load before the now-playing poller + account cache.
 }

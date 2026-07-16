@@ -46,8 +46,9 @@ const EXCLUDE = [
 
 // Endpoints whose top-level array order is process/platform-dependent —
 // compared order-insensitively. community-reviews' index is readdir order
-// (no sort in the service); clients don't depend on it.
-const UNORDERED = new Set(['/api/steam/community-reviews'])
+// (no sort in the service); clients don't depend on it. store/details is the
+// same shape: getGameDetailIndex() walks the store dir in readdir order.
+const UNORDERED = new Set(['/api/steam/community-reviews', '/api/steam/store/details'])
 
 // Volatile / non-deterministic keys ignored during diff.
 const IGNORE_KEYS = new Set([

@@ -1,0 +1,39 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T22:08:57.181Z",
+  "ok": [
+    "/api/discover/adult-content/stats",
+    "/api/discover/search"
+  ],
+  "diff": [
+    {
+      "url": "/api/discover/featured",
+      "kind": "body",
+      "diffs": [
+        "[0].items[0].appid: 1696770 != 1473960",
+        "[0].items[0].discount: 10 != 0",
+        "[0].items[0].headerImage: \"/relay/images/steam/games/1696770/header.jpg\" != \"/relay/images/steam/games/1473960/header.jpg\"",
+        "[0].items[0].name: \"The Mermaid Mask\" != \"Wreck Runners\"",
+        "[0].items[0].originalPrice: 19.99 != null",
+        "[0].items[0].posterImage: \"/relay/images/steam/games/1696770/poster.jpg\" != \"/relay/images/steam/games/1473960/header.jpg\"",
+        "[0].items[0].price: 17.99 != 9.99",
+        "[0].items[1].appid: 1473960 != 1539050",
+        "[0].items[1].discount: 0 != 20",
+        "[0].items[1].headerImage: \"/relay/images/steam/games/1473960/header.jpg\" != \"/relay/images/steam/games/1539050/header.jpg\"",
+        "[0].items[1].name: \"Wreck Runners\" != \"Fire Boy\"",
+        "[0].items[1].originalPrice: null != 6.99",
+        "[0].items[1].posterImage: \"/relay/images/steam/games/1473960/header.jpg\" != \"/relay/images/steam/games/1539050/poster.jpg\"",
+        "[0].items[1].price: 9.99 != 5.59",
+        "[0].items[2].appid: 3869850 != 1662160",
+        "[0].items[2].discount: 10 != 20",
+        "[0].items[2].headerImage: \"/relay/images/steam/games/3869850/header.jpg\" != \"/relay/images/steam/games/1662160/header.jpg\"",
+        "[0].items[2].name: \"Welcome to the Game III\" != \"K-pop Idol Stories: Road to Debut\"",
+        "[0].items[2].posterImage: \"/relay/images/steam/games/3869850/header.jpg\" != \"/relay/images/steam/games/1662160/poster.jpg\"",
+        "[0].items[2].price: 17.99 != 15.99"
+      ]
+    }
+  ],
+  "error": [],
+  "unresolved": []
+}

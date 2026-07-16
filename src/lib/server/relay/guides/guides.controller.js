@@ -8,12 +8,10 @@
 //     ReadableStream; send(data) writes one `data: <json>\n\n` frame. Event
 //     names/payloads are byte-identical to the relay (web + RN parse them).
 //
-// Deviations from the relay, both temporary until later waves port the owning
-// features (same convention as shared/steam-caches.js read-only accessors):
-//   - games.service.getOne (Wave 3) → read-only read of steam/store/<id>.json
-//     for the IGN release-year disambiguation.
-//   - home.service.invalidateHomeCache (Wave 3) → no-op; the home payload is
-//     still built (and TTL-cached) by the relay, which we can't reach into.
+// Wave-3 debts repaid (docs/relay-fold-in.md "Wave-3 debts"): games.service and
+// home.service are ported now, so the IGN release-year disambiguation reads
+// games.service.getOne and mark-used busts the local home payload cache —
+// exactly as the relay controller does.
 
 import { readdir, readFile, stat, mkdir, writeFile } from 'node:fs/promises';
 import { join }                                      from 'node:path';
@@ -26,6 +24,8 @@ import { searchGame as searchGamerGuides }                                      
 import { launchBrowser as launchFandomBrowser,       searchGame as searchFandom }    from './fandom/search.service.js';
 import { launchBrowser as launchNeoseekerBrowser,   searchGame as searchNeoseeker } from './neoseeker/search.service.js';
 import { launchBrowser as launchTheGamerBrowser,    searchGame as searchTheGamer }  from './thegamer/search.service.js';
+import { getOne as getGame }                                                           from '../games/games.service.js';
+import { invalidateHomeCache }                                                         from '../home/home.service.js';
 import { featureDir }                                                                  from '../shared/data-root.js';
 import { TOOLS_DIR }                                                                   from './tools-dir.js';
 
@@ -89,18 +89,6 @@ async function buildTitleMap(steamId) {
         return map;
     } catch {
         return {};
-    }
-}
-
-// Wave-3 stand-in for games.service.getOne — read-only steam store cache read.
-// store/<appid>.json is the raw Steam appdetails payload; games.service derives
-// game.store.releaseDate from its release_date.date.
-async function getStoreReleaseDate(steamId) {
-    try {
-        const raw = await readFile(join(featureDir('steam'), 'store', `${steamId}.json`), 'utf8');
-        return JSON.parse(raw)?.release_date?.date ?? '';
-    } catch {
-        return '';
     }
 }
 
@@ -296,9 +284,9 @@ export async function markUsed(steamId, source, guideId) {
     const lastUsedAt = new Date().toISOString();
     try {
         await writeFile(usagePath(steamId, source, guideId), JSON.stringify({ lastUsedAt }));
-        // Relay: invalidateHomeCache() busts the home payload cache so the landing
-        // page's guide card updates immediately. The home feature is still
-        // relay-owned (Wave 3) — its TTL covers the gap until it ports here.
+        // Bust the home payload cache so the landing page's guide card reflects
+        // the new "most recently used" ordering immediately.
+        invalidateHomeCache();
         return { status: 200, body: { ok: true, lastUsedAt } };
     } catch (err) {
         return { status: 500, body: { error: err.message } };
@@ -362,7 +350,8 @@ export function beginSearchRun(steamId, body) {
                 send({ phase: 'status', message: `Searching IGN wikis for "${gameName}"…` });
 
                 // Extract release year for disambiguation (e.g. RE2 original vs remake)
-                const yearStr     = await getStoreReleaseDate(steamId);
+                const gameData    = getGame(steamId);
+                const yearStr     = gameData?.store?.releaseDate ?? gameData?.releaseDate ?? '';
                 const yearMatch   = String(yearStr).match(/\b(19|20)\d{2}\b/);
                 const releaseYear = yearMatch ? Number(yearMatch[0]) : null;
 

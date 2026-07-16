@@ -1,0 +1,69 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T22:43:41.516Z",
+  "ok": [],
+  "diff": [
+    {
+      "url": "/api/dashboard/errors",
+      "kind": "body",
+      "diffs": [
+        ".errors.length 25 != 0"
+      ]
+    },
+    {
+      "url": "/api/dashboard/summary",
+      "kind": "body",
+      "diffs": [
+        ".sources[0].durations.length 20 != 0",
+        ".sources[0].fetched24h: 3117 != 0",
+        ".sources[0].fetched7d: 21823 != 0",
+        ".sources[0].lastMs: 1 != null",
+        ".sources[0].lastRunAt: \"2026-07-16T22:35:48.606Z\" != null",
+        ".sources[0].lastSuccessAt: \"2026-07-16T22:35:48.606Z\" != null",
+        ".sources[0].medianMs: 1 != null",
+        ".sources[0].new24h: 4 != 0",
+        ".sources[0].new7d: 6 != 0",
+        ".sources[0].status: \"ok\" != \"never\"",
+        ".sources[1].durations.length 20 != 0",
+        ".sources[1].fetched24h: 5 != 0",
+        ".sources[1].fetched7d: 25 != 0",
+        ".sources[1].lastMs: 4 != null",
+        ".sources[1].lastRunAt: \"2026-07-16T22:36:25.049Z\" != null",
+        ".sources[1].lastSuccessAt: \"2026-07-16T22:36:25.049Z\" != null",
+        ".sources[1].medianMs: 3 != null",
+        ".sources[1].new24h: 5 != 0",
+        ".sources[1].new7d: 25 != 0",
+        ".sources[1].status: \"ok\" != \"never\""
+      ]
+    },
+    {
+      "url": "/api/dashboard/timeseries",
+      "kind": "body",
+      "diffs": [
+        ".points[6].bySource.hltb missing in B",
+        ".points[6].bySource.mail missing in B",
+        ".points[6].bySource.reddit missing in B",
+        ".points[6].bySource.steam missing in B",
+        ".points[6].total: 6 != 0",
+        ".points[7].bySource.hltb missing in B",
+        ".points[7].bySource.itad missing in B",
+        ".points[7].bySource.mail missing in B",
+        ".points[7].bySource.protondb missing in B",
+        ".points[7].bySource.reddit missing in B",
+        ".points[7].bySource.steam missing in B",
+        ".points[7].total: 3673 != 0",
+        ".points[8].bySource.hltb missing in B",
+        ".points[8].bySource.mail missing in B",
+        ".points[8].bySource.reddit missing in B",
+        ".points[8].bySource.steam missing in B",
+        ".points[8].total: 2255 != 0",
+        ".points[9].bySource.hltb missing in B",
+        ".points[9].bySource.mail missing in B",
+        ".points[9].bySource.reddit missing in B"
+      ]
+    }
+  ],
+  "error": [],
+  "unresolved": []
+}

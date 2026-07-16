@@ -245,6 +245,14 @@ downloads), `guides` (biggest single feature — minisearch index, image pipelin
 tools), `progress-suggest` (SSE streaming through SvelteKit — verify streaming works
 through the adapter; it does, but test explicitly; needs `claude` CLI on the box).
 
+**Cutover-boundary discovery (2026-07-16):** the relay's 30-minute steam tick
+lives inside `now-playing.service` (Wave 4) and drives library/achievements/
+sessions/player-counts syncs *and* `provisionNewGames`. Splitting data ownership
+of those files between waves would need forward-flags plus relay-side HTTP shims
+for store/images — pure bug surface. **Decision: Waves 3+4 cut over in ONE
+window** (after the Wave-4 restart-safety fix), while code porting stays phased.
+Wave-2 features are tick-independent (own schedulers) and keep their own window.
+
 **Wave-3 debts recorded during Wave 2** (search "Wave 3" in-file comments too):
 - guides `mark-used` calls a no-op `invalidateHomeCache` until home ports — restore it.
 - guides IGN disambiguation reads `steam/store/<id>.json` directly instead of
@@ -259,7 +267,12 @@ double-write, so cutover discipline matters most here.
 
 ### Phase 5 — Wave 4: live-session machinery (LAST, gated)
 
-`now-playing` poller, `play-log`, `sessions`, `account` (depends on play-log).
+`now-playing` poller, `play-log`, `sessions`, `account` (depends on play-log),
+**`home`** (moved from Wave 3 on 2026-07-16: `home.service` imports
+`getLastPlayedMap`/`getSessions` from play-log — it's session-coupled). Also the
+`GET /api/steam/now-playing` route, which Wave 3 deliberately does NOT create —
+the catch-all proxy keeps serving it from the relay until this wave (SvelteKit
+route precedence makes the intra-router split free).
 
 **Gate: restart-safety work first.** Today, restarting the relay mid-play can flap and
 close the active session ([memory: relay restarts disrupt sessions]). After folding,
@@ -343,15 +356,17 @@ All five are code-complete with live parity green (6/6, 4/4, 4/4, 5/5, 4/4) and
 3. **Relay's dashboard manual actions** (`actions.js`) can trigger the five cut
    syncs relay-side — those five entries are removed in the same relay edit.
 
-**Preflight (operator/user actions):**
-1. Commit + push the journal working tree (large migration diff).
-2. `/home/jarcher/gaming-journal/.env.production` additions:
-   `ENABLE_SCHEDULERS=true`, `SCHED_DISK_USAGE=off`, `ITAD_API_KEY`,
-   `ITAD_COUNTRY`, `ITAD_SYNC_INTERVAL_HOURS` (values from the relay's `.env`).
-3. `apps.json` (server + `C:\dev\media-server\files` mirror): add
-   `"env": { "PUPPETEER_CACHE_DIR": "/home/jarcher/gaming-journal/.puppeteer-cache" }`
-   to gaming-journal; `pm2 save`. One-time on box:
-   `cd /home/jarcher/gaming-journal && PUPPETEER_CACHE_DIR=$PWD/.puppeteer-cache npx puppeteer browsers install chrome`.
+**Preflight — DONE 2026-07-16 (states which are already in place):**
+1. ✅ Journal committed + pushed (Waves 0–3 code).
+2. ✅ Env layering: `.env.production` (tracked) carries the non-secret constants
+   incl. the **global `RELAY_FORWARD=http://localhost:8050`** — every migrated
+   route forwards to the relay until its window sets `RELAY_FORWARD_<X>=local`.
+   Secrets + window flips live in the **untracked** `.env.local` (loaded by
+   start.sh `--env-file-if-exists`); all provider keys already copied there
+   from the relay's env, server-side.
+3. Chrome install happens with the first deploy's `npm install`
+   (`PUPPETEER_CACHE_DIR` set in the committed env; if puppeteer skips the
+   download under process-mgr, run the manual install from §Ops once).
 4. Relay repo shrink — **prepared as a verified patch**:
    [scripts/relay-wave1-shrink.patch](../scripts/relay-wave1-shrink.patch)
    (`git apply --check` clean against the relay tree; every hunk was generated
@@ -376,10 +391,38 @@ All five are code-complete with live parity green (6/6, 4/4, 4/4, 5/5, 4/4) and
 7. (Recommended) dev `.env` gets `RELAY_FORWARD=http://192.168.86.65:8061` so dev
    machines forward on-demand syncs to prod instead of writing the NAS.
 
-**Cutover window (minutes):**
-relay: push shrink → `git pull` + `pm2 restart relay-server` on box →
-journal: `curl -X POST http://192.168.86.65:8008/apps/gaming-journal/update`
-(pull + npm install picks up puppeteer/sharp/cheerio + build + restart) → `pm2 save`.
+**Step 1 — deploy the journal (safe any time, even mid-session):**
+`curl -X POST http://192.168.86.65:8008/apps/gaming-journal/update`
+With the global forward staged, the deployed journal behaves byte-identically
+to today (everything proxies to the relay; no schedulers run).
+
+**Step 2 — apply + ship the relay shrink patch** (commands earlier in this section).
+
+**Step 3 — the Wave-1 window (needs now-playing idle, ~1 minute):**
+```
+ssh -i ~/.ssh/claude_media_server root@192.168.86.65 "cat >> /home/jarcher/gaming-journal/.env.local <<'EOF'
+ENABLE_SCHEDULERS=true
+RELAY_FORWARD_ITAD=local
+RELAY_FORWARD_PROTONDB=local
+RELAY_FORWARD_HLTB=local
+RELAY_FORWARD_PCGW=local
+RELAY_FORWARD_COMMUNITY_REVIEWS=local
+# not-yet-cut schedulers stay off until their windows:
+SCHED_REDDIT=off
+SCHED_PIN=off
+SCHED_NEXUS=off
+SCHED_FEATURED=off
+SCHED_APPLIST=off
+SCHED_GAMES_CACHE=off
+SCHED_WISHLIST_CACHE=off
+SCHED_PLAYER_COUNTS_CACHE=off
+SCHED_PROVISION=off
+EOF
+cd /home/jarcher/relay-server && git pull && pm2 restart relay-server && pm2 restart gaming-journal && pm2 save"
+```
+Wave-2 window later = five more `RELAY_FORWARD_<X>=local` lines (GUIDES, REDDIT,
+PIN, NEXUS, PROGRESS_SUGGEST, NEWS) + delete their `SCHED_*=off` lines + that
+wave's relay shrink + restarts. Combined Wave-3+4 window = the rest.
 
 **Verify:** journal GETs return data for all five features; game page sections
 (prices / HLTB / ProtonDB / PCGW / community reviews) render on web + RN;

@@ -1,0 +1,36 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T22:45:31.972Z",
+  "ok": [],
+  "diff": [
+    {
+      "url": "/api/home",
+      "kind": "body",
+      "diffs": [
+        ".libPosters[0].appid: 330840 != 219910",
+        ".libPosters[0].header: \"/relay/images/steam/games/330840/header.jpg\" != \"/relay/images/steam/games/219910/header.jpg\"",
+        ".libPosters[1].appid: 1069740 != 3361470",
+        ".libPosters[1].header: \"/relay/images/steam/games/1069740/header.jpg\" != \"/relay/images/steam/games/3361470/header.jpg\"",
+        ".libPosters[2].appid: 1449560 != 609320",
+        ".libPosters[2].header: \"/relay/images/steam/games/1449560/header.jpg\" != \"/relay/images/steam/games/609320/header.jpg\"",
+        ".libPosters[3].appid: 8870 != 619820",
+        ".libPosters[3].header: \"/relay/images/steam/games/8870/header.jpg\" != \"/relay/images/steam/games/619820/header.jpg\"",
+        ".libPosters[4].appid: 550 != 1266840",
+        ".libPosters[4].header: \"/relay/images/steam/games/550/header.jpg\" != \"/relay/images/steam/games/1266840/header.jpg\"",
+        ".libPosters[5].appid: 553420 != 535930",
+        ".libPosters[5].header: \"/relay/images/steam/games/553420/header.jpg\" != \"/relay/images/steam/games/535930/header.jpg\"",
+        ".wlPosters[0].appid: 1492070 != 2208350",
+        ".wlPosters[0].header: \"/relay/images/steam/games/1492070/header.jpg\" != \"/relay/images/steam/games/2208350/header.jpg\"",
+        ".wlPosters[1].appid: 695100 != 2499860",
+        ".wlPosters[1].header: \"/relay/images/steam/games/695100/header.jpg\" != \"/relay/images/steam/games/2499860/header.jpg\"",
+        ".wlPosters[2].appid: 446810 != 1486920",
+        ".wlPosters[2].header: \"/relay/images/steam/games/446810/header.jpg\" != \"/relay/images/steam/games/1486920/header.jpg\"",
+        ".wlPosters[3].appid: 2638370 != 400660",
+        ".wlPosters[3].header: \"/relay/images/steam/games/2638370/header.jpg\" != \"/relay/images/steam/games/400660/header.jpg\""
+      ]
+    }
+  ],
+  "error": [],
+  "unresolved": []
+}
