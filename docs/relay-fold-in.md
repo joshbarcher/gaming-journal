@@ -346,14 +346,24 @@ All five are code-complete with live parity green (6/6, 4/4, 4/4, 5/5, 4/4) and
    `"env": { "PUPPETEER_CACHE_DIR": "/home/jarcher/gaming-journal/.puppeteer-cache" }`
    to gaming-journal; `pm2 save`. One-time on box:
    `cd /home/jarcher/gaming-journal && PUPPETEER_CACHE_DIR=$PWD/.puppeteer-cache npx puppeteer browsers install chrome`.
-4. Relay repo shrink (one commit, prepared on approval):
-   - `server.js`: remove imports/mounts/scheduler-starts for the five features
-     (`itadRouter`, `protondbRouter`, `hltbRouter`, `pcgwRouter`,
-     `communityReviewsRouter`, `startItadSyncScheduler`, `startProtonDbScheduler`,
-     `startHltbRetryScheduler`, `buildCommunityReviewsCache`, `closePcgwBrowser`).
-   - `services/metrics/actions.js`: drop the five features' manual actions.
-   - `services/discovery/discovery.service.js`: five direct imports → HTTP POSTs
-     to the journal (mitigation 2).
+4. Relay repo shrink — **prepared as a verified patch**:
+   [scripts/relay-wave1-shrink.patch](../scripts/relay-wave1-shrink.patch)
+   (`git apply --check` clean against the relay tree; every hunk was generated
+   by assert-unique string transforms and syntax-checked). Companion new file
+   `src/services/journal-sync.js` (the HTTP shim) is already in the relay
+   working tree. Apply + test + ship:
+   ```
+   cd C:\dev\relay-server
+   git apply C:\dev\gaming-journal\scripts\relay-wave1-shrink.patch
+   npm test
+   git add -A && git commit -m "Wave-1 fold-in shrink: five features move to gaming-journal" && git push
+   ```
+   Contents: `server.js` unmounts the five routers + scheduler starts + boot
+   build + pcgw browser close; `metrics/actions.js` drops the five manual
+   triggers; `metrics/sources.js` clears their `syncable`/`scheduled` flags (so
+   the drift test and staleness warnings stay truthful); `provision.service.js`
+   + `discovery/discovery.worker.js` call the journal over HTTP via
+   `journal-sync.js` instead of importing the cut services (mitigation 2).
 5. Backup on box:
    `rsync -a /mnt/data-dir/relay/{itad,protondb,hltb,pcgw} /mnt/data-dir/relay/steam/community-reviews /mnt/data-dir/backups/relay-wave1-$(date +%F)/`
 6. Confirm now-playing is idle.

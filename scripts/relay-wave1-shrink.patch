@@ -1,0 +1,196 @@
+--- a/src/server.js	2026-07-12 21:32:08.148088200 -0700
++++ b/src/server.js	2026-07-16 14:05:29.794782600 -0700
+@@ -12,15 +12,10 @@
+ import steamStoreRouter from './routers/steam/store.router.js';
+ import steamSessionsRouter from './routers/steam/sessions.router.js';
+ import steamStatsRouter from './routers/steam/stats.router.js';
+-import communityReviewsRouter from './routers/steam/community-reviews.router.js';
+ import playerCountsRouter from './routers/steam/player-counts.router.js';
+-import hltbRouter from './routers/hltb/hltb.router.js';
+-import { startHltbRetryScheduler } from './services/hltb/hltb.service.js';
+-import pcgwRouter from './routers/pcgw/pcgw.router.js';
+ import gamesRouter from './routers/games/games.router.js'
+ import wishlistRouter from './routers/wishlist/wishlist.router.js';
+ import mailRouter from './routers/mail/mail.router.js';
+-import itadRouter from './routers/itad/itad.router.js';
+ import smsRouter from './routers/sms/sms.router.js';
+ import accountRouter from './routers/account/account.router.js';
+ import { startup as startSms } from './services/sms/sms.service.js';
+@@ -28,9 +23,6 @@
+ import { startSnapshotScheduler } from './services/steam/sessions.service.js';
+ import { startPoller as startNowPlayingPoller } from './services/steam/now-playing.service.js';
+ import { load as loadPlayLog } from './services/steam/play-log.service.js';
+-import { startItadSyncScheduler } from './services/itad/itad.service.js';
+-import protondbRouter from './routers/protondb/protondb.router.js';
+-import { startProtonDbScheduler } from './services/protondb/protondb.service.js';
+ import nexusRouter from './routers/nexus/nexus.router.js';
+ import { startNexusSyncScheduler } from './services/nexus/nexus.service.js';
+ import redditRouter from './routers/reddit/reddit.router.js';
+@@ -54,11 +46,9 @@
+ import { build as buildWishlistCache } from './services/wishlist/wishlist.service.js';
+ import { build as buildUpcomingCache } from './services/steam/upcoming.service.js';
+ import { build as buildGamesCache } from './services/games/games.service.js';
+-import { closeBrowser as closePcgwBrowser } from './services/pcgw/pcgw.service.js';
+ import { closeBrowser as closeScraperBrowser } from './services/steam/achievement-schema-scraper.js';
+ import { startBrowser as startRedditBrowser, closeBrowser as closeRedditBrowser, startRedditSyncScheduler } from './services/reddit/reddit.service.js';
+ import { loadAchievementsCache } from './services/steam/steam.service.js';
+-import { build as buildCommunityReviewsCache } from './services/steam/community-reviews.service.js';
+ import { build as buildPlayerCountsCache } from './services/steam/player-counts.service.js';
+ import { loadMeta } from './services/mail/messages.service.js';
+ import { loadIndex } from './services/mail/index.service.js';
+@@ -115,20 +105,15 @@
+ app.use('/api/steam', steamStatsRouter);
+ app.use('/api/steam/images', steamImagesRouter);
+ app.use('/api/videos',      videosRouter);
+-app.use('/api/steam/community-reviews', communityReviewsRouter);
+ app.use('/api/player-counts', playerCountsRouter);
+-app.use('/api/hltb', hltbRouter);
+-app.use('/api/pcgw', pcgwRouter);
+ app.use('/api/games', gamesRouter)
+ app.use('/api/wishlist', wishlistRouter);
+ app.use('/api/mail', mailRouter);
+-app.use('/api/itad', itadRouter);
+ app.use('/api/sms',     smsRouter);
+ app.use('/api/account', accountRouter);
+ app.use('/api/discover', discoverRouter);
+ app.use('/api/admin', adminRouter);
+ app.use('/api/news',  newsRouter);
+-app.use('/api/protondb', protondbRouter);
+ app.use('/api/nexus',   nexusRouter);
+ app.use('/api/reddit',  redditRouter);
+ app.use('/api/home',    homeRouter);
+@@ -178,12 +163,10 @@
+     startFeaturedPoller();
+     startSnapshotScheduler().catch(err => logger.error('Snapshot scheduler startup failed', err));
+     startMailServices().catch(err => logger.error('Mail startup failed', err));
+-    startItadSyncScheduler();
+     startSms().catch(err => logger.error('SMS startup failed', err));
+     buildWishlistCache().catch(err => logger.error('Wishlist cache build failed', err));
+     buildUpcomingCache().catch(err => logger.error('Upcoming cache build failed', err));
+     buildGamesCache().catch(err => logger.error('Games cache build failed', err));
+-    buildCommunityReviewsCache().catch(err => logger.error('Community reviews cache build failed', err));
+     buildPlayerCountsCache().catch(err => logger.error('Player counts cache build failed', err));
+     buildApplist()
+         .then(() => backfillAdultContent().catch(err => logger.error('Adult content backfill failed', err)))
+@@ -191,8 +174,6 @@
+     loadAchievementsCache().catch(err => logger.error('Achievement cache load failed', err));
+     backfill().catch(err => logger.error('Startup backfill failed', err));
+     recheckUnavailableWishlistItems().catch(err => logger.error('Startup unavailable recheck failed', err));
+-    startHltbRetryScheduler();
+-    startProtonDbScheduler();
+     startNexusSyncScheduler();
+     startRedditBrowser()
+         .then(() => startRedditSyncScheduler())
+@@ -202,7 +183,6 @@
+ // Graceful shutdown — close the shared Puppeteer browser so Chrome exits cleanly
+ for (const sig of ['SIGINT', 'SIGTERM']) {
+     process.once(sig, async () => {
+-        await closePcgwBrowser();
+         await closeScraperBrowser();
+         await closeRedditBrowser();
+         // Flush buffered run records before exit — ManagedFile batches writes on
+--- a/src/services/provision.service.js	2026-07-16 13:32:26.304975400 -0700
++++ b/src/services/provision.service.js	2026-07-16 14:05:29.792782800 -0700
+@@ -4,10 +4,9 @@
+ import logger from '../logger.js';
+ import { syncOne as syncStoreOne, recheckAppDetail } from './steam/store.service.js';
+ import { syncOneGame, syncOneScreenshots } from './steam/images.service.js';
+-import { syncOne as syncItadOne } from './itad/itad.service.js';
+-import { syncOne as syncProtondbOne } from './protondb/protondb.service.js';
+-import { syncGame as syncHltbGame } from './hltb/hltb.service.js';
+-import { syncGame as syncPcgwGame } from './pcgw/pcgw.service.js';
++// Wave-1 fold-in: these four features are journal-owned now; syncs go over
++// HTTP so the relay never writes their data dirs (see journal-sync.js).
++import { syncItadOne, syncProtondbOne, syncHltbGame, syncPcgwGame } from './journal-sync.js';
+ import { getAllGames } from '../utility/getAllGames.js';
+ import { rebuild } from '../cache-manager.js';
+ 
+--- a/src/services/discovery/discovery.worker.js	2026-06-13 00:07:24.900852100 -0700
++++ b/src/services/discovery/discovery.worker.js	2026-07-16 14:05:29.794782600 -0700
+@@ -2,11 +2,15 @@
+ import { workerData, parentPort } from 'node:worker_threads';
+ import { syncOne as syncStore }          from '../steam/store.service.js';
+ import { syncOneGame, syncOneScreenshots } from '../steam/images.service.js';
+-import { syncGame as syncReviews }       from '../steam/community-reviews.service.js';
+-import { syncOne as syncItad }           from '../itad/itad.service.js';
+-import { syncGame as syncPcgw }          from '../pcgw/pcgw.service.js';
+-import { syncGame as syncHltb }          from '../hltb/hltb.service.js';
+-import { syncOne as syncProtondb }       from '../protondb/protondb.service.js';
++// Wave-1 fold-in: these five features are journal-owned now; syncs go over
++// HTTP so the relay never writes their data dirs (see ../journal-sync.js).
++import {
++    syncCommunityReviewsGame as syncReviews,
++    syncItadOne              as syncItad,
++    syncPcgwGame             as syncPcgw,
++    syncHltbGame             as syncHltb,
++    syncProtondbOne          as syncProtondb,
++} from '../journal-sync.js';
+ 
+ // Inherit env from main thread (worker_threads share process.env)
+ // workerData carries the initial queue so we can start immediately.
+--- a/src/services/metrics/actions.js	2026-07-09 21:28:08.628932300 -0700
++++ b/src/services/metrics/actions.js	2026-07-16 14:05:29.796284400 -0700
+@@ -19,12 +19,7 @@
+ import { collectOwned, collectGlobalTop } from '../steam/player-counts.service.js';
+ import { incrementalScrapeReviews } from '../steam/scrape-reviews.service.js';
+ import { syncGameImages } from '../steam/images.service.js';
+-import { syncAll as syncCommunityReviews } from '../steam/community-reviews.service.js';
+ import { pollOnce as pollFeatured } from '../steam/featured-poller.js';
+-import { syncAll as syncHltb } from '../hltb/hltb.service.js';
+-import { syncAll as syncItad } from '../itad/itad.service.js';
+-import { syncAll as syncProtonDb } from '../protondb/protondb.service.js';
+-import { syncAll as syncPcgw } from '../pcgw/pcgw.service.js';
+ import { runDailySync as syncReddit } from '../reddit/reddit.service.js';
+ import { incrementalSync as syncMail } from '../mail/sync.service.js';
+ 
+@@ -123,13 +118,10 @@
+ 
+     'steam:reviews':           () => incrementalScrapeReviews(),
+     'steam:images':            () => syncGameImages({ onProgress: progressFor('steam:images') }),
+-    'steam:community-reviews': () => syncCommunityReviews({ onProgress: progressFor('steam:community-reviews') }),
+     'steam:featured':          () => pollFeatured(),
+ 
+-    hltb:     () => syncHltb({ onProgress: progressFor('hltb') }),
+-    itad:     () => syncItad({ onProgress: progressFor('itad') }),
+-    protondb: () => syncProtonDb({ onProgress: progressFor('protondb') }),
+-    pcgw:     () => syncPcgw({ onProgress: progressFor('pcgw') }),
++    // Wave-1 fold-in: hltb/itad/protondb/pcgw/steam:community-reviews are
++    // journal-owned — their manual triggers live in the journal now.
+     reddit:   () => syncReddit({ onProgress: progressFor('reddit') }),
+     mail:     () => syncMail(),        // reports via its own syncProgress map
+ };
+--- a/src/services/metrics/sources.js	2026-07-09 22:39:33.833394000 -0700
++++ b/src/services/metrics/sources.js	2026-07-16 14:05:29.796284400 -0700
+@@ -72,7 +72,8 @@
+     { id: 'steam:featured',          source: 'steam',    label: 'Steam Featured',      kind: 'scheduled', intervalMs: 60 * MIN, syncable: true, cadence: 'entity',   novelty: true,  prefixes: ['steam/featured-', 'steam/poster-index.json'] },
+     // Fires only when the achievement sync turns up new games — not on a timer.
+     { id: 'steam:images',            source: 'steam',    label: 'Steam Images',        kind: 'on-demand', syncable: true, cadence: 'entity', novelty: true, prefixes: ['steam/images'] },
+-    { id: 'steam:community-reviews', source: 'steam',    label: 'Community Reviews',   kind: 'on-demand', syncable: true, cadence: 'entity', novelty: true, prefixes: ['steam/community-reviews'] },
++    // Wave-1 fold-in: journal-owned; no relay-side trigger (kind stays for disk attribution).
++    { id: 'steam:community-reviews', source: 'steam',    label: 'Community Reviews',   kind: 'on-demand', cadence: 'entity', novelty: true, prefixes: ['steam/community-reviews'] },
+     { id: 'steam:stats',             source: 'steam',    label: 'Steam Player Stats',  kind: 'on-demand', cadence: 'entity', prefixes: ['steam/player-stats.json'] },
+     // Needs an appid; no whole-source trigger.
+     { id: 'steam:news',              source: 'steam',    label: 'Steam News',          kind: 'on-demand', cadence: 'entity', prefixes: ['steam/news'] },
+@@ -84,16 +85,18 @@
+     { id: 'steam:account',           source: 'steam',    label: 'Steam Account',       kind: 'on-demand', cadence: 'entity', prefixes: ['steam/account.json', 'steam/friends.json'] },
+ 
+     // ── Standalone sources ────────────────────────────────────────────────────
+-    { id: 'hltb',                    source: 'hltb',     label: 'HowLongToBeat',       kind: 'scheduled', intervalMs: 30 * MIN,  syncable: true, cadence: 'entity', novelty: true, prefixes: ['hltb'] },
+-    { id: 'itad',                    source: 'itad',     label: 'IsThereAnyDeal',      kind: 'scheduled', intervalMs: 72 * HOUR, syncable: true, cadence: 'entity', novelty: true, prefixes: ['itad'] },
+-    { id: 'protondb',                source: 'protondb', label: 'ProtonDB',            kind: 'scheduled', intervalMs: 7 * DAY,   syncable: true, cadence: 'entity', novelty: true, prefixes: ['protondb'] },
++    // Wave-1 fold-in: hltb/itad/protondb are journal-owned — schedulers + triggers
++    // live there; rows become on-demand here so staleness warnings don't fire.
++    { id: 'hltb',                    source: 'hltb',     label: 'HowLongToBeat',       kind: 'on-demand', cadence: 'entity', novelty: true, prefixes: ['hltb'] },
++    { id: 'itad',                    source: 'itad',     label: 'IsThereAnyDeal',      kind: 'on-demand', cadence: 'entity', novelty: true, prefixes: ['itad'] },
++    { id: 'protondb',                source: 'protondb', label: 'ProtonDB',            kind: 'on-demand', cadence: 'entity', novelty: true, prefixes: ['protondb'] },
+     { id: 'reddit',                  source: 'reddit',   label: 'Reddit',              kind: 'scheduled', intervalMs: 24 * HOUR, syncable: true, cadence: 'entity', novelty: true, prefixes: ['reddit'] },
+     { id: 'mail',                    source: 'mail',     label: 'Gmail',               kind: 'scheduled', intervalMs: 30 * MIN,  syncable: true, cadence: 'entity', novelty: true, prefixes: ['mail'] },
+     // No novelty: a PCGW entry is a bag of parsed wiki sections with no stable
+     // identity or version, so "did it change" means diffing free-form scraped
+     // HTML — the diff would fire on any cosmetic wiki edit. It reports what it
+     // pulled and shows '—' for new records rather than guessing.
+-    { id: 'pcgw',                    source: 'pcgw',     label: 'PCGamingWiki',        kind: 'on-demand', syncable: true, cadence: 'entity', prefixes: ['pcgw'] },
++    { id: 'pcgw',                    source: 'pcgw',     label: 'PCGamingWiki',        kind: 'on-demand', cadence: 'entity', prefixes: ['pcgw'] },
+     { id: 'igdb',                    source: 'igdb',     label: 'IGDB',                kind: 'on-demand', cadence: 'entity', prefixes: ['igdb'] },
+     { id: 'sms',                     source: 'sms',      label: 'SMS',                 kind: 'on-demand', cadence: 'entity', prefixes: ['sms'] },
+     { id: 'guides',                  source: 'guides',   label: 'Guides',              kind: 'on-demand', cadence: 'entity', prefixes: ['guides'] },
