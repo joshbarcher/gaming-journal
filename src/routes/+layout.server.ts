@@ -29,8 +29,11 @@ export async function load() {
     const [flagsResult, pagesResult, franchisesResult, alertsResult, account, playtime, npResult, pinResult, trackerJobsResult] =
         await Promise.allSettled([
             getAllFlags(),
-            Promise.resolve(getJournalService().getAll()),
-            Promise.resolve(getFranchiseService().getAll()),
+            // async IIFEs, not Promise.resolve(expr): a synchronous throw inside the
+            // expression (service not loaded yet / DATA_DIR unset) would escape
+            // allSettled entirely and 500 every page instead of degrading.
+            (async () => getJournalService().getAll())(),
+            (async () => getFranchiseService().getAll())(),
             getAlerts(),
             safeRelayJson('/api/account'),
             safeRelayJson('/api/steam/playtime/last-played'),

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit'
 import { getJournalService } from '$lib/server/services/journalService.js'
+import { readJsonObject, badRequest } from '$lib/server/shared/request.js'
 import logger from '$lib/server/logger.js'
 
 export function GET({ params }: { params: { id: string } }) {
@@ -9,7 +10,8 @@ export function GET({ params }: { params: { id: string } }) {
 }
 
 export async function PUT({ params, request }: { params: { id: string }; request: Request }) {
-    const updates = await request.json() ?? {}
+    const updates = await readJsonObject(request)
+    if (!updates) return badRequest('Invalid JSON body')
     try {
         const page = await getJournalService().update(params.id, updates)
         if (!page) return json({ error: 'Page not found' }, { status: 404 })

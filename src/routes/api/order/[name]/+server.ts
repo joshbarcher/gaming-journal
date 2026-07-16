@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit'
 import { isValidOrderName, getOrder, setOrder } from '$lib/server/services/orderService.js'
+import { readJson, badRequest } from '$lib/server/shared/request.js'
 
 export async function GET({ params }: { params: { name: string } }) {
     if (!isValidOrderName(params.name)) return json({ error: 'Unknown order' }, { status: 404 })
@@ -12,7 +13,8 @@ export async function GET({ params }: { params: { name: string } }) {
 
 export async function PUT({ params, request }: { params: { name: string }; request: Request }) {
     if (!isValidOrderName(params.name)) return json({ error: 'Unknown order' }, { status: 404 })
-    const appids = await request.json()
+    const appids = await readJson(request)
+    if (appids === undefined) return badRequest('Invalid JSON body')
     if (!Array.isArray(appids) || !appids.every(id => typeof id === 'number')) {
         return json({ error: 'Body must be an array of numbers' }, { status: 400 })
     }

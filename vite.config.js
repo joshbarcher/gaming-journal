@@ -53,7 +53,8 @@ export default defineConfig(({ mode }) => {
             coverage: {
                 provider: 'v8',
                 reporter: ['text', 'html', 'json-summary'],
-                include:  ['src/lib/**'],
+                // routes: the server API surface (+server / server loads); page components stay out.
+                include:  ['src/lib/**', 'src/routes/**/+server.{js,ts}', 'src/routes/**/+*.server.ts', 'src/routes/**/+layout.ts', 'src/routes/**/+page.ts'],
                 // vendor/ is versioned drop-in code we don't own — not ours to cover.
                 exclude:  ['src/lib/**/*.svelte', 'src/lib/js/vendor/**', 'src/tests/**'],
             },

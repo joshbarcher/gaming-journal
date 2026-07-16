@@ -68,7 +68,9 @@ function relayUrl(): string {
 async function fetchJson<T>(url: string): Promise<T | null> {
     try {
         const res = await fetch(url)
-        return res.ok ? (res.json() as Promise<T>) : null
+        // await inside the try — an un-awaited res.json() rejection (malformed body)
+        // would escape the catch and 500 the whole home page via Promise.all.
+        return res.ok ? await (res.json() as Promise<T>) : null
     } catch {
         return null
     }
@@ -89,12 +91,13 @@ function pick<T>(arr: T[]): T | null {
 }
 
 function sampleDiscover(sections: DiscoverSection[], n: number, shouldShow: (appid: number) => boolean, titleBlocklist: string[] = [], hideAdultContent = true): HomePoster[] {
-    const blocked = titleBlocklist.map(t => t.toLowerCase())
+    // NFKC-normalize both sides so "Pokémon" (NFD) can't slip past an NFC blocklist entry.
+    const blocked = titleBlocklist.map(t => t.normalize('NFKC').toLowerCase())
     const items = sections.flatMap(s => s.items ?? []).filter(item => {
         if (!shouldShow(item.appid)) return false
         if (hideAdultContent && item.isAdult) return false
         if (blocked.length) {
-            const lower = item.name.toLowerCase()
+            const lower = (item.name ?? '').normalize('NFKC').toLowerCase()  // partial relay data: no name ≠ crash
             if (blocked.some(t => lower.includes(t))) return false
         }
         return true
@@ -148,7 +151,16 @@ export async function load(): Promise<HomeData> {
     ])
 
     const shouldShow = makeShouldShow(flags, settings)
-    const relay      = homeData ?? EMPTY_RELAY
+    // Field-level defaults, not just null-coalescing: a partial payload from a
+    // version-skewed relay ({}) must not crash the load on relay.recentPlayed.find.
+    const relay: RelayHomeData = {
+        recentPlayed: Array.isArray(homeData?.recentPlayed) ? homeData.recentPlayed : [],
+        justBought:   Array.isArray(homeData?.justBought)   ? homeData.justBought   : [],
+        stats:        { ...EMPTY_RELAY.stats, ...(homeData?.stats ?? {}) },
+        release:      homeData?.release ?? null,
+        libPosters:   Array.isArray(homeData?.libPosters)   ? homeData.libPosters   : [],
+        wlPosters:    Array.isArray(homeData?.wlPosters)    ? homeData.wlPosters    : [],
+    }
 
     // Session card: the most-recently-played title the filter toggles allow, so a
     // hidden (child-locked / filtered) last game never leaks onto the home page.

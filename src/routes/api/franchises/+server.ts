@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit'
 import { getFranchiseService } from '$lib/server/services/franchiseService.js'
+import { readJsonObject, badRequest } from '$lib/server/shared/request.js'
 
 export function GET() {
     try {
@@ -10,8 +11,10 @@ export function GET() {
 }
 
 export async function POST({ request }: { request: Request }) {
+    const body = await readJsonObject(request)
+    if (!body) return badRequest('Invalid JSON body')
     try {
-        const { name } = await request.json()
+        const { name } = body
         if (!name || typeof name !== 'string' || !name.trim()) {
             return json({ error: 'name is required' }, { status: 400 })
         }
