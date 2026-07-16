@@ -1,0 +1,903 @@
+{
+  "generatedAt": "2026-07-16T18:36:46.135Z",
+  "relayRepo": "C:\\dev\\relay-server",
+  "counts": {
+    "routes": 172,
+    "routers": 33,
+    "staticMounts": 6
+  },
+  "staticMounts": [
+    {
+      "prefix": "/images/steam",
+      "kind": "static",
+      "root": "imagesRoot"
+    },
+    {
+      "prefix": "/videos/reddit",
+      "kind": "static",
+      "root": "redditVideosRoot"
+    },
+    {
+      "prefix": "/videos/steam",
+      "kind": "static",
+      "root": "videosRoot"
+    },
+    {
+      "prefix": "/guides-img",
+      "kind": "static",
+      "root": "guidesRoot"
+    },
+    {
+      "prefix": "/images/reddit/*",
+      "kind": "static-webp",
+      "root": "redditImagesRoot"
+    },
+    {
+      "prefix": "/images/nexus/*",
+      "kind": "static-webp",
+      "root": "nexusImagesRoot"
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "router": "src/routers/health.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/activity",
+      "router": "src/routers/activity/activity.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/activity/dashboard",
+      "router": "src/routers/activity/activity.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/account",
+      "router": "src/routers/account/account.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/account/sync",
+      "router": "src/routers/account/account.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/backfill",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/disk-usage/rescan",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/news/:appid/refresh",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/patch/:appid",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/provision/:appid",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/sources",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/sources/:id/sync",
+      "router": "src/routers/admin/admin.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/errors",
+      "router": "src/routers/dashboard/dashboard.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/summary",
+      "router": "src/routers/dashboard/dashboard.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/timeseries",
+      "router": "src/routers/dashboard/dashboard.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discover/adult-content/stats",
+      "router": "src/routers/steam/discover.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/discover/applist/refresh",
+      "router": "src/routers/steam/discover.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discover/featured",
+      "router": "src/routers/steam/discover.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discover/search",
+      "router": "src/routers/steam/discover.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/games",
+      "router": "src/routers/games/games.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/games/:appid",
+      "router": "src/routers/games/games.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/games/ownership",
+      "router": "src/routers/games/games.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/games/posters",
+      "router": "src/routers/games/games.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/:steamId",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/:steamId/:source/:guideId/:section",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/:steamId/:source/:guideId/fulltext",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/guides/:steamId/:source/:guideId/mark-used",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/:steamId/:source/:guideId/meta",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/:steamId/:source/:guideId/pins",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/guides/:steamId/:source/:guideId/pins",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/guides/:steamId/:source/:guideId/pins/:pinId",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/guides/:steamId/:source/:guideId/pins/:pinId",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/guides/:steamId/download",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/:steamId/search",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/guides/:steamId/search",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/jobs",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/guides/jobs",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/guides/jobs/:jobId",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides/jobs/stream",
+      "router": "src/routers/guides/guides.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hltb",
+      "router": "src/routers/hltb/hltb.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hltb/:appid",
+      "router": "src/routers/hltb/hltb.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hltb/sync",
+      "router": "src/routers/hltb/hltb.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hltb/sync/:appid",
+      "router": "src/routers/hltb/hltb.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/home",
+      "router": "src/routers/home/home.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/itad",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/itad/:appid",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/itad/resolve-urls",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/itad/stores",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/itad/sync",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/itad/sync/:appid",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/itad/sync/wishlist",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/itad/verify-urls",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/itad/wishlist",
+      "router": "src/routers/itad/itad.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/accounts",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/mail/accounts/:email",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/amazon/deliveries",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/amazon/deliveries/:orderId",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/mail/amazon/rebuild",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/amazon/stats",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/auth/callback",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/auth/connect",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "USE",
+      "path": "/api/mail/filters",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/messages",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/messages/:id",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/search",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/mail/sync",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/mail/sync/full",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/mail/sync/reload",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mail/sync/status",
+      "router": "src/routers/mail/mail.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/news/:appid",
+      "router": "src/routers/steam/news.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/news/:appid/:gid",
+      "router": "src/routers/steam/news.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus/:appid",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus/:appid/deep",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nexus/:appid/deep",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus/:appid/mod/:modId",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus/:appid/mods",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus/backfill",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nexus/backfill",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nexus/refresh",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/nexus/session",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nexus/session",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nexus/session",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nexus/sync/:appid",
+      "router": "src/routers/nexus/nexus.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pcgw",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pcgw/:appid",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pcgw/health",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/pcgw/html-cache",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/pcgw/html-cache/:appid",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/pcgw/sync",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/pcgw/sync/:appid",
+      "router": "src/routers/pcgw/pcgw.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/pin",
+      "router": "src/routers/pin/pin.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pin",
+      "router": "src/routers/pin/pin.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/pin/:appid",
+      "router": "src/routers/pin/pin.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/player-counts",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/player-counts/:appid",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/player-counts/collect",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/player-counts/filtered",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/player-counts/filtered/:appid",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/player-counts/filtered/:appid",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/player-counts/top",
+      "router": "src/routers/steam/player-counts.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/progress-suggest/:appid",
+      "router": "src/routers/progress-suggest/progress-suggest.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/progress-suggest/jobs",
+      "router": "src/routers/progress-suggest/progress-suggest.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/progress-suggest/jobs",
+      "router": "src/routers/progress-suggest/progress-suggest.router.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/progress-suggest/jobs/:jobId",
+      "router": "src/routers/progress-suggest/progress-suggest.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/progress-suggest/jobs/stream",
+      "router": "src/routers/progress-suggest/progress-suggest.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/protondb",
+      "router": "src/routers/protondb/protondb.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/protondb/:appid",
+      "router": "src/routers/protondb/protondb.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/protondb/sync",
+      "router": "src/routers/protondb/protondb.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/protondb/sync/:appid",
+      "router": "src/routers/protondb/protondb.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/recommend",
+      "router": "src/routers/recommend/recommend.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reddit/:appid",
+      "router": "src/routers/reddit/reddit.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/reddit/:appid/sync",
+      "router": "src/routers/reddit/reddit.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reddit/:appid/sync/progress",
+      "router": "src/routers/reddit/reddit.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reddit/:appid/thread/:postId",
+      "router": "src/routers/reddit/reddit.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reddit/validate-subreddit",
+      "router": "src/routers/reddit/reddit.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sms/events",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sms/import/messages",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sms/import/xml",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sms/media/:filename",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sms/search",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sms/threads",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sms/threads/:address",
+      "router": "src/routers/sms/sms.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/account",
+      "router": "src/routers/steam/account.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/account/sync",
+      "router": "src/routers/steam/account.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/achievements",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/achievements/:appid",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/achievements/repair",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/achievements/sync",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/community-reviews",
+      "router": "src/routers/steam/community-reviews.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/community-reviews/:appid",
+      "router": "src/routers/steam/community-reviews.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/community-reviews/:appid/sync",
+      "router": "src/routers/steam/community-reviews.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/community-reviews/sync",
+      "router": "src/routers/steam/community-reviews.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/friends",
+      "router": "src/routers/steam/account.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/friends/sync",
+      "router": "src/routers/steam/account.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/games",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/games/sync",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/images/achievements/images/sync",
+      "router": "src/routers/steam/images.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/images/games/sync",
+      "router": "src/routers/steam/images.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/images/migrate-sources",
+      "router": "src/routers/steam/images.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/images/screenshots/sync",
+      "router": "src/routers/steam/images.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/now-playing",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/playtime/last-played",
+      "router": "src/routers/steam/sessions.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/playtime/sessions",
+      "router": "src/routers/steam/sessions.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/playtime/sessions/derive",
+      "router": "src/routers/steam/sessions.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/playtime/snapshot",
+      "router": "src/routers/steam/sessions.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/playtime/snapshots",
+      "router": "src/routers/steam/sessions.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/recently-played",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/recently-played/sync",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/releases",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/reviews",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/reviews/:appid",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/reviews/scan",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/reviews/scrape",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/reviews/sync",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/stats",
+      "router": "src/routers/steam/stats.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/stats/sync",
+      "router": "src/routers/steam/stats.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/store/details",
+      "router": "src/routers/steam/store.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/store/details/:appid",
+      "router": "src/routers/steam/store.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/store/details/sync",
+      "router": "src/routers/steam/store.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/store/details/sync-tags",
+      "router": "src/routers/steam/store.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/upcoming",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/steam/wishlist",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/steam/wishlist/sync",
+      "router": "src/routers/steam/steam.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/videos/:appid",
+      "router": "src/routers/steam/videos.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wishlist",
+      "router": "src/routers/wishlist/wishlist.router.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wishlist/sync",
+      "router": "src/routers/wishlist/wishlist.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/coverage",
+      "router": "src/routers/coverage/coverage.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/coverage/dashboard",
+      "router": "src/routers/coverage/coverage.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "router": "src/routers/health.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/sloc",
+      "router": "src/routers/sloc/sloc.router.js"
+    },
+    {
+      "method": "GET",
+      "path": "/sloc/dashboard",
+      "router": "src/routers/sloc/sloc.router.js"
+    }
+  ]
+}

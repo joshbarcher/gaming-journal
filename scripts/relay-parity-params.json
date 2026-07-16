@@ -1,0 +1,29 @@
+{
+  "/api/guides/:steamId": [
+    "/api/guides/1113000"
+  ],
+  "/api/guides/:steamId/search": [
+    "/api/guides/1113000/search?q=boss"
+  ],
+  "/api/guides/:steamId/:source/:guideId/meta": [
+    "/api/guides/1113000/gamefaqs/81937/meta"
+  ],
+  "/api/guides/:steamId/:source/:guideId/fulltext": [
+    "/api/guides/1113000/gamefaqs/81937/fulltext"
+  ],
+  "/api/guides/:steamId/:source/:guideId/pins": [
+    "/api/guides/1113000/gamefaqs/81937/pins"
+  ],
+  "/api/guides/:steamId/:source/:guideId/:section": [
+    "/api/guides/1113000/gamefaqs/81937/april"
+  ],
+  "/api/news/:appid/:gid": [
+    "/api/news/302510/4090922416498872195"
+  ],
+  "/api/nexus/:appid/mod/:modId": [
+    "/api/nexus/1687950/mod/3"
+  ],
+  "/api/reddit/:appid/thread/:postId": [
+    "/api/reddit/504230/thread/1u0m862?sub=celestegame"
+  ]
+}

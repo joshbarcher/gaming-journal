@@ -1,0 +1,16 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T19:20:12.883Z",
+  "ok": [
+    "/api/itad",
+    "/api/itad/220",
+    "/api/itad/544330",
+    "/api/itad/4533800",
+    "/api/itad/stores",
+    "/api/itad/wishlist"
+  ],
+  "diff": [],
+  "error": [],
+  "unresolved": []
+}

@@ -3,6 +3,10 @@
     "compilerOptions": {
         "strict": true,
         "allowJs": true,
-        "checkJs": false
+        "checkJs": false,
+        // puppeteer-extra's bundled types clash with current puppeteer's
+        // (executablePath signature) — skip declaration-file checking, which is
+        // also the common default for SvelteKit projects.
+        "skipLibCheck": true
     }
 }

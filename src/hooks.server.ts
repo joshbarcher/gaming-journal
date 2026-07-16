@@ -4,6 +4,7 @@ import logger from '$lib/server/logger.js'
 import { getJournalService } from '$lib/server/services/journalService.js'
 import { getFranchiseService } from '$lib/server/services/franchiseService.js'
 import { cleanupOwned } from '$lib/server/services/localWishlistService.js'
+import { bootRelay, closeRelay } from '$lib/server/relay/boot.js'
 import { installActivityTracker, recordRequest } from '../activity.js'
 
 logger.startup({ name: 'gaming-journal', version: '1.0.0' })
@@ -27,6 +28,11 @@ await getJournalService().load()
 await getFranchiseService().load()
 logger.info('Journal data loaded')
 
+// Relay fold-in (docs/relay-fold-in.md): start ported feature services +
+// schedulers. No-ops per feature until migration waves land; schedulers only
+// run when ENABLE_SCHEDULERS=true (prod env layer).
+await bootRelay()
+
 interface GamesFile {
     games?: { appid: number }[]
 }
@@ -49,6 +55,9 @@ async function shutdown(reason: string, exitCode = 0): Promise<void> {
     try {
         await getJournalService().close()
         await getFranchiseService().close()
+        // Relay fold-in: close feature resources (Puppeteer browsers, ManagedFile
+        // buffers, metrics) registered via registerCloser().
+        await closeRelay()
     } catch (err) {
         logger.error('Flush failed during shutdown', { err })
     }
