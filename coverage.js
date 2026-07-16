@@ -152,6 +152,34 @@ export const SNAPSHOT_FILE = '.coverage-snapshot.json';
 export const CONFIG_FILE = 'coverage.config.json';
 export const DEFAULT_STALE_AFTER_DAYS = 14;
 
+// Shared fleet drop-ins: process-mgr owns these and vendors byte-identical copies
+// into every app. They are process-mgr's code, not the consuming app's, so an
+// app's own coverage is neither credited nor penalised for them — they count
+// ONLY in process-mgr itself, where the originals live, and are excluded
+// everywhere else. Matched by basename (they sit at each app's repo root). The
+// on-disk snapshot still records them (writeSnapshot keeps the full file map);
+// the exclusion happens at read/serve time, so no snapshot needs regenerating.
+export const FLEET_SHARED_FILES = new Set(['activity.js', 'coverage.js', 'logger.js', 'sloc.js', 'visits.js']);
+export const FLEET_OWNER_APP = 'process-mgr';
+
+function isFleetSharedFile(relPath) {
+    return FLEET_SHARED_FILES.has(String(relPath).split('/').pop());
+}
+
+// Sum a per-file coverage map into fresh totals, dropping the shared fleet
+// drop-ins when excludeShared is set. Returns the kept file map too, so the
+// detail view and the totals stay in agreement.
+function totalsFromFiles(fileMap, excludeShared) {
+    const totals = emptyTotals();
+    const kept = {};
+    for (const [p, m] of Object.entries(fileMap)) {
+        if (excludeShared && isFleetSharedFile(p)) continue;
+        kept[p] = m;
+        addTotals(totals, m);
+    }
+    return { totals: finalize(totals), files: kept };
+}
+
 // ── Metric helpers ───────────────────────────────────────────────────────────
 
 function pct(covered, total) {
@@ -359,7 +387,7 @@ async function findCoverageConfig(startDir) {
  * @returns {Promise<object>} See RESPONSE SHAPE above.
  */
 export async function readCoverage(rootDir, options = {}) {
-    const { detail = false, staleAfterDays = DEFAULT_STALE_AFTER_DAYS, useConfig = true } = options;
+    const { detail = false, staleAfterDays = DEFAULT_STALE_AFTER_DAYS, useConfig = true, excludeShared = false } = options;
 
     const found = useConfig ? await findCoverageConfig(rootDir) : null;
     const base = found ? found.dir : resolve(rootDir);
@@ -383,20 +411,30 @@ export async function readCoverage(rootDir, options = {}) {
             continue;
         }
 
+        // Drop shared fleet drop-ins from this root's totals + file list (unless
+        // disabled). Recomputed from the per-file map, which every artifact source
+        // — including the committed snapshot — carries; if a legacy artifact has no
+        // file map, fall back to its stored totals unchanged (no exclusion).
+        let rootTotals = report.totals;
+        let rootFiles = report.files;
+        if (excludeShared && rootFiles && Object.keys(rootFiles).length) {
+            ({ totals: rootTotals, files: rootFiles } = totalsFromFiles(rootFiles, true));
+        }
+
         roots.push({
             path: prefix || '.',
             available: true,
             source: report.source,
             generatedAt: report.generatedAt,
-            totals: report.totals,
+            totals: rootTotals,
         });
 
-        addTotals(totals, report.totals);
+        addTotals(totals, rootTotals);
         sources.add(report.source);
         if (report.ts < oldestTs) oldestTs = report.ts;
 
         if (detail) {
-            for (const [p, m] of Object.entries(report.files)) {
+            for (const [p, m] of Object.entries(rootFiles)) {
                 files[prefix ? `${prefix}/${p}` : p] = m;
             }
         }
@@ -468,7 +506,10 @@ export async function writeSnapshot(rootDir = process.cwd()) {
 // Shared cache/compute core behind the Express and Fetch adapters, so /coverage
 // behaves identically (same 30s cache) whichever framework wired it up.
 function createReportProvider(rootDir, options = {}) {
-    const { cacheMs = 30000, name, ...readOptions } = options;
+    const { cacheMs = 30000, name, excludeShared, ...readOptions } = options;
+    // Exclude the shared fleet drop-ins from every app's numbers except their
+    // owner (process-mgr). An explicit excludeShared option still wins.
+    const doExcludeShared = excludeShared ?? (name !== FLEET_OWNER_APP);
     let cache = null;
     let cachedAt = 0;
 
@@ -476,7 +517,7 @@ function createReportProvider(rootDir, options = {}) {
         const now = Date.now();
         if (!detail && cache && now - cachedAt < cacheMs) return cache;
 
-        const report = await readCoverage(rootDir, { ...readOptions, detail });
+        const report = await readCoverage(rootDir, { ...readOptions, excludeShared: doExcludeShared, detail });
         const payload = name ? { name, ...report } : report;
 
         if (!detail) { cache = payload; cachedAt = now; }

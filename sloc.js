@@ -279,6 +279,14 @@ export const DEFAULT_IGNORE_FILES = [
     'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'npm-shrinkwrap.json',
 ];
 
+// Shared fleet drop-ins: process-mgr owns these and vendors byte-identical copies
+// into every app. They are process-mgr's code, not the consuming app's, so an
+// app's own SLOC does not count them — they count ONLY in process-mgr itself,
+// where the originals live, and are excluded from every other app's totals
+// (added to ignoreFiles by the route adapters below). Matched by basename.
+export const FLEET_SHARED_FILES = ['activity.js', 'coverage.js', 'logger.js', 'sloc.js', 'visits.js'];
+export const FLEET_OWNER_APP = 'process-mgr';
+
 // ── Line classification ──────────────────────────────────────────────────────
 
 function emptyCounts() {
@@ -528,6 +536,13 @@ export async function computeSloc(rootDir, options = {}) {
 // framework wired it up.
 function createReportProvider(rootDir, options = {}) {
     const { cacheMs = 30000, name, ...computeOptions } = options;
+    // Exclude the shared fleet drop-ins from every app's SLOC except their owner
+    // (process-mgr), by adding their basenames to ignoreFiles (walk() skips by
+    // basename). The consumer's own ignoreFiles, if any, is preserved.
+    if (name !== FLEET_OWNER_APP) {
+        const base = computeOptions.ignoreFiles ?? DEFAULT_IGNORE_FILES;
+        computeOptions.ignoreFiles = [...base, ...FLEET_SHARED_FILES];
+    }
     let cache = null;
     let cachedAt = 0;
 
