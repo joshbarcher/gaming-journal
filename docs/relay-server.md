@@ -1,5 +1,12 @@
 # Relay Server — orientation (read this first)
 
+> **⚠️ SUPERSEDED (2026-07-16): the relay is being folded into this app.**
+> All gaming code is ported in-process — see **[relay-fold-in.md](relay-fold-in.md)**
+> for the current architecture, cutover state, and the new-feature recipe
+> (`src/lib/server/relay/<feature>/` + `src/routes/relay/api/<feature>/`).
+> This document describes the pre-fold-in topology and remains accurate only
+> for features whose cutover window hasn't executed yet.
+
 **The relay is a separate repo at `C:\dev\relay-server` (not in this workspace).** This
 app (`gaming-journal`, a SvelteKit frontend + a React Native app) is tightly coupled to it:
 almost every piece of third-party or cached data — Steam, HLTB, ITAD prices, ProtonDB,
