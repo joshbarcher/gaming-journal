@@ -7,7 +7,10 @@ import { syncGame } from '$lib/server/relay/hltb/hltb.service.js'
 export const POST = relayRoute('hltb', async ({ params, url }) => {
     try {
         const force = url.searchParams.get('force') === 'true'
-        const result = await syncGame(params.appid!, { force })
+        // ?name= lets callers sync games that aren't in the Steam library
+        // (the relay's discovery worker passes the store name this way).
+        const steamName = url.searchParams.get('name') ?? undefined
+        const result = await syncGame(params.appid!, { force, steamName })
         await rebuild('games')
         return json(result)
     } catch (err) {

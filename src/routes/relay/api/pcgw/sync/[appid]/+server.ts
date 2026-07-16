@@ -11,7 +11,10 @@ export const POST = relayRoute('pcgw', async ({ params, url }) => {
     try {
         const force   = url.searchParams.get('force') === 'true'
         const reparse = url.searchParams.get('reparse') === 'true'
-        const result  = await syncGame(appid, { force, reparse })
+        // ?name= lets callers sync games that aren't in the Steam library
+        // (the relay's discovery worker passes the store name this way).
+        const steamName = url.searchParams.get('name') ?? undefined
+        const result  = await syncGame(appid, { force, reparse, steamName })
         await rebuild('games')
         return json(result)
     } catch (err) {
