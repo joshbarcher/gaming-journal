@@ -5,10 +5,11 @@
 // §6: parity is the correctness definition during migration, so assertions are
 // carried over unmodified).
 //
-// The journal's actions.js stubs 'mail' (relay-owned forever) and
-// 'steam:sessions' (Wave 4) with explicit-throw actions, keeping their keys so
-// the registry drift test below stays byte-identical — canSync/listActions see
-// the same map as the relay's.
+// The journal's actions.js stubs 'mail' (relay-owned forever) with an
+// explicit-throw action, keeping its key so the registry drift test below
+// stays byte-identical — canSync/listActions see the same map as the relay's.
+// 'steam:sessions' is REAL as of Wave 4 (takeSnapshot/deriveSessions from the
+// ported sessions.service) — exercised for real at the bottom of this file.
 //
 // DATA_DIR must point at a temp dir, never the NAS (.env's DATA_DIR). The
 // services read env at call time, so module-scope assignment is safe despite
@@ -23,6 +24,7 @@ import os from 'node:os';
 
 process.env.DATA_DIR = path.join(os.tmpdir(), `gj-relay-test-actions-${process.pid}`);
 delete process.env.RELAY_DATA_ROOT;
+process.env.DISABLE_RATE_LIMIT = '1'; // steamFetch sleeps protect Steam; fetch is stubbed below
 
 import { canSync, listActions, startSync, ConflictError, combine } from '../../../lib/server/relay/metrics/actions.js';
 import { begin, isRunning, _reset } from '../../../lib/server/relay/metrics/job-guard.js';
@@ -156,24 +158,61 @@ describe('startSync', () => {
 });
 
 // ── Journal-only additions (not in the relay suite) ───────────────────────────
-// The two stubbed actions must refuse loudly, not silently no-op — a manual
+// The remaining stubbed action must refuse loudly, not silently no-op — a manual
 // trigger that "succeeds" while doing nothing would chart a healthy run for a
 // sync that never happened.
 
 describe('relay-owned action stubs', () => {
-    test('mail and steam:sessions stay listed (registry parity) but their actions throw', async () => {
+    test('mail stays listed (registry parity) but its action throws', async () => {
         assert.equal(canSync('mail'), true);
-        assert.equal(canSync('steam:sessions'), true);
 
         // startSync routes the rejection into the run history (logged failed
-        // run) and releases the guard — the stubs must not wedge the slot.
+        // run) and releases the guard — the stub must not wedge the slot.
         await startSync('mail');
         assert.equal(isRunning('mail'), false, 'guard released after the stub throws');
-        await startSync('steam:sessions');
-        assert.equal(isRunning('steam:sessions'), false, 'guard released after the stub throws');
 
         // Released means a re-trigger is not a 409.
         assert.equal(begin('mail'), true);
+    });
+});
+
+// Wave 4 restored the real steam:sessions action (the journal-only explicit-throw
+// stub is gone). The trigger must actually take a snapshot and derive sessions —
+// asserting only "did not throw" would pass for a silent no-op too, so check the
+// snapshot really landed on disk.
+describe('steam:sessions manual trigger (Wave 4 restore)', () => {
+    test('startSync takes a real snapshot and releases the guard', async () => {
+        assert.equal(canSync('steam:sessions'), true);
+
+        process.env.STEAM_API_KEY = 'test-key';
+        process.env.STEAM_ID      = '76561198000000000';
+        await fsp.mkdir(path.join(process.env.DATA_DIR!, 'relay', 'steam'), { recursive: true });
+
+        const originalFetch = global.fetch;
+        global.fetch = (async () => ({
+            ok: true,
+            json: async () => ({
+                response: {
+                    total_count: 1,
+                    games: [{ appid: 10, name: 'Game One', playtime_forever: 120 }],
+                },
+            }),
+        })) as any;
+        try {
+            await startSync('steam:sessions');
+        } finally {
+            global.fetch = originalFetch;
+        }
+
+        assert.equal(isRunning('steam:sessions'), false, 'guard released after the run');
+
+        // The action really ran: the snapshot landed in the temp DATA_DIR.
+        const snap = JSON.parse(await fsp.readFile(
+            path.join(process.env.DATA_DIR!, 'relay', 'steam', 'playtime-snapshots.json'), 'utf8'));
+        assert.equal(snap.snapshots.length, 1);
+        assert.equal(snap.snapshots[0].games[0].appid, 10);
+
+        // Released means a re-trigger is not a 409.
         assert.equal(begin('steam:sessions'), true);
     });
 });

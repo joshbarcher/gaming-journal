@@ -1,0 +1,31 @@
+{
+  "a": "http://192.168.86.65:8050",
+  "b": "http://localhost:8061/relay",
+  "ranAt": "2026-07-16T23:16:03.913Z",
+  "ok": [
+    "/api/steam/account",
+    "/api/steam/achievements",
+    "/api/steam/community-reviews",
+    "/api/steam/friends",
+    "/api/steam/games",
+    "/api/steam/now-playing",
+    "/api/steam/playtime/last-played",
+    "/api/steam/playtime/sessions",
+    "/api/steam/playtime/snapshots",
+    "/api/steam/recently-played",
+    "/api/steam/releases",
+    "/api/steam/reviews",
+    "/api/steam/stats",
+    "/api/steam/store/details",
+    "/api/steam/upcoming",
+    "/api/steam/wishlist"
+  ],
+  "diff": [],
+  "error": [],
+  "unresolved": [
+    "/api/steam/achievements/:appid",
+    "/api/steam/community-reviews/:appid",
+    "/api/steam/reviews/:appid",
+    "/api/steam/store/details/:appid"
+  ]
+}

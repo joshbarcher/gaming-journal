@@ -32,6 +32,10 @@ import { build as buildGamesCache } from './games/games.service.js'
 import { build as buildWishlistCache } from './wishlist/wishlist.service.js'
 import { build as buildPlayerCountsCache } from './steam/player-counts.service.js'
 import { backfill as provisionBackfill, recheckUnavailableWishlistItems } from './provision.service.js'
+import { load as loadPlayLog } from './steam/play-log.service.js'
+import { startPoller as startNowPlayingPoller, stopPoller as stopNowPlayingPoller } from './steam/now-playing.service.js'
+import { build as buildAccountCache } from './account/account.service.js'
+import { startSnapshotScheduler, stopSnapshotScheduler } from './steam/sessions.service.js'
 
 let _booted = false
 
@@ -100,6 +104,20 @@ export async function bootRelay() {
     startScheduler('provision', () => provisionBackfill()
         .then(() => recheckUnavailableWishlistItems())
         .catch(err => logger.error('[relay-boot] Provision backfill failed', { err: err?.message })))
+    // Wave 4: play-log must be in memory before the now-playing poller and
+    // account cache start — they both read session data (relay server.js
+    // ordering). The poller is the debounced restart-safe port; the snapshot
+    // scheduler is THE 30-minute steam tick (library/sessions/player-counts/
+    // reviews/provision). SCHED_NOW_PLAYING / SCHED_SESSIONS stay off until
+    // the combined Wave-3+4 window.
+    startScheduler('now-playing', () => loadPlayLog()
+        .then(() => {
+            startNowPlayingPoller().catch(err => logger.error('[relay-boot] Now-playing poller startup failed', { err: err?.message }))
+            return buildAccountCache().catch(err => logger.error('[relay-boot] Account cache build failed', { err: err?.message }))
+        }))
+    startScheduler('sessions', startSnapshotScheduler)
+    registerCloser('now-playing-poller', stopNowPlayingPoller)
+    registerCloser('snapshot-scheduler', stopSnapshotScheduler)
     // Wave 3: (pending)
     // Wave 4: play-log must load before the now-playing poller + account cache.
 }

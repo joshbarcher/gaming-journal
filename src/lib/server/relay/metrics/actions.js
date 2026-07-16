@@ -1,17 +1,13 @@
 // Ported from relay-server src/services/metrics/actions.js (docs/relay-fold-in.md
-// §6 — logic byte-identical except the two entrypoints the journal does not host):
+// §6 — logic byte-identical except the one entrypoint the journal does not host):
 //
-//   - 'steam:sessions' (Wave 4): takeSnapshot/deriveSessions live in
-//     sessions.service.js, which stays relay-owned until Wave 4 (the now-playing
-//     poller owns the session files — see § Phase 5). The action key is KEPT so
-//     the registry drift test (`syncable` flags === action map) stays truthful,
-//     but triggering it throws until the Wave-4 port restores the real calls.
 //   - 'mail': mail is relay-owned permanently (being ported to its own app —
-//     never migrating here). Same explicit-throw treatment; the key stays
-//     because metrics/sources.js is shared relay-parallel state we do not edit.
-//   - countNewIds: inlined verbatim from relay sessions.service.js (its only
-//     consumer here is the steam:library novelty diff) rather than dragging the
-//     whole Wave-4 sessions service in. Remove the copy when sessions ports.
+//     never migrating here). Explicit-throw stub; the key stays because
+//     metrics/sources.js is shared relay-parallel state we do not edit.
+//
+// Wave 4 restored 'steam:sessions' to the real takeSnapshot/deriveSessions
+// action and replaced the transitional inlined countNewIds copy with the
+// import from steam/sessions.service.js — matching the relay original.
 //
 /**
  * Manually triggerable syncs, keyed by source id.
@@ -40,15 +36,7 @@ import { syncAll as syncItad } from '../itad/itad.service.js';
 import { syncAll as syncProtonDb } from '../protondb/protondb.service.js';
 import { syncAll as syncPcgw } from '../pcgw/pcgw.service.js';
 import { runDailySync as syncReddit } from '../reddit/reddit.service.js';
-
-/**
- * Inlined verbatim from relay-server src/services/steam/sessions.service.js
- * (Wave 4 — see header). Count keys present in `after` but not `before`.
- */
-export function countNewIds(beforeIds, afterIds) {
-    const known = new Set(beforeIds);
-    return afterIds.reduce((n, id) => (known.has(id) ? n : n + 1), 0);
-}
+import { takeSnapshot, deriveSessions, countNewIds } from '../steam/sessions.service.js';
 
 /**
  * Sum the counts of several sub-syncs into one run record.
@@ -117,12 +105,10 @@ const ACTIONS = {
         ]);
     },
 
-    // WAVE 4 — restore to `await takeSnapshot(); await deriveSessions();` from
-    // steam/sessions.service.js when the live-session machinery ports (the relay
-    // owns the snapshot/session files until then; a journal-side snapshot here
-    // would be a second writer on them).
     'steam:sessions': async () => {
-        throw new Error('steam:sessions is relay-owned until Wave 4 — trigger it on the relay dashboard');
+        await takeSnapshot();
+        await deriveSessions();
+        return { fetched: 1, total: 1 };
     },
 
     'steam:player-counts': async () => combine([await collectOwned(), await collectGlobalTop()]),
