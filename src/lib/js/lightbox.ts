@@ -35,8 +35,9 @@ export function openLightbox(srcs: string[], index = 0) {
     }
 
     _srcs = srcs
-    _idx  = index
-    ;(_el.querySelector('.shot-modal-img') as HTMLImageElement).src = srcs[index]
+    // Clamp: an out-of-range index would set src to the literal string "undefined".
+    _idx  = Number.isInteger(index) && index >= 0 && index < srcs.length ? index : 0
+    ;(_el.querySelector('.shot-modal-img') as HTMLImageElement).src = srcs[_idx]
     const single = srcs.length <= 1
     ;(_el.querySelector('.shot-modal-prev') as HTMLElement).style.display = single ? 'none' : ''
     ;(_el.querySelector('.shot-modal-next') as HTMLElement).style.display = single ? 'none' : ''

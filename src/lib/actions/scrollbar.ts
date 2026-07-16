@@ -7,7 +7,10 @@ export function getScrollInstance(): ReturnType<typeof OverlayScrollbars> | unde
 }
 
 export function scrollbar(element: HTMLElement) {
-    _mainInstance = OverlayScrollbars(element, {
+    // Track OUR instance — during in/out transitions the incoming element mounts
+    // before the outgoing unmounts, so destroying via the shared _mainInstance
+    // would tear down the new element's scrollbar and leak this one.
+    const instance = OverlayScrollbars(element, {
         scrollbars: {
             theme: 'gj-theme',
             visibility: 'visible',
@@ -15,11 +18,15 @@ export function scrollbar(element: HTMLElement) {
             clickScroll: true,
         },
     })
+    _mainInstance = instance
 
+    let destroyed = false
     return {
         destroy() {
-            _mainInstance?.destroy()
-            _mainInstance = undefined
+            if (destroyed) return
+            destroyed = true
+            instance.destroy()
+            if (_mainInstance === instance) _mainInstance = undefined
         },
     }
 }

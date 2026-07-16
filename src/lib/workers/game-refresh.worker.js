@@ -6,10 +6,11 @@
 // Outbound: { id, data }   (data is null on any error or non-ok response)
 
 function buildPollUrl(url) {
-    // Remove ?fetch=true (or &fetch=true) from the URL, clean up leftover separators
+    // Remove fetch=true wherever it sits. Keep the separator we consumed in mind:
+    // "?fetch=true&appid=5" must become "?appid=5", not "&appid=5" — so strip the
+    // param only, then normalize whichever separator was left dangling.
     return url
-        .replace(/[?&]fetch=true(?=&|$)/, '')
-        .replace(/\?&/, '?')
+        .replace(/([?&])fetch=true(&?)/, (_m, sep, tail) => (tail ? sep : ''))
         .replace(/\?$/, '')
 }
 

@@ -31,7 +31,9 @@ export const TRACKER_META: Record<string, { label: string; icon: () => string }>
 
 export function fmtDate(date: string | number | Date | null | undefined): string {
     if (!date) return ''
-    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const d = new Date(date)
+    if (isNaN(d.getTime())) return ''  // garbage input must not render "Invalid Date"
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export function cleanAchName(apiname: string): string {

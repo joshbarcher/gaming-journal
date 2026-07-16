@@ -8,7 +8,8 @@ export async function loadPrefs(appid: string | number): Promise<{
 }> {
     const res  = await fetch(API)
     if (!res.ok) throw new Error(`Failed to load community prefs: ${res.status}`)
-    const data = await res.json()
+    // A JSON `null` body would defeat the per-field ?? guards below.
+    const data = (await res.json()) ?? {}
     return {
         filtered:    new Set(data.filtered    ?? []),
         muted:       new Set(data.muted       ?? []),

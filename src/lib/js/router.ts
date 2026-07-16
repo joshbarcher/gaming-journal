@@ -28,12 +28,13 @@ export function navigate(path: string, { replace = false } = {}): void {
 
 export function gameBackLabel(): string {
     const from = sessionStorage.getItem('gj_game_from')
-    return from && FROM_LABELS[from] ? FROM_LABELS[from] : 'Library'
+    // hasOwn: a stored "constructor"/"toString" must not resolve through the prototype.
+    return from && Object.hasOwn(FROM_LABELS, from) ? FROM_LABELS[from] : 'Library'
 }
 
 export function gameBackPath(): string {
     const from = sessionStorage.getItem('gj_game_from')
-    return from && FROM_LABELS[from] ? `/${from}` : '/library'
+    return from && Object.hasOwn(FROM_LABELS, from) ? `/${from}` : '/library'
 }
 
 export async function addNewPage(): Promise<void> {

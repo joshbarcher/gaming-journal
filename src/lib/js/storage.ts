@@ -11,12 +11,14 @@ export function getWithTTL<T = unknown>(key: string, fallback: T | null = null):
         const raw = localStorage.getItem(key)
         if (raw === null) return fallback
         const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed === 'object' && 'v' in parsed && 'e' in parsed) {
+        if (parsed && typeof parsed === 'object' && 'e' in parsed && ('v' in parsed || Object.keys(parsed).length === 1)) {
             if (Date.now() > parsed.e) {
                 localStorage.removeItem(key)
                 return fallback
             }
-            return parsed.v as T
+            // An envelope missing "v" means setWithTTL was given undefined
+            // (JSON.stringify drops the key) — that's an absent value, not data.
+            return ('v' in parsed ? parsed.v : fallback) as T
         }
         return parsed as T
     } catch {

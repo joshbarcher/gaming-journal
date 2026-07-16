@@ -4,13 +4,18 @@
 class AdultContentStore {
     hide = $state(true)   // default matches the server default (hide until we know otherwise)
 
+    #loadSeq = 0          // last-call-wins: a slow stale response must not clobber a newer load()
+
     // Refresh from the settings endpoint. Cheap (local file read); called on mount so the
     // value is current when a page lands. Safe default direction: starts blurred, only
     // ever unblurs once we confirm the toggle is off.
     async load() {
+        const seq = ++this.#loadSeq
         try {
             const r = await fetch('/api/settings')
-            if (r.ok) this.hide = (await r.json()).hideAdultContent ?? true
+            if (!r.ok) return
+            const hide = (await r.json()).hideAdultContent ?? true
+            if (seq === this.#loadSeq) this.hide = hide
         } catch { /* keep last/default */ }
     }
 }

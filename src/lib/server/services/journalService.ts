@@ -72,7 +72,8 @@ export class JournalService {
     }
 
     async create(data: Partial<Page> & { type: PageType; title: string }): Promise<Page> {
-        const { type, title, ...rest } = data
+        // Strip id like update() does — callers must never inject their own (duplicate-id risk).
+        const { type, title, id: _id, ...rest } = data
         const page = {
             id: randomUUID(),
             type,
@@ -113,15 +114,19 @@ export class JournalService {
     getByAppid(appid: string | number): Page[] {
         const key = String(appid)
         return this._mf.get().pages
-            .filter(p => p.appid === key)
+            .filter(p => String(p.appid) === key)  // heal pages stored with a numeric appid
             .map(p => ({ ...p }))
     }
 
     async reorder(ids: string[]): Promise<void> {
-        const current  = this._mf.get()
-        const map      = new Map(current.pages.map(p => [p.id, p]))
-        const reordered = ids.map(id => map.get(id)).filter((p): p is Page => p !== undefined)
-        const rest      = current.pages.filter(p => !ids.includes(p.id))
-        await this._mf.set({ pages: [...reordered, ...rest] })
+        const current = this._mf.get()
+        const map     = new Map(current.pages.map(p => [p.id, p]))
+        const reordered: Page[] = []
+        for (const id of ids) {
+            const page = map.get(id)
+            if (page) { reordered.push(page); map.delete(id) }  // delete guards duplicate ids
+        }
+        // Whatever wasn't named keeps its original relative order at the end.
+        await this._mf.set({ pages: [...reordered, ...map.values()] })
     }
 }

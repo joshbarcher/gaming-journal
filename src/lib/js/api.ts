@@ -9,8 +9,16 @@ async function request(method: string, path: string, body?: unknown): Promise<an
     }
     const res = await fetch(BASE + path, opts)
     if (res.status === 204) return null
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+    let data: unknown
+    try {
+        data = await res.json()
+    } catch (err) {
+        // Non-JSON body on an error response (HTML 502 page, empty body): surface the
+        // HTTP status instead of a bare SyntaxError. A 2xx with a garbage body is real.
+        if (res.ok) throw err
+        throw new Error(`HTTP ${res.status}`)
+    }
+    if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? `HTTP ${res.status}`)
     return data
 }
 

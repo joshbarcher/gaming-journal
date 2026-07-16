@@ -1,6 +1,7 @@
 import { sveltekit }             from '@sveltejs/kit/vite';
 import { svelte }                from '@sveltejs/vite-plugin-svelte';
 import { defineConfig, loadEnv } from 'vite';
+import { fileURLToPath }         from 'node:url';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '')
@@ -29,7 +30,20 @@ export default defineConfig(({ mode }) => {
 
     return {
         plugins: [isTest ? svelte() : sveltekit(), keepAlivePlugin],
-        resolve:  isTest ? { conditions: ['browser'] } : undefined,
+        resolve:  isTest
+            ? {
+                conditions: ['browser'],
+                // The bare svelte() plugin doesn't know SvelteKit's aliases —
+                // wire $lib up manually so component tests can import code that uses it.
+                // $contracts mirrors the kit.alias in svelte.config.js; $app/navigation
+                // points at a test stub (tests vi.mock it, but the import must resolve).
+                alias: {
+                    $lib:              fileURLToPath(new URL('./src/lib', import.meta.url)),
+                    $contracts:        fileURLToPath(new URL('./contracts', import.meta.url)),
+                    '$app/navigation': fileURLToPath(new URL('./src/tests/mocks/app-navigation.ts', import.meta.url)),
+                },
+            }
+            : undefined,
         server:   { port: parseInt(env.PORT) || 5173 },
         test: {
             environment: 'jsdom',
@@ -40,7 +54,8 @@ export default defineConfig(({ mode }) => {
                 provider: 'v8',
                 reporter: ['text', 'html', 'json-summary'],
                 include:  ['src/lib/**'],
-                exclude:  ['src/lib/**/*.svelte', 'src/tests/**'],
+                // vendor/ is versioned drop-in code we don't own — not ours to cover.
+                exclude:  ['src/lib/**/*.svelte', 'src/lib/js/vendor/**', 'src/tests/**'],
             },
         },
     }

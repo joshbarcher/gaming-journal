@@ -67,6 +67,14 @@ export function newsBBCodeDirty(news: { items?: { contents?: string }[] } | null
 // Client-side backstop: convert leftover Steam BBCode to HTML so raw tags never bleed into
 // the rendered news panel, regardless of what the relay served. Only known Steam tags are
 // touched — genuine bracketed prose like "[Patch Notice]" is left intact.
+// URLs captured from BBCode land inside href/src attributes — escape quote/angle
+// characters so a crafted news post ([img]x" onerror="…[/img]) can't break out of
+// the attribute and inject live handlers.
+function escAttr(url: string): string {
+    return url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 export function renderNewsHtml(raw: string | null | undefined): string {
     if (!raw) return ''
     let s = raw
@@ -76,19 +84,19 @@ export function renderNewsHtml(raw: string | null | undefined): string {
 
     // Images — attribute form [img src="url"][/img] and classic [img]url[/img]
     s = s.replace(/\[img\s+src=["']?([^"'\]]+)["']?\s*\]\s*(?:\[\/img\])?/gi,
-        (_m, url) => `<img src="${url.trim()}" loading="lazy">`)
+        (_m, url) => `<img src="${escAttr(url.trim())}" loading="lazy">`)
     s = s.replace(/\[img\]([\s\S]*?)\[\/img\]/gi,
-        (_m, url) => `<img src="${url.trim()}" loading="lazy">`)
+        (_m, url) => `<img src="${escAttr(url.trim())}" loading="lazy">`)
 
     // Dynamic store links [dynamiclink href="url"][/dynamiclink] → plain link
     s = s.replace(/\[dynamiclink\s+href=["']?([^"'\]]+)["']?\s*\]\s*(?:\[\/dynamiclink\])?/gi,
-        (_m, url) => `<a href="${url.trim()}" target="_blank" rel="noopener noreferrer">${url.trim()}</a>`)
+        (_m, url) => `<a href="${escAttr(url.trim())}" target="_blank" rel="noopener noreferrer">${escAttr(url.trim())}</a>`)
 
     // Links [url=url]text[/url] and [url]url[/url]
     s = s.replace(/\[url=["']?([^"'\]]+)["']?\]([\s\S]*?)\[\/url\]/gi,
-        (_m, url, text) => `<a href="${url.trim()}" target="_blank" rel="noopener noreferrer">${text}</a>`)
+        (_m, url, text) => `<a href="${escAttr(url.trim())}" target="_blank" rel="noopener noreferrer">${text}</a>`)
     s = s.replace(/\[url\]([\s\S]*?)\[\/url\]/gi,
-        (_m, url) => `<a href="${url.trim()}" target="_blank" rel="noopener noreferrer">${url.trim()}</a>`)
+        (_m, url) => `<a href="${escAttr(url.trim())}" target="_blank" rel="noopener noreferrer">${escAttr(url.trim())}</a>`)
 
     // YouTube preview [previewyoutube=ID;flags][/previewyoutube] → link
     s = s.replace(/\[previewyoutube=([\w-]+)[^\]]*\]\s*(?:\[\/previewyoutube\])?/gi,

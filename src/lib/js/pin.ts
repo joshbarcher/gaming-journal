@@ -23,7 +23,8 @@ export async function unpinGame(): Promise<void> {
 
 export function fmtExpiry(expiresAt: string): string {
     const ms  = new Date(expiresAt).getTime() - Date.now()
-    if (ms <= 0) return 'soon'
+    // NaN (unparseable/empty date) must not render as "NaNh NaNm".
+    if (!Number.isFinite(ms) || ms <= 0) return 'soon'
     const min = Math.floor(ms / 60_000)
     const h   = Math.floor(min / 60)
     const m   = min % 60

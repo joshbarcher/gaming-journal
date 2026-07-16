@@ -13,7 +13,8 @@ export function fmtScore(n: number | null | undefined): string {
 
 export function fmtTime(utc: number | null | undefined): string {
     if (!utc) return ''
-    const diff = Math.floor((Date.now() / 1000) - utc)
+    // Clamp: clock skew can put createdUtc slightly in the future — "0m ago", never "-5m ago".
+    const diff = Math.max(0, Math.floor((Date.now() / 1000) - utc))
     if (diff < 3600)       return `${Math.floor(diff / 60)}m ago`
     if (diff < 86400)      return `${Math.floor(diff / 3600)}h ago`
     if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`

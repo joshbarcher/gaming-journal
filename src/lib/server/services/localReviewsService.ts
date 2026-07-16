@@ -5,14 +5,40 @@ import type { LocalReview, ReviewNote } from '../../types.js'
 
 type ReviewStore = Record<string, LocalReview>
 
-function makeFile(): ManagedFile<ReviewStore> {
+// One ManagedFile per store path, held for the process lifetime. A fresh instance
+// per call (the old shape) meant every mutator did read-modify-write against its own
+// copy — two concurrent mutations silently lost one. Sharing the instance serializes
+// them through the same in-memory object. Keyed by path so tests (and any future
+// DATA_DIR change) get the right file.
+const _files = new Map<string, ManagedFile<ReviewStore>>()
+
+async function getFile(): Promise<ManagedFile<ReviewStore>> {
     const dataDir = process.env.DATA_DIR
     if (!dataDir) throw new Error('DATA_DIR must be set')
-    return new ManagedFile<ReviewStore>({
-        filePath:     path.join(dataDir, 'gaming-journal', 'local-reviews.json'),
-        name:         'local-reviews',
-        defaultValue: () => ({}),
-    })
+    const filePath = path.join(dataDir, 'gaming-journal', 'local-reviews.json')
+    let file = _files.get(filePath)
+    if (!file) {
+        file = new ManagedFile<ReviewStore>({
+            filePath,
+            name:         'local-reviews',
+            defaultValue: () => ({}),
+        })
+        _files.set(filePath, file)
+    }
+    await file.load()
+    return file
+}
+
+// Appids are attacker-adjacent input (route params). Plain `data[key]` reads walk the
+// prototype chain ("__proto__" → Object.prototype!) and plain assignment to "__proto__"
+// swaps the prototype instead of storing. Own-property access + defineProperty treat
+// every key as inert data.
+function getOwn(data: ReviewStore, key: string): LocalReview | null {
+    return Object.hasOwn(data, key) ? data[key] : null
+}
+
+function setOwn(data: ReviewStore, key: string, value: LocalReview): void {
+    Object.defineProperty(data, key, { value, writable: true, enumerable: true, configurable: true })
 }
 
 function _noteId(): string {
@@ -20,55 +46,48 @@ function _noteId(): string {
 }
 
 export async function getLocalReview(appid: string | number): Promise<LocalReview | null> {
-    const file = makeFile()
-    await file.load()
-    const data = file.get()
-    await file.close()
-    return data[String(appid)] ?? null
+    const file = await getFile()
+    return getOwn(file.get(), String(appid))
 }
 
 export async function getAllLocalReviews(): Promise<ReviewStore> {
-    const file = makeFile()
-    await file.load()
-    const data = file.get()
-    await file.close()
-    return data
+    const file = await getFile()
+    return file.get()
 }
 
 export async function setLocalReview(appid: string | number, reviewData: Omit<LocalReview, 'updatedAt'>): Promise<LocalReview> {
-    const file = makeFile()
-    await file.load()
-    const data = file.get()
-
-    data[String(appid)] = {
-        ...reviewData,
-        updatedAt: new Date().toISOString(),
-    }
-
-    await file.set(data)
-    await file.flush()
-    await file.close()
-    return data[String(appid)]
-}
-
-export async function deleteLocalReview(appid: string | number): Promise<void> {
-    const file = makeFile()
-    await file.load()
-    const data = file.get()
-    delete data[String(appid)]
-    await file.set(data)
-    await file.flush()
-    await file.close()
-}
-
-export async function addNote(appid: string | number, text: string): Promise<ReviewNote> {
-    const file = makeFile()
-    await file.load()
+    const file = await getFile()
     const data = file.get()
     const key  = String(appid)
 
-    if (!data[key]) {
-        data[key] = {
+    const review: LocalReview = {
+        ...reviewData,
+        updatedAt: new Date().toISOString(),
+    }
+    setOwn(data, key, review)
+
+    await file.set(data)
+    await file.flush()
+    return review
+}
+
+export async function deleteLocalReview(appid: string | number): Promise<void> {
+    const file = await getFile()
+    const data = file.get()
+    if (!Object.hasOwn(data, String(appid))) return
+    delete data[String(appid)]
+    await file.set(data)
+    await file.flush()
+}
+
+export async function addNote(appid: string | number, text: string): Promise<ReviewNote> {
+    const file = await getFile()
+    const data = file.get()
+    const key  = String(appid)
+
+    let entry = getOwn(data, key)
+    if (!entry) {
+        entry = {
             stars:     0,
             ratings:   {},
             tags:      [],
@@ -76,6 +95,7 @@ export async function addNote(appid: string | number, text: string): Promise<Rev
             review:    '',
             updatedAt: new Date().toISOString(),
         }
+        setOwn(data, key, entry)
     }
 
     const note: ReviewNote = {
@@ -85,45 +105,42 @@ export async function addNote(appid: string | number, text: string): Promise<Rev
         createdAt: new Date().toISOString(),
     }
 
-    data[key].notes = data[key].notes ?? []
-    data[key].notes.push(note)
-    data[key].updatedAt = new Date().toISOString()
+    entry.notes = entry.notes ?? []
+    entry.notes.push(note)
+    entry.updatedAt = new Date().toISOString()
 
     await file.set(data)
     await file.flush()
-    await file.close()
     return note
 }
 
 export async function deleteNote(appid: string | number, noteId: string): Promise<void> {
-    const file = makeFile()
-    await file.load()
-    const data = file.get()
-    const key  = String(appid)
+    const file  = await getFile()
+    const data  = file.get()
+    const entry = getOwn(data, String(appid))
 
-    if (!data[key]) return
-    data[key].notes     = (data[key].notes ?? []).filter(n => n.id !== noteId)
-    data[key].updatedAt = new Date().toISOString()
+    if (!entry) return
+    entry.notes     = (entry.notes ?? []).filter(n => n.id !== noteId)
+    entry.updatedAt = new Date().toISOString()
 
     await file.set(data)
     await file.flush()
-    await file.close()
 }
 
 export async function updateNote(appid: string | number, noteId: string, updates: Partial<ReviewNote>): Promise<ReviewNote | null> {
-    const file  = makeFile()
-    await file.load()
+    const file  = await getFile()
     const data  = file.get()
-    const key   = String(appid)
-    if (!data[key]) return null
-    const notes = data[key].notes ?? []
+    const entry = getOwn(data, String(appid))
+    if (!entry) return null
+    const notes = entry.notes ?? []
     const idx   = notes.findIndex(n => n.id === noteId)
     if (idx === -1) return null
-    notes[idx] = { ...notes[idx], ...updates }
-    data[key].updatedAt = new Date().toISOString()
+    // Strip identity fields like JournalService.update — callers may only edit content.
+    const { id: _id, createdAt: _created, ...safe } = updates
+    notes[idx] = { ...notes[idx], ...safe }
+    entry.updatedAt = new Date().toISOString()
     await file.set(data)
     await file.flush()
-    await file.close()
     return notes[idx]
 }
 

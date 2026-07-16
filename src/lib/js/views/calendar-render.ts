@@ -60,11 +60,15 @@ export function splitAtMidnight(session: CalSession): CalSession[] {
         })
         cursor = next
     }
-    parts.push({
-        startedAt:   cursor.toISOString(),
-        endedAt:     end.toISOString(),
-        durationMin: Math.max(1, Math.round((end.getTime() - cursor.getTime()) / 60_000)),
-    })
+    // A session ending exactly at midnight already ended with the previous part —
+    // a zero-length tail would become a phantom 1-minute entry on the next day.
+    if (end.getTime() > cursor.getTime()) {
+        parts.push({
+            startedAt:   cursor.toISOString(),
+            endedAt:     end.toISOString(),
+            durationMin: Math.max(1, Math.round((end.getTime() - cursor.getTime()) / 60_000)),
+        })
+    }
     return parts
 }
 
@@ -109,7 +113,7 @@ export function buildLastPlayedOverlay(
     for (const game of games) {
         if (!game.rtime_last_played || appsWithSessions.has(game.appid)) continue
         const f = flags[game.appid] ?? flags[String(game.appid)] ?? {}
-        if (f.software)                               continue
+        if (f.software  && !settings.showSoftware)    continue  // honor the toggle like buildDayMap
         if (f.childLock && !settings.showChildLocked) continue
         if (f.filtered  && !settings.showFiltered)    continue
         const dateStr = localDateStr(new Date(game.rtime_last_played * 1000))

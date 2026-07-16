@@ -47,7 +47,8 @@ export class FranchiseService {
     async close(): Promise<void> { await this._mf.close() }
 
     getAll(): Franchise[] {
-        return [...this._mf.get().franchises]
+        // Per-franchise copies, like getById — callers must not mutate the live store.
+        return this._mf.get().franchises.map(f => ({ ...f, entries: [...(f.entries ?? [])] }))
     }
 
     getById(id: string): Franchise | null {
@@ -131,12 +132,15 @@ export class FranchiseService {
         const idx     = current.franchises.findIndex(f => f.id === franchiseId)
         if (idx === -1) return null
 
-        const f         = current.franchises[idx]
-        const map       = new Map(f.entries.map(e => [e.appid, e]))
-        const reordered = orderedAppids.map(id => map.get(id)).filter((e): e is FranchiseEntry => e !== undefined)
-        const rest      = f.entries.filter(e => !orderedAppids.includes(e.appid))
+        const f   = current.franchises[idx]
+        const map = new Map(f.entries.map(e => [e.appid, e]))
+        const reordered: FranchiseEntry[] = []
+        for (const appid of orderedAppids) {
+            const entry = map.get(appid)
+            if (entry) { reordered.push(entry); map.delete(appid) }  // delete guards duplicate appids
+        }
 
-        const updated: Franchise = { ...f, entries: [...reordered, ...rest], updatedAt: now() }
+        const updated: Franchise = { ...f, entries: [...reordered, ...map.values()], updatedAt: now() }
         const franchises = [...current.franchises]
         franchises[idx]  = updated
         await this._mf.set({ franchises })

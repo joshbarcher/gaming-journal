@@ -1,19 +1,32 @@
 // Shared formatting + image-source helpers for the NexusMods section and pages.
 
 // 494469 → "494K", 24669741 → "24.7M"
+// One decimal below 10K / 100M; unit picked AFTER rounding so 999,999 → "1M", never "1000K".
+function fmtUnit(value: number, oneDecimalBelow: number): string {
+    return value < oneDecimalBelow
+        ? value.toFixed(1).replace(/\.0$/, '')
+        : String(Math.round(value))
+}
+
 export function fmtCompact(n: number | null | undefined): string {
     const v = n ?? 0
-    if (v >= 1_000_000) return (v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1).replace(/\.0$/, '') + 'M'
-    if (v >= 1_000)     return (v / 1_000).toFixed(v >= 10_000 ? 0 : 1).replace(/\.0$/, '') + 'K'
-    return String(v)
+    if (!Number.isFinite(v) || v < 1_000) return String(v)
+    if (v < 1_000_000) {
+        const s = fmtUnit(v / 1_000, 10)
+        if (s !== '1000') return s + 'K'   // 999,500+ rounds to 1000K — roll over to M
+    }
+    return fmtUnit(v / 1_000_000, 100) + 'M'
 }
 
 // Nexus fileSize is in KB. 164895 → "161 MB", 2048 → "2 MB", 512 → "512 KB"
 export function fmtSize(kb: number | null | undefined): string {
     if (!kb || kb <= 0) return ''
-    if (kb >= 1_048_576) return (kb / 1_048_576).toFixed(1).replace(/\.0$/, '') + ' GB'
-    if (kb >= 1_024)     return Math.round(kb / 1_024) + ' MB'
-    return Math.round(kb) + ' KB'
+    if (kb < 1_024) return Math.round(kb) + ' KB'
+    if (kb < 1_048_576) {
+        const mb = Math.round(kb / 1_024)
+        if (mb < 1_024) return mb + ' MB'  // 1,048,064+ KB rounds to 1024 MB — roll over to GB
+    }
+    return (kb / 1_048_576).toFixed(1).replace(/\.0$/, '') + ' GB'
 }
 
 interface ThumbLike { localThumb?: string | null; thumbUrl?: string | null; imageUrl?: string | null }

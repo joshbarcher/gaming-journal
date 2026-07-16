@@ -25,9 +25,16 @@ function _externalIcon(): Element {
 let _levels: HTMLElement[] = []
 let _loadGen = 0
 
+// Detaches the current menu's document-level listeners; set by showContextMenu.
+// Owned here so EVERY close path (item selection included) releases them — the
+// action-item click handler has no access to showContextMenu's closure.
+let _detachDoc: (() => void) | null = null
+
 function _removeAll(): void {
     _levels.forEach(m => m.remove())
     _levels = []
+    _detachDoc?.()
+    _detachDoc = null
 }
 
 // Close every level deeper than `depth` (depth is the index of the menu that
@@ -182,13 +189,13 @@ export function showContextMenu(event: MouseEvent, items: ContextMenuItem[]): vo
 
     const onDown = (e: MouseEvent) => {
         if (_levels.some(m => m.contains(e.target as Node))) return
-        _removeAll(); cleanup()
+        _removeAll()
     }
-    const onKey  = (e: KeyboardEvent) => { if (e.key === 'Escape') { _removeAll(); cleanup() } }
-    const cleanup = () => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') _removeAll() }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown',   onKey)
+    _detachDoc = () => {
         document.removeEventListener('mousedown', onDown)
         document.removeEventListener('keydown',   onKey)
     }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown',   onKey)
 }

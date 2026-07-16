@@ -8,7 +8,9 @@ function relayUrl(): string {
 async function fetchJson<T>(url: string): Promise<T | null> {
     try {
         const res = await fetch(url)
-        return res.ok ? (res.json() as Promise<T>) : null
+        // await inside the try — an un-awaited res.json() rejection (malformed body)
+        // would escape the catch and take down the caller's whole Promise.all.
+        return res.ok ? await (res.json() as Promise<T>) : null
     } catch {
         return null
     }
@@ -64,8 +66,10 @@ export async function getAlerts(): Promise<{ onSale: AlertResult[]; watching: Al
         })
     )
 
+    // watching is the complement of onSale — a weird cut (negative, NaN) must land the
+    // game in watching, never make it vanish from both lists.
     const onSale   = results.filter(r => !r.isLibrary && (r.bestPrice?.cut ?? 0) > 0)
-    const watching = results.filter(r => !r.isLibrary && (r.bestPrice?.cut ?? 0) === 0)
+    const watching = results.filter(r => !r.isLibrary && !((r.bestPrice?.cut ?? 0) > 0))
 
     onSale.sort((a, b) => (b.bestPrice?.cut ?? 0) - (a.bestPrice?.cut ?? 0))
 

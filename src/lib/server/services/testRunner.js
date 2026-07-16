@@ -69,11 +69,15 @@ function parseCoverageSummary(json) {
     const files   = []
     const total   = json.total ?? {}
 
+    const rootPosix = ROOT.replace(/\\/g, '/')
     for (const [key, val] of Object.entries(json)) {
         if (key === 'total') continue
-        const rel = key.startsWith(ROOT.replace(/\\/g, '/'))
-            ? key.slice(ROOT.replace(/\\/g, '/').length + 1)
-            : key
+        // v8's json-summary emits backslash-separated absolute paths on Windows —
+        // normalize the key too or nothing ever matches ROOT and coverage reads null.
+        const keyPosix = key.replace(/\\/g, '/')
+        const rel = keyPosix.startsWith(rootPosix)
+            ? keyPosix.slice(rootPosix.length + 1)
+            : keyPosix
         files.push({
             file:     rel,
             lines:    val.lines?.pct     ?? null,

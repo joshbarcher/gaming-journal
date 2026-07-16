@@ -23,17 +23,25 @@ class TrackerSuggestJobStore {
     #started = false
     #releaseLeader: (() => void) | null = null
 
+    // Bumped on every jobs mutation so an in-flight fetchAll can tell its response
+    // went stale (a live stream event landed while it awaited) and drop it.
+    #version = 0
+
     get activeCount() {
         return this.jobs.filter(j => j.status === 'pending' || j.status === 'running').length
     }
 
     /** Hydrate from SSR data so a fresh/refreshed page shows in-flight jobs on first paint. */
     seed(jobs: TrackerSuggestJob[] | null | undefined) {
-        if (Array.isArray(jobs)) this.jobs = jobs
+        if (Array.isArray(jobs)) {
+            this.#version++
+            this.jobs = jobs
+        }
     }
 
     applyEvent(data: any) {
         if (!data) return
+        this.#version++
 
         // Full snapshot (sent by the relay on every EventSource connect).
         if (data.type === 'snapshot') {
@@ -122,9 +130,13 @@ class TrackerSuggestJobStore {
     }
 
     async fetchAll() {
+        const before = this.#version
         const res = await fetch('/relay/api/progress-suggest/jobs')
         if (!res.ok) return
         const jobs: TrackerSuggestJob[] = await res.json()
+        // Anything that mutated the store while we awaited is fresher than this list.
+        if (this.#version !== before) return
+        this.#version++
         this.jobs = jobs
     }
 
@@ -136,7 +148,12 @@ class TrackerSuggestJobStore {
         })
         if (!res.ok) throw new Error(`Enqueue failed: HTTP ${res.status}`)
         const job: TrackerSuggestJob = await res.json()
-        this.applyEvent(job)
+        // Insert-only (mirrors guide-jobs): if the stream already advanced this job past
+        // 'pending' while the POST round-tripped, the stale response must not regress it.
+        if (!this.jobs.some(j => j.id === job.id)) {
+            this.#version++
+            this.jobs = [...this.jobs, job]
+        }
         return job
     }
 

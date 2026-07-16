@@ -25,6 +25,7 @@ function stripHtml(s: string): string {
 
 function flattenListText(items: any[]): string {
     return items.flatMap(item => {
+        if (!item) return []  // a null list item must not kill the whole index build
         const parts = [stripHtml(item.text ?? '')]
         if (item.children?.items?.length) parts.push(flattenListText(item.children.items))
         return parts
@@ -32,6 +33,7 @@ function flattenListText(items: any[]): string {
 }
 
 function extractBlock(block: any, path: number[], out: PageEntry[]): void {
+    if (!block) return  // a null element must not kill the whole extraction
     switch (block.type) {
         case 'section': {
             // The section renders as <div.gv-section>; its heading is DOM child[0],
