@@ -35,17 +35,14 @@ describe('fmtCompact', () => {
         expect(fmtCompact(2_450_000)).toBe('2.5M') // toFixed rounds
     })
 
-    // BUG: nexusFormat.ts:6 — the function's own doc comment promises
-    // 24669741 → "24.7M", but the >= 10M branch uses toFixed(0), producing
-    // "25M". Either the comment or the threshold is wrong; the test asserts
-    // the documented behavior.
+    // REGRESSION: fmtCompact once used toFixed(0) on the >= 10M branch, producing
+    // "25M" for 24,669,741 instead of the documented "24.7M". Now matches the doc.
     it('matches its documented example: 24,669,741 → "24.7M"', () => {
         expect(fmtCompact(24_669_741)).toBe('24.7M')
     })
 
-    // BUG: nexusFormat.ts:7 — values just under 1M land in the K branch and
-    // toFixed(0) rounds them UP past the unit boundary: 999,999 → "1000K".
-    // Correct display is "1M".
+    // REGRESSION: values just under 1M once landed in the K branch and toFixed(0)
+    // rounded them UP past the unit boundary (999,999 → "1000K"). Now rolls over to "1M".
     it('rolls over to "1M" instead of "1000K" just below the boundary', () => {
         expect(fmtCompact(999_999)).toBe('1M')
     })
@@ -94,9 +91,8 @@ describe('fmtSize', () => {
         expect(fmtSize(1_572_864)).toBe('1.5 GB')
     })
 
-    // BUG: nexusFormat.ts:15 — same rounding-past-the-boundary class as
-    // fmtCompact: 1,048,575 KB (one KB shy of 1 GiB) rounds to "1024 MB"
-    // instead of rolling over to "1 GB".
+    // REGRESSION: fmtSize had the same rounding-past-the-boundary flaw as fmtCompact —
+    // 1,048,575 KB (one KB shy of 1 GiB) once rounded to "1024 MB". Now rolls over to "1 GB".
     it('rolls over to "1 GB" instead of "1024 MB" just below the boundary', () => {
         expect(fmtSize(1_048_575)).toBe('1 GB')
     })

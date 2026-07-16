@@ -13,9 +13,9 @@ describe('extractPageEntries — degenerate inputs', () => {
         expect(() => extractPageEntries(undefined as any)).toThrow()
     })
 
-    // BUG: guide-blocks-search.ts:35 — extractBlock does `switch (block.type)` with no
-    // null guard, so a null/undefined element in the blocks array crashes the whole
-    // extraction (and therefore guide search) instead of being skipped.
+    // REGRESSION: extractBlock's `switch (block.type)` once had no null guard, so a
+    // null/undefined element in the blocks array crashed the whole extraction (and guide
+    // search) instead of being skipped. Now such elements are skipped.
     it('skips null/undefined elements in the blocks array instead of throwing', () => {
         expect(() => extractPageEntries([null, { type: 'heading', text: 'ok' }])).not.toThrow()
         expect(extractPageEntries([undefined, { type: 'heading', text: 'ok' }] as any)).toEqual([
@@ -229,8 +229,8 @@ describe('extractPageEntries — lists', () => {
         expect(extractPageEntries([{ type: 'list', items: [] }])).toEqual([])
     })
 
-    // BUG: guide-blocks-search.ts:28 — flattenListText does `item.text` with no null
-    // guard, so a null entry in items[] crashes extraction instead of being skipped.
+    // REGRESSION: flattenListText once did `item.text` with no null guard, so a null
+    // entry in items[] crashed extraction. Now null list items are skipped.
     it('skips null list items instead of throwing', () => {
         expect(() => extractPageEntries([
             { type: 'list', items: [null, { text: 'valid item text' }] },

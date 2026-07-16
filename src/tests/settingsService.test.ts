@@ -164,10 +164,10 @@ describe('settingsService', () => {
     })
 
     describe('prototype-pollution keys', () => {
-        // BUG: settingsService.ts:33 — `key in DEFAULTS` matches INHERITED properties
-        // ("constructor", "toString", ...), so patchSettings({ constructor: true })
-        // writes a junk own-property that gets persisted and returned. Should be
-        // Object.hasOwn(DEFAULTS, key).
+        // REGRESSION: patchSettings once used `key in DEFAULTS`, which matches INHERITED
+        // properties ("constructor", "toString", ...), so patchSettings({ constructor: true })
+        // wrote a junk own-property that got persisted and returned; the guard is now
+        // Object.hasOwn(DEFAULTS, key) so inherited-only keys are rejected.
         it('inherited-only keys like "constructor" are rejected', async () => {
             const result = await patchSettings({ constructor: true } as unknown as Partial<Settings>)
             expect(Object.hasOwn(result, 'constructor')).toBe(false)
@@ -192,9 +192,9 @@ describe('settingsService', () => {
     })
 
     describe('concurrency', () => {
-        // BUG: settingsService.ts — every patchSettings load-modify-writes its own
-        // ManagedFile over the same path; concurrent patches all read the initial
-        // state and the last flush wins, dropping the other patches.
+        // REGRESSION: patchSettings once opened its own ManagedFile per call, so
+        // concurrent patches all read the initial state and the last flush dropped the
+        // others; a shared per-path ManagedFile now serializes them.
         it('concurrent patches to different keys must all persist', async () => {
             await Promise.all([
                 patchSettings({ showChildLocked: true }),

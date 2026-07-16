@@ -97,18 +97,16 @@ describe('gameBackLabel / gameBackPath', () => {
         expect(gameBackPath()).toBe('/library')
     })
 
-    // BUG: router.ts:30-31 — FROM_LABELS is a plain object literal, so the
-    // lookup walks the prototype chain: a stored value of "toString" makes
-    // FROM_LABELS['toString'] return Object.prototype.toString (truthy), and
-    // gameBackLabel returns a FUNCTION instead of a string label.
+    // REGRESSION: FROM_LABELS is a plain object literal, so the lookup once walked the
+    // prototype chain — a stored "toString" made FROM_LABELS['toString'] return
+    // Object.prototype.toString (a function) instead of a label. Now falls back to "Library".
     it('ignores Object.prototype keys stored as the origin (gameBackLabel)', () => {
         sessionStorage.setItem('gj_game_from', 'toString')
         expect(gameBackLabel()).toBe('Library')
     })
 
-    // BUG: router.ts:35-36 — same prototype-chain hole: "constructor" is
-    // truthy in the lookup, so gameBackPath returns "/constructor" instead of
-    // falling back to "/library".
+    // REGRESSION: same prototype-chain hole once let "constructor" resolve truthy, so
+    // gameBackPath returned "/constructor". Now falls back to "/library".
     it('ignores Object.prototype keys stored as the origin (gameBackPath)', () => {
         sessionStorage.setItem('gj_game_from', 'constructor')
         expect(gameBackPath()).toBe('/library')

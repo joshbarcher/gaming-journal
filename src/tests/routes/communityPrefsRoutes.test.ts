@@ -106,18 +106,16 @@ describe('POST /api/community-prefs/toggle — validation', () => {
         expect(res.status).toBe(400)
     })
 
-    // BUG: request.json() rejection on malformed JSON falls into the blanket
-    // catch and returns 500 — client-sent garbage is a 400-class error.
-    // src/routes/api/community-prefs/toggle/+server.ts:15-17
+    // REGRESSION: malformed JSON once fell into the blanket catch and returned 500.
+    // Client-sent garbage is now rejected with 400.
     it('returns 400 (not 500) for malformed JSON', async () => {
         const res = await togglePOST({ request: rawReq('{"type": "mu') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: any truthy garbage passes as username — an object body field is
-    // String()-coerced to the literal key "[object Object]", so every object
-    // username collides into one entry. Wrong-typed fields should be 400.
-    // src/routes/api/community-prefs/toggle/+server.ts:13 (low)
+    // REGRESSION: an object username was once String()-coerced to the literal key
+    // "[object Object]", collapsing every object username into one entry. Wrong-typed
+    // usernames are now rejected with 400.
     it('rejects a non-string/non-number username with 400', async () => {
         const res = await toggle({ type: 'mute', username: { name: 'bob' } })
         expect(res.status).toBe(400)

@@ -63,10 +63,10 @@ describe('splitAtMidnight — month/year/leap boundaries', () => {
         expect(Math.abs(total - Math.round((endMs - startMs) / 60_000))).toBeLessThanOrEqual(2)
     })
 
-    // BUG: calendar-render.ts:63-67 — a session that ends exactly at local midnight is
-    // treated as crossing into the next day, and the final push produces a zero-length
-    // part that Math.max(1, …) inflates to a phantom 1-minute entry on a day the user
-    // never played. Severity: LOW/MEDIUM (calendar shows play on the wrong day).
+    // REGRESSION: calendar-render.ts — a session ending exactly at local midnight was
+    // once treated as crossing into the next day, producing a phantom 1-minute entry
+    // (Math.max(1, …) inflating a zero-length tail) on a day the user never played.
+    // Now it stays a single same-day part; this guards the phantom entry from returning.
     it('a session ending exactly at midnight stays a single same-day part', () => {
         const parts = splitAtMidnight({ startedAt: iso(2026, 4, 17, 23), endedAt: iso(2026, 4, 18, 0), durationMin: 60 })
         expect(parts).toHaveLength(1)
@@ -178,10 +178,10 @@ describe('buildLastPlayedOverlay', () => {
         expect(entriesOf(buildLastPlayedOverlay(games, new Map(), { 42: { filtered: true } }, { showFiltered: true }))).toHaveLength(1)
     })
 
-    // BUG: calendar-render.ts:112 — buildDayMap honours settings.showSoftware
-    // (line 79) but the overlay drops software games unconditionally, so enabling
-    // "show software" surfaces software sessions yet still hides their last-played
-    // markers. Inconsistent within the same feature. Severity: LOW.
+    // REGRESSION: calendar-render.ts — the overlay once dropped software games
+    // unconditionally while buildDayMap honoured settings.showSoftware, so enabling
+    // "show software" surfaced sessions yet hid their last-played markers. The overlay
+    // now respects showSoftware too; this guards the parity from regressing.
     it('shows software last-played markers when showSoftware is enabled (parity with buildDayMap)', () => {
         const result = buildLastPlayedOverlay(
             [{ appid: 42, name: 'SteamVR', rtime_last_played: rtime }],

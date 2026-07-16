@@ -102,17 +102,11 @@ describe('+layout.server load', () => {
     // Must run BEFORE the beforeAll below initializes the journal/franchise
     // singletons — it exercises the never-initialized state.
     describe('service initialization hazard', () => {
-        // BUG: src/routes/+layout.server.ts:32-33 —
-        // `Promise.resolve(getJournalService().getAll())` evaluates getAll()
-        // synchronously while building the Promise.allSettled argument array. If it
-        // throws (ManagedFile "not loaded", or DATA_DIR unset on first call), the
-        // throw happens BEFORE allSettled can capture it, so the entire layout load
-        // rejects and every page 500s — defeating the allSettled degrade-gracefully
-        // design that already handles every other source failing. In production this
-        // is masked by hooks.server.ts:26-27 loading at startup, but any path that
-        // reaches the layout without that init (or after close() on shutdown,
-        // hooks.server.ts:50-51) hits it. Fix shape: wrap in an async thunk, e.g.
-        // `(async () => getJournalService().getAll())()`.
+        // REGRESSION: +layout.server once evaluated getJournalService().getAll()
+        // synchronously while building the Promise.allSettled arg array, so an
+        // uninitialized journal service threw BEFORE allSettled could capture it and
+        // the whole layout rejected (every page 500'd). The call is now wrapped in an
+        // async thunk, so it degrades to empty pages like every other source.
         it('a journal service that is not initialized must degrade to empty pages, not reject the whole layout', async () => {
             relayDown()
             const data = await load()

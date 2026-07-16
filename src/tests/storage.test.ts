@@ -103,10 +103,10 @@ describe('getWithTTL — malformed and legacy data', () => {
         expect(getWithTTL('k', 'fb')).toBe('inner')
     })
 
-    // BUG: storage.ts:5,14 — JSON.stringify({ v: undefined, e }) drops the `v`
-    // key entirely, so the envelope check ('v' in parsed) fails and getWithTTL
-    // returns the RAW ENVELOPE { e: <timestamp> } as the value instead of the
-    // fallback. Stored `undefined` leaks internal bookkeeping to the caller.
+    // REGRESSION: storage.ts once let JSON.stringify({ v: undefined, e }) drop the
+    // `v` key entirely, so the envelope check ('v' in parsed) failed and getWithTTL
+    // returned the RAW ENVELOPE { e: <timestamp> } instead of the fallback. Now
+    // stored `undefined` degrades to the fallback.
     it('returns the fallback after storing undefined', () => {
         setWithTTL('k', undefined)
         expect(getWithTTL('k', 'fb')).toBe('fb')

@@ -90,10 +90,9 @@ describe('loadPrefs', () => {
         await expect(loadPrefs(1)).rejects.toThrow(SyntaxError)
     })
 
-    // BUG: community-user-prefs.ts:12-17 — the `?? []` guards defend against
-    // missing FIELDS but not a null ROOT: a body of JSON `null` throws
-    // "TypeError: Cannot read properties of null (reading 'filtered')" instead
-    // of degrading to empty sets (or a controlled error).
+    // REGRESSION: the `?? []` guards defended missing FIELDS but not a null ROOT, so a
+    // body of JSON `null` once threw "Cannot read properties of null (reading 'filtered')".
+    // Now degrades to empty sets.
     it('degrades to empty sets when the body is JSON null', async () => {
         fetchMock.mockResolvedValue(jsonRes(null))
         const prefs = await loadPrefs(1)

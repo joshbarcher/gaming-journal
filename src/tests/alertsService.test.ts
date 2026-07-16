@@ -122,9 +122,9 @@ describe('alertsService', () => {
             expect(result.watching[0].bestPrice).toBeNull()
         })
 
-        // BUG: alertsService.ts:11 — fetchJson does `return res.json()` (no await)
-        // inside try/catch, so a rejected json() promise escapes the catch and the
-        // whole getAlerts() Promise.all rejects instead of degrading gracefully.
+        // REGRESSION: fetchJson once did `return res.json()` (no await) inside try/catch,
+        // so a rejected json() promise escaped the catch and rejected the whole
+        // getAlerts() Promise.all; it now awaits res.json() so a malformed body degrades.
         it('a malformed JSON body from the relay must not reject the whole getAlerts call', async () => {
             await writeFlags({ '123': { alert: true } })
             fetchMock.mockResolvedValue({ ok: true, json: () => Promise.reject(new SyntaxError('Unexpected token <')) })
@@ -178,9 +178,9 @@ describe('alertsService', () => {
             expect(result.watching.length).toBe(1)
         })
 
-        // BUG: alertsService.ts:67-68 — classification is not exhaustive: onSale
-        // requires cut > 0 and watching requires cut === 0, so a negative cut drops
-        // the alerted game from BOTH lists entirely.
+        // REGRESSION: classification was once non-exhaustive — onSale required cut > 0
+        // and watching required cut === 0, so a negative cut dropped the alerted game
+        // from BOTH lists; watching is now the exact complement of onSale.
         it('a negative cut must not make the alerted game vanish from both lists', async () => {
             await writeFlags({ '10': { alert: true } })
             relay({}, { '10': { deals: [{ price: 19.99, cut: -5, store: 'Steam' }] } })
@@ -236,9 +236,9 @@ describe('alertsService', () => {
             expect(result.onSale[0].bestPrice!.cut).toBe(50)
         })
 
-        // BUG: alertsService.ts:67-68 — same non-exhaustive classification: a NaN cut
-        // (relay garbage; JSON.stringify(NaN) is null → ?? 0 does not catch it when the
-        // deal object carries null-free NaN in-process) drops the game from BOTH lists.
+        // REGRESSION: same non-exhaustive classification — a NaN cut (relay garbage;
+        // in-process the deal carries a real NaN) once dropped the game from BOTH lists;
+        // watching is now the exact complement of onSale, so a NaN cut lands in watching.
         it('a NaN cut must not make the alerted game vanish from both lists', async () => {
             await writeFlags({ '10': { alert: true } })
             relay({}, { '10': { deals: [{ price: 5, cut: NaN, store: 'A' }] } })

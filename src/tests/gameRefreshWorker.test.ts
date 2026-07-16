@@ -118,10 +118,10 @@ describe('game-refresh worker — 202 polling', () => {
         expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/s?a=1&b=2')
     })
 
-    // BUG: game-refresh.worker.js:11 — buildPollUrl removes "?fetch=true" including
-    // the "?" when fetch=true is the FIRST param but not the only one, producing a
-    // malformed URL like "/api/s&appid=5" (the "\?&" cleanup never matches because
-    // the separator was consumed by the first replace).
+    // REGRESSION: buildPollUrl once removed "?fetch=true" including the "?" when
+    // fetch=true was the FIRST param but not the only one, producing a malformed URL
+    // like "/api/s&appid=5" (the "\?&" cleanup never matched because the separator was
+    // consumed by the first replace). Now it produces a valid poll URL.
     it('produces a valid poll URL when fetch=true is first of several params', async () => {
         vi.useFakeTimers()
         fetchMock

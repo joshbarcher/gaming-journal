@@ -283,10 +283,10 @@ describe('testRunner', () => {
             }
         })
 
-        // BUG: testRunner.js:74 — key.startsWith(ROOT.replace(/\\/g,'/')) never matches
-        // the backslash-separated absolute paths that v8's json-summary emits on Windows,
-        // so files are not relativized, isSourceFile() rejects them all, and every
-        // coverage percentage collapses to null on Windows.
+        // REGRESSION: testRunner.js once compared keys with key.startsWith(ROOT.replace(/\\/g,'/')),
+        // which never matched the backslash-separated absolute paths v8's json-summary emits
+        // on Windows, so files were not relativized, isSourceFile() rejected them all, and
+        // every coverage percentage collapsed to null there. Now Windows keys are recognized.
         it('recognizes Windows backslash-separated coverage keys as source files', async () => {
             mockVitestProcess({ resultJson: EMPTY_RESULT })
             const winKey = `${ROOT}${path.sep}src${path.sep}lib${path.sep}winpath.ts`.replace(/\//g, '\\')

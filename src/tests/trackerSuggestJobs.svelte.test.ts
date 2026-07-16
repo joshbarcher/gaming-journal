@@ -213,10 +213,10 @@ describe('fetchAll', () => {
         expect(trackerSuggestJobStore.jobs).toHaveLength(1)
     })
 
-    // BUG: tracker-suggest-jobs.svelte.ts:128 — fetchAll() assigns the response
-    // unconditionally, so a slow response overwrites any live event that arrived
-    // while it was in flight; the job regresses (e.g. done → running) until the
-    // next stream event repairs it.
+    // REGRESSION: fetchAll() once assigned the response unconditionally, so a slow
+    // response overwrote any live event that arrived while it was in flight and the job
+    // regressed (e.g. done → running). Now a slow fetchAll no longer clobbers a fresher
+    // stream update.
     it('a slow fetchAll response must not clobber a fresher stream update (regression)', async () => {
         const slow = deferred<Response>()
         vi.stubGlobal('fetch', vi.fn().mockReturnValue(slow.promise))
@@ -249,11 +249,10 @@ describe('enqueue', () => {
         expect(trackerSuggestJobStore.jobs).toEqual([])
     })
 
-    // BUG: tracker-suggest-jobs.svelte.ts:139 — enqueue() blindly applyEvent()s the
-    // POST response. If the shared stream already delivered a NEWER state for the
-    // same job (POST response raced the SSE 'running' event and lost), the stale
-    // 'pending' snapshot from the response clobbers it. guide-jobs.enqueue avoids
-    // this by only inserting when the id is absent (guide-jobs.svelte.ts:56-57).
+    // REGRESSION: enqueue() once blindly applyEvent()'d the POST response, so when the
+    // shared stream had already delivered a NEWER state for the same job (POST response
+    // raced the SSE 'running' event and lost), the stale 'pending' snapshot clobbered it.
+    // Now it no longer regresses a job the stream already advanced (matching guide-jobs.enqueue).
     it('enqueue response must not regress a job the stream already advanced (regression)', async () => {
         const slow = deferred<Response>()
         vi.stubGlobal('fetch', vi.fn().mockReturnValue(slow.promise))

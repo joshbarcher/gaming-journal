@@ -148,14 +148,14 @@ describe('fmtExpiry', () => {
         expect(fmtExpiry(new Date(Date.now() + 89.9 * 60_000).toISOString())).toBe('1h 29m')
     })
 
-    // BUG: pin.ts:25-32 — an unparseable date makes `ms` NaN; `NaN <= 0` is
-    // false so the guard is skipped and the function returns "NaNh NaNm".
-    // Correct behavior: degrade to "soon" (or any NaN-free string).
+    // REGRESSION: pin.ts once let an unparseable date make `ms` NaN; `NaN <= 0` is
+    // false so the guard was skipped and it returned "NaNh NaNm". Now degrades to "soon".
     it('never renders NaN for an unparseable expiry string', () => {
         expect(fmtExpiry('not-a-date')).toBe('soon')
     })
 
-    // BUG: same root cause via empty string — new Date('').getTime() is NaN.
+    // REGRESSION: same root cause via empty string — new Date('').getTime() is NaN;
+    // now guarded so no NaN is rendered.
     it('never renders NaN for an empty expiry string', () => {
         expect(fmtExpiry('')).not.toContain('NaN')
     })

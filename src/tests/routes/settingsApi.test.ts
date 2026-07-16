@@ -52,9 +52,8 @@ describe('/api/settings', () => {
     })
 
     describe('PATCH — malformed bodies', () => {
-        // BUG: `await request.json()` (src/routes/api/settings/+server.ts:14) is
-        // inside the catch-all try — a malformed client body is reported as a
-        // 500 server error instead of a 400 client error.
+        // REGRESSION: a malformed client body once fell into the catch-all try and
+        // came back as a 500 server error. It now returns 400.
         it('returns 400 for a non-JSON body (currently a 500)', async () => {
             const res = await PATCH(patchReq('{{{'))
             expect(res.status).toBe(400)

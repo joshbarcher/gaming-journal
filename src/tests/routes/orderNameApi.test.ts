@@ -75,9 +75,8 @@ describe('/api/order/[name]', () => {
     })
 
     describe('PUT body validation', () => {
-        // BUG: `await request.json()` (src/routes/api/order/[name]/+server.ts:15)
-        // sits OUTSIDE the try/catch — a malformed body makes the handler throw a
-        // SyntaxError instead of returning 400.
+        // REGRESSION: a malformed body once threw a SyntaxError out of the handler
+        // (json() parse sat outside the try/catch). It now returns 400.
         it('returns 400 for a non-JSON body (currently throws uncaught)', async () => {
             const res = await PUT(putReq('backlog', 'not json ['))
             expect(res.status).toBe(400)

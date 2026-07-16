@@ -85,10 +85,10 @@ describe('openLightbox — navigation & wrapping', () => {
     })
 
     it('clamps or wraps an out-of-range start index instead of showing "undefined"', () => {
-        // BUG: src/lib/js/lightbox.ts:39 — openLightbox(srcs, index) assigns
-        // srcs[index] to img.src without bounds-checking. An index >= srcs.length
-        // (or negative) sets src to the literal string "undefined", rendering a
-        // broken image until the user navigates. Severity: low.
+        // REGRESSION: lightbox.ts — openLightbox(srcs, index) once assigned srcs[index]
+        // to img.src without bounds-checking, so an index >= srcs.length (or negative)
+        // set src to the literal "undefined" and rendered a broken image. Now the index
+        // is clamped/wrapped into range; this guards the "undefined" src from returning.
         const srcs = ['a.png', 'b.png']
         openLightbox(srcs, 5)
         expect(srcs).toContain(imgSrc())

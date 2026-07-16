@@ -43,15 +43,14 @@ async function createPage(body: Record<string, unknown>): Promise<{ id: string }
 }
 
 describe('POST /api/pages — body validation', () => {
-    // BUG: `await request.json()` (src/routes/api/pages/+server.ts:14) is outside
-    // the try/catch — a non-JSON body makes the handler throw a SyntaxError
-    // instead of returning 400. In production that surfaces as a 500 crash page.
+    // REGRESSION: a non-JSON body once threw a SyntaxError out of the handler (parse
+    // sat outside the try/catch), surfacing as a 500 crash page. It now returns 400.
     it('returns 400 for a non-JSON body (currently throws uncaught)', async () => {
         const res = await postPage(rawPostReq('this is {{{ not json') as never)
         expect(res.status).toBe(400)
     })
 
-    // BUG: same line — an empty body also rejects out of the handler.
+    // REGRESSION: an empty body once rejected out of the handler the same way. Now 400.
     it('returns 400 for an empty body (currently throws uncaught)', async () => {
         const res = await postPage(rawPostReq() as never)
         expect(res.status).toBe(400)
@@ -91,9 +90,9 @@ describe('POST /api/pages — body validation', () => {
         expect(res.status).toBe(400)
     })
 
-    // BUG: the route only truthiness-checks title (src/routes/api/pages/+server.ts:15) —
-    // `title: 42` and `title: {}` are accepted and persisted, violating the Page
-    // contract (string title). A `{}` title renders as [object Object] downstream.
+    // REGRESSION: the route once only truthiness-checked title, so `title: 42` and
+    // `title: {}` were accepted and persisted (a {} title rendered [object Object]
+    // downstream), violating the string-title contract. Non-string titles now 400.
     it('rejects a non-string title with 400 (currently persists numbers/objects)', async () => {
         const res = await postPage(postReq({ type: 'page', title: 42 }) as never)
         expect(res.status).toBe(400)
@@ -101,10 +100,9 @@ describe('POST /api/pages — body validation', () => {
         expect(res2.status).toBe(400)
     })
 
-    // BUG: for type 'progress', a non-array `tasks` skips the id-mapping branch
-    // (src/routes/api/pages/+server.ts:19) and the raw value overrides the
-    // typeDefaults' `tasks: []` in JournalService.create — the page persists with
-    // tasks: "corrupt", which crashes any consumer that does tasks.map(...).
+    // REGRESSION: a non-array `tasks` on a progress page once skipped the id-mapping
+    // branch and overrode the typeDefaults' `tasks: []`, persisting tasks: "corrupt"
+    // and crashing any consumer doing tasks.map(...). Now rejected with 400.
     it('rejects a progress page whose tasks is not an array (currently persists the garbage)', async () => {
         const res = await postPage(postReq({ type: 'progress', title: 'p', tasks: 'corrupt' }) as never)
         expect(res.status).toBe(400)
@@ -158,11 +156,10 @@ describe('GET /api/pages — appid filter', () => {
         expect(list.some((p: { id: string }) => p.id === mine.id)).toBe(true)
     })
 
-    // BUG: POST accepts any `appid` type into ...rest, but the GET filter
-    // (src/routes/api/pages/+server.ts:9) compares `p.appid === String(appid)`
-    // without coercing the STORED side — a page created with a numeric appid
-    // (440, not "440") is invisible to ?appid=440 forever. JournalService.getByAppid
-    // heals this with String(p.appid); the route forgot to.
+    // REGRESSION: the GET filter once compared `p.appid === String(appid)` without
+    // coercing the stored side, so a page created with a numeric appid (440, not "440")
+    // was invisible to ?appid=440 forever. The stored side is now String()-coerced too,
+    // matching JournalService.getByAppid.
     it('finds pages whose appid was stored as a number', async () => {
         const page = await createPage({ type: 'page', title: 'num-appid', appid: 987654 })
         const res = getPages({ url: new URL('http://x/api/pages?appid=987654') } as never)
@@ -190,9 +187,8 @@ describe('GET/PUT/DELETE /api/pages/[id]', () => {
         expect(res.status).toBe(404)
     })
 
-    // BUG: `await request.json()` (src/routes/api/pages/[id]/+server.ts:12) is
-    // OUTSIDE the try/catch — a malformed body throws out of the handler instead
-    // of returning 400.
+    // REGRESSION: a malformed PUT body once threw out of the handler (parse sat outside
+    // the try/catch). It now returns 400.
     it('PUT returns 400 for a non-JSON body (currently throws uncaught)', async () => {
         const page = await createPage({ type: 'page', title: 'put-bad-body' })
         const res = await putPage({
@@ -274,8 +270,8 @@ describe('PUT /api/pages/order', () => {
         return { request: new Request('http://x/api/pages/order', { method: 'PUT', body }) }
     }
 
-    // BUG: `await request.json()` (src/routes/api/pages/order/+server.ts:6) is
-    // outside the try/catch — malformed body throws instead of 400.
+    // REGRESSION: a malformed order body once threw instead of returning 400 (parse sat
+    // outside the try/catch). Now returns 400.
     it('returns 400 for a non-JSON body (currently throws uncaught)', async () => {
         const res = await putOrder(orderReq('][') as never)
         expect(res.status).toBe(400)

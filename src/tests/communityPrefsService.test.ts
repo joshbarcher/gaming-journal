@@ -162,9 +162,9 @@ describe('communityPrefsService', () => {
     })
 
     describe('duplicate entries', () => {
-        // BUG: communityPrefsService.ts:47-48 — splice removes only the FIRST
-        // occurrence, so a file containing duplicates (hand edit or the concurrency
-        // bug below) leaves the user still muted after an "unmute" that returned false.
+        // REGRESSION: toggle-off once used splice, removing only the FIRST occurrence,
+        // so a file containing duplicates left the user still muted after an "unmute"
+        // that returned false; it now filter()s out every matching entry.
         it('toggling off a duplicated entry fully removes it', async () => {
             await fsp.writeFile(filePath,
                 JSON.stringify({ filtered: [], muted: ['dup', 'dup'], favorited: [], highlighted: {} }))
@@ -175,9 +175,9 @@ describe('communityPrefsService', () => {
     })
 
     describe('type confusion from disk', () => {
-        // BUG: communityPrefsService.ts:17-23 — _ensure only repairs nullish fields.
-        // A string where an array is expected reaches `.push`, throwing TypeError
-        // instead of recovering or rejecting cleanly.
+        // REGRESSION: _ensure once repaired only nullish fields, so a string where an
+        // array was expected reached `.push` and threw TypeError; _ensure now coerces
+        // any wrong-typed field back to its empty array/object.
         it('togglePref tolerates a non-array muted field on disk', async () => {
             await fsp.writeFile(filePath,
                 JSON.stringify({ filtered: [], muted: 'oops', favorited: [], highlighted: {} }))
@@ -187,9 +187,9 @@ describe('communityPrefsService', () => {
     })
 
     describe('prototype-pollution keys', () => {
-        // BUG: communityPrefsService.ts:53 — `data.highlighted[k] ??= []` with
-        // k="__proto__" reads Object.prototype (not nullish), skips the init, then
-        // `.indexOf` is undefined → TypeError.
+        // REGRESSION: highlight toggle once used `data.highlighted[k] ??= []`, which for
+        // k="__proto__" read Object.prototype (not nullish), skipped the init, then hit
+        // an undefined `.indexOf` → TypeError; it now uses own-property access (getOwn/setOwn).
         it('highlight toggle works for appid "__proto__"', async () => {
             const active = await togglePref('highlight', 'user', '__proto__')
             expect(active).toBe(true)
@@ -213,9 +213,9 @@ describe('communityPrefsService', () => {
     })
 
     describe('concurrency', () => {
-        // BUG: communityPrefsService.ts — every togglePref load-modify-writes its own
-        // ManagedFile over the same path; concurrent toggles all read the initial
-        // state and the last flush wins, dropping the other mutations.
+        // REGRESSION: togglePref once opened its own ManagedFile per call, so concurrent
+        // toggles all read the initial state and the last flush dropped the others;
+        // a shared per-path ManagedFile now serializes them.
         it('concurrent toggles must all persist', async () => {
             await Promise.all([
                 togglePref('mute', 'u1'),

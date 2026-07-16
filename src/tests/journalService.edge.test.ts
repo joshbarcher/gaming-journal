@@ -37,10 +37,10 @@ describe('JournalService — edge cases', () => {
             expect(page.id).not.toBe('evil-id')
         })
 
-        // BUG: same spread order problem — caller input can override typeDefaults with a
-        // wrong-typed value (items: "nope" on a list page corrupts the store shape).
-        // Defensible as "caller provides initial items", but only with same-shape values;
-        // documenting the sharp edge with the wrong-typed case.
+        // CONTRACT: create() intentionally lets callers seed type-default fields (e.g.
+        // items on a list page) — the caller input spreads over typeDefaults on purpose.
+        // The sharp edge: a wrong-typed value (items: "nope") would corrupt the store
+        // shape, so callers must supply same-shape values. This pins the accepted behavior.
         it('allows callers to seed type-default fields (current contract)', async () => {
             const page = await service.create({ type: 'list', title: 'L', items: [{ id: 'i1', text: 'a', done: false }] } as never)
             expect((page as never as { items: unknown[] }).items).toHaveLength(1)

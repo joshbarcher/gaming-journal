@@ -126,10 +126,9 @@ describe('fetchAll', () => {
         expect(jobStore.jobs).toHaveLength(1)
     })
 
-    // BUG: guide-jobs.svelte.ts:44 — fetchAll() assigns `this.jobs = await res.json()`
-    // unconditionally, so a fetchAll whose response arrives AFTER a live SSE event has
-    // updated a job overwrites the newer state with the stale server list (the job
-    // visibly regresses from done back to running until the next event).
+    // REGRESSION: fetchAll() once assigned `this.jobs = await res.json()` unconditionally,
+    // so a response arriving AFTER a live SSE event had updated a job overwrote the newer
+    // state with the stale server list (done visibly regressed to running). Now guarded.
     it('a slow fetchAll response must not clobber a fresher SSE update (regression)', async () => {
         const slow = deferred<Response>()
         vi.stubGlobal('fetch', vi.fn().mockReturnValue(slow.promise))
@@ -245,12 +244,11 @@ describe('jobFor', () => {
         expect(jobStore.jobFor(620 as unknown as string, 'ign', 'walkthrough')).toBeUndefined()
     })
 
-    // BUG: guide-jobs.svelte.ts:65-71 — jobFor returns the FIRST match with no status
-    // filter, so when a finished job and a re-queued active job for the same guide
-    // coexist (the normal re-download flow), the stale finished job shadows the active
-    // one. DownloadsPage's re-queue guard (`if (active?.status === 'pending' || …) return`)
-    // then sees 'done' and lets the user enqueue the same guide again — duplicate jobs.
-    // (Contrast: trackerSuggestJobStore.jobFor filters to pending/running.)
+    // REGRESSION: jobFor once returned the FIRST match with no status filter, so when a
+    // finished job and a re-queued active job for the same guide coexisted (the normal
+    // re-download flow), the stale finished job shadowed the active one and DownloadsPage's
+    // re-queue guard saw 'done' and let the user enqueue duplicates. Now it returns the
+    // active job. (Contrast held: trackerSuggestJobStore.jobFor filters to pending/running.)
     it('jobFor must return the active job when a finished sibling for the same guide exists (regression)', () => {
         jobStore.jobs = [
             makeJob({ id: 'old', status: 'done', completedAt: '2026-07-14T00:00:00Z' }),

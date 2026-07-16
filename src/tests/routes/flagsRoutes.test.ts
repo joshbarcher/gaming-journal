@@ -92,25 +92,23 @@ describe('PATCH /api/flags/[appid] — body validation', () => {
         },
     )
 
-    // BUG: request.json() failure lands in the blanket catch, whose only 400
-    // carve-out is "Unknown flag" — malformed client JSON comes back 500.
-    // src/routes/api/flags/[appid]/+server.ts:20-24
+    // REGRESSION: request.json() failure once landed in the blanket catch (whose only
+    // 400 carve-out was "Unknown flag"), so malformed JSON came back 500. Now 400.
     it('returns 400 (not 500) for malformed JSON', async () => {
         const res = await flagsPATCH({ params: { appid: '570' }, request: rawReq('{"flag": "fav') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: body "null" parses, then `const { flag, value } = null` throws
-    // TypeError -> 500; should be 400. src/routes/api/flags/[appid]/+server.ts:14
+    // REGRESSION: a "null" body once destructured as `const { flag, value } = null`,
+    // throwing a TypeError -> 500. Now returns 400.
     it('returns 400 (not 500) for a JSON null body', async () => {
         const res = await flagsPATCH({ params: { appid: '570' }, request: rawReq('null') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: the route does Number(params.appid) with no validation — every
-    // non-numeric appid ("abc", "__proto__", "12px", …) coerces to NaN and is
-    // stored under the single shared key "NaN". Should be rejected with 400.
-    // src/routes/api/flags/[appid]/+server.ts:18 (medium: silent cross-appid data bleed)
+    // REGRESSION: the route once did Number(params.appid) with no validation, so every
+    // non-numeric appid coerced to NaN and shared the single "NaN" key (silent
+    // cross-appid data bleed). Non-numeric appids are now rejected with 400.
     it('rejects a non-numeric appid with 400', async () => {
         const res = await flagsPATCH({ params: { appid: 'abc' }, request: jsonReq({ flag: 'favorite', value: true }) } as any)
         expect(res.status).toBe(400)

@@ -72,29 +72,24 @@ describe('POST /api/reddit-subreddits/[appid] — validation', () => {
         expect(res.status).toBe(400)
     })
 
-    // BUG: `await request.json()` sits OUTSIDE the try block — malformed JSON
-    // makes the handler itself reject instead of returning a Response. In
-    // SvelteKit that surfaces as an unhandled 500 error page; every sibling
-    // route at least catches it. Should be a 400 Response.
-    // src/routes/api/reddit-subreddits/[appid]/+server.ts:13 (medium)
+    // REGRESSION: json() parsing once sat outside the try, so malformed JSON made the
+    // handler reject (an unhandled 500 page in SvelteKit) instead of returning a
+    // Response. It now returns a 400 Response.
     it('returns a 400 Response (not a rejected promise) for malformed JSON', async () => {
         const res = await subsPOST({ params: { appid: '570' }, request: rawReq('{"name": "ga') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: same root cause — body "null" parses, then `const { name } = null`
-    // throws outside the try, rejecting the handler.
-    // src/routes/api/reddit-subreddits/[appid]/+server.ts:13 (medium)
+    // REGRESSION: a "null" body once destructured as `const { name } = null`, throwing
+    // outside the try and rejecting the handler. Now returns 400.
     it('returns a 400 Response (not a rejected promise) for a JSON null body', async () => {
         const res = await subsPOST({ params: { appid: '570' }, request: rawReq('null') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: the guard checks `!name` BEFORE trimming but stores name.trim() —
-    // a whitespace-only name passes validation and persists an empty string
-    // subreddit, which the UI then renders as a blank chip and which can never
-    // be meaningfully removed by name. Should be 400.
-    // src/routes/api/reddit-subreddits/[appid]/+server.ts:14-16 (low)
+    // REGRESSION: the guard once checked `!name` before trimming but stored
+    // name.trim(), so a whitespace-only name persisted an empty, unremovable subreddit
+    // (a blank UI chip). It is now rejected with 400.
     it('rejects a whitespace-only name with 400', async () => {
         const res = await add('570', '   ')
         expect(res.status).toBe(400)

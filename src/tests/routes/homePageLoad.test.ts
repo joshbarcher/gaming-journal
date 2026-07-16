@@ -117,12 +117,10 @@ describe('home +page.server load', () => {
             expect(data.discPosters).toEqual([])
         })
 
-        // BUG: src/routes/+page.server.ts:71 — fetchJson returns `res.json()` from
-        // inside the try WITHOUT await, so a 200 response whose body fails to parse
-        // rejects OUTSIDE the catch, the rejection propagates through Promise.all
-        // (+page.server.ts:141) and the whole home page 500s. alertsService.ts:13
-        // has the fixed version (`await` inside the try) with a comment explaining
-        // exactly this failure mode.
+        // REGRESSION: fetchJson once returned res.json() un-awaited inside the try, so
+        // a 200 body that failed to parse rejected outside the catch, propagated through
+        // Promise.all, and 500'd the whole home page. The json() is now awaited inside
+        // the try, so a bad body degrades to defaults.
         it('a 200 response with a malformed body must degrade to defaults, not reject the whole load', async () => {
             stubRelay({ home: BAD_JSON })
             const data = await load()
@@ -142,11 +140,9 @@ describe('home +page.server load', () => {
     // ── Partial / malformed relay payloads ──────────────────────────────────
 
     describe('partial relay data', () => {
-        // BUG: src/routes/+page.server.ts:151,155 — `homeData ?? EMPTY_RELAY` only
-        // guards null; a 200 `{}` payload (relay version skew / partial write) is
-        // truthy, so `relay.recentPlayed.find` throws TypeError and the home page
-        // 500s. EMPTY_RELAY exists precisely to make missing data renderable —
-        // missing FIELDS get no such treatment.
+        // REGRESSION: `homeData ?? EMPTY_RELAY` once guarded only null, so a truthy `{}`
+        // payload (version skew / partial write) let relay.recentPlayed.find throw and
+        // 500 the page. Missing fields now fall back to renderable defaults too.
         it('a home payload missing fields ({}) must not crash the load', async () => {
             stubRelay({ home: {} })
             const data = await load()
@@ -287,11 +283,11 @@ describe('home +page.server load', () => {
             expect(data.discPosters.map(p => p.appid)).toEqual([3])
         })
 
-        // BUG: src/routes/+page.server.ts:92,97 — blocklist matching lowercases but
+        // REGRESSION: blocklist matching once lowercased but
         // never Unicode-normalizes. A blocklist entry saved in NFC ("pokémon")
         // does not match a title in NFD ("pokémon"), so a visually identical
-        // blocked title leaks into the discover mosaic. Content filters should
-        // compare NFKC/NFC-normalized strings.
+        // blocked title leaked into the discover mosaic. Both sides are now
+        // normalized before comparison.
         it('a blocked title must not bypass the blocklist via a different Unicode normalization', async () => {
             await patchSettings({ titleBlocklist: ['pokémon'] })           // NFC é
             stubRelay({
@@ -312,10 +308,9 @@ describe('home +page.server load', () => {
             expect(data.discPosters).toEqual([])
         })
 
-        // BUG: src/routes/+page.server.ts:97 — `item.name.toLowerCase()` with a
-        // non-empty blocklist throws on a discover item whose name is missing/null
-        // (partial relay data), and sampleDiscover is called synchronously in the
-        // load's return expression, so the whole home page 500s.
+        // REGRESSION: with a non-empty blocklist, item.name.toLowerCase() once threw on
+        // a discover item with a missing/null name (partial relay data), 500ing the
+        // whole page. A null name is now handled instead of crashing.
         it('a discover item with a null name must not crash the load when a blocklist is set', async () => {
             await patchSettings({ titleBlocklist: ['anything'] })
             stubRelay({

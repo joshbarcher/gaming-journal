@@ -62,9 +62,9 @@ describe('fmtDate', () => {
         expect(fmtDate(0 as unknown as number)).toBe('')
     })
 
-    // BUG: journal-render.ts:32-35 — non-parseable strings produce an Invalid Date,
-    // and toLocaleDateString on it renders the literal string "Invalid Date" into the
-    // UI instead of an empty string. Severity: LOW.
+    // REGRESSION: journal-render.ts — non-parseable strings once produced an Invalid
+    // Date whose toLocaleDateString rendered the literal "Invalid Date" into the UI.
+    // Now returns ""; this guards against "Invalid Date" leaking back to the UI.
     it('renders nothing (not "Invalid Date") for garbage date strings', () => {
         expect(fmtDate('not a real date')).toBe('')
     })

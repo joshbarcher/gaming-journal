@@ -145,18 +145,17 @@ describe('request — response handling', () => {
         await expect(api.pages.list()).rejects.toThrow(SyntaxError)
     })
 
-    // BUG: api.ts:12 — on a non-ok response the body is parsed with res.json()
-    // BEFORE the status check, so a non-JSON error body (e.g. an HTML 502 page
-    // from a proxy) rejects with a bare SyntaxError and the HTTP status is lost.
-    // Correct behavior: surface "HTTP 502".
+    // REGRESSION: api.ts once parsed the body with res.json() BEFORE the status
+    // check, so a non-JSON error body (e.g. an HTML 502 proxy page) rejected with a
+    // bare SyntaxError and lost the HTTP status. Now it surfaces "HTTP 502".
     it('surfaces the HTTP status when a non-ok response body is not JSON', async () => {
         fetchMock.mockResolvedValue(htmlRes(502))
         await expect(api.pages.list()).rejects.toThrow('HTTP 502')
     })
 
-    // BUG: api.ts:13 — `data.error` is read without a null check; a non-ok
-    // response whose body is the JSON literal `null` throws
-    // "TypeError: Cannot read properties of null" instead of Error("HTTP 500").
+    // REGRESSION: api.ts once read `data.error` with no null check, so a non-ok
+    // response whose body was the JSON literal `null` threw "Cannot read properties
+    // of null" instead of Error("HTTP 500"). Now it throws "HTTP 500".
     it('throws "HTTP 500" when a non-ok response body is JSON null', async () => {
         fetchMock.mockResolvedValue(jsonRes(null, 500))
         await expect(api.pages.list()).rejects.toThrow('HTTP 500')

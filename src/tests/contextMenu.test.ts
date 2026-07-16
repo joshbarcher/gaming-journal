@@ -139,10 +139,10 @@ describe('showContextMenu — action items', () => {
         expect(action).toHaveBeenCalledTimes(1)
     })
 
-    // BUG: context-menu.ts:110 — when the menu is closed by selecting an action item,
-    // _removeAll() runs but cleanup() does not, so the document-level mousedown/keydown
-    // listeners registered by showContextMenu stay attached until some later
-    // mousedown/keydown fires. Self-healing, but still a listener leak. Severity: LOW.
+    // REGRESSION: context-menu.ts — closing the menu by selecting an action item once
+    // ran _removeAll() without cleanup(), leaving the document-level mousedown/keydown
+    // listeners attached until some later event fired (a self-healing listener leak).
+    // Now cleanup() runs on item selection; this guards the listeners from leaking again.
     it('detaches its document listeners when the menu closes via item selection', () => {
         const removeSpy = vi.spyOn(document, 'removeEventListener')
         openMenu([{ label: 'Go', action: () => {} }])

@@ -108,24 +108,22 @@ describe('POST /api/franchises — body validation', () => {
         expect(res.status).toBe(400)
     })
 
-    // BUG: request.json() rejection is caught by the generic catch and returned
-    // as 500 — a client sending malformed JSON is a 400-class error, not a
-    // server error. src/routes/api/franchises/+server.ts:20-22
+    // REGRESSION: malformed JSON was once caught by the generic catch and returned as
+    // 500. A client sending malformed JSON now gets 400.
     it('returns 400 (not 500) for malformed JSON', async () => {
         const res = await createPOST({ request: rawReq('POST', '{"name": "oops') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: same class — an empty body makes request.json() throw, which comes
-    // back as 500 instead of 400. src/routes/api/franchises/+server.ts:20-22
+    // REGRESSION: an empty body once made request.json() throw and come back as 500.
+    // Now returns 400.
     it('returns 400 (not 500) for an empty body', async () => {
         const res = await createPOST({ request: rawReq('POST') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: body "null" parses fine, then `const { name } = null` throws
-    // TypeError -> 500. A null body is client error -> 400.
-    // src/routes/api/franchises/+server.ts:14
+    // REGRESSION: a "null" body once destructured as `const { name } = null`, throwing
+    // a TypeError -> 500. Now returns 400.
     it('returns 400 (not 500) for a JSON null body', async () => {
         const res = await createPOST({ request: rawReq('POST', 'null') } as any)
         expect(res.status).toBe(400)
@@ -207,16 +205,16 @@ describe('PUT /api/franchises/[id]', () => {
         expect(updated.createdAt).toBe(f.createdAt)
     })
 
-    // BUG: malformed JSON in the PUT body surfaces as 500 via the blanket
-    // catch; should be 400. src/routes/api/franchises/[id]/+server.ts:25-27
+    // REGRESSION: malformed JSON in the PUT body once surfaced as 500 via the blanket
+    // catch. Now returns 400.
     it('returns 400 (not 500) for malformed JSON', async () => {
         const f   = await createFranchise('put-bad-json')
         const res = await renamePUT({ params: { id: f.id }, request: rawReq('PUT', '{{{') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: `const { name } = null` throws -> 500 for a JSON null body.
-    // src/routes/api/franchises/[id]/+server.ts:16
+    // REGRESSION: a JSON null body once threw via `const { name } = null` -> 500.
+    // Now returns 400.
     it('returns 400 (not 500) for a JSON null body', async () => {
         const f   = await createFranchise('put-null')
         const res = await renamePUT({ params: { id: f.id }, request: rawReq('PUT', 'null') } as any)
@@ -289,18 +287,17 @@ describe('POST /api/franchises/[id]/entries', () => {
         expect(updated.entries[1].name).toBe('App 20')
     })
 
-    // BUG: the route validates appid but not name — a non-string name (42,
-    // object, array) is persisted verbatim into the store, corrupting the
-    // FranchiseEntry.name:string contract that the UI renders.
-    // src/routes/api/franchises/[id]/entries/+server.ts:6-10 (low severity)
+    // REGRESSION: the route once validated appid but not name, persisting a non-string
+    // name (42, object, array) verbatim and corrupting the FranchiseEntry.name:string
+    // contract. Non-string names now return 400.
     it('rejects a non-string entry name with 400', async () => {
         const f   = await createFranchise('bad-name-type')
         const res = await entryPOST({ params: { id: f.id }, request: jsonReq('POST', { appid: 30, name: 42 }) } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: malformed JSON -> blanket catch -> 500; should be 400.
-    // src/routes/api/franchises/[id]/entries/+server.ts:13-15
+    // REGRESSION: malformed JSON once hit the blanket catch and returned 500. Now 400.
+    // (entries POST)
     it('returns 400 (not 500) for malformed JSON', async () => {
         const f   = await createFranchise('entry-bad-json')
         const res = await entryPOST({ params: { id: f.id }, request: rawReq('POST', 'not json') } as any)
@@ -403,16 +400,15 @@ describe('PUT /api/franchises/[id]/entries/order', () => {
         expect((await res.json()).entries.map((e: { appid: number }) => e.appid)).toEqual([1, 2])
     })
 
-    // BUG: malformed JSON -> blanket catch -> 500; should be 400.
-    // src/routes/api/franchises/[id]/entries/order/+server.ts:11-13
+    // REGRESSION: malformed JSON once hit the blanket catch and returned 500. Now 400.
+    // (entries order PUT)
     it('returns 400 (not 500) for malformed JSON', async () => {
         const f   = await withEntries([1])
         const res = await orderPUT({ params: { id: f.id }, request: rawReq('PUT', '[[[') } as any)
         expect(res.status).toBe(400)
     })
 
-    // BUG: JSON null body -> destructure throws -> 500; should be 400.
-    // src/routes/api/franchises/[id]/entries/order/+server.ts:6
+    // REGRESSION: a JSON null body once threw on destructure -> 500. Now returns 400.
     it('returns 400 (not 500) for a JSON null body', async () => {
         const f   = await withEntries([1])
         const res = await orderPUT({ params: { id: f.id }, request: rawReq('PUT', 'null') } as any)

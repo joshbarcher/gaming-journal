@@ -99,10 +99,10 @@ describe('FranchiseService', () => {
             expect(fresh.entries.length).toBe(1)
         })
 
-        // BUG: getAll() copies only the outer array — the franchise objects inside are
-        // the live stored objects, so callers can mutate the store in place, bypassing
-        // updatedAt and persistence. getById deliberately clones; getAll does not.
-        // src/lib/server/services/franchiseService.ts:50
+        // REGRESSION: getAll() once copied only the outer array, handing out the live
+        // stored franchise objects so callers could mutate the store in place and
+        // bypass updatedAt/persistence; getAll now clones each franchise like getById.
+        // src/lib/server/services/franchiseService.ts
         it('getAll must not hand out live references to stored franchises', async () => {
             const f = await service.create({ name: 'Original' })
             service.getAll()[0].name = 'MUTATED'
@@ -277,10 +277,10 @@ describe('FranchiseService', () => {
             expect(await service.reorderEntries('ghost', [1])).toBeNull()
         })
 
-        // BUG: `orderedAppids.map(id => map.get(id))` inserts the same entry once per
-        // occurrence — a request containing a duplicated appid (double-fired drag event,
-        // hostile client) silently duplicates the entry and grows the franchise.
-        // src/lib/server/services/franchiseService.ts:136
+        // REGRESSION: reorderEntries once inserted the same entry once per occurrence,
+        // so a duplicated appid (double-fired drag, hostile client) grew the franchise;
+        // it now deletes each matched entry from the map, guarding against duplicates.
+        // src/lib/server/services/franchiseService.ts
         it('a duplicated appid in the order must not duplicate the entry', async () => {
             const f = await threeEntries()
             const u = await service.reorderEntries(f.id, [3, 3, 1])

@@ -154,23 +154,26 @@ describe('journalNotesService', () => {
     })
 
     describe('prototype-pollution-ish keys', () => {
-        // BUG: raw bracket access on a plain-object store — `data['__proto__']` is
-        // Object.prototype (truthy), so the `?? []` fallback never fires and the
-        // function returns Object.prototype instead of an empty notes array.
-        // src/lib/server/services/journalNotesService.ts:22
+        // REGRESSION: raw bracket access once made `data['__proto__']` resolve to
+        // Object.prototype (truthy), so the `?? []` fallback never fired and the
+        // function returned Object.prototype instead of an empty notes array; the
+        // read now uses Object.hasOwn so unknown/inherited keys return [].
+        // src/lib/server/services/journalNotesService.ts
         it('getJournalNotes("__proto__") on an empty store must return []', async () => {
             expect(await getJournalNotes('__proto__')).toEqual([])
         })
 
-        // BUG: same class — data['constructor'] is the Object constructor function.
-        // src/lib/server/services/journalNotesService.ts:22
+        // REGRESSION: same class — data['constructor'] once returned the Object
+        // constructor function; own-property read now returns [] for inherited keys.
+        // src/lib/server/services/journalNotesService.ts
         it('getJournalNotes("constructor") on an empty store must return []', async () => {
             expect(await getJournalNotes('constructor')).toEqual([])
         })
 
-        // BUG: `data['__proto__'] = notes` goes through the __proto__ setter and swaps
-        // the store's prototype instead of creating an own key — nothing is persisted,
-        // so the write is silently lost. src/lib/server/services/journalNotesService.ts:29
+        // REGRESSION: `data['__proto__'] = notes` once went through the __proto__ setter
+        // and swapped the store's prototype instead of creating an own key, so nothing
+        // persisted and the write was lost; setJournalNotes now uses defineProperty so
+        // "__proto__" is stored as inert data. src/lib/server/services/journalNotesService.ts
         it('setJournalNotes("__proto__") must round-trip like any other key', async () => {
             const notes = [note({ message: 'proto-key note' })]
             await setJournalNotes('__proto__', notes)
@@ -179,10 +182,10 @@ describe('journalNotesService', () => {
     })
 
     describe('concurrency', () => {
-        // BUG: each call opens its own ManagedFile and does read-modify-write across
-        // an await. Two concurrent setJournalNotes calls both load the same pre-state,
-        // so the last flush wins and the other appid's notes are silently lost.
-        // src/lib/server/services/journalNotesService.ts:25-34
+        // REGRESSION: each call once opened its own ManagedFile and did read-modify-write
+        // across an await, so two concurrent setJournalNotes calls loaded the same
+        // pre-state and the last flush dropped the other appid's notes; a shared
+        // per-path ManagedFile now serializes them. src/lib/server/services/journalNotesService.ts
         it('concurrent setJournalNotes calls for different appids must both persist', async () => {
             await Promise.allSettled([
                 setJournalNotes('501', [note({ message: 'first' })]),

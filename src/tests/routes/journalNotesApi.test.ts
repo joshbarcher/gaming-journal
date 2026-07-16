@@ -62,26 +62,24 @@ describe('/api/journal-notes/[appid]', () => {
     })
 
     describe('PUT — body validation', () => {
-        // BUG: the route (src/routes/api/journal-notes/[appid]/+server.ts:15)
-        // does `setJournalNotes(appid, await request.json())` inside one big
-        // try/catch — a malformed client body is caught and reported as a 500
-        // server error instead of a 400 client error.
+        // REGRESSION: a malformed client body once fell into the route's blanket
+        // try/catch and came back as a 500 server error. journal-notes/[appid] now
+        // parses via the shared helper and returns 400.
         it('returns 400 for a non-JSON body (currently a 500)', async () => {
             const res = await PUT(putReq('440', 'oops not json'))
             expect(res.status).toBe(400)
         })
 
-        // BUG: there is NO shape validation at all — any JSON value (object,
-        // string, null) is persisted as the appid's "StickyNote[]" and every
-        // future GET for that appid serves the garbage back, breaking the
-        // StickyNote[] response contract for all clients.
+        // REGRESSION: the route once persisted any JSON value verbatim as the appid's
+        // StickyNote[] (object/string/null), serving the garbage back on every future
+        // GET. A non-array body is now rejected with 400.
         it('rejects a non-array body with 400 (currently persists it)', async () => {
             const res = await PUT(putReq('440', JSON.stringify({ sneaky: true })))
             expect(res.status).toBe(400)
         })
 
-        // BUG: same hole with a JSON null body — GET then returns `null`, and
-        // clients doing notes.map(...) crash.
+        // REGRESSION: a JSON null body was once persisted, so GET returned null and
+        // crashed clients doing notes.map(...). Now rejected with 400.
         it('rejects a JSON null body with 400 (currently persists null)', async () => {
             const res = await PUT(putReq('441', 'null'))
             expect(res.status).toBe(400)

@@ -103,11 +103,10 @@ describe('adultContent store', () => {
         expect(adultContent.hide).toBe(true)
     })
 
-    // BUG: adult-content.svelte.ts:10-15 — load() has no in-flight-request superseding.
-    // Two concurrent load() calls apply whichever RESPONSE arrives last, not whichever
-    // CALL was made last, so a slow stale response clobbers a fresher one (e.g. Settings
-    // toggles the flag and reloads while a mount-time load is still in flight — the page
-    // can end up showing the pre-toggle blur state).
+    // REGRESSION: adult-content.svelte.ts load() once had no in-flight superseding, so
+    // two concurrent load() calls applied whichever RESPONSE arrived last rather than the
+    // latest CALL — a slow stale response could clobber a fresher one (e.g. Settings
+    // toggles the flag while a mount-time load is still in flight). Now guarded.
     it('a slow stale response must not clobber the result of a later load() (regression)', async () => {
         const slow = deferred<Response>()
         const fast = deferred<Response>()

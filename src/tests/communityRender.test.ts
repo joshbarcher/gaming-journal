@@ -64,9 +64,9 @@ describe('fmtTime', () => {
         expect(result).toContain(String(yr))
     })
 
-    // BUG: community-render.ts:17 — a createdUtc slightly in the future (server/client
-    // clock skew) produces a negative diff that still lands in the minutes branch, so
-    // the UI renders "-5m ago". Should clamp to "0m ago"/"now". Severity: LOW.
+    // REGRESSION: community-render.ts — a createdUtc slightly in the future (clock
+    // skew) once produced a negative diff that landed in the minutes branch, rendering
+    // "-5m ago". Now clamped; this guards against negative relative times returning.
     it('never renders negative relative times for future timestamps (clock skew)', () => {
         const result = fmtTime(now() + 300)
         expect(result.startsWith('-')).toBe(false)

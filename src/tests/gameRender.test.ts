@@ -308,20 +308,20 @@ describe('renderNewsHtml — basics', () => {
 })
 
 describe('renderNewsHtml — injection', () => {
-    // BUG: game-render.ts:80-81 — the classic [img]url[/img] form interpolates the
-    // captured "url" ([\s\S]*?) into a double-quoted src attribute without escaping
-    // quotes, so [img]x" onerror="alert(1)[/img] becomes
-    // <img src="x" onerror="alert(1)" loading="lazy"> — attribute/XSS injection when
-    // the output is rendered with {@html}. Severity: HIGH (remote news content).
+    // REGRESSION: game-render.ts — the classic [img]url[/img] form once interpolated
+    // the captured URL into the double-quoted src attribute without escaping, letting
+    // [img]x" onerror="alert(1)[/img] inject a live handler under {@html}. Now escaped
+    // via escAttr; this guards against the XSS breakout returning.
     it('quotes in classic [img] URLs cannot break out of the src attribute', () => {
         const out = renderNewsHtml('[img]x" onerror="window.__x=1[/img]')
         const img = parse(out).querySelector('img')!
         expect(img.getAttribute('onerror')).toBeNull()
     })
 
-    // BUG: game-render.ts:90-91 — same unescaped interpolation for the classic
-    // [url]url[/url] form: [url]x" onclick="alert(1)[/url] yields an <a> with an
-    // injected onclick attribute. Severity: HIGH (same vector as the img case).
+    // REGRESSION: game-render.ts — the classic [url]url[/url] form had the same
+    // unescaped interpolation, so [url]x" onclick="alert(1)[/url] once yielded an <a>
+    // with an injected onclick attribute. Now escaped via escAttr; this guards the
+    // href breakout from returning.
     it('quotes in classic [url] URLs cannot break out of the href attribute', () => {
         const out = renderNewsHtml('[url]x" onclick="window.__x=1[/url]')
         const a = parse(out).querySelector('a')!

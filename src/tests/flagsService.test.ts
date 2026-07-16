@@ -167,9 +167,9 @@ describe('flagsService', () => {
     })
 
     describe('prototype-pollution keys', () => {
-        // BUG: flagsService.ts:37-39 — for appid "__proto__", data[key] resolves to
-        // Object.prototype (inherited, truthy), so `data[key][flag] = true` assigns
-        // onto Object.prototype itself, polluting every object in the process.
+        // REGRESSION: setFlag on appid "__proto__" once let data[key] resolve to
+        // Object.prototype and wrote the flag onto it, polluting every object; now
+        // uses own-property access (getOwn/setOwn) so the key stays inert data.
         it('setFlag on appid "__proto__" must not pollute Object.prototype', async () => {
             try {
                 await setFlag('__proto__', 'alert', true).catch(() => {})
@@ -179,8 +179,8 @@ describe('flagsService', () => {
             }
         })
 
-        // BUG: flagsService.ts:26 — `data[String(appid)] ?? {}` reads through the
-        // prototype chain, so getFlags("__proto__") returns Object.prototype instead of {}.
+        // REGRESSION: getFlags("__proto__") once read through the prototype chain and
+        // returned Object.prototype instead of {}; now uses own-property access.
         it('getFlags("__proto__") returns a plain empty object, not Object.prototype', async () => {
             const flags = await getFlags('__proto__')
             expect(flags).not.toBe(Object.prototype)
@@ -188,9 +188,9 @@ describe('flagsService', () => {
     })
 
     describe('concurrency', () => {
-        // BUG: flagsService.ts — every setFlag call load-modify-writes its own
-        // ManagedFile over the same path; concurrent calls all read the initial
-        // state and the last flush wins, silently dropping the other writes.
+        // REGRESSION: setFlag once opened its own ManagedFile per call, so concurrent
+        // writes all read the initial state and the last flush dropped the others;
+        // a shared per-path ManagedFile now serializes them.
         it('concurrent setFlag calls on different appids must all persist', async () => {
             await Promise.all([
                 setFlag(1, 'alert', true),

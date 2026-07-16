@@ -152,9 +152,9 @@ describe('redditSubredditsService', () => {
     })
 
     describe('type confusion from disk', () => {
-        // BUG: redditSubredditsService.ts:21 — `data[String(appid)] ?? []` only guards
-        // nullish; a non-array value on disk is returned as-is, violating the string[]
-        // return contract.
+        // REGRESSION: getSubreddits once used `data[String(appid)] ?? []`, which only
+        // guards nullish, so a non-array value on disk was returned as-is and violated
+        // the string[] contract; an entryFor() helper now coerces non-arrays to [].
         it('getSubreddits returns [] when the stored value is not an array', async () => {
             await fsp.writeFile(filePath, JSON.stringify({ '440': 'not-an-array' }))
             const result = await getSubreddits(440)
@@ -162,8 +162,9 @@ describe('redditSubredditsService', () => {
             expect(result).toEqual([])
         })
 
-        // BUG: redditSubredditsService.ts:29-30 — a non-array stored value flows into
-        // `current.some(...)`, throwing TypeError instead of recovering or rejecting cleanly.
+        // REGRESSION: a non-array stored value once flowed into `current.some(...)` and
+        // threw TypeError; addSubreddit now reads through entryFor(), which recovers a
+        // corrupt entry to [].
         it('addSubreddit tolerates a non-array stored value', async () => {
             await fsp.writeFile(filePath, JSON.stringify({ '440': 42 }))
             const result = await addSubreddit(440, 'tf2')
@@ -172,16 +173,17 @@ describe('redditSubredditsService', () => {
     })
 
     describe('prototype-pollution keys', () => {
-        // BUG: redditSubredditsService.ts:21 — for appid "__proto__", `data[key] ?? []`
-        // resolves to Object.prototype through the prototype chain and returns it
-        // (an object, not a string[]).
+        // REGRESSION: for appid "__proto__", `data[key] ?? []` once resolved to
+        // Object.prototype through the prototype chain and returned it (an object, not
+        // a string[]); own-property access via entryFor() now returns [].
         it('getSubreddits("__proto__") returns an array', async () => {
             const result = await getSubreddits('__proto__')
             expect(Array.isArray(result)).toBe(true)
         })
 
-        // BUG: redditSubredditsService.ts:29-30 — for appid "__proto__", `current`
-        // becomes Object.prototype, and `current.some` is undefined → TypeError.
+        // REGRESSION: for appid "__proto__", `current` once became Object.prototype and
+        // `current.some` was undefined → TypeError; entryFor() + setOwn now treat the
+        // key as inert data so addSubreddit works like any other key.
         it('addSubreddit under appid "__proto__" works like any other key', async () => {
             const result = await addSubreddit('__proto__', 'tf2')
             expect(result).toEqual(['tf2'])
@@ -198,9 +200,9 @@ describe('redditSubredditsService', () => {
     })
 
     describe('concurrency', () => {
-        // BUG: redditSubredditsService.ts — each call load-modify-writes its own
-        // ManagedFile over the same path; concurrent adds all read the initial state
-        // and the last flush wins, dropping the others.
+        // REGRESSION: each call once opened its own ManagedFile over the same path, so
+        // concurrent adds all read the initial state and the last flush dropped the
+        // others; a shared per-path ManagedFile now serializes them.
         it('concurrent addSubreddit calls must all persist', async () => {
             await Promise.all([
                 addSubreddit(440, 'a'),
