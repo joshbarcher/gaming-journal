@@ -1,0 +1,681 @@
+diff --git a/src/controllers/admin/admin.controller.js b/src/controllers/admin/admin.controller.js
+index edeecf5..9f4abe9 100644
+--- a/src/controllers/admin/admin.controller.js
++++ b/src/controllers/admin/admin.controller.js
+@@ -1,42 +1,12 @@
+ import logger from '../../logger.js';
+-import { backfill, provisionGame } from '../../services/provision.service.js';
+-import { patchItem } from '../../services/wishlist/wishlist.service.js';
+-import { patchGame }  from '../../services/games/games.service.js';
+-// Wave-2 fold-in: news is journal-owned — refresh goes over HTTP (journal-sync.js).
+-import { refreshNewsViaJournal as fetchAndCache } from '../../services/journal-sync.js';
+ import { startSync, canSync, listActions, ConflictError } from '../../services/metrics/actions.js';
+ import { listRunning } from '../../services/metrics/job-guard.js';
+ import { scanAll, isScanning } from '../../services/metrics/disk-usage.service.js';
+ 
+-export function handleBackfill(req, res) {
+-    res.json({ ok: true, message: 'Backfill started' });
+-    backfill().catch(err => logger.error('[admin] Backfill failed', err));
+-}
+-
+-export function handleProvision(req, res) {
+-    const appid = Number(req.params.appid);
+-    if (!appid) return res.status(400).json({ error: 'invalid appid' });
+-    res.json({ ok: true, message: `Provision started for ${appid}` });
+-    provisionGame(appid)
+-        .then(() => Promise.all([patchItem(appid), patchGame(appid)]))
+-        .catch(err => logger.error('[admin] Provision failed', { appid, err: err.message }));
+-}
+-
+-export function handlePatch(req, res) {
+-    const appid = Number(req.params.appid);
+-    if (!appid) return res.status(400).json({ error: 'invalid appid' });
+-    res.json({ ok: true });
+-    Promise.all([patchItem(appid), patchGame(appid)])
+-        .catch(err => logger.error('[admin] Patch failed', { appid, err: err.message }));
+-}
+-
+-export function handleNewsRefresh(req, res) {
+-    const appid = Number(req.params.appid);
+-    if (!appid) return res.status(400).json({ error: 'invalid appid' });
+-    res.json({ ok: true });
+-    fetchAndCache(appid)
+-        .catch(err => logger.error('[admin] News refresh failed', { appid, err: err.message }));
+-}
++// Wave-3+4 fold-in (2026-07-16): handleBackfill / handleProvision /
++// handlePatch / handleNewsRefresh removed — provisioning, wishlist/games
++// patching, and news refresh are journal-owned. Nothing here imports the
++// gaming services (provision/wishlist/games/journal-sync) any more.
+ 
+ // ── Per-source sync triggers ──────────────────────────────────────────────────
+ 
+diff --git a/src/routers/admin/admin.router.js b/src/routers/admin/admin.router.js
+index 4903ed8..5b3600c 100644
+--- a/src/routers/admin/admin.router.js
++++ b/src/routers/admin/admin.router.js
+@@ -1,9 +1,5 @@
+ import { Router } from 'express';
+ import {
+-    handleBackfill,
+-    handleProvision,
+-    handlePatch,
+-    handleNewsRefresh,
+     handleSourceSync,
+     handleSourceActions,
+     handleDiskRescan,
+@@ -11,11 +7,10 @@ import {
+ 
+ const router = Router();
+ 
+-router.post('/backfill',              handleBackfill);
+-router.post('/provision/:appid',      handleProvision);
+-router.post('/patch/:appid',          handlePatch);
+-router.post('/news/:appid/refresh',   handleNewsRefresh);
+-
++// Wave-3+4 fold-in (2026-07-16): backfill / provision/:appid / patch/:appid /
++// news/:appid/refresh are journal-owned now — gaming-journal runs provisioning,
++// wishlist/games patching, and news itself. Only the dashboard's source
++// triggers (mail) and the disk-usage rescan remain relay-side.
+ router.get('/sources',                handleSourceActions);
+ router.post('/sources/:id/sync',      handleSourceSync);
+ router.post('/disk-usage/rescan',     handleDiskRescan);
+diff --git a/src/server.js b/src/server.js
+index 7e4bd08..574bbb9 100644
+--- a/src/server.js
++++ b/src/server.js
+@@ -2,53 +2,26 @@ import './env-local.js';
+ import path from 'node:path';
+ import { fileURLToPath } from 'node:url';
+ import logger from './logger.js';
+-import { serveWithWebp } from './services/images/images.service.js';
+ import express from 'express';
+ import healthRouter from './routers/health.router.js';
+-import steamRouter from './routers/steam/steam.router.js';
+-import steamImagesRouter from './routers/steam/images.router.js';
+-import videosRouter      from './routers/steam/videos.router.js';
+-import steamAccountRouter from './routers/steam/account.router.js';
+-import steamStoreRouter from './routers/steam/store.router.js';
+-import steamSessionsRouter from './routers/steam/sessions.router.js';
+-import steamStatsRouter from './routers/steam/stats.router.js';
+-import playerCountsRouter from './routers/steam/player-counts.router.js';
+-import gamesRouter from './routers/games/games.router.js'
+-import wishlistRouter from './routers/wishlist/wishlist.router.js';
+ import mailRouter from './routers/mail/mail.router.js';
+ import smsRouter from './routers/sms/sms.router.js';
+-import accountRouter from './routers/account/account.router.js';
+ import { startup as startSms } from './services/sms/sms.service.js';
+-import { build as buildAccountCache } from './services/account/account.service.js';
+-import { startSnapshotScheduler } from './services/steam/sessions.service.js';
+-import { startPoller as startNowPlayingPoller } from './services/steam/now-playing.service.js';
+-import { load as loadPlayLog } from './services/steam/play-log.service.js';
+-import discoverRouter from './routers/steam/discover.router.js';
+-import { startPoller as startFeaturedPoller } from './services/steam/featured-poller.js';
+ import adminRouter from './routers/admin/admin.router.js';
+-import homeRouter from './routers/home/home.router.js';
+ import slocRouter from './routers/sloc/sloc.router.js';
+ import coverageRouter from './routers/coverage/coverage.router.js';
+ import activityRouter from './routers/activity/activity.router.js';
+ import { installActivityTracker, createActivityMiddleware } from '../activity.js';
+-import recommendRouter from './routers/recommend/recommend.router.js';
+-// Wave-2 fold-in: guides/reddit/nexus/progress-suggest/news moved to
+-// gaming-journal. pin stays HERE until the Wave-3+4 window — it is welded to
+-// the now-playing poller (session open/close pins) which is still relay-owned.
+-import pinRouter from './routers/pin/pin.router.js';
+-import { startup as startPin } from './services/pin/pin.service.js';
+-import { buildApplist } from './services/steam/applist.service.js';
+-import { backfillAll as backfillAdultContent } from './services/steam/adult-content.service.js';
+-import { backfill, recheckUnavailableWishlistItems } from './services/provision.service.js';
+-import { build as buildWishlistCache } from './services/wishlist/wishlist.service.js';
+-import { build as buildUpcomingCache } from './services/steam/upcoming.service.js';
+-import { build as buildGamesCache } from './services/games/games.service.js';
+-import { closeBrowser as closeScraperBrowser } from './services/steam/achievement-schema-scraper.js';
+-// reddit's shared browser can still lazy-launch (pin's refreshForPin path) —
+-// close it on shutdown even though the scheduler moved to the journal.
+-import { closeBrowser as closeRedditBrowser } from './services/reddit/reddit.service.js';
+-import { loadAchievementsCache } from './services/steam/steam.service.js';
+-import { build as buildPlayerCountsCache } from './services/steam/player-counts.service.js';
++// Wave-3+4 fold-in (2026-07-16): the whole gaming surface moved to
++// gaming-journal — steam (library/store/stats/account/sessions/images/videos/
++// player-counts/discover/featured/snapshots/applist/adult-content/
++// achievements/now-playing/play-log), games, wishlist, account, home,
++// recommend, pin, provision backfill, and the /images/steam + /videos/steam
++// statics (with serveWithWebp). Their routers/services remain in the tree but
++// nothing here imports, mounts, or schedules them; no code path launches a
++// Puppeteer browser relay-side any more. The relay now serves mail (+ its
++// schedulers), sms, the meta routes (health/sloc/coverage/activity), the
++// mail-trigger subset of /api/admin, and the /api/dashboard metrics surface.
+ import { loadMeta } from './services/mail/messages.service.js';
+ import { loadIndex } from './services/mail/index.service.js';
+ import { loadDeliveries } from './services/mail/amazon.service.js';
+@@ -62,9 +35,8 @@ logger.startup({ name: 'relay-server', version: '1.0.0' });
+ 
+ // Fleet activity reporting (see activity.js + /activity route). Passive: no
+ // nasDir → no filesystem scanning. NAS writes are counted in-process at the
+-// ManagedFile choke point (utility/managed-file.js) and at the heavy binary
+-// download sites (nexus mods, reddit/steam media, guide images); request traffic
+-// via the middleware below. All ride alongside work that already happens.
++// ManagedFile choke point (utility/managed-file.js); request traffic via the
++// middleware below. All ride alongside work that already happens.
+ installActivityTracker({ name: 'relay-server', root: process.cwd() });
+ 
+ const app = express();
+@@ -73,12 +45,8 @@ const port = process.env.PORT;
+ app.use(express.json());
+ app.use(createActivityMiddleware());
+ 
+-const imagesRoot = path.join(process.env.DATA_DIR, 'relay', 'steam', 'images');
+-app.use('/images/steam', express.static(imagesRoot));
+-
+-// Wave-2 fold-in: reddit/nexus media statics are served by gaming-journal now.
+-const videosRoot = path.join(process.env.DATA_DIR, 'relay', 'steam', 'videos');
+-app.use('/videos/steam', express.static(videosRoot));
++// Wave-3+4 fold-in: the /images/steam and /videos/steam statics are served by
++// gaming-journal now (reddit/nexus media moved in Wave 2).
+ 
+ // Static assets (favicon, logo, the dashboard page). Mounted ahead of the API
+ // routers; nothing under /api shares a path with a file in here.
+@@ -89,24 +57,9 @@ app.use('/', healthRouter);
+ app.use('/sloc', slocRouter);
+ app.use('/coverage', coverageRouter);
+ app.use('/activity', activityRouter);
+-app.use('/api/steam', steamRouter);
+-app.use('/api/steam', steamAccountRouter);
+-app.use('/api/steam/store', steamStoreRouter);
+-app.use('/api/steam/playtime', steamSessionsRouter);
+-app.use('/api/steam', steamStatsRouter);
+-app.use('/api/steam/images', steamImagesRouter);
+-app.use('/api/videos',      videosRouter);
+-app.use('/api/player-counts', playerCountsRouter);
+-app.use('/api/games', gamesRouter)
+-app.use('/api/wishlist', wishlistRouter);
+ app.use('/api/mail', mailRouter);
+ app.use('/api/sms',     smsRouter);
+-app.use('/api/account', accountRouter);
+-app.use('/api/discover', discoverRouter);
+ app.use('/api/admin', adminRouter);
+-app.use('/api/home',    homeRouter);
+-app.use('/api/recommend', recommendRouter);
+-app.use('/api/pin',       pinRouter);
+ app.use('/api/dashboard', dashboardRouter);
+ 
+ async function startMailServices() {
+@@ -125,15 +78,6 @@ const _server = app.listen(port, () => {
+     _server.keepAliveTimeout = 65_000;
+     _server.headersTimeout   = 66_000;
+ 
+-    // Play-log must be in memory before the now-playing poller and account cache
+-    // start — they both read session data.  Everything else can run in parallel.
+-    loadPlayLog()
+-        .then(() => {
+-            startNowPlayingPoller().catch(err => logger.error('Now-playing poller startup failed', err));
+-            buildAccountCache().catch(err => logger.error('Account cache build failed', err));
+-        })
+-        .catch(err => logger.error('Play-log startup failed', err));
+-
+     // Metrics first: the schedulers below record runs against it. recordRun()
+     // lazily opens its own bucket, so a run landing before this resolves is
+     // still captured — load() rebuilds the status index from the same file.
+@@ -141,30 +85,20 @@ const _server = app.listen(port, () => {
+         .then(() => startDiskUsageScheduler())
+         .catch(err => logger.error('Metrics startup failed', err));
+ 
+-    startPin().catch(err => logger.error('Pin startup failed', err));
+-    startFeaturedPoller();
+-    startSnapshotScheduler().catch(err => logger.error('Snapshot scheduler startup failed', err));
+     startMailServices().catch(err => logger.error('Mail startup failed', err));
+     startSms().catch(err => logger.error('SMS startup failed', err));
+-    buildWishlistCache().catch(err => logger.error('Wishlist cache build failed', err));
+-    buildUpcomingCache().catch(err => logger.error('Upcoming cache build failed', err));
+-    buildGamesCache().catch(err => logger.error('Games cache build failed', err));
+-    buildPlayerCountsCache().catch(err => logger.error('Player counts cache build failed', err));
+-    buildApplist()
+-        .then(() => backfillAdultContent().catch(err => logger.error('Adult content backfill failed', err)))
+-        .catch(err => logger.error('App list build failed', err));
+-    loadAchievementsCache().catch(err => logger.error('Achievement cache load failed', err));
+-    backfill().catch(err => logger.error('Startup backfill failed', err));
+-    recheckUnavailableWishlistItems().catch(err => logger.error('Startup unavailable recheck failed', err));
+-    // Wave-2 fold-in: nexus + reddit schedulers moved to gaming-journal. The
+-    // reddit browser now lazy-launches only if pin's refreshForPin needs it.
++    // Wave-3+4 fold-in (2026-07-16): the play-log → now-playing poller →
++    // account-cache chain, the pin/featured/snapshot schedulers, and every
++    // gaming cache build (wishlist/upcoming/games/player-counts/applist/
++    // adult-content/achievements) plus the provision backfills now run in
++    // gaming-journal.
+ });
+ 
+-// Graceful shutdown — close the shared Puppeteer browser so Chrome exits cleanly
++// Graceful shutdown. Wave-3+4 fold-in: the Puppeteer browser closers are gone —
++// pin (the last relay-side browser consumer) moved to gaming-journal, so
++// nothing launches a browser in this process any more.
+ for (const sig of ['SIGINT', 'SIGTERM']) {
+     process.once(sig, async () => {
+-        await closeScraperBrowser();
+-        await closeRedditBrowser();
+         // Flush buffered run records before exit — ManagedFile batches writes on
+         // a 60s window, so an unflushed close loses up to a minute of history.
+         await closeMetrics().catch(err => logger.error('Metrics close failed', err));
+diff --git a/src/services/metrics/actions.js b/src/services/metrics/actions.js
+index 22343f5..4680820 100644
+--- a/src/services/metrics/actions.js
++++ b/src/services/metrics/actions.js
+@@ -5,21 +5,18 @@
+  * history exactly like a scheduled one — the chart and the status column do not
+  * distinguish them, and they shouldn't: a record pulled is a record pulled.
+  *
+- * Not every source is here.  `steam:news` needs an appid, `steam:videos` is a
+- * CLI tool, and `steam:account` has no sync entrypoint of its own.  Sources
+- * absent from this map report `canSync: false` and get no button.
++ * Wave-3+4 fold-in (2026-07-16): the steam:* triggers (library, sessions,
++ * player-counts, achievements, reviews, images, featured) moved to
++ * gaming-journal along with their services and schedulers — following hltb/
++ * itad/protondb/pcgw/community-reviews (Wave 1) and reddit (Wave 2). mail is
++ * the only source the relay still syncs, so it is the only action left.
++ * Sources absent from this map report `canSync: false` and get no button.
+  */
+ 
+ import logger from '../../logger.js';
+ import { tracked } from './tracked.js';
+-import { begin, end, isRunning, setProgress } from './job-guard.js';
++import { begin, end, isRunning } from './job-guard.js';
+ 
+-import { syncGames, syncWishlist, syncRecentlyPlayed, syncAchievements, getGames, getWishlist, getRecentlyPlayed } from '../steam/steam.service.js';
+-import { takeSnapshot, deriveSessions, countNewIds } from '../steam/sessions.service.js';
+-import { collectOwned, collectGlobalTop } from '../steam/player-counts.service.js';
+-import { incrementalScrapeReviews } from '../steam/scrape-reviews.service.js';
+-import { syncGameImages } from '../steam/images.service.js';
+-import { pollOnce as pollFeatured } from '../steam/featured-poller.js';
+ import { incrementalSync as syncMail } from '../mail/sync.service.js';
+ 
+ /**
+@@ -39,89 +36,7 @@ export function combine(results) {
+     }), { fetched: 0, created: 0, updated: 0, skipped: 0, failed: 0, total: 0 });
+ }
+ 
+-/**
+- * An onProgress callback bound to a source id, routed into the job guard so the
+- * row renders a determinate meter instead of an indeterminate pulse.
+- *
+- * Every long-running sync reports: achievements, images, community-reviews,
+- * hltb, itad, protondb, pcgw, reddit. The short ones (library, sessions,
+- * reviews, featured, player-counts) finish in seconds and keep the pulse, as
+- * does mail, which tracks progress in its own syncProgress map.
+- *
+- * A sync must call onProgress(0, total) BEFORE its first unit of work — the
+- * guard treats total: 0 as indeterminate, so reporting only at the end (which
+- * itad used to do) leaves a multi-minute job showing a pulse the whole way.
+- */
+-const progressFor = id => (done, total) => setProgress(id, done, total);
+-
+ const ACTIONS = {
+-    /**
+-     * A manual library sync must report novelty the same way the snapshot tick
+-     * does — by diffing appid sets before and after. Reporting only `fetched`
+-     * would chart 0 new games for a sync that actually found one, purely
+-     * because it was triggered from a button instead of a timer.
+-     */
+-    'steam:library': async () => {
+-        // force: a manual trigger means "go now", not "go if the 24h TTL expired".
+-        const gamesBefore    = await getGames();
+-        const wishlistBefore = await getWishlist();
+-        const recentBefore   = await getRecentlyPlayed();
+-
+-        const games    = await syncGames({ force: true });
+-        const wishlist = await syncWishlist({ force: true });
+-        const recent   = await syncRecentlyPlayed({ force: true });
+-
+-        const appids = v => (v?.games ?? []).map(g => g.appid);
+-
+-        return combine([
+-            {
+-                fetched: games?.games?.length ?? 0,
+-                created: countNewIds(appids(gamesBefore), appids(games)),
+-            },
+-            {
+-                fetched: Object.keys(wishlist?.items ?? {}).length,
+-                created: countNewIds(Object.keys(wishlistBefore?.items ?? {}), Object.keys(wishlist?.items ?? {})),
+-            },
+-            {
+-                fetched: recent?.games?.length ?? 0,
+-                created: countNewIds(appids(recentBefore), appids(recent)),
+-            },
+-        ]);
+-    },
+-
+-    'steam:sessions': async () => {
+-        await takeSnapshot();
+-        await deriveSessions();
+-        return { fetched: 1, total: 1 };
+-    },
+-
+-    'steam:player-counts': async () => combine([await collectOwned(), await collectGlobalTop()]),
+-
+-    /**
+-     * NOT forced, unlike the library trigger above.
+-     *
+-     * `force` here does not mean "skip a cheap TTL check" — it replaces the
+-     * whole selection with every candidate game, each costing a Steam API call
+-     * and possibly a Puppeteer schema scrape. A button labelled "Sync" must not
+-     * be a heavier hammer than the timer that normally drives it. Running now
+-     * with the usual selection is what the user is asking for.
+-     *
+-     * syncAchievements only re-fetches games that are new or played since their
+-     * last sync, so every synced game is a changed record. The mapper mirrors
+-     * the snapshot tick — without it a manual sync charts 0 new records.
+-     */
+-    'steam:achievements': async () => {
+-        const r = await syncAchievements({ onProgress: progressFor('steam:achievements') });
+-        return { fetched: r.synced, updated: r.synced, skipped: r.skipped, failed: r.failed };
+-    },
+-
+-    'steam:reviews':           () => incrementalScrapeReviews(),
+-    'steam:images':            () => syncGameImages({ onProgress: progressFor('steam:images') }),
+-    'steam:featured':          () => pollFeatured(),
+-
+-    // Wave-1 fold-in: hltb/itad/protondb/pcgw/steam:community-reviews are
+-    // journal-owned — their manual triggers live in the journal now.
+-    // Wave-2 fold-in: reddit is journal-owned — its trigger lives there now.
+     mail:     () => syncMail(),        // reports via its own syncProgress map
+ };
+ 
+diff --git a/src/services/metrics/sources.js b/src/services/metrics/sources.js
+index 41bcde5..b9decea 100644
+--- a/src/services/metrics/sources.js
++++ b/src/services/metrics/sources.js
+@@ -30,10 +30,11 @@ const DAY  = 24 * HOUR;
+ /**
+  * `kind` is what the dashboard's staleness logic keys off, so it must describe
+  * what actually runs rather than what conceptually could.  A source is only
+- * 'scheduled' if a timer calls a tracked() entrypoint for it — everything else,
+- * including subsystems that write on demand (steam:images fires only when the
+- * achievement sync finds new games) or from a CLI tool (steam:videos), is
+- * 'on-demand' and never raises a staleness warning.
++ * 'scheduled' if a timer IN THIS PROCESS calls a tracked() entrypoint for it —
++ * everything else, including every journal-owned source (whose timers run in
++ * gaming-journal since the fold-in waves), is 'on-demand' here and never
++ * raises a staleness warning.  After the Wave-3+4 fold-in (2026-07-16) the
++ * only timer left relay-side is mail's.
+  *
+  * `intervalMs` is the cadence of that timer.  A scheduled source is considered
+  * stale once it has gone STALE_FACTOR intervals without a successful run.
+@@ -60,18 +61,20 @@ const DAY  = 24 * HOUR;
+  */
+ export const SOURCES = [
+     // ── Steam (split by subsystem) ────────────────────────────────────────────
+-    // The 30-minute snapshot tick drives library / sessions / player-counts /
+-    // reviews / achievements.
+-    { id: 'steam:library',           source: 'steam',    label: 'Steam Library',       kind: 'scheduled', intervalMs: 30 * MIN, syncable: true, cadence: 'entity',   novelty: true,  prefixes: ['steam/games.json', 'steam/wishlist.json', 'steam/recently-played.json', 'steam/applist.json', 'steam/library-firstseen.json', 'steam/adult-appids.json'] },
+-    { id: 'steam:achievements',      source: 'steam',    label: 'Steam Achievements',  kind: 'scheduled', intervalMs: 30 * MIN, syncable: true, cadence: 'entity',   novelty: true,  prefixes: ['steam/achievements'] },
+-    { id: 'steam:reviews',           source: 'steam',    label: 'Steam Reviews',       kind: 'scheduled', intervalMs: 30 * MIN, syncable: true, cadence: 'entity',   novelty: true,  prefixes: ['steam/reviews.json'] },
++    // Wave-3+4 fold-in (2026-07-16): the 30-minute snapshot tick — and every
++    // other steam scheduler/trigger — runs in gaming-journal now. Every steam
++    // row is on-demand relay-side (no timer here may raise a staleness
++    // warning) and none is syncable. Prefixes stay: disk attribution remains
++    // valid until the data relocates (fold-in plan § Phase 6).
++    { id: 'steam:library',           source: 'steam',    label: 'Steam Library',       kind: 'on-demand', cadence: 'entity',   novelty: true,  prefixes: ['steam/games.json', 'steam/wishlist.json', 'steam/recently-played.json', 'steam/applist.json', 'steam/library-firstseen.json', 'steam/adult-appids.json'] },
++    { id: 'steam:achievements',      source: 'steam',    label: 'Steam Achievements',  kind: 'on-demand', cadence: 'entity',   novelty: true,  prefixes: ['steam/achievements'] },
++    { id: 'steam:reviews',           source: 'steam',    label: 'Steam Reviews',       kind: 'on-demand', cadence: 'entity',   novelty: true,  prefixes: ['steam/reviews.json'] },
+     // Sampling: one playtime snapshot per tick. Never charted as "new records".
+-    { id: 'steam:sessions',          source: 'steam',    label: 'Steam Sessions',      kind: 'scheduled', intervalMs: 30 * MIN, syncable: true, cadence: 'sampling', prefixes: ['steam/sessions', 'steam/playtime-snapshots.json', 'steam/play-log.json'] },
++    { id: 'steam:sessions',          source: 'steam',    label: 'Steam Sessions',      kind: 'on-demand', cadence: 'sampling', prefixes: ['steam/sessions', 'steam/playtime-snapshots.json', 'steam/play-log.json'] },
+     // Sampling: ~2,400 player-count observations a day, all new by construction.
+-    { id: 'steam:player-counts',     source: 'steam',    label: 'Steam Player Counts', kind: 'scheduled', intervalMs: 30 * MIN, syncable: true, cadence: 'sampling', prefixes: ['steam/player-counts'] },
+-    { id: 'steam:featured',          source: 'steam',    label: 'Steam Featured',      kind: 'scheduled', intervalMs: 60 * MIN, syncable: true, cadence: 'entity',   novelty: true,  prefixes: ['steam/featured-', 'steam/poster-index.json'] },
+-    // Fires only when the achievement sync turns up new games — not on a timer.
+-    { id: 'steam:images',            source: 'steam',    label: 'Steam Images',        kind: 'on-demand', syncable: true, cadence: 'entity', novelty: true, prefixes: ['steam/images'] },
++    { id: 'steam:player-counts',     source: 'steam',    label: 'Steam Player Counts', kind: 'on-demand', cadence: 'sampling', prefixes: ['steam/player-counts'] },
++    { id: 'steam:featured',          source: 'steam',    label: 'Steam Featured',      kind: 'on-demand', cadence: 'entity',   novelty: true,  prefixes: ['steam/featured-', 'steam/poster-index.json'] },
++    { id: 'steam:images',            source: 'steam',    label: 'Steam Images',        kind: 'on-demand', cadence: 'entity', novelty: true, prefixes: ['steam/images'] },
+     // Wave-1 fold-in: journal-owned; no relay-side trigger (kind stays for disk attribution).
+     { id: 'steam:community-reviews', source: 'steam',    label: 'Community Reviews',   kind: 'on-demand', cadence: 'entity', novelty: true, prefixes: ['steam/community-reviews'] },
+     { id: 'steam:stats',             source: 'steam',    label: 'Steam Player Stats',  kind: 'on-demand', cadence: 'entity', prefixes: ['steam/player-stats.json'] },
+diff --git a/src/tests/metrics/actions.test.js b/src/tests/metrics/actions.test.js
+index d1d6b96..dad8aa2 100644
+--- a/src/tests/metrics/actions.test.js
++++ b/src/tests/metrics/actions.test.js
+@@ -30,10 +30,13 @@ describe('action registry', () => {
+ 
+     test('canSync agrees with the action map', () => {
+         // Wave-1/2 fold-in: itad/hltb/reddit are journal-owned — no relay trigger.
++        // Wave-3+4 fold-in (2026-07-16): the steam:* triggers followed them to
++        // gaming-journal; mail is the only action left relay-side.
+         assert.equal(canSync('itad'), false);
+         assert.equal(canSync('hltb'), false);
+         assert.equal(canSync('reddit'), false);
+-        assert.equal(canSync('steam:library'), true);
++        assert.equal(canSync('steam:library'), false);
++        assert.equal(canSync('steam:reviews'), false);
+         assert.equal(canSync('mail'), true);
+     });
+ 
+@@ -47,26 +50,21 @@ describe('action registry', () => {
+ });
+ 
+ describe('manual triggers are not heavier than their timers', () => {
+-    test('only steam:library forces, because force there is three cheap API calls', () => {
+-        // For the sweeping syncs, `force` does not skip a cheap TTL check — it
+-        // replaces the whole work selection with "every game", each costing an
+-        // upstream request (and, for achievements and pcgw, a Puppeteer scrape).
++    test('no remaining action forces a full re-sync', () => {
++        // `force` does not skip a cheap TTL check — it replaces the whole work
++        // selection with "everything", each unit costing an upstream request.
+         // A button labelled "Sync" must never hit an upstream harder than the
+-        // scheduler that normally drives it.
++        // scheduler that normally drives it. Wave-3+4 fold-in (2026-07-16):
++        // steam:library — the one action allowed to force, because there it
++        // was three cheap API calls — moved to gaming-journal; the invariant
++        // stands for whatever remains.
+         const source = fs.readFileSync(
+             path.join(path.dirname(url.fileURLToPath(import.meta.url)), '../../services/metrics/actions.js'),
+             'utf8',
+         );
+         const actionsBlock = source.slice(source.indexOf('const ACTIONS = {'), source.indexOf('/** True when `id` has a manual trigger. */'));
+ 
+-        const forced = [...actionsBlock.matchAll(/force:\s*true/g)];
+-        assert.equal(forced.length, 3, 'expected exactly the three steam:library sub-syncs to force');
+-
+-        const libraryBlock = actionsBlock.slice(
+-            actionsBlock.indexOf("'steam:library'"),
+-            actionsBlock.indexOf("'steam:sessions'"),
+-        );
+-        assert.equal([...libraryBlock.matchAll(/force:\s*true/g)].length, 3, 'all forcing must live in steam:library');
++        assert.equal([...actionsBlock.matchAll(/force:\s*true/g)].length, 0, 'no remaining action may pass force');
+     });
+ });
+ 
+@@ -108,9 +106,9 @@ describe('startSync', () => {
+     test('throws ConflictError when a run is already in flight', () => {
+         // Claim the slot first so startSync short-circuits before invoking the
+         // real sync — this asserts the guard without hitting the network.
+-        // (Fold-in: mail + the steam:* subsystems are the remaining relay triggers.)
+-        begin('steam:library');
+-        assert.throws(() => startSync('steam:library'), ConflictError);
++        // (Wave-3+4 fold-in: mail is the only remaining relay trigger.)
++        begin('mail');
++        assert.throws(() => startSync('mail'), ConflictError);
+     });
+ 
+     test('the conflict carries the source id for the 409 body', () => {
+diff --git a/src/tests/metrics/admin-actions.test.js b/src/tests/metrics/admin-actions.test.js
+index a09c251..009b832 100644
+--- a/src/tests/metrics/admin-actions.test.js
++++ b/src/tests/metrics/admin-actions.test.js
+@@ -6,10 +6,12 @@ import os from 'node:os';
+ import express from 'express';
+ 
+ process.env.DATA_DIR = path.join(os.tmpdir(), `relay-test-admin-${process.pid}`);
+-// incrementalScrapeReviews() short-circuits to { added: 0 } without a vanity
+-// URL, giving us a real action that exercises the whole stack — route → guard →
+-// tracked() → recordRun — without a network call.
+-delete process.env.STEAM_VANITY_URL;
++// Wave-3+4 fold-in (2026-07-16): steam:reviews (the old no-network stand-in)
++// moved to gaming-journal. mail's incrementalSync() with no configured
++// accounts (empty DATA_DIR → accounts.json defaults to []) loops over zero
++// accounts and resolves with zeroed counts, giving us a real action that
++// exercises the whole stack — route → guard → tracked() → recordRun — without
++// a network call.
+ 
+ import adminRouter from '../../routers/admin/admin.router.js';
+ import { load, close, getRuns } from '../../services/metrics/sync-metrics.service.js';
+@@ -61,19 +63,22 @@ beforeEach(async () => {
+ // ── The colon in a source id ──────────────────────────────────────────────────
+ 
+ describe('source id routing', () => {
++    // Wave-3+4 fold-in (2026-07-16): steam:reviews moved to gaming-journal, so
++    // no syncable id carries a colon any more. Colon decoding is still a real
++    // routing invariant (the id reaches canSync() through req.params), so it is
++    // asserted through the 404 body, which echoes the id exactly as the
++    // controller decoded it — an undecoded id would echo 'steam%3Areviews'.
+     test('a percent-encoded colon reaches the controller decoded', async () => {
+         // The UI sends encodeURIComponent('steam:reviews') → 'steam%3Areviews'.
+-        // If Express did not decode it, canSync() would miss and answer 404.
+         const res = await post(`/api/admin/sources/${encodeURIComponent('steam:reviews')}/sync`);
+-        assert.equal(res.status, 202);
+-        assert.equal((await res.json()).id, 'steam:reviews');
+-        await waitIdle('steam:reviews');
++        assert.equal(res.status, 404);
++        assert.match((await res.json()).error, /No sync action for source: steam:reviews$/);
+     });
+ 
+     test('a raw, unencoded colon also routes correctly', async () => {
+         const res = await post('/api/admin/sources/steam:reviews/sync');
+-        assert.equal(res.status, 202);
+-        await waitIdle('steam:reviews');
++        assert.equal(res.status, 404);
++        assert.match((await res.json()).error, /No sync action for source: steam:reviews$/);
+     });
+ 
+     test('an unknown source answers 404 and lists what is available', async () => {
+@@ -82,8 +87,8 @@ describe('source id routing', () => {
+ 
+         const body = await res.json();
+         assert.match(body.error, /No sync action/);
+-        // Fold-in: only mail + steam:* subsystems remain relay-triggerable.
+-        assert.ok(body.available.includes('mail'));
++        // Wave-3+4 fold-in: mail is the only relay-triggerable source left.
++        assert.deepEqual(body.available, ['mail']);
+     });
+ 
+     test('a known source with no trigger answers 404, not 500', async () => {
+@@ -95,40 +100,42 @@ describe('source id routing', () => {
+ // ── The full stack: route → guard → tracked() → recordRun ─────────────────────
+ 
+ describe('startSync end to end', () => {
++    // Wave-3+4 fold-in (2026-07-16): the stack is exercised through mail, the
++    // only remaining relay-side trigger (no-network — see the header note).
+     test('a triggered sync records a run in the metrics store', async () => {
+-        const res = await post(`/api/admin/sources/${encodeURIComponent('steam:reviews')}/sync`);
++        const res = await post('/api/admin/sources/mail/sync');
+         assert.equal(res.status, 202);
++        assert.equal((await res.json()).id, 'mail');
+ 
+-        await waitIdle('steam:reviews');
++        await waitIdle('mail');
+ 
+         const runs = await getRuns({ sinceMs: Date.now() - 60_000 });
+-        const run = runs.find(r => r.id === 'steam:reviews');
++        const run = runs.find(r => r.id === 'mail');
+         assert.ok(run, 'the manual run must land in the history like a scheduled one');
+         assert.equal(run.ok, true);
+         assert.ok(run.ms >= 0);
+     });
+ 
+     test('the guard is claimed synchronously, before the response is sent', async () => {
+-        const inFlight = post(`/api/admin/sources/${encodeURIComponent('steam:reviews')}/sync`);
++        const inFlight = post('/api/admin/sources/mail/sync');
+         // Not awaited yet — but startSync() ran begin() before returning.
+         const res = await inFlight;
+         assert.equal(res.status, 202);
+-        await waitIdle('steam:reviews');
++        await waitIdle('mail');
+     });
+ 
+     test('the guard is released once the sync settles', async () => {
+-        await post(`/api/admin/sources/${encodeURIComponent('steam:reviews')}/sync`);
+-        await waitIdle('steam:reviews');
+-        assert.equal(isRunning('steam:reviews'), false);
++        await post('/api/admin/sources/mail/sync');
++        await waitIdle('mail');
++        assert.equal(isRunning('mail'), false);
+ 
+         // ...and the source can be triggered again.
+-        const again = await post(`/api/admin/sources/${encodeURIComponent('steam:reviews')}/sync`);
++        const again = await post('/api/admin/sources/mail/sync');
+         assert.equal(again.status, 202);
+-        await waitIdle('steam:reviews');
++        await waitIdle('mail');
+     });
+ 
+     test('an overlapping trigger answers 409 rather than doubling the request rate', async () => {
+-        // Fold-in: mail is the remaining always-relay-owned trigger.
+         begin('mail');   // stand in for a scheduled run already in flight
+         try {
+             const res = await post('/api/admin/sources/mail/sync');
+@@ -143,10 +150,16 @@ describe('startSync end to end', () => {
+     });
+ 
+     test('a 409 does not disturb the in-flight run', async () => {
+-        begin('itad');
+-        await post('/api/admin/sources/itad/sync');
+-        assert.equal(isRunning('itad'), true, 'the rejected trigger must not clear the guard');
+-        end('itad');
++        // (Rewritten for the Wave-3+4 fold-in: this used itad, which lost its
++        // relay trigger in Wave 1 and had been answering 404, not 409.)
++        begin('mail');
++        try {
++            const res = await post('/api/admin/sources/mail/sync');
++            assert.equal(res.status, 409);
++            assert.equal(isRunning('mail'), true, 'the rejected trigger must not clear the guard');
++        } finally {
++            end('mail');
++        }
+     });
+ });
+ 
+@@ -154,10 +167,13 @@ describe('startSync end to end', () => {
+ 
+ describe('GET /api/admin/sources', () => {
+     test('lists triggerable sources and what is running', async () => {
++        // The guard is source-agnostic, so `running` can name a journal-owned
++        // source (a scheduled run elsewhere) while `available` lists only what
++        // this relay can trigger — mail, after the Wave-3+4 fold-in.
+         begin('hltb');
+         try {
+             const body = await (await fetch(`${base}/api/admin/sources`)).json();
+-            assert.ok(body.available.includes('steam:library'));
++            assert.ok(body.available.includes('mail'));
+             assert.deepEqual(body.running, ['hltb']);
+             assert.equal(body.diskScanning, false);
+         } finally {
+diff --git a/src/tests/metrics/dashboard.test.js b/src/tests/metrics/dashboard.test.js
+index 7cbd69f..0e1aaf9 100644
+--- a/src/tests/metrics/dashboard.test.js
++++ b/src/tests/metrics/dashboard.test.js
+@@ -328,11 +328,23 @@ describe('isCharted', () => {
+         assert.equal(isCharted('nope'), false);
+     });
+ 
+-    test('every sampling source is a scheduled source', () => {
+-        // A sampling source that no timer drives would be invisible everywhere:
+-        // excluded from the chart, and never raising a staleness warning.
+-        for (const s of SOURCES.filter(s => s.cadence === 'sampling')) {
+-            assert.equal(s.kind, 'scheduled', `${s.id} samples but nothing schedules it`);
++    test('mail is the only scheduled source left relay-side', () => {
++        // Wave-3+4 fold-in (2026-07-16): every gaming timer now runs in
++        // gaming-journal. The old invariant here — "every sampling source is a
++        // scheduled source" — moved there with the timers; relay-side, any
++        // other scheduled kind would raise staleness warnings for timers that
++        // no longer exist in this process.
++        assert.deepEqual(
++            SOURCES.filter(s => s.kind === 'scheduled').map(s => s.id),
++            ['mail'],
++        );
++    });
++
++    test('a scheduled source declares its interval and a manual trigger', () => {
++        // deriveStatus needs intervalMs to compute staleness, and the drift
++        // test in actions.test.js needs syncable to stay truthful.
++        for (const s of SOURCES.filter(s => s.kind === 'scheduled')) {
++            assert.ok(s.intervalMs > 0, `${s.id} is scheduled but has no intervalMs`);
+         }
+     });
+ });
