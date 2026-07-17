@@ -334,7 +334,26 @@ deliberately deferred.
    run the full RN smoke pass anyway; check the hardcoded `192.168.86.65` in
    `react-native/src/app/(drawer)/settings.tsx` for anything port-specific.
 
-## 4b. Wave 1 cutover runbook (prepared 2026-07-16 — NOT yet executed)
+## 4b. Wave 1 cutover runbook — ✅ EXECUTED 2026-07-16 ~23:56Z
+
+**Wave 1 is LIVE**: itad/protondb/hltb/pcgw/community-reviews serve from the
+journal with schedulers running (`RELAY_FORWARD_<X>=local` in `.env.local`);
+the relay 404s them directly; all other features still forward. Verified:
+scheduler start logs, local-serve content-type fingerprints, relay 404s,
+hltb retry's first real pass, forwards intact.
+
+**Wave 2 status:** relay shrink shipped (`6ee2ac6`, relay tests 971/0 — guides/
+reddit/nexus/progress-suggest/news unmounted; **pin deliberately stays relay-side
+until Wave 3+4**, welded to the still-relay-owned now-playing poller, accepting a
+narrow dual-writer overlap on the pinned game's reddit entry; admin news-refresh
+proxies to the journal). **Window pending a quiet now-playing** — watcher armed.
+Window = append to `.env.local`: `RELAY_FORWARD_GUIDES/REDDIT/NEXUS/
+PROGRESS_SUGGEST/NEWS=local`, delete the `SCHED_REDDIT|SCHED_NEXUS=off` lines,
+then relay pull + restart both.
+
+The original (now historical) runbook follows.
+
+### Original Wave-1 runbook (historical)
 
 **Scope:** itad, protondb, hltb, pcgw, community-reviews move to the journal.
 All five are code-complete with live parity green (6/6, 4/4, 4/4, 5/5, 4/4) and
