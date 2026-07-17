@@ -354,9 +354,21 @@ relay 404s every gaming route, relay mail (`/api/mail/accounts` 200) +
 dashboard intact. One fleet gotcha hit exactly as documented: Chrome needed
 the one-time manual install into `.puppeteer-cache` (deployment.md §6).
 
-**Remaining:** Phase 6 relocation (seed rsync of 569G in progress → delta +
-`RELAY_DATA_ROOT` flip at a quiet moment) and Phase 7 decommission (gated on
-the mail app port finishing; relay then retires entirely).
+**Phase 6 (data relocation) — ✅ DONE 2026-07-17 ~18:30Z.** Data moved from
+`$DATA_DIR/relay` → `$DATA_DIR/gaming-journal/relay`; `RELAY_DATA_ROOT` flipped
+in `.env.local`; journal restarted, all caches rebuilt on the new root; first
+post-restart tick verified writing to the NEW tree (18:30:45) with the OLD tree
+frozen (13:17:33) as rollback. **Gotcha for future ops:** the CIFS/SMB mount
+does not return rsync-matchable mtimes, so `rsync` re-transfers the *entire*
+tree every pass (no working quick-check) — the "seed then fast delta" plan
+degraded to a full ~600G re-copy with the app stopped, i.e. a longer window than
+"minutes." If relocating again, prefer `cp -a`/robocopy or accept the full-copy
+downtime; don't trust rsync deltas on this share.
+
+**Remaining:** only Phase 7 decommission — gated on the mail app port finishing.
+Then: remove relay from both fleet registries, `pm2 delete relay-server`,
+delete the frozen `$DATA_DIR/relay` tree, merge relay `docs/features/*` +
+relocate relay `tools/*`.
 
 The original runbooks below are historical.
 
