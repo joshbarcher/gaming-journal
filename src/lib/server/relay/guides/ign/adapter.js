@@ -149,6 +149,17 @@ export function extractGameName($) {
 }
 
 /**
+ * IGN serves editorial drafts under a "slate/" path segment
+ * (…/wikis/{slug}/slate/{Page}) that mirrors an already-published page. A reader
+ * link to one resolves to a draft stub the parser can't render — a blank page.
+ * Drop the namespace so it points at the published page instead.
+ * "slate/Tziah_(Floors_119_-_144)_Tartarus_Walkthrough" → "Tziah_(Floors_119_-_144)_Tartarus_Walkthrough"
+ */
+function stripWikiNamespace(pagePath) {
+    return pagePath.replace(/^slate\//i, '');
+}
+
+/**
  * Extract the page slug from a full IGN wiki URL or path.
  * "/wikis/pragmata/Walkthrough" → "Walkthrough"
  * "/wikis/pragmata"             → null (homepage)
@@ -158,8 +169,8 @@ export function pageSlugFromHref(href, wikiSlug) {
     if (!href.startsWith(prefix)) return null;
     const rest = href.slice(prefix.length);
     if (!rest || rest.startsWith('#')) return null;
-    // Strip any trailing anchor
-    return decodeURIComponent(rest.split('#')[0]);
+    // Strip any trailing anchor, then any editorial namespace segment.
+    return stripWikiNamespace(decodeURIComponent(rest.split('#')[0]));
 }
 
 /**
@@ -403,42 +414,123 @@ export function extractNavTree($, wikiSlug, manifestPages) {
 }
 
 /**
- * Rewrite internal IGN wiki links to relative paths.
+ * Resolve an IGN link's slug to a page that actually exists in this guide.
  *
- * IGN internal links: /wikis/pragmata/Prologue_Walkthrough
- * Rewritten to:       ../prologue-walkthrough/
+ * A wiki cross-reference often names a page by a title that no longer matches its
+ * current filesystem slug — IGN renames and re-splits pages, and the link text
+ * lags. We try, in order of confidence:
+ *   1. exact match
+ *   2. token-subset either direction, so long as the page explains most of the
+ *      link's own words and the match is unambiguous. This rescues:
+ *        "final-mission-january-31"            → "final-mission-the-promised-day-january-31"  (link ⊆ page)
+ *        "slate-tziah-floors-119-144-…-walkthrough" → "tziah-floors-119-144-…-walkthrough"    (page ⊆ link)
+ *      while refusing to fold a specific link ("arqa-part-2-tartarus-walkthrough")
+ *      into a generic hub page ("tartarus-walkthrough") on a shared suffix alone.
  *
- * @param {string} html      - HTML string to rewrite
- * @param {string} wikiSlug  - e.g. "pragmata"
+ * Returns the resolved known slug, or null if the target isn't in this guide
+ * (a dead cross-reference — IGN removed or never surfaced the page). With no
+ * knownSlugs set (defensive), the slug is trusted as-is.
+ *
+ * @param {string} fsSlug
+ * @param {Set<string>} [knownSlugs]
+ * @returns {string|null}
+ */
+function resolveKnownSlug(fsSlug, knownSlugs) {
+    if (!knownSlugs) return fsSlug;
+    if (knownSlugs.has(fsSlug)) return fsSlug;
+
+    const target = fsSlug.split('-').filter(Boolean);
+    if (target.length < 2) return null;            // too generic to match safely
+    const targetSet = new Set(target);
+
+    let best = null, bestDelta = Infinity, tie = false;
+    for (const s of knownSlugs) {
+        const toks   = s.split('-').filter(Boolean);
+        const tokSet = new Set(toks);
+        const linkInPage = target.every(t => tokSet.has(t));   // link title ⊆ page title
+        const pageInLink = toks.every(t => targetSet.has(t));  // page title ⊆ link title
+        if (!linkInPage && !pageInLink) continue;
+        // The matched page must cover most of the LINK's own words, so a short,
+        // generic page can't swallow a specific link that merely shares its suffix.
+        const shared = Math.min(target.length, toks.length);
+        if (shared / target.length < 0.6) continue;
+        const delta = Math.abs(toks.length - target.length);
+        if (delta < bestDelta) { best = s; bestDelta = delta; tie = false; }
+        else if (delta === bestDelta && s !== best) tie = true;
+    }
+    return tie || !best ? null : best;
+}
+
+/**
+ * Rewrite internal IGN wiki links in a block's inline HTML.
+ *
+ *   in-guide page   → bare slug, fragment preserved ("prologue-walkthrough#gear")
+ *   wiki root        → "#" (the guide landing)
+ *   dead / off-wiki  → the <a> is unwrapped into <span class="gv-keyword">, keeping
+ *                      its text (and any inline markup) as an emphasised keyword
+ *                      rather than a link that navigates the app to a page with no
+ *                      content. IGN renames and removes pages, so cross-references
+ *                      to them go stale; left as live links they render blank pages.
+ *
+ * Runs after preprocessRawHtml has relativised absolute ign.com URLs, so every
+ * remaining "/wikis/…" href is an IGN wiki link we can classify.
+ *
+ * @param {string} html            - inline HTML fragment
+ * @param {string} wikiSlug        - this guide's wiki slug, e.g. "persona-3-reload"
+ * @param {Set<string>} [knownSlugs] - fs slugs of every page fetched for this guide
  * @returns {string}
  */
 export function rewriteInternalLinks(html, wikiSlug, knownSlugs) {
-    // Normalise absolute IGN URLs to root-relative so the single regex handles both forms.
-    // e.g. https://www.ign.com/wikis/slug/Page → /wikis/slug/Page
+    // Belt-and-suspenders: relativise any absolute ign.com wiki URL that slipped
+    // through (preprocessRawHtml normally does this on the raw HTML first).
     const normalized = html.replace(
-        new RegExp(`https?://(?:www\\.)?ign\\.com(/wikis/${wikiSlug}[^"]*)`, 'gi'),
-        (_, path) => path
+        /href="https?:\/\/(?:www\.)?ign\.com(\/wikis\/[^"]*)"/gi,
+        (_, path) => `href="${path}"`
     );
+    if (!normalized.includes('/wikis/')) return normalized;
 
-    return normalized
-        // Bare index URL (no page after wiki slug) → strip the link target
-        .replace(new RegExp(`href="/?wikis/${wikiSlug}/?(?:#[^"]*)?(?=")`, 'g'), 'href="#"')
-        // Page URLs: /wikis/{slug}/{page}[#anchor]
-        .replace(
-            new RegExp(`href="(/wikis/${wikiSlug}/([^"#?]*))([^"]*)"`, 'g'),
-            (_, _full, rawPage, rest) => {
-                let fsSlug = titleToSlug(decodeURIComponent(rawPage));
-                if (knownSlugs && !knownSlugs.has(fsSlug)) {
-                    for (const s of knownSlugs) {
-                        if (s.startsWith(fsSlug) || fsSlug.startsWith(s)) { fsSlug = s; break; }
-                    }
-                }
-                const anchor = rest.startsWith('#')
-                    ? '#' + titleToSlug(decodeURIComponent(rest.slice(1)))
-                    : '';
-                return `href="${fsSlug}${anchor}"`;
-            }
-        );
+    const wikiPrefix = `/wikis/${wikiSlug}`;
+
+    // Fragment mode (3rd arg false) so a block's inline HTML isn't wrapped in
+    // <html><head><body> on serialisation.
+    const $ = cheerio.load(normalized, { decodeEntities: false }, false);
+
+    $('a[href]').each((_, el) => {
+        const a    = $(el);
+        const href = a.attr('href') ?? '';
+        if (!href.startsWith('/wikis/')) return;   // not a wiki link (external handled upstream)
+
+        // Only THIS guide's wiki. Cross-wiki links (/wikis/other-game/…) point off
+        // this guide and would route the SPA to a page it doesn't have — drop them.
+        const thisWiki = href === wikiPrefix
+            || href.startsWith(`${wikiPrefix}/`)
+            || href.startsWith(`${wikiPrefix}#`);
+        if (!thisWiki) {
+            a.replaceWith(`<span class="gv-keyword">${$.html(a.contents())}</span>`);
+            return;
+        }
+
+        let rest = href.slice(wikiPrefix.length);
+        if (rest.startsWith('/')) rest = rest.slice(1);
+        const hashIdx = rest.indexOf('#');
+        const rawPage = hashIdx === -1 ? rest : rest.slice(0, hashIdx);
+        const rawFrag = hashIdx === -1 ? ''   : rest.slice(hashIdx + 1);
+
+        if (!rawPage) { a.attr('href', '#'); return; }   // wiki root → guide landing
+
+        const pagePath = stripWikiNamespace(decodeURIComponent(rawPage));
+        const resolved = resolveKnownSlug(titleToSlug(pagePath), knownSlugs);
+        if (resolved) {
+            const frag = rawFrag ? '#' + titleToSlug(decodeURIComponent(rawFrag)) : '';
+            a.attr('href', resolved + frag);
+            return;
+        }
+
+        // Dead in-guide cross-reference — keep the words, lose the broken link.
+        a.replaceWith(`<span class="gv-keyword">${$.html(a.contents())}</span>`);
+    });
+
+    return $.html();
 }
 
 /**

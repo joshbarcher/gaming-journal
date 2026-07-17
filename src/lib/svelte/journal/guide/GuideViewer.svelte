@@ -26,6 +26,7 @@
     let currentSlug    = $state<string | null>(null)
     let loading          = $state(true)
     let loadingSection   = $state(false)
+    let sectionMissing   = $state(false)
     let error            = $state<string | null>(null)
     let guideSearchOpen  = $state(false)
 
@@ -163,41 +164,48 @@
 
     // ── TOC tree ───────────────────────────────────────────────────────────────
 
-    let openGroups = $state<Set<string>>(new Set())
-
     // Groups nest, so labels alone can collide across branches — key by slug when present.
     function groupKey(item: any): string {
         return item.slug ?? item.label
     }
 
-    function toggleGroup(key: string) {
-        const next = new Set(openGroups)
-        if (next.has(key)) next.delete(key)
-        else next.add(key)
-        openGroups = next
-    }
+    // Slug-less groups (e.g. TheGamer section headers) have no page of their own, so
+    // they can only be expanded by hand. Slug-bearing groups (IGN) are real pages:
+    // clicking their header navigates, and they auto-expand while on their path.
+    let manualOpen = $state<Set<string>>(new Set())
 
-    // Open every group on the path to `slug`, at any depth.
-    function autoOpenGroupFor(slug: string) {
+    // Groups that are the current page or an ancestor of it — always shown expanded.
+    let activePathGroups = $derived.by<Set<string>>(() => {
+        const open = new Set<string>()
         const tree = filteredNavTree
-        if (!tree) return
+        const cur  = currentSlug ? currentSlug.split('#')[0] : null
+        if (!tree || !cur) return open
 
-        function pathTo(items: any[]): string[] | null {
+        function walk(items: any[]): boolean {
+            let hit = false
             for (const item of items) {
                 if (item.type === 'group') {
-                    // Viewing a group's own page opens that group too.
-                    if (item.slug === slug) return [groupKey(item)]
-                    const below = pathTo(item.children ?? [])
-                    if (below) return [groupKey(item), ...below]
-                } else if (item.slug === slug) {
-                    return []
+                    const selfHit  = item.slug === cur
+                    const childHit = walk(item.children ?? [])
+                    if (selfHit || childHit) { open.add(groupKey(item)); hit = true }
+                } else if (item.slug === cur) {
+                    hit = true
                 }
             }
-            return null
+            return hit
         }
+        walk(tree as any[])
+        return open
+    })
 
-        const toOpen = pathTo(tree as any[])
-        if (toOpen?.length) openGroups = new Set([...openGroups, ...toOpen])
+    // A group is open if it's on the active path (auto) or the user toggled it (manual).
+    let openGroups = $derived(new Set([...manualOpen, ...activePathGroups]))
+
+    function toggleGroup(key: string) {
+        const next = new Set(manualOpen)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
+        manualOpen = next
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────
@@ -340,6 +348,25 @@
             const res = await fetch(`${pinsApiUrl}/${encodeURIComponent(id)}`, { method: 'DELETE' })
             if (res.ok) reconcilePins(await res.json())
         } catch { /* offline — keep the optimistic removal */ }
+    }
+
+    // The pins section's open/collapsed state is a single global preference (like the TOC
+    // collapse), persisted server-side via /api/settings so it syncs across devices rather
+    // than living in this browser's localStorage. Default is open.
+    async function loadPinsPref() {
+        try {
+            const res = await fetch('/api/settings')
+            if (res.ok) pinsOpen = !(await res.json()).guidePinsCollapsed
+        } catch { /* offline — keep the open default */ }
+    }
+
+    function togglePins() {
+        pinsOpen = !pinsOpen
+        fetch('/api/settings', {
+            method:  'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ guidePinsCollapsed: !pinsOpen }),
+        }).catch(() => {})
     }
 
     function navToPin(pin: Pin) {
@@ -611,6 +638,7 @@
 
     async function loadSection(slug: string) {
         loadingSection = true
+        sectionMissing = false
         const anchorIdx = slug.indexOf('#')
         const anchor = anchorIdx !== -1 ? slug.slice(anchorIdx + 1) : null
         try {
@@ -619,9 +647,9 @@
                 const baseSlug = slug.slice(0, anchorIdx)
                 data = await fetch(`/relay/api/guides/${appid}/${source}/${guideId}/${encodeURIComponent(baseSlug)}`).then(r => r.ok ? r.json() : null)
             }
-            blocks = data ?? []
+            blocks = Array.isArray(data) ? data : []
+            sectionMissing = !data || (Array.isArray(data) && data.length === 0)
             currentSlug = slug
-            autoOpenGroupFor(slug)
         } finally {
             loadingSection = false
         }
@@ -727,10 +755,14 @@
 
     onMount(async () => {
         tocCollapsed = isMobile() ? true : localStorage.getItem('guide-toc-collapsed') === 'true'
+        // Kick the pins-collapsed preference off in parallel with the guide load; await it
+        // before loading clears so the sidebar's first paint already reflects the stored state.
+        const pinsPref = loadPinsPref()
         try {
             await loadMeta()
             fetch(`/relay/api/guides/${appid}/${source}/${guideId}/mark-used`, { method: 'POST' }).catch(() => {})
             await loadPins()
+            await pinsPref
             if (section) {
                 await loadSection(section)
             }
@@ -771,7 +803,6 @@
             const curBase = currentSlug?.split('#')[0] ?? ''
             if (anchor && sBase === curBase && document.getElementById(anchor)) {
                 currentSlug = s
-                autoOpenGroupFor(sBase)
                 scrollToAnchor(anchor)
                 return
             }
@@ -903,6 +934,12 @@
                     }}
                     onNav={(slug: string, blockPath?: number[]) => navTo(slug, blockPath)}
                 />
+            {:else if sectionMissing}
+                <div class="gv-missing">
+                    <p class="gv-missing-title">This page isn’t available</p>
+                    <p class="gv-missing-sub">It may have been moved or renamed at the source. Pick another page from the contents.</p>
+                    <a class="gv-missing-link" href={guideLandingHref}>← Back to guide overview</a>
+                </div>
             {:else}
                 <GuidePageSearch
                     {blocks}
@@ -992,7 +1029,7 @@
                         {/if}
                         {#if pins.length > 0}
                             <div class="gv-pins-section">
-                                <button class="gv-pins-hd" onclick={() => pinsOpen = !pinsOpen}>
+                                <button class="gv-pins-hd" onclick={togglePins}>
                                     <span class="gv-pins-title">Pins</span>
                                     <span class="gv-pins-count">{pins.length}</span>
                                     <span class="gv-pins-chevron">{pinsOpen ? '▾' : '▸'}</span>
@@ -1030,9 +1067,20 @@
                                 {:else if item.type === 'group'}
                                     {@const key = groupKey(item)}
                                     <div class="gv-toc-group" class:gv-toc-group--open={openGroups.has(key)}>
-                                        <button class="gv-toc-group-hd" onclick={() => toggleGroup(key)}>
-                                            {item.label}
-                                        </button>
+                                        {#if item.slug}
+                                            <!-- Real page + section header: clicking navigates and
+                                                 auto-expands its children (see activePathGroups). -->
+                                            <a
+                                                class="gv-toc-group-hd gv-toc-group-hd--link"
+                                                class:gv-toc-group-hd--active={isActive(item.slug)}
+                                                href={sectionHref(item.slug)}
+                                            >{item.label}</a>
+                                        {:else}
+                                            <!-- Section header with no page of its own — toggle only. -->
+                                            <button class="gv-toc-group-hd" onclick={() => toggleGroup(key)}>
+                                                {item.label}
+                                            </button>
+                                        {/if}
                                         {#if openGroups.has(key)}
                                             <div class="gv-toc-group-body">
                                                 {@render tocItems(item.children ?? [], depth + 1)}

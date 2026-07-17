@@ -115,6 +115,43 @@
     padding: 60px;
 }
 
+/* Shown when a page slug resolves to no content — usually a cross-reference to a
+   page the source renamed or removed. Keeps the reader oriented instead of blank. */
+.gv-missing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 100px 24px;
+    text-align: center;
+}
+
+.gv-missing-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--clr-text);
+}
+
+.gv-missing-sub {
+    margin: 0;
+    max-width: 42ch;
+    font-size: 13px;
+    color: var(--clr-text-dim, rgba(255, 255, 255, 0.55));
+}
+
+.gv-missing-link {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--clr-accent);
+    text-decoration: none;
+}
+
+.gv-missing-link:hover {
+    text-decoration: underline;
+}
+
 /* ── Block styles ────────────────────────────────────────────────────────── */
 
 .gv-h1 {
@@ -536,10 +573,28 @@
     border-color: rgba(201, 168, 76, 0.45);
 }
 
+/* Slug-bearing group headers are links to their own page — kill the anchor
+   underline and match the button's block layout. */
+a.gv-toc-group-hd--link {
+    text-decoration: none;
+}
+
+/* Viewing a group's own page — highlight its header like an active leaf link. */
+.gv-toc-group-hd--active,
+.gv-toc-group-hd--active:hover {
+    background: rgba(201, 168, 76, 0.14);
+    border-color: rgba(201, 168, 76, 0.55);
+    color: var(--clr-accent);
+}
+
 .gv-toc-group--open .gv-toc-group-hd {
     border-radius: 4px 4px 0 0;
     background: rgba(201, 168, 76, 0.07);
     border-color: rgba(201, 168, 76, 0.42);
+}
+
+.gv-toc-group--open .gv-toc-group-hd--active {
+    background: rgba(201, 168, 76, 0.14);
 }
 
 .gv-toc-group-body {

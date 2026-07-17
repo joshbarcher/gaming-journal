@@ -37,7 +37,7 @@ The collapse toggle button (`.gv-toc-gutter-btn`) is `position: fixed; right: 29
 - Three item types from the nav tree:
   - `label` → non-interactive `<span class="gv-toc-label">` (section header text)
   - `link` → `<button class="gv-toc-link">`, active when `isActive(slug)`
-  - `group` → collapsible container with `.gv-toc-group-hd` header and `.gv-toc-group-body` children. Groups track open state in `openGroups` (`$state<Set<string>>`). `autoOpenGroupFor(slug)` opens the group containing the active slug on page navigate.
+  - `group` → collapsible container with `.gv-toc-group-hd` header and `.gv-toc-group-body` children. IGN groups are real pages, so a group **with a `slug`** renders its header as a navigating `<a class="gv-toc-group-hd--link">` (active state `.gv-toc-group-hd--active`); a group **without a slug** (e.g. TheGamer section headers) renders a toggle-only `<button>`. Open state is `openGroups` (`$derived`) = the union of `activePathGroups` (`$derived` — every group that is the current page or an ancestor of it, so navigating auto-expands the path) and `manualOpen` (`$state<Set<string>>`, toggled by `toggleGroup` for slug-less groups). Because slug groups navigate rather than toggle, their expand/collapse is driven entirely by the active path.
 - Active state: `.gv-toc-link--active` applied when `isActive(slug)` returns true (checks `currentSlug` prefix match).
 - Author byline (`meta.author`) rendered below the TOC if present.
 
@@ -86,5 +86,5 @@ When `meta.navTree` is null or absent (older parsed guides, or sources that don'
 
 - `gv-toc-gutter-btn` is a **sibling of `gv-toc-wrap`** inside `.gv-body`, not a child of the sidebar. Moving it inside any scrollable container breaks the `top: 50%` centering.
 - The sidebar's native scrollbar is hidden via `scrollbar-width: none` + `::-webkit-scrollbar { display: none }`. The OverlayScrollbars instance is on the **content column** (`.gv-content`), not the sidebar.
-- `openGroups` is a Svelte 5 `$state<Set<string>>`. Mutating the Set in place does not trigger reactivity — always replace with `new Set(...)`.
+- `openGroups` is `$derived` (union of `activePathGroups` + `manualOpen`); only `manualOpen` is mutable state, toggled by `toggleGroup` (which replaces the Set with `new Set(...)` — in-place mutation won't trigger reactivity). Slug-bearing group headers navigate instead of toggling, so they open/close purely by the active path.
 - `staleNotice` and the pins stale banner are only shown once per page load. Dismissing sets `staleNotice = false` but does not prevent the banner from reappearing if the page is reloaded with a still-stale parsedAt.

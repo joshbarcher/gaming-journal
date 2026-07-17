@@ -340,6 +340,40 @@ function escHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
+// ── Orphan-reference de-linker ──────────────────────────────────────────────────
+
+// Walk a section's block tree and unwrap any in-guide <a> whose target produced no
+// content.json (a page listed in the manifest that failed to parse). The link keeps
+// its text — and any inline markup — as an emphasised keyword, rather than a live
+// link that navigates the app to a blank page. Returns true if anything changed.
+//
+// Runs on already-rewritten content, where every in-guide href is a bare relative
+// slug; external (scheme://), absolute (/…), and pure-fragment (#…) hrefs are left be.
+function delinkUnparsedRefs(blocks, parsedSlugs) {
+    let changed = false;
+    const ANCHOR = /<a\b[^>]*\bhref="([^"]*)"[^>]*>(.*?)<\/a>/gis;
+
+    const fixHtml = (s) => s.replace(ANCHOR, (whole, href, inner) => {
+        if (!href || href.startsWith('#')) return whole;               // in-page anchor
+        if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(href)) return whole;      // external URL
+        if (href.startsWith('/')) return whole;                         // absolute path
+        if (parsedSlugs.has(href.split('#')[0])) return whole;          // resolves to real page
+        changed = true;
+        return `<span class="gv-keyword">${inner}</span>`;
+    });
+
+    const walk = (node) => {
+        if (typeof node === 'string') return node.includes('<a') ? fixHtml(node) : node;
+        if (Array.isArray(node)) return node.map(walk);
+        if (node && typeof node === 'object') {
+            for (const k of Object.keys(node)) node[k] = walk(node[k]);
+        }
+        return node;
+    };
+    walk(blocks);
+    return changed;
+}
+
 // ── Anchor slicer ─────────────────────────────────────────────────────────────
 
 // When a section slug contains '#' (e.g. "introduction#mechanics"), the page HTML
@@ -730,6 +764,28 @@ try {
             (priorPageCount ? `, prior meta had ${priorPageCount}` : '') +
             ' — likely a transient failure, not a real change. Re-run to retry.'
         );
+    }
+
+    // De-link cross-references to pages that were listed but produced no content this
+    // run (a bad capture, a redirect stub, a login wall). rewriteInternalLinks resolved
+    // them to a "known" manifest slug, but with no content.json the app would render a
+    // blank page — so downgrade them to plain keywords, exactly as genuinely-dead links
+    // are handled. Only runs when a page failed to parse (the common all-parsed case is
+    // untouched). Applies to every source: post-rewrite, all in-guide hrefs are bare slugs.
+    if (results.length < manifest.pages.length) {
+        const parsedSlugs = new Set(results.map(r => r.slug.split('#')[0]));
+        let delinkedSections = 0;
+        for (const r of results) {
+            const cpath = join(guideDir, r.slug.replace(/[\\/:*?"<>|]/g, '_'), 'content.json');
+            try {
+                const blocks = JSON.parse(await readFile(cpath, 'utf8'));
+                if (delinkUnparsedRefs(blocks, parsedSlugs)) {
+                    await writeFile(cpath, JSON.stringify(blocks, null, 2));
+                    delinkedSections++;
+                }
+            } catch { /* section content missing — skip */ }
+        }
+        if (delinkedSections) console.log(`  De-linked references to unparsed pages in ${delinkedSections} section(s)`);
     }
 
     // Collect up to 12 landscape images from across all sections for the landing page mosaic.
