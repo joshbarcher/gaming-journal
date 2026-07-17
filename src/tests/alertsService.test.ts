@@ -22,6 +22,7 @@ describe('alertsService', () => {
     let flagsPath: string
     let prevDataDir: string | undefined
     let prevRelayUrl: string | undefined
+    let prevPort: string | undefined
     let fetchMock: FetchMock
 
     async function writeFlags(store: Record<string, Record<string, unknown>>) {
@@ -34,8 +35,11 @@ describe('alertsService', () => {
         flagsPath = path.join(tmpDir, 'gaming-journal', 'flags.json')
         prevDataDir = process.env.DATA_DIR
         prevRelayUrl = process.env.RELAY_URL
+        prevPort = process.env.PORT
         process.env.DATA_DIR = tmpDir
-        process.env.RELAY_URL = 'http://relay.test:9999'
+        // Alerts now call the journal's OWN /relay/* on loopback (fold-in), keyed
+        // off PORT — not RELAY_URL (the mail-only relay). See journalRelayBase.
+        process.env.PORT = '9999'
         fetchMock = vi.fn(async () => notFound())
         vi.stubGlobal('fetch', fetchMock)
         vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -50,6 +54,8 @@ describe('alertsService', () => {
         else process.env.DATA_DIR = prevDataDir
         if (prevRelayUrl === undefined) delete process.env.RELAY_URL
         else process.env.RELAY_URL = prevRelayUrl
+        if (prevPort === undefined) delete process.env.PORT
+        else process.env.PORT = prevPort
         await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
     })
 
@@ -78,24 +84,27 @@ describe('alertsService', () => {
             await getAlerts()
             const urls = fetchMock.mock.calls.map(c => String(c[0])).sort()
             expect(urls).toEqual([
-                'http://relay.test:9999/api/games/123',
-                'http://relay.test:9999/api/itad/123',
+                'http://127.0.0.1:9999/relay/api/games/123',
+                'http://127.0.0.1:9999/relay/api/itad/123',
             ])
         })
 
-        it('strips a trailing slash from RELAY_URL (no double slash)', async () => {
-            process.env.RELAY_URL = 'http://relay.test:9999/'
+        it('targets the journal\'s own /relay base, never a double slash', async () => {
             await writeFlags({ '5': { alert: true } })
             await getAlerts()
             const urls = fetchMock.mock.calls.map(c => String(c[0]))
-            for (const u of urls) expect(u).not.toContain('9999//')
+            expect(urls.length).toBeGreaterThan(0)
+            for (const u of urls) {
+                expect(u).toMatch(/^http:\/\/127\.0\.0\.1:9999\/relay\/api\//)
+                expect(u.replace(/^https?:\/\//, '')).not.toContain('//')
+            }
         })
 
-        it('defaults to http://localhost:8050 when RELAY_URL is unset', async () => {
-            delete process.env.RELAY_URL
+        it('defaults to loopback:5173 when PORT is unset', async () => {
+            delete process.env.PORT
             await writeFlags({ '5': { alert: true } })
             await getAlerts()
-            expect(String(fetchMock.mock.calls[0][0])).toMatch(/^http:\/\/localhost:8050\/api\//)
+            expect(String(fetchMock.mock.calls[0][0])).toMatch(/^http:\/\/127\.0\.0\.1:5173\/relay\/api\//)
         })
     })
 

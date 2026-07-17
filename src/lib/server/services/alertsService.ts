@@ -1,9 +1,6 @@
 import { getAllFlags } from './flagsService.js'
+import { journalRelayBase } from '../journalRelayBase.js'
 import type { AlertResult, BestPrice, ItadHistoricalLow } from '../../types.js'
-
-function relayUrl(): string {
-    return (process.env.RELAY_URL ?? 'http://localhost:8050').replace(/\/$/, '')
-}
 
 async function fetchJson<T>(url: string): Promise<T | null> {
     try {
@@ -42,7 +39,8 @@ export async function getAlerts(): Promise<{ onSale: AlertResult[]; watching: Al
 
     if (alertAppids.length === 0) return { onSale: [], watching: [] }
 
-    const base = relayUrl()
+    // journal's own /relay/api/* (fold-in), not RELAY_URL. See journalRelayBase.
+    const base = journalRelayBase()
 
     const results = await Promise.all(
         alertAppids.map(async (appid): Promise<AlertResult> => {

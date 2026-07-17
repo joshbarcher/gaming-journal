@@ -1,13 +1,12 @@
 import { json } from '@sveltejs/kit'
 import logger from '$lib/server/logger.js'
 import { getAll, add, remove } from '$lib/server/services/localWishlistService.js'
+import { journalRelayBase } from '$lib/server/journalRelayBase.js'
 
-function relayUrl() {
-    return (process.env.RELAY_URL ?? 'http://localhost:8050').replace(/\/$/, '')
-}
-
+// Provision/patch moved to the journal with the rest of admin (fold-in); the
+// relay's admin routes are gone. Fire-and-forget to the journal's own /relay.
 async function relayPost(path: string) {
-    const url = `${relayUrl()}${path}`
+    const url = `${journalRelayBase()}${path}`
     logger.info('[local-wishlist] relay call start', { url })
     try {
         const res = await fetch(url, { method: 'POST' })

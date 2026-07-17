@@ -2,15 +2,14 @@ import { getAllFlags }        from '$lib/server/services/flagsService.js'
 import { getJournalService }  from '$lib/server/services/journalService.js'
 import { getFranchiseService } from '$lib/server/services/franchiseService.js'
 import { getAlerts }          from '$lib/server/services/alertsService.js'
+import { journalRelayBase }   from '$lib/server/journalRelayBase.js'
 import type { Page, PinState } from '$lib/types.js'
 
-function relayBase(): string {
-    return (process.env.RELAY_URL ?? 'http://localhost:8050').replace(/\/$/, '')
-}
-
+// The journal serves its own gaming data at /relay/api/* (fold-in) — NOT
+// RELAY_URL, which now 404s these. See journalRelayBase.
 async function safeRelayJson(path: string): Promise<any> {
     try {
-        const res = await fetch(`${relayBase()}${path}`)
+        const res = await fetch(`${journalRelayBase()}${path}`)
         if (!res.ok || res.status === 204) return null
         return await res.json()
     } catch { return null }

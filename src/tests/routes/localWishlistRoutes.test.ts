@@ -26,14 +26,18 @@ describe('local-wishlist routes (adversarial)', () => {
     let dataDir: string
     let savedDataDir: string | undefined
     let savedRelayUrl: string | undefined
+    let savedPort: string | undefined
     let fetchMock: ReturnType<typeof vi.fn>
 
     beforeEach(() => {
         savedDataDir  = process.env.DATA_DIR
         savedRelayUrl = process.env.RELAY_URL
+        savedPort     = process.env.PORT
         dataDir = tmpDataDir()
         process.env.DATA_DIR  = dataDir
-        process.env.RELAY_URL = 'http://relay.test:1234'
+        // Provision/patch now fire at the journal's OWN /relay on loopback
+        // (fold-in) — keyed off PORT, not RELAY_URL. See journalRelayBase.
+        process.env.PORT = '1234'
         fetchMock = vi.fn(async () => okRelayResponse())
         vi.stubGlobal('fetch', fetchMock)
     })
@@ -44,6 +48,8 @@ describe('local-wishlist routes (adversarial)', () => {
         else process.env.DATA_DIR = savedDataDir
         if (savedRelayUrl === undefined) delete process.env.RELAY_URL
         else process.env.RELAY_URL = savedRelayUrl
+        if (savedPort === undefined) delete process.env.PORT
+        else process.env.PORT = savedPort
         await fsp.rm(dataDir, { recursive: true, force: true }).catch(() => {})
     })
 
@@ -91,7 +97,7 @@ describe('local-wishlist routes (adversarial)', () => {
         it('accepts appid "-1" (only falsy Numbers rejected) and provisions it on the relay', async () => {
             const res = await addRoute(ev('-1'))
             expect(res.status).toBe(200)
-            expect(fetchMock).toHaveBeenCalledWith('http://relay.test:1234/api/admin/provision/-1', { method: 'POST' })
+            expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:1234/relay/api/admin/provision/-1', { method: 'POST' })
         })
 
         it('accepts decimal appid "12.5" and stores it under key "12.5"', async () => {
@@ -109,19 +115,20 @@ describe('local-wishlist routes (adversarial)', () => {
             expect(body.ok).toBe(true)
             expect(typeof body.item.dateAdded).toBe('number')
             expect(fetchMock).toHaveBeenCalledTimes(1)
-            expect(fetchMock).toHaveBeenCalledWith('http://relay.test:1234/api/admin/provision/440', { method: 'POST' })
+            expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:1234/relay/api/admin/provision/440', { method: 'POST' })
         })
 
-        it('strips a trailing slash from RELAY_URL (no double slash in the admin URL)', async () => {
-            process.env.RELAY_URL = 'http://relay.test:1234/'
+        it('targets the journal\'s own /relay admin route (no double slash)', async () => {
             await addRoute(ev('570'))
-            expect(fetchMock).toHaveBeenCalledWith('http://relay.test:1234/api/admin/provision/570', { method: 'POST' })
+            const url = String(fetchMock.mock.calls[0][0])
+            expect(url).toBe('http://127.0.0.1:1234/relay/api/admin/provision/570')
+            expect(url.replace(/^https?:\/\//, '')).not.toContain('//')
         })
 
-        it('falls back to http://localhost:8050 when RELAY_URL is unset (fetch still stubbed)', async () => {
-            delete process.env.RELAY_URL
+        it('falls back to loopback:5173 when PORT is unset (fetch still stubbed)', async () => {
+            delete process.env.PORT
             await addRoute(ev('570'))
-            expect(fetchMock).toHaveBeenCalledWith('http://localhost:8050/api/admin/provision/570', { method: 'POST' })
+            expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:5173/relay/api/admin/provision/570', { method: 'POST' })
         })
 
         it('still returns 200 when the relay call rejects (network error)', async () => {
@@ -167,7 +174,7 @@ describe('local-wishlist routes (adversarial)', () => {
             const res = await removeRoute(ev('31337'))
             expect(res.status).toBe(200)
             expect(await res.json()).toEqual({ ok: true })
-            expect(fetchMock).toHaveBeenCalledWith('http://relay.test:1234/api/admin/patch/31337', { method: 'POST' })
+            expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:1234/relay/api/admin/patch/31337', { method: 'POST' })
         })
 
         it('add → remove round trip clears wishlisted status', async () => {

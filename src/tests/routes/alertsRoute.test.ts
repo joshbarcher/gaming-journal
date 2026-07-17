@@ -23,7 +23,9 @@ type RelayData = Record<string, unknown> // keyed by URL suffix like '/api/games
 
 function stubRelay(data: RelayData) {
     return vi.fn(async (url: string) => {
-        const suffix = String(url).replace(/^http:\/\/[^/]+/, '')
+        // Strip host AND the journal's /relay prefix (fold-in): calls now target
+        // the journal's own /relay/api/* on loopback, keyed by the /api/... suffix.
+        const suffix = String(url).replace(/^http:\/\/[^/]+(\/relay)?/, '')
         if (suffix in data) return { ok: true, json: async () => data[suffix] }
         return { ok: false, status: 404, json: async () => ({}) }
     })
@@ -33,13 +35,17 @@ describe('GET /api/alerts (adversarial)', () => {
     let dataDir: string
     let savedDataDir: string | undefined
     let savedRelayUrl: string | undefined
+    let savedPort: string | undefined
 
     beforeEach(() => {
         savedDataDir  = process.env.DATA_DIR
         savedRelayUrl = process.env.RELAY_URL
+        savedPort     = process.env.PORT
         dataDir = tmpDataDir()
         process.env.DATA_DIR  = dataDir
-        process.env.RELAY_URL = 'http://relay.test:1234'
+        // Alerts call the journal's own /relay on loopback (fold-in), keyed off
+        // PORT, not RELAY_URL. See journalRelayBase.
+        process.env.PORT = '1234'
     })
 
     afterEach(async () => {
@@ -48,6 +54,8 @@ describe('GET /api/alerts (adversarial)', () => {
         else process.env.DATA_DIR = savedDataDir
         if (savedRelayUrl === undefined) delete process.env.RELAY_URL
         else process.env.RELAY_URL = savedRelayUrl
+        if (savedPort === undefined) delete process.env.PORT
+        else process.env.PORT = savedPort
         await fsp.rm(dataDir, { recursive: true, force: true }).catch(() => {})
     })
 
@@ -220,7 +228,7 @@ describe('GET /api/alerts (adversarial)', () => {
         expect(body.watching.length).toBe(1)
         expect(body.watching[0].appid).toBeNull() // NaN → null through JSON
         expect(body.watching[0].name).toBe('App NaN')
-        expect(fetchMock).toHaveBeenCalledWith('http://relay.test:1234/api/games/NaN')
+        expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:1234/relay/api/games/NaN')
         expect(({} as Record<string, unknown>).alert).toBeUndefined() // no prototype pollution
     })
 

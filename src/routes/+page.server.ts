@@ -1,5 +1,6 @@
 import { getAllFlags } from '$lib/server/services/flagsService.js'
 import { getSettings } from '$lib/server/services/settingsService.js'
+import { journalRelayBase } from '$lib/server/journalRelayBase.js'
 import type { DiscoverSection, FlagsStore, Settings } from '$lib/types.js'
 
 interface HomePoster  { appid: number; poster: string }
@@ -59,10 +60,6 @@ export interface HomeData {
 const EMPTY_RELAY: RelayHomeData = {
     recentPlayed: [], justBought: [], stats: { hours: 0, achievements: 0, added: 0, wishlisted: 0, ratings: 0 },
     release: null, libPosters: [], wlPosters: [],
-}
-
-function relayUrl(): string {
-    return (process.env.RELAY_URL ?? 'http://localhost:8050').replace(/\/$/, '')
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -137,10 +134,12 @@ function resolveMiddle(relay: RelayHomeData, session: SessionCard | null, should
 }
 
 export async function load(): Promise<HomeData> {
-    const base = relayUrl()
+    // The journal serves its own gaming data at /relay/api/* (fold-in). NOT
+    // RELAY_URL — that mail-only shell 404s these now. See journalRelayBase.
+    const base = journalRelayBase()
 
-    // The home payload is precomputed + cached on the relay, so this is a fast
-    // single read; the poster endpoints feed the (12+ tile) mosaics.
+    // The home payload is precomputed + cached, so this is a fast single read;
+    // the poster endpoints feed the (12+ tile) mosaics.
     const [homeData, libPosters, wlPosters, discoverData, flags, settings] = await Promise.all([
         fetchJson<RelayHomeData>(`${base}/api/home`),
         fetchJson<HomePoster[]>(`${base}/api/games/posters?source=library&n=50`),
