@@ -12,6 +12,7 @@ import { register } from '../shared/cache-manager.js';
 import { getWishlist } from '../steam/steam.service.js';
 import { mapChunked } from '../shared/map-chunked.js';
 import { featureDir } from '../shared/data-root.js';
+import { createPersistedIndex } from '../shared/persisted-index.js';
 
 function itadPath(appid)       { return path.join(featureDir('itad'),          `${appid}.json`); }
 function storePath(appid)      { return path.join(featureDir('steam'), 'store', `${appid}.json`); }
@@ -71,12 +72,14 @@ function shapeItem(appid, meta, store, itad, isLocal = false, flagsData = {}) {
 }
 
 // ── In-memory cache ───────────────────────────────────────────────────────────
+//
+// Fast-boot: the shaped wishlist is persisted to a sidecar so boot() loads it in
+// one read instead of re-scanning every entry's itad/store file (~18s).
 
-let _cache = null;
+function wishlistIndexFile() { return path.join(featureDir('steam'), 'wishlist-index.json'); }
 
-export async function build() {
-    const t0 = Date.now();
-
+// The slow scan — reads each entry's itad + store data and returns the array.
+async function scanCache() {
     const [wishlistData, localData, flagsData] = await Promise.all([
         getWishlist(),
         readJson(localWishlistPath()).then(d => d ?? { items: {} }),
@@ -92,48 +95,40 @@ export async function build() {
     const steamEntries = Object.entries(steamItems);
     const allEntries   = [...steamEntries, ...localOnly.map(([id, meta]) => [id, meta, true])];
 
-    if (allEntries.length === 0) {
-        _cache = [];
-        logger.info('[wishlist] Cache built (empty wishlist)', { ms: Date.now() - t0 });
-        return;
-    }
+    if (allEntries.length === 0) return [];
 
     const [itadResults, storeResults] = await Promise.all([
         mapChunked(allEntries, ([id]) => readJson(itadPath(Number(id)))),
         mapChunked(allEntries, ([id]) => readJson(storePath(Number(id)))),
     ]);
 
-    _cache = allEntries
+    return allEntries
         .map(([id, meta, isLocal = false], i) =>
             shapeItem(Number(id), meta, storeResults[i], itadResults[i], isLocal, flagsData))
         .sort((a, b) => (a.wishlist.priority ?? 9999) - (b.wishlist.priority ?? 9999));
-
-    logger.info('[wishlist] Cache built', { count: _cache.length, ms: Date.now() - t0 });
 }
+
+const _idx = createPersistedIndex({ name: 'wishlist', file: wishlistIndexFile, rebuild: scanCache });
+
+/** Fast boot: load the persisted sidecar, then refresh in the background. */
+export async function boot() { await _idx.boot(); }
+
+/** Full rebuild + persist. Registered with cache-manager (post-sync refresh). */
+export async function build() { await _idx.refresh(); }
+
+/** Lazy guard for request paths that run before boot() (dev, tests). */
+export function ensureBuilt() { return _idx.ensureLoaded(); }
 
 register('wishlist', build);
 
-/**
- * Fold-in shim (not in the relay): the relay builds this cache unconditionally
- * in server.js's listen callback. Until boot.js wires build() the same way,
- * routes await this so the first request populates the cache (pure reads).
- * Idempotent and coalesced; harmless once the boot wiring lands.
- */
-let _building = null;
-export function ensureBuilt() {
-    if (_cache !== null) return Promise.resolve();
-    _building ??= build().finally(() => { _building = null; });
-    return _building;
-}
-
 export function get() {
-    return _cache ?? [];
+    return _idx.get();
 }
 
 // Re-shape exactly one wishlist entry and splice it into the live cache.
 // Reads 4 files (steam wishlist, local wishlist, store, itad) instead of the full build.
 export async function patchItem(appid) {
-    if (_cache === null) return; // cache not initialised yet — full build will cover it
+    if (!_idx.loaded()) return; // cache not initialised yet — full build will cover it
 
     const id = Number(appid);
 
@@ -148,15 +143,15 @@ export async function patchItem(appid) {
     const steamMeta = (wishlistData.items ?? {})[String(id)];
     const localMeta = (localData.items ?? {})[String(id)];
 
-    // Remove stale entry for this appid
-    _cache = _cache.filter(item => item.appid !== id);
-
-    if (steamMeta) {
-        _cache.push(shapeItem(id, steamMeta, store, itad, false, flagsData));
-    } else if (localMeta) {
-        _cache.push(shapeItem(id, localMeta, store, itad, true, flagsData));
-    }
-    // If neither, the item was removed — already filtered above
-
-    _cache.sort((a, b) => (a.wishlist.priority ?? 9999) - (b.wishlist.priority ?? 9999));
+    // Targeted delta: drop the stale entry, splice in the fresh one, re-sort,
+    // and persist — no full rescan. (The sidecar stays current after a single
+    // wishlist add/remove.)
+    await _idx.mutate((cache) => {
+        const next = cache.filter(item => item.appid !== id);
+        if (steamMeta)      next.push(shapeItem(id, steamMeta, store, itad, false, flagsData));
+        else if (localMeta) next.push(shapeItem(id, localMeta, store, itad, true, flagsData));
+        // If neither, the item was removed — already filtered above.
+        next.sort((a, b) => (a.wishlist.priority ?? 9999) - (b.wishlist.priority ?? 9999));
+        return next;
+    });
 }

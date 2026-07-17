@@ -17,6 +17,8 @@ import logger from '../../logger.js';
 import { register } from '../shared/cache-manager.js';
 import { refresh as refreshPosterPool } from './poster-pool.service.js';
 import { mapChunked } from '../shared/map-chunked.js';
+import { featureDir } from '../shared/data-root.js';
+import { createPersistedIndex } from '../shared/persisted-index.js';
 import { getGames as getSteamGames, getWishlist } from '../steam/steam.service.js';
 import { getGameDetail } from '../steam/store.service.js';
 import { getEntry as getHltbEntry } from '../hltb/hltb.service.js';
@@ -178,41 +180,37 @@ async function _buildAll() {
     });
 }
 
-let _cache = null;
-let _byId  = new Map();
+// Fast-boot: the merged games list is persisted to a sidecar so boot() loads it
+// in one read instead of re-scanning every game's store/hltb/pcgw/itad files
+// (~40s). _byId is a cheap derived Map rebuilt on every index change via the
+// onIndex hook; the poster-pool refresh runs only on an actual rebuild.
+function gamesIndexFile() { return path.join(featureDir('steam'), 'games-index.json'); }
 
-export async function build() {
-    const t0    = Date.now();
-    const games = await _buildAll();
-    _cache = games;
-    _byId  = new Map(games.map((g) => [g.appid, g]));
-    logger.info('[games] Cache built', { count: games.length, ms: Date.now() - t0 });
-    refreshPosterPool(_cache).catch(err =>
-        logger.error('[games] Poster pool refresh failed', { err: err.message })
-    );
-}
+let _byId = new Map();
 
-/**
- * Fold-in shim (not in the relay): the relay builds this cache unconditionally
- * in server.js's listen callback. Until boot.js wires build() the same way,
- * routes await this so the first request populates the cache (a read-only NAS
- * scan — the only write is poster-pool's own index upkeep, same as the relay).
- * Idempotent and coalesced; harmless once the boot wiring lands.
- */
-let _building = null;
-export function ensureBuilt() {
-    if (_cache !== null) return Promise.resolve();
-    _building ??= build().finally(() => { _building = null; });
-    return _building;
-}
+const _idx = createPersistedIndex({
+    name: 'games',
+    file: gamesIndexFile,
+    rebuild: async () => {
+        const games = await _buildAll();
+        refreshPosterPool(games).catch(err => logger.error('[games] Poster pool refresh failed', { err: err.message }));
+        return games;
+    },
+    onIndex: (games) => { _byId = new Map(games.map((g) => [g.appid, g])); },
+});
 
-export function getAll() {
-    return _cache ?? [];
-}
+/** Fast boot: load the persisted sidecar, then refresh in the background. */
+export async function boot() { await _idx.boot(); }
 
-export function getOne(appid) {
-    return _byId.get(Number(appid)) ?? null;
-}
+/** Full rebuild + persist. Registered with cache-manager (post-sync refresh). */
+export async function build() { await _idx.refresh(); }
+
+/** Lazy guard for request paths that run before boot() (dev, tests). */
+export function ensureBuilt() { return _idx.ensureLoaded(); }
+
+export function getAll() { return _idx.get(); }
+export function getOne(appid) { return _byId.get(Number(appid)) ?? null; }
+export function getCacheMeta() { return _idx.meta(); }
 
 // Builds a game object on-demand from disk for games not in the owned/wishlist index
 // (i.e. discovered via global top). Returns null if no store data exists yet.
@@ -233,7 +231,7 @@ export async function getOneDiscovered(appid) {
 // Force-rebuild a single game entry from disk and splice it into the live cache.
 // Call after store data changes for a known library/wishlist game.
 export async function rebuildOne(appid) {
-    if (_cache === null) return null;
+    if (!_idx.loaded()) return null;
     const id = Number(appid);
 
     const [wishlistData, localData, steamData] = await Promise.all([
@@ -259,10 +257,14 @@ export async function rebuildOne(appid) {
     ]);
 
     const game = mergeGame(steam, wishlistEntry, store, hltb, pcgw, itad);
-    const idx  = _cache.findIndex(g => g.appid === id);
-    if (idx >= 0) _cache[idx] = game;
-    else          _cache.push(game);
-    _byId.set(id, game);
+    // Targeted delta: replace in place (preserve order) or append. onIndex keeps
+    // _byId in sync; mutate persists the sidecar. No full rescan.
+    await _idx.mutate((cache) => {
+        const next = [...cache];
+        const i = next.findIndex(g => g.appid === id);
+        if (i >= 0) next[i] = game; else next.push(game);
+        return next;
+    });
     return game;
 }
 
@@ -270,7 +272,7 @@ register('games', build);
 
 // Re-build exactly one game entry and splice it into the live cache.
 export async function patchGame(appid) {
-    if (_cache === null) return; // cache not initialised yet — full build will cover it
+    if (!_idx.loaded()) return; // cache not initialised yet — full build will cover it
 
     const id      = Number(appid);
     const existing = _byId.get(id);
@@ -290,26 +292,26 @@ export async function patchGame(appid) {
             : null;
 
     if (existing) {
-        // Game already cached — only wishlist state changed, mutate in-place.
+        // Game already cached — only wishlist state changed. Targeted delta.
         const inLibrary  = existing.source === 'library' || existing.source === 'both';
         const inWishlist = !!wishlistEntry;
 
         if (!inLibrary && !inWishlist) {
-            _cache = _cache.filter(g => g.appid !== id);
-            _byId.delete(id);
+            await _idx.mutate(cache => cache.filter(g => g.appid !== id));
             return;
         }
 
-        existing.wishlist = wishlistEntry ? {
+        const nextWishlist = wishlistEntry ? {
             priority:  wishlistEntry.priority ?? null,
             dateAdded: wishlistEntry.date_added ?? wishlistEntry.dateAdded,
             local:     wishlistEntry.local === true,
         } : null;
-        existing.source = inLibrary && inWishlist ? 'both'
+        const nextSource = inLibrary && inWishlist ? 'both'
             : inLibrary  ? 'library'
             : inWishlist ? 'wishlist'
             : 'discovered';
-        _byId.set(id, existing);
+        await _idx.mutate(cache => cache.map(g =>
+            g.appid === id ? { ...g, wishlist: nextWishlist, source: nextSource } : g));
         return;
     }
 
@@ -327,6 +329,5 @@ export async function patchGame(appid) {
     if (!steam && !wishlistEntry) return; // nothing to add
 
     const game = mergeGame(steam, wishlistEntry, store, hltb, pcgw, itad);
-    _cache.push(game);
-    _byId.set(id, game);
+    await _idx.mutate(cache => [...cache, game]);
 }

@@ -28,8 +28,8 @@ import { loadAchievementsCache } from './steam/steam.service.js'
 import { buildApplist } from './steam/applist.service.js'
 import { backfillAll as backfillAdultContent } from './steam/adult-content.service.js'
 import { closeBrowser as closeScraperBrowser } from './steam/achievement-schema-scraper.js'
-import { build as buildGamesCache } from './games/games.service.js'
-import { build as buildWishlistCache } from './wishlist/wishlist.service.js'
+import { boot as bootGamesCache } from './games/games.service.js'
+import { boot as bootWishlistCache } from './wishlist/wishlist.service.js'
 import { build as buildPlayerCountsCache } from './steam/player-counts.service.js'
 import { backfill as provisionBackfill, recheckUnavailableWishlistItems } from './provision.service.js'
 import { load as loadPlayLog } from './steam/play-log.service.js'
@@ -95,11 +95,12 @@ export async function bootRelay() {
     // a long NAS-writing crawl — both prod-only, mirroring relay server.js order.
     startScheduler('applist', () => buildApplist()
         .then(() => backfillAdultContent().catch(err => logger.error('[relay-boot] Adult content backfill failed', { err: err?.message }))))
-    // Derived caches: gated (not unconditional like community-reviews/upcoming)
-    // because buildGamesCache's poster-pool refresh can WRITE poster-index.json.
-    // Local reads stay correct without them via the services' lazy ensureBuilt().
-    startScheduler('games-cache', buildGamesCache)
-    startScheduler('wishlist-cache', buildWishlistCache)
+    // Derived caches: fast-boot from their sidecars (one read), then background
+    // refresh. Gated (not unconditional) because games' background refresh runs
+    // poster-pool upkeep which can WRITE poster-index.json — dev instances read
+    // the sidecar via the routes' ensureBuilt() instead, never writing.
+    startScheduler('games-cache', bootGamesCache)
+    startScheduler('wishlist-cache', bootWishlistCache)
     startScheduler('player-counts-cache', buildPlayerCountsCache)
     // Provision backfill + wishlist recheck: full NAS-writing pipelines.
     // SCHED_PROVISION=off until the combined Wave-3+4 window.

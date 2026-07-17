@@ -26,18 +26,26 @@ import logger from '../../logger.js'
  *                                 so it honors RELAY_DATA_ROOT). MUST live outside
  *                                 any directory the rebuild scan itself walks.
  * @param {() => Promise<any[]>} opts.rebuild  The slow scan — returns the index array.
+ * @param {(index: any[]) => void} [opts.onIndex]  Called synchronously whenever
+ *        the in-memory index changes (sidecar load or refresh) — for deriving
+ *        cheap secondary structures like an appid→entry Map. Must not throw.
  */
-export function createPersistedIndex({ name, file, rebuild }) {
+export function createPersistedIndex({ name, file, rebuild, onIndex }) {
     let _index = null          // current in-memory index (array), or null before load
     let _builtAt = null        // ISO time the current index was produced
     let _refreshing = false    // coalesces concurrent refreshes
     let _loading = null        // shared promise for a concurrent sidecar load
 
+    function _setIndex(arr) {
+        _index = arr
+        if (onIndex) { try { onIndex(arr) } catch (err) { logger.warn(`[${name}] index: onIndex hook threw`, { err: err?.message }) } }
+    }
+
     async function _loadSidecar() {
         try {
             const raw = JSON.parse(await fsp.readFile(file(), 'utf8'))
             if (!Array.isArray(raw?.index)) return false
-            _index = raw.index
+            _setIndex(raw.index)
             _builtAt = raw.builtAt ?? null
             logger.info(`[${name}] index: loaded ${_index.length} entries from sidecar`, { builtAt: _builtAt })
             return true
@@ -66,7 +74,7 @@ export function createPersistedIndex({ name, file, rebuild }) {
         const t0 = Date.now()
         try {
             const fresh = await rebuild()
-            _index = Array.isArray(fresh) ? fresh : []
+            _setIndex(Array.isArray(fresh) ? fresh : [])
             _builtAt = new Date().toISOString()
             await _persist()
             logger.info(`[${name}] index: refreshed ${_index.length} entries`, { ms: Date.now() - t0 })
@@ -103,10 +111,25 @@ export function createPersistedIndex({ name, file, rebuild }) {
         return _loading
     }
 
+    /**
+     * Delta update: apply a synchronous transform to the current index and
+     * persist the result — for splicing one entry in/out without a full rebuild
+     * (the targeted-delta pattern). No-op if the index isn't loaded yet (a later
+     * build/refresh will cover the change). `builtAt` is bumped.
+     */
+    async function mutate(fn) {
+        if (_index === null) return
+        _setIndex(fn(_index) ?? _index)
+        _builtAt = new Date().toISOString()
+        await _persist()
+    }
+
     return {
         boot,
         refresh,
         ensureLoaded,
+        mutate,
+        loaded: () => _index !== null,
         get: () => _index ?? [],
         meta: () => ({ builtAt: _builtAt, refreshing: _refreshing, count: _index?.length ?? 0 }),
     }
