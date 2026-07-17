@@ -74,14 +74,24 @@ async function _closeCurrentSession(prevAppid, endedAt) {
     // Do a final achievement snapshot so nothing earned right at the end is missed.
     let finalAchs = _achDuring;
     if (_achBaseline !== null) {
-        try {
-            const latest = await fetchPlayerAchievementsNow(prevAppid);
-            finalAchs = _diffAchievements(latest, _achBaseline);
+        // fetchPlayerAchievementsNow returns [] on ANY error (never throws), so an
+        // empty result here means the fetch FAILED — not that zero achievements
+        // are unlocked. Writing that empty diff into the closed session would drop
+        // the real per-session unlocks we accumulated in _achDuring (the exact
+        // private-profile/403 loss the achievement fix addressed). Only trust a
+        // non-empty fetch, and never shrink below what we already tracked.
+        const latest = await fetchPlayerAchievementsNow(prevAppid);
+        if (latest.length) {
+            const diff = _diffAchievements(latest, _achBaseline);
+            if (diff.length >= _achDuring.length) finalAchs = diff;
             if (finalAchs.length > _achDuring.length) {
                 logger.info('[now-playing] Achievement(s) earned at session end',
                     { appid: prevAppid, total: finalAchs.length });
             }
-        } catch { /* fall back to last accumulated _achDuring */ }
+        } else {
+            logger.debug('[now-playing] Final achievement fetch empty/failed — keeping tracked count',
+                { appid: prevAppid, kept: _achDuring.length });
+        }
     }
 
     // If achievements were earned this session, refresh the achievement
@@ -125,20 +135,28 @@ function _openNewSession(detected, now) {
     fetchPlayerAchievementsNow(curr).then(achs => {
         if (_cache?.appid !== openedAppid) return; // game already changed
 
-        _achBaseline = new Set(achs.filter(a => a.achieved === 1).map(a => a.apiname));
-        patchOpenSession({ achievementsAtStart: [..._achBaseline] }).catch(() => {});
-        logger.debug('[now-playing] Achievement baseline captured',
-            { appid: openedAppid, count: _achBaseline.size });
+        // Empty = the fetch failed (returns [] on any error), NOT a game with zero
+        // achievements — a real game returns its full list even at 0 unlocked. A
+        // wrong empty baseline would count every already-unlocked achievement as
+        // "earned this session". Leave the baseline null so no bogus diff runs; a
+        // later mid-session poll re-attempts capture once the API is readable.
+        if (achs.length) {
+            _achBaseline = new Set(achs.filter(a => a.achieved === 1).map(a => a.apiname));
+            patchOpenSession({ achievementsAtStart: [..._achBaseline] }).catch(() => {});
+            logger.debug('[now-playing] Achievement baseline captured',
+                { appid: openedAppid, count: _achBaseline.size });
+        } else {
+            logger.debug('[now-playing] Baseline fetch empty/failed — will retry mid-session', { appid: openedAppid });
+        }
 
         // Ensure the achievement schema is cached for this game.
         // For brand-new games (just bought/installed) it won't exist yet,
         // so the achievements card would show "No achievement data".
         syncAchievementsForGame(openedAppid, detected.name).catch(() => {});
     }).catch(() => {
-        // Fetch failed — treat as empty baseline so diffs still work.
-        // Still try to fetch the schema in the background.
+        // fetchPlayerAchievementsNow never actually throws, but keep the schema
+        // fetch on the defensive path in case that contract ever changes.
         if (_cache?.appid === openedAppid) {
-            _achBaseline = new Set();
             syncAchievementsForGame(openedAppid, detected.name).catch(() => {});
         }
     });
@@ -203,25 +221,41 @@ async function poll() {
             rebuild('account').catch(err =>
                 logger.warn('[now-playing] Account cache rebuild failed', { err: err.message })
             );
-        } else if (curr !== null && _achBaseline !== null) {
+        } else if (curr !== null && _cache?.appid === curr) {
             // Same game still playing — poll for new achievements every ACH_POLL_INTERVAL_MS.
             const nowMs = Date.now();
             if (nowMs - _lastAchPoll >= ACH_POLL_INTERVAL_MS) {
                 _lastAchPoll = nowMs;
                 try {
-                    const achs    = await fetchPlayerAchievementsNow(curr);
-                    const newAchs = _diffAchievements(achs, _achBaseline);
-                    if (newAchs.length > _achDuring.length) {
-                        logger.info('[now-playing] Achievement(s) earned mid-session',
-                            { appid: curr, gained: newAchs.length - _achDuring.length, total: newAchs.length });
-                        // Immediately refresh the achievement cache so the achievements
-                        // page reflects the new unlock without waiting for the 30-min tick.
-                        refreshPlayerAchievements(curr).catch(err =>
-                            logger.warn('[now-playing] Achievement cache refresh failed', { appid: curr, err: err.message })
-                        );
+                    const achs = await fetchPlayerAchievementsNow(curr);
+                    // Empty = fetch failed (never throws) — skip this tick entirely
+                    // rather than resetting tracked progress to []. Session state is
+                    // left untouched until a readable response arrives.
+                    if (!achs.length) {
+                        logger.debug('[now-playing] Mid-session achievement poll empty/failed — skipping', { appid: curr });
+                    } else {
+                        // Late baseline capture: if the open-time fetch failed, seize
+                        // the first good mid-session read as the baseline (nothing was
+                        // tracked yet, so there's no progress to lose).
+                        if (_achBaseline === null) {
+                            _achBaseline = new Set(achs.filter(a => a.achieved === 1).map(a => a.apiname));
+                            patchOpenSession({ achievementsAtStart: [..._achBaseline] }).catch(() => {});
+                            logger.debug('[now-playing] Baseline captured late (mid-session)', { appid: curr, count: _achBaseline.size });
+                        }
+                        const newAchs = _diffAchievements(achs, _achBaseline);
+                        if (newAchs.length > _achDuring.length) {
+                            logger.info('[now-playing] Achievement(s) earned mid-session',
+                                { appid: curr, gained: newAchs.length - _achDuring.length, total: newAchs.length });
+                            refreshPlayerAchievements(curr).catch(err =>
+                                logger.warn('[now-playing] Achievement cache refresh failed', { appid: curr, err: err.message })
+                            );
+                        }
+                        // Never shrink tracked progress on a partial/odd response.
+                        if (newAchs.length >= _achDuring.length) {
+                            _achDuring = newAchs;
+                            patchOpenSession({ achievementsDuring: _achDuring }).catch(() => {});
+                        }
                     }
-                    _achDuring = newAchs;
-                    patchOpenSession({ achievementsDuring: _achDuring }).catch(() => {});
                 } catch (err) {
                     logger.debug('[now-playing] Mid-session achievement poll failed',
                         { appid: curr, err: err.message });

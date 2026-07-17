@@ -31,13 +31,22 @@ function syncIntervalHours() {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
+// Returns { raw } on a real hit, { notFound: true } on a CONFIRMED not-found,
+// and THROWS on a transient failure (429/5xx/network). Distinguishing the two is
+// the whole point: a transient error must never be written as a notFound sentinel
+// over a good tier (that would freeze the wipe in for the 7/30-day TTL).
 async function fetchSummary(appid, fetchFn = fetch) {
     const res = await fetchFn(`${PROTONDB_BASE}/${appid}.json`);
-    // ProtonDB returns an HTML 404 page (not JSON) for unknown appids
-    if (!res.ok) return null;
+    if (!res.ok) {
+        // 429 (rate-limited) and 5xx are transient — signal failure so the caller
+        // keeps any good cached entry. A 404 (or other 4xx) is a real unknown appid.
+        if (res.status === 429 || res.status >= 500) throw new Error(`ProtonDB HTTP ${res.status}`);
+        return { notFound: true };
+    }
     const ct = res.headers.get('content-type') ?? '';
-    if (!ct.includes('application/json')) return null;
-    return res.json();
+    // ProtonDB serves an HTML page (not JSON) for unknown appids — a confirmed 404.
+    if (!ct.includes('application/json')) return { notFound: true };
+    return { raw: await res.json() };
 }
 
 // ── Shape ─────────────────────────────────────────────────────────────────────
@@ -126,8 +135,18 @@ export async function syncOne(appid, { force = false, fetchFn = fetch } = {}) {
         }
     }
 
-    const raw   = await fetchSummary(appid, fetchFn);
-    const entry = raw ? shapeEntry(appid, raw) : { appid: Number(appid), tier: null, fetchedAt: new Date().toISOString(), notFound: true };
+    let result;
+    try {
+        result = await fetchSummary(appid, fetchFn);
+    } catch (err) {
+        // Transient upstream failure — keep any existing entry rather than
+        // overwriting a good tier with a notFound sentinel.
+        logger.warn('[protondb] Fetch failed — keeping cached entry', { appid, err: err.message });
+        return { skipped: false, entry: await getEntry(appid) };
+    }
+    const entry = result.raw
+        ? shapeEntry(appid, result.raw)
+        : { appid: Number(appid), tier: null, fetchedAt: new Date().toISOString(), notFound: true };
 
     await fs.writeFile(entryPath(appid), JSON.stringify(entry, null, 2));
     return { skipped: false, entry };
@@ -162,20 +181,23 @@ export async function syncAll({ force = false, onProgress, fetchFn = fetch } = {
         }
 
         try {
-            const raw = await fetchSummary(appid, fetchFn);
-            if (raw) {
-                const entry = shapeEntry(appid, raw);
+            const result = await fetchSummary(appid, fetchFn);
+            if (result.raw) {
+                const entry = shapeEntry(appid, result.raw);
                 if (!existing || existing.notFound) created++;
                 else if (tierSignature(existing) !== tierSignature(entry)) updated++;
 
                 await fs.writeFile(entryPath(appid), JSON.stringify(entry, null, 2));
                 fetched++;
             } else {
+                // Confirmed not-found (404 / HTML page) — safe to write the sentinel.
                 await fs.writeFile(entryPath(appid), JSON.stringify({ appid, tier: null, fetchedAt: new Date().toISOString(), notFound: true }, null, 2));
                 notFound++;
             }
         } catch (err) {
-            logger.warn('[protondb] Fetch failed', { appid, err: err.message });
+            // Transient (429/5xx/network) — DON'T overwrite a good entry with a
+            // notFound sentinel; leave the cache untouched so the next sync retries.
+            logger.warn('[protondb] Fetch failed — keeping cached entry', { appid, err: err.message });
         }
 
         if (onProgress) onProgress(i + 1, games.length);

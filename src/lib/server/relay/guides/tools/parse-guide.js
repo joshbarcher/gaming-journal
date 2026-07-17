@@ -618,6 +618,14 @@ try {
     console.log(`  Manifest: ${manifest.pages.length} pages from ${manifest.fetchedAt}`);
     console.log(`  Sections: ${manifest.pages.map(p => p.slug).join(', ')}`);
 
+    // Last good record, if any. Used to (a) guard against a transient run — a NAS blip
+    // reading _raw, a sharp/cheerio crash — overwriting the authoritative _meta.json /
+    // _fulltext.json with a degraded one, and (b) preserve coverImages/navTree when this
+    // run derives none.
+    let priorMeta = null;
+    try { priorMeta = JSON.parse(await readFile(join(guideDir, '_meta.json'), 'utf8')); }
+    catch { /* no prior meta (first parse) or unreadable — nothing to preserve */ }
+
     // Build flat nav fallback + extract hierarchical nav tree from first page
     // Use manifest labels (link text from the index page) so sources like Game8
     // (numeric archive IDs as slugs) get human-readable labels instead of raw numbers.
@@ -708,6 +716,20 @@ try {
                 guideAuthor = extractAuthor($raw);
             }
         }
+    }
+
+    // Data-integrity guard: a run that yielded no sections — or materially fewer than a
+    // prior successful parse held — is a transient failure, not a real shrink. Persisting
+    // it would overwrite the authoritative _meta.json/_fulltext.json with a degraded record
+    // and drop pages/search entries for sections that merely failed to parse this run.
+    // Abort (leaving the good files untouched); the next run retries.
+    const priorPageCount = priorMeta?.pages?.length ?? 0;
+    if (results.length === 0 || (priorPageCount > 0 && results.length < priorPageCount * 0.5)) {
+        throw new Error(
+            `Refusing to overwrite guide record: parsed ${results.length} section(s)` +
+            (priorPageCount ? `, prior meta had ${priorPageCount}` : '') +
+            ' — likely a transient failure, not a real change. Re-run to retry.'
+        );
     }
 
     // Collect up to 12 landscape images from across all sections for the landing page mosaic.
@@ -809,9 +831,11 @@ try {
         sourceUrl:   manifest.sourceUrl,
         parsedAt:    new Date().toISOString(),
         sizeBytes,
-        coverImages: coverImages.length >= 6 ? coverImages : [],
+        // Preserve prior coverImages/navTree when this run derived none (a transient
+        // sharp/nav failure) — an empty set here would blank a good landing mosaic / TOC.
+        coverImages: coverImages.length >= 6 ? coverImages : (priorMeta?.coverImages?.length ? priorMeta.coverImages : []),
         nav,
-        navTree,
+        navTree: navTree ?? priorMeta?.navTree ?? null,
         pages: results.map(r => ({ slug: r.slug, label: manifestLabelBySlug.get(r.slug) ?? slugToLabel(r.slug) })),
         version: 1,
     };

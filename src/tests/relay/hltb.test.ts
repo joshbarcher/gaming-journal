@@ -22,7 +22,7 @@ delete process.env.RELAY_DATA_ROOT;   // featureDir() must derive from DATA_DIR
 // there is no server to protect. rateLimitSleep() reads this at call time.
 process.env.DISABLE_RATE_LIMIT = '1';
 
-const { syncAll, getEntry, getIndex } = await import('../../lib/server/relay/hltb/hltb.service.js');
+const { syncAll, syncGame, getEntry, getIndex } = await import('../../lib/server/relay/hltb/hltb.service.js');
 
 // Pre-populate the Steam games cache
 const steamDir = path.join(tmpDir, 'relay', 'steam');
@@ -110,6 +110,28 @@ describe('hltb service — syncAll', () => {
     it('re-fetches everything when force=true', async () => {
         const result = await syncAll({ force: true, searchFn: mockSearch });
         assert.equal(result.fetched + result.noMatch, 3);
+    });
+});
+
+// ── syncGame — data-integrity preserve ────────────────────────────────────────
+// A force refresh whose search returns an empty 200 (transient HLTB hiccup) must
+// NOT wipe completion times we already have.
+describe('hltb service — syncGame preserve', () => {
+    it('keeps existing times when a forced search returns zero results', async () => {
+        // appid 70 has good times from the syncAll suite above.
+        const before = await getEntry(70);
+        assert.ok(before?.gameplayMain, 'precondition: appid 70 already has times');
+
+        const emptySearch = async () => [];
+        const result = await syncGame(70, { force: true, searchFn: emptySearch, steamName: 'Half-Life' });
+
+        assert.equal(result.skipped, true);
+        assert.equal(result.entry.gameplayMain, before.gameplayMain);
+
+        const onDisk = await getEntry(70);
+        assert.equal(onDisk.gameplayMain, before.gameplayMain);
+        assert.equal(onDisk.matched, true);
+        assert.equal(onDisk.fetchedAt, before.fetchedAt); // not re-stamped
     });
 });
 

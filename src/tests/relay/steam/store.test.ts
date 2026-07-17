@@ -116,7 +116,12 @@ describe('steam store service — game details', () => {
         assert.equal(global.fetch.mock.calls.length, 2);
     });
 
-    it('syncGameDetails records noData when store returns success=false', async () => {
+    it('syncGameDetails records noData when success=false and nothing is cached', async () => {
+        // fetchAppDetail() returns null for BOTH a genuine missing store page and a
+        // transient throttle (both answer 200 success:false), so the {unavailable}
+        // sentinel is now written only when there's no good data to preserve. Clear the
+        // cache first to exercise that genuine-no-data path.
+        await fs.rm(path.join(steamDir, 'store'), { recursive: true, force: true });
         global.fetch.mockClear();
         global.fetch = vi.fn(async () => ({
             ok: true,
@@ -125,6 +130,27 @@ describe('steam store service — game details', () => {
         const result = await syncGameDetails({ force: true });
         assert.equal(result.noData, 2);
         assert.equal(result.fetched, 0);
+        global.fetch = originalFetch;
+    });
+
+    it('preserves existing good data when success=false (throttle vs. no store page is ambiguous)', async () => {
+        // Seed good cached entries, then drive success=false. The service must NOT
+        // overwrite them with the {unavailable} sentinel — a throttle is indistinguishable
+        // from a genuine miss, so good data wins.
+        const storeDir = path.join(steamDir, 'store');
+        await fs.mkdir(storeDir, { recursive: true });
+        await fs.writeFile(path.join(storeDir, '10.json'), JSON.stringify(FAKE_DETAIL_10, null, 2));
+        await fs.writeFile(path.join(storeDir, '20.json'), JSON.stringify(FAKE_DETAIL_20, null, 2));
+        global.fetch = vi.fn(async () => ({
+            ok: true,
+            json: async () => ({ '10': { success: false }, '20': { success: false } }),
+        }));
+        const result = await syncGameDetails({ force: true });
+        assert.equal(result.noData, 0);
+        assert.equal(result.skipped, 2);
+        const kept10 = JSON.parse(await fs.readFile(path.join(storeDir, '10.json'), 'utf8'));
+        assert.equal(kept10.unavailable, undefined);
+        assert.equal(kept10.metacritic.score, 88);
         global.fetch = originalFetch;
     });
 });

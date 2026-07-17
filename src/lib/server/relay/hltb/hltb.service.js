@@ -185,6 +185,16 @@ export async function syncGame(appid, { force = false, searchFn = defaultSearch,
     if (!force && existingHasTimes) return { skipped: true, entry: existing };
 
     const results = await searchFn(cleanSearchName(name));
+
+    // A 200-but-empty search result (a transient HLTB hiccup) must not wipe good
+    // completion times we already have. Preserve the existing matched entry. A
+    // THROWN search error never reaches here — it propagates to the caller, which
+    // already leaves the entry untouched.
+    if ((!results || results.length === 0) && existingHasTimes) {
+        logger.warn('[hltb] Empty search result — keeping cached times', { appid, name });
+        return { skipped: true, entry: existing };
+    }
+
     const match   = pickBestMatch(results, name, Number(appid));
 
     const hasTimes = !!(match?.comp_main || match?.comp_plus || match?.comp_100);

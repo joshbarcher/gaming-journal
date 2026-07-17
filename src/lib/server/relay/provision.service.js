@@ -50,19 +50,38 @@ let _firstSeen = null;
 
 function loadFirstSeen() {
     if (_firstSeen) return _firstSeen;
-    try { _firstSeen = JSON.parse(readFileSync(firstSeenPath(), 'utf8')); }
-    catch { _firstSeen = {}; }
-    return _firstSeen;
+    try {
+        _firstSeen = JSON.parse(readFileSync(firstSeenPath(), 'utf8'));
+        return _firstSeen;
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            _firstSeen = {};   // no file yet — an empty map is the correct starting point
+            return _firstSeen;
+        }
+        // Transient read/parse error (NAS blip, a half-written file). Do NOT memoize {}:
+        // a cached-empty map makes recordFirstSeen() treat every owned game as brand new
+        // and rewrite the file with only-today dates, wiping real acquire history. Return
+        // null (unmemoized) so the next call retries the load.
+        logger.warn('[provision] library-firstseen read failed — not caching empty', { err: err.message });
+        return null;
+    }
 }
 
 /** Sync snapshot of { [appid]: firstSeenIso } for library games. */
 export function getLibraryFirstSeen() {
-    return loadFirstSeen();
+    return loadFirstSeen() ?? {};
 }
 
 /** Stamp "now" for any of these library appids not already tracked; flush once. */
 async function recordFirstSeen(appids) {
     const map = loadFirstSeen();
+    if (map === null) {
+        // Read failed transiently; the on-disk file may hold real dates. Writing now would
+        // clobber them with only-today stamps, so skip — a later call retries once the
+        // read succeeds.
+        logger.warn('[provision] Skipping firstSeen record — firstseen unreadable this cycle');
+        return;
+    }
     const now = new Date().toISOString();
     let changed = false;
     for (const appid of appids) {

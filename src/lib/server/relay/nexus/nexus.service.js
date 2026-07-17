@@ -140,17 +140,33 @@ async function getGamesList({ force = false, fetchFn = fetch } = {}) {
     // off the NAS on every uncached resolution.
     if (!force && _gamesMem && (Date.now() - _gamesMem.at) < MEM_TTL_MS) return _gamesMem.games;
 
+    let cachedList = null;
     if (!force) {
         try {
             const cached = JSON.parse(await fs.readFile(gamesCachePath(), 'utf8'));
-            const age = Date.now() - new Date(cached.fetchedAt).getTime();
-            if (age < GAMES_TTL_DAYS * 86_400_000 && Array.isArray(cached.games)) {
-                _gamesMem = { games: cached.games, at: Date.now() };
-                return cached.games;
+            if (Array.isArray(cached.games)) {
+                cachedList = cached.games;
+                const age = Date.now() - new Date(cached.fetchedAt).getTime();
+                if (age < GAMES_TTL_DAYS * 86_400_000) {
+                    _gamesMem = { games: cached.games, at: Date.now() };
+                    return cached.games;
+                }
             }
         } catch { /* not cached / stale — refetch */ }
     }
     const games = await fetchGamesList(fetchFn);
+    // A transient/partial response yields an empty (or non-array) list. Caching it
+    // would poison every name match (matchGame → null) and write {mods:[]}
+    // sentinels library-wide. Keep any prior cached list instead; only a non-empty
+    // result is worth persisting.
+    if (!Array.isArray(games) || games.length === 0) {
+        if (cachedList?.length) {
+            logger.warn('[nexus] Games list empty — keeping prior cached list', { cached: cachedList.length });
+            _gamesMem = { games: cachedList, at: Date.now() };
+            return cachedList;
+        }
+        throw new Error('Nexus games list empty — refusing to cache');
+    }
     await fs.mkdir(nexusDir(), { recursive: true });
     await fs.writeFile(gamesCachePath(), JSON.stringify({ fetchedAt: new Date().toISOString(), games }, null, 2));
     _gamesMem = { games, at: Date.now() };
@@ -202,7 +218,14 @@ async function queryMods({ filter, sort, count, offset = 0 }, fetchFn = fetch) {
     if (json.errors?.length) {
         throw new Error(`Nexus GraphQL errors: ${json.errors.map(e => e.message).join('; ')}`);
     }
-    const mods = json.data?.mods ?? { nodes: [], totalCount: 0 };
+    // A well-formed GraphQL response always carries data.mods (even for a game
+    // with zero mods: { nodes: [], totalCount: 0 }). data:null with no errors is a
+    // transient upstream failure — throw rather than silently returning an empty
+    // set, which callers would persist as a {mods:[]} sentinel over good data.
+    if (json.data?.mods == null) {
+        throw new Error('Nexus GraphQL returned no data');
+    }
+    const mods = json.data.mods;
     return { nodes: mods.nodes ?? [], totalCount: mods.totalCount ?? 0 };
 }
 
@@ -866,8 +889,17 @@ export async function syncOne(appid, steamName, { force = false, domain = null, 
     }
 
     const name = steamName ?? existing?.steamName ?? null;
-    const { domainName, gameId, nexusName } = await resolveGame(appid, name, { domain, fetchFn });
+    let { domainName, gameId, nexusName } = await resolveGame(appid, name, { domain, fetchFn });
     if (domain) await saveOverride(appid, domain);
+
+    // If resolution came back empty but we already resolved this game before, keep
+    // the known domain rather than overwriting a good entry with a no-match
+    // sentinel (a transient games-list hiccup shouldn't demote a resolved game).
+    if (!domainName && existing?.domainName) {
+        domainName = existing.domainName;
+        gameId     = existing.gameId ?? null;
+        nexusName  = existing.nexusName ?? null;
+    }
 
     if (!domainName) {
         const sentinel = {

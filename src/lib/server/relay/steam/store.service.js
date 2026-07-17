@@ -109,6 +109,22 @@ async function fetchAppDetail(appid) {
     return pruneAppDetail(entry.data);
 }
 
+// Distinguish "nothing worth keeping on disk" from "a good/partial entry exists".
+// fetchAppDetail() returns null for BOTH a genuine missing store page and a Steam
+// throttle — both answer HTTP 200 with success:false, indistinguishable in the body —
+// so before stamping the {unavailable} sentinel we check whether real data is already
+// cached. If so, a null is far more likely a transient throttle/403 than a real
+// delisting, and we preserve the good data rather than blanking it (which would also
+// freeze the entry for the 24h recheck TTL).
+async function hasCachedStoreData(dest) {
+    try {
+        const cached = JSON.parse(await fs.readFile(dest, 'utf8'));
+        return !!cached && !cached.unavailable;
+    } catch {
+        return false;   // no file / unreadable / sentinel → nothing good to protect
+    }
+}
+
 /** @param {{ force?: boolean, onProgress?: (done: number, total: number) => void }} [opts] */
 export async function syncGameDetails({ force = false, onProgress } = {}) {
     const gamesPath = path.join(dataDir(), 'games.json');
@@ -158,6 +174,11 @@ export async function syncGameDetails({ force = false, onProgress } = {}) {
             if (detail) {
                 await fs.writeFile(dest, JSON.stringify(detail, null, 2));
                 fetched++;
+            } else if (await hasCachedStoreData(dest)) {
+                // Ambiguous success:false over existing good data → almost certainly a
+                // throttle. Preserve the cached entry instead of overwriting it with the
+                // sentinel.
+                skipped++;
             } else {
                 await fs.writeFile(dest, JSON.stringify({ steam_appid: Number(game.appid), unavailable: true, fetchedAt: new Date().toISOString() }));
                 noData++;
@@ -211,8 +232,10 @@ export async function syncOne(appid) {
     if (detail) {
         await fs.mkdir(storeDir(), { recursive: true });
         await fs.writeFile(dest, JSON.stringify(detail, null, 2));
-    } else {
-        // Steam returned no data — write sentinel so we don't retry on every backfill
+    } else if (!(await hasCachedStoreData(dest))) {
+        // Steam returned no data AND nothing good is cached — write the sentinel so we
+        // don't retry on every backfill. If good data WERE cached, a null here is far
+        // more likely a throttle/403 than a real delisting, so leave it untouched.
         await fs.mkdir(storeDir(), { recursive: true });
         await fs.writeFile(dest, JSON.stringify({ steam_appid: Number(appid), unavailable: true, fetchedAt: new Date().toISOString() }));
     }

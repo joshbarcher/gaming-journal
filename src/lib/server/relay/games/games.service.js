@@ -145,15 +145,33 @@ async function _buildAll() {
     // race-condition bug (see steam.service.js's _load*File loaders) that tagged only a handful of
     // games as wishlisted instead of the real ~1100.
     const [steamData, wishlistData, localData] = await Promise.all([
-        getSteamGames().catch((err) => { logger.error('[games] getSteamGames() failed in _buildAll', { err: err.message }); return { games: [] }; }),
+        getSteamGames().catch((err) => { logger.error('[games] getSteamGames() failed in _buildAll', { err: err.message }); return null; }),
         getWishlist().catch((err) => { logger.error('[games] getWishlist() failed in _buildAll', { err: err.message }); return { items: {} }; }),
         readLocalWishlist(),
     ]);
 
-    const libraryMap    = new Map((steamData.games ?? []).map((g) => [g.appid, g]));
-    const wishlistItems = wishlistData.items ?? {};
-    const localItems    = localData.items ?? {};
-    const allAppids     = new Set([
+    const wishlistItems = wishlistData?.items ?? {};
+    const localItems    = localData?.items ?? {};
+
+    // A degraded library read must NOT silently persist over the good sidecar. Building
+    // from wishlist/local alone still yields a NON-empty array, which slips past
+    // persisted-index's fully-empty glitch guard and overwrites the good index. Two
+    // transient-failure signatures, both of which we treat as "abort the rebuild" so
+    // createPersistedIndex.refresh() keeps the last good index:
+    //   1. getSteamGames() threw (returned null above).
+    //   2. the library came back empty while a wishlist/local list is present — you own
+    //      games, so an empty library alongside a non-empty wishlist is a read failure,
+    //      not a real state.
+    if (steamData === null) {
+        throw new Error('[games] getSteamGames() read failed — aborting rebuild to preserve the good games index');
+    }
+    const steamGames = steamData.games ?? [];
+    if (steamGames.length === 0 && (Object.keys(wishlistItems).length > 0 || Object.keys(localItems).length > 0)) {
+        throw new Error('[games] Steam library empty while wishlist/local is non-empty — treating as a transient read failure, aborting rebuild to preserve the good games index');
+    }
+
+    const libraryMap = new Map(steamGames.map((g) => [g.appid, g]));
+    const allAppids  = new Set([
         ...libraryMap.keys(),
         ...Object.keys(wishlistItems).map(Number),
         ...Object.keys(localItems).map(Number),

@@ -726,6 +726,23 @@ async function _syncGame(appid, gameName, { force = false } = {}) {
     const sources = [];
     let created = 0;   // posts across all subs that we had never seen before
 
+    // The entry below is rebuilt from scratch and written unconditionally, so any
+    // source whose fetch throws this cycle (IGDB discovery failure, Reddit bot-
+    // detection on a search/listing) would simply vanish — overwriting a good cached
+    // entry (and its accumulated posts) with fewer/empty sources. Seed a lookup of the
+    // previously-stored source block per subreddit so a failed fetch can fall back to
+    // its last-good block instead of dropping the source.
+    const priorSourceBySub = new Map();
+    for (const s of cached?.sources ?? []) {
+        if (s?.subreddit) priorSourceBySub.set(s.subreddit.toLowerCase(), s);
+    }
+    const hasSource   = (sub) => !!sub && sources.some(s => s.subreddit?.toLowerCase() === sub.toLowerCase());
+    const reuseSource = (sub) => {
+        if (!sub) return;
+        const prior = priorSourceBySub.get(sub.toLowerCase());
+        if (prior && !hasSource(sub)) sources.push(prior);
+    };
+
     // 2. IGDB game subreddit — multi-sort, accumulated
     if (gameSubreddit) {
         _emit(appid, { type: 'status', message: `Fetching r/${gameSubreddit}…` });
@@ -736,14 +753,21 @@ async function _syncGame(appid, gameName, { force = false } = {}) {
             logger.debug('[reddit] Fetched game sub', { subreddit: gameSubreddit, posts: source.posts.length, added });
         } catch (err) {
             logger.warn('[reddit] Game sub fetch failed', { subreddit: gameSubreddit, err: err.message });
+            reuseSource(gameSubreddit);   // keep the last-good block on a transient fetch failure
         }
         await sleep(jitter());
+    } else {
+        // IGDB discovery returned null — indistinguishable between "this game genuinely
+        // has no subreddit" and "IGDB glitched this cycle". Re-use the previously-
+        // discovered game sub block (if any) rather than silently dropping it.
+        reuseSource(cached?.subreddit);
     }
 
     // 3. User-configured subreddits — shared multi-sort cache (skip any already covered by IGDB)
     const igdbSubLower = gameSubreddit?.toLowerCase() ?? '';
     for (const sub of userSubs) {
         if (sub.toLowerCase() === igdbSubLower) continue; // avoid duplicate
+        if (hasSource(sub)) continue;                     // already carried (e.g. a reused prior block)
         _emit(appid, { type: 'status', message: `Fetching r/${sub}…` });
         try {
             const shared = await _fetchSharedSub(sub, { force });
@@ -752,6 +776,7 @@ async function _syncGame(appid, gameName, { force = false } = {}) {
             logger.debug('[reddit] Linked shared sub', { subreddit: sub, posts: shared.posts.length });
         } catch (err) {
             logger.warn('[reddit] User sub fetch failed', { subreddit: sub, err: err.message });
+            reuseSource(sub);   // preserve the prior block rather than dropping the source
         }
         await sleep(jitter());
     }
@@ -766,7 +791,10 @@ async function _syncGame(appid, gameName, { force = false } = {}) {
             created += added;
             logger.debug('[reddit] Fetched search', { subreddit: sub, posts: posts.length, added });
         } catch (err) {
+            // fetchSearch → redditGetListing throws on bot-detection (json.error). Don't
+            // drop the source: reuse the prior stored block so the accumulated posts survive.
             logger.warn('[reddit] Search failed', { subreddit: sub, err: err.message });
+            reuseSource(sub);
         }
         await sleep(jitter());
     }
@@ -774,7 +802,7 @@ async function _syncGame(appid, gameName, { force = false } = {}) {
     const entry = {
         appid:      Number(appid),
         gameName,
-        subreddit:  gameSubreddit ?? null,
+        subreddit:  gameSubreddit ?? cached?.subreddit ?? null,
         fetchedAt:  new Date().toISOString(),
         sources,
     };

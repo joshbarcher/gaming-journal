@@ -61,6 +61,12 @@ function mockFetchHtml() {
     });
 }
 
+// Transient upstream failure (rate-limit / server error) — must NOT be written as
+// a notFound sentinel over a good tier.
+function mockFetchTransient(status = 503) {
+    return async () => ({ ok: false, status });
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 beforeAll(async () => {
@@ -170,6 +176,23 @@ describe('syncOne', () => {
     test('writes notFound sentinel when API returns HTML (CDN 404 page)', async () => {
         const result = await syncOne(201, { force: true, fetchFn: mockFetchHtml() });
         assert.equal(result.entry.notFound, true);
+    });
+
+    // Data-integrity: a transient 5xx/429 must preserve a good cached tier, never
+    // overwrite it with a notFound sentinel (which would freeze for the TTL).
+    test('preserves a good entry on a transient 5xx instead of writing notFound', async () => {
+        const good = { ...shapeEntry(210, makeRawSummary({ tier: 'gold' })), fetchedAt: new Date().toISOString() };
+        await fs.writeFile(path.join(PROTONDB_DIR, '210.json'), JSON.stringify(good));
+
+        const result = await syncOne(210, { force: true, fetchFn: mockFetchTransient(503) });
+        // Returned + on-disk entry both keep the good tier; no notFound stamped.
+        assert.equal(result.entry.tier, 'gold');
+        assert.notEqual(result.entry.notFound, true);
+
+        const onDisk = await getEntry(210);
+        assert.equal(onDisk.tier, 'gold');
+        assert.notEqual(onDisk.notFound, true);
+        assert.equal(onDisk.fetchedAt, good.fetchedAt); // fetchedAt not re-stamped
     });
 
     test('skips fresh non-settled entry', async () => {

@@ -44,6 +44,11 @@ let _running = false;
 /** { done, total } top-level directories walked, for the UI's progress meter. */
 let _progress = null;
 
+/** Total files across all source buckets — the audit metric below compares this. */
+function _totalScanFiles(value) {
+    return Object.values(value?.sources ?? {}).reduce((n, s) => n + (s?.files ?? 0), 0);
+}
+
 async function cacheFile() {
     if (!_file) {
         _file = new ManagedFile({
@@ -52,6 +57,15 @@ async function cacheFile() {
             defaultValue: () => ({ scannedAt: null, scanMs: 0, sources: {} }),
             maxFlushIntervalMs: 5_000,
             log: (level, msg, meta) => logger[level]?.(`[disk-usage] ${msg}`, meta),
+            // Data-integrity backstop (mirrors sync-metrics.service.js): a scan that
+            // comes back with ~0 files while the previous scan was non-empty means the
+            // NAS walk was blocked — collectFiles() swallows a non-ENOENT readdir error
+            // and returns [] — not that 550 GB actually vanished. Reject the write so
+            // the good snapshot survives; the next nightly scan retries.
+            auditMetrics: (value) => ({ files: _totalScanFiles(value) }),
+            audit: (prev, next) => (prev.files > 0 && _totalScanFiles(next) === 0)
+                ? { ok: false, reason: `disk-usage total files collapsed ${prev.files} → 0 (refusing to overwrite good scan)` }
+                : { ok: true },
         });
         await _file.load();
     }

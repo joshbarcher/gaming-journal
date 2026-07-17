@@ -32,12 +32,26 @@ function dataDir() {
     return featureDir('steam');
 }
 
-function makeFile(name, defaultValue) {
-    return new ManagedFile({
+function makeFile(name, defaultValue, countOf) {
+    const opts = {
         filePath: path.join(dataDir(), `${name}.json`),
         name: `steam-${name}`,
         defaultValue,
-    });
+    };
+    // Data-integrity backstop: for the collection files (games/wishlist/
+    // recently-played), reject a write that collapses a populated file to empty.
+    // Steam's GetOwnedGames/GetWishlist intermittently return HTTP 200 with an
+    // empty body (private profile / transient load); writing that []/{}. over a
+    // good file would wipe the library that every other feature reads. The audit
+    // quarantines the bad payload and leaves the good file untouched. Sync
+    // functions ALSO gate this explicitly (below) — this is defense in depth.
+    if (countOf) {
+        opts.auditMetrics = (value) => ({ count: countOf(value) });
+        opts.audit = (prev, next) => (prev.count > 0 && countOf(next) === 0)
+            ? { ok: false, reason: `${name} count collapsed ${prev.count} → 0 (refusing to wipe good data)` }
+            : { ok: true };
+    }
+    return new ManagedFile(opts);
 }
 
 function achDir() {
@@ -72,7 +86,7 @@ let _wishlistFilePromise       = null;
 
 function _loadGamesFile() {
     if (!_gamesFilePromise) {
-        const file = makeFile('games', () => ({ fetchedAt: null, gameCount: 0, games: [] }));
+        const file = makeFile('games', () => ({ fetchedAt: null, gameCount: 0, games: [] }), v => v.games?.length ?? 0);
         _gamesFilePromise = file.load().then(() => file);
     }
     return _gamesFilePromise;
@@ -92,6 +106,9 @@ export async function getReviewsFile() {
 
 function _loadRecentlyPlayedFile() {
     if (!_recentlyPlayedFilePromise) {
+        // No count-guard: an empty recently-played list is legitimate (nothing
+        // played in the last 2 weeks), so we can't distinguish it from a private-
+        // profile empty by count. Transient anyway (1h TTL, self-heals).
         const file = makeFile('recently-played', () => ({ fetchedAt: null, totalCount: 0, games: [] }));
         _recentlyPlayedFilePromise = file.load().then(() => file);
     }
@@ -100,7 +117,7 @@ function _loadRecentlyPlayedFile() {
 
 function _loadWishlistFile() {
     if (!_wishlistFilePromise) {
-        const file = makeFile('wishlist', () => ({ fetchedAt: null, itemCount: 0, items: {} }));
+        const file = makeFile('wishlist', () => ({ fetchedAt: null, itemCount: 0, items: {} }), v => Object.keys(v.items ?? {}).length);
         _wishlistFilePromise = file.load().then(() => file);
     }
     return _wishlistFilePromise;
@@ -144,6 +161,15 @@ export async function syncGames({ force = false } = {}) {
     logger.info('[steam] Syncing owned games from Steam API');
     const raw = await fetchOwnedGames(apiKey, steamId);
     const games = raw.games ?? [];
+
+    // GetOwnedGames returns HTTP 200 with an empty body when the profile's game
+    // details are private (or intermittently under load). Writing [] over a good
+    // library would wipe games.json — which achievements, reviews, wishlist,
+    // player-counts and poster-pool all read. Keep the cache and bail.
+    if (games.length === 0 && (cached.games?.length ?? 0) > 0) {
+        logger.warn('[steam] Owned-games API returned empty — keeping cached library', { cachedCount: cached.games.length });
+        return cached;
+    }
 
     const next = {
         fetchedAt: new Date().toISOString(),
@@ -572,6 +598,17 @@ async function _syncAchievementsImpl({ force, onProgress, scrapeFn }) {
                     }
 
                     if (schemaAchs.length === 0 && scraped.length === 0) {
+                        // Both schema sources came back empty. fetchAchievementSchema
+                        // returns [] on a transient 5xx (after retries), and the
+                        // community-page scraper returns [] on any error (403/timeout)
+                        // — so this fires on a transient failure, not just a game
+                        // that genuinely has no achievements. If we already have a
+                        // good stored list, DON'T overwrite it with [] (that wipe
+                        // would also freeze the game empty for the 30-day no-ach TTL).
+                        if ((snapshot?.achievements?.length ?? 0) > 0) {
+                            logger.debug(`[steam] Achievement sync ${progress} PRESERVE ${game.name} — schema fetch empty, keeping ${snapshot.achievements.length} stored`);
+                            return true;
+                        }
                         logger.debug(`[steam] Achievement sync ${progress} SKIP ${game.name} — no schema`);
                         await _writeGameAchievements(game.appid, {
                             fetchedAt: new Date().toISOString(), gameName: game.name,
@@ -814,6 +851,14 @@ export async function syncWishlist({ force = false } = {}) {
     logger.info('[steam] Syncing wishlist from Steam Web API');
 
     const rawItems = await fetchWishlist(apiKey, steamId);
+
+    // Like GetOwnedGames, GetWishlist returns 200-with-empty on a private profile
+    // / transient error. Don't wipe a good wishlist with {}. (The ManagedFile
+    // audit backstops this too.)
+    if (rawItems.length === 0 && Object.keys(cached.items ?? {}).length > 0) {
+        logger.warn('[steam] Wishlist API returned empty — keeping cached wishlist', { cachedCount: Object.keys(cached.items).length });
+        return cached;
+    }
 
     const items = {};
     for (const item of rawItems) {

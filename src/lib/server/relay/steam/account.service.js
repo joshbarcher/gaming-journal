@@ -132,18 +132,31 @@ export async function syncAccount({ force = false } = {}) {
     const badges  = await fetchBadges(apiKey, steamId);
     const bans    = await fetchBans(apiKey, steamId);
 
+    // steamFetch throws on hard errors (400/401/403) so those never reach here.
+    // But Steam intermittently returns HTTP 200 with an empty/partial body under
+    // load — fetchProfile → null, fetchLevel → null, fetchBadges → {}. Writing
+    // those over a good cache blanks the account (name "Unknown", null avatar/
+    // level) until the next good sync. Prefer fresh → prior cached → default,
+    // per field, and don't re-stamp fetchedAt when nothing usable came back.
+    const gotAnything = profile != null || level != null || bans != null ||
+        (badges && Object.keys(badges).length > 0);
+    if (!gotAnything) {
+        logger.warn('[steam] Account sync got an empty response — keeping cached account');
+        return cached;
+    }
+
     const next = {
         fetchedAt: new Date().toISOString(),
-        profile,
-        level,
-        bans,
-        badges,
+        profile: profile ?? cached.profile ?? null,
+        level:   level   ?? cached.level   ?? null,
+        bans:    bans    ?? cached.bans    ?? null,
+        badges:  (badges && Object.keys(badges).length > 0) ? badges : (cached.badges ?? {}),
     };
 
     await file.set(next);
     await file.flush();
 
-    logger.info('[steam] Account sync complete', { personaname: profile?.personaname, level });
+    logger.info('[steam] Account sync complete', { personaname: next.profile?.personaname, level: next.level });
     return next;
 }
 

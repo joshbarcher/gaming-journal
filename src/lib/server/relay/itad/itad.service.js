@@ -241,6 +241,10 @@ async function syncGames(games, { force = false, onProgress, fetchFn = fetch } =
     const priceMap = new Map();
     const lowMap   = new Map();
     const fetchIds = toFetch.map(g => g.itadId);
+    // itadIds whose batch actually resolved. A batch that throws (429/5xx/network)
+    // leaves its IDs OUT of this set; Phase 4 then carries the cached entry forward
+    // for those games instead of writing empty deals over good data.
+    const fetchedOkIds = new Set();
 
     for (let i = 0; i < fetchIds.length; i += BATCH_SIZE) {
         const batch = fetchIds.slice(i, i + BATCH_SIZE);
@@ -251,6 +255,7 @@ async function syncGames(games, { force = false, onProgress, fetchFn = fetch } =
             ]);
             for (const p of prices) priceMap.set(p.id, p.deals ?? []);
             for (const l of lows)   lowMap.set(l.id, l.low ?? null);
+            for (const id of batch) fetchedOkIds.add(id);
         } catch (err) {
             logger.warn('[itad] Batch price fetch failed', { offset: i, err: err.message });
         }
@@ -281,6 +286,19 @@ async function syncGames(games, { force = false, onProgress, fetchFn = fetch } =
                     deals: [], historicalLow: null,
                 }, null, 2));
             }
+            skipped++;
+            onProgress?.(++done, resolved.length);
+            continue;
+        }
+
+        // This game was slated for a price refresh, but its batch FAILED (a
+        // transient upstream error swallowed in Phase 3). priceMap/lowMap have no
+        // entry for it, so writing filterAndSortDeals([]) would zero good cached
+        // deals + historicalLow for the whole batch AND re-stamp fetchedAt —
+        // locking the wipe in for the TTL. Carry the cached entry forward untouched
+        // and let the next sync retry.
+        if (!fetchedOkIds.has(itadId)) {
+            logger.warn('[itad] Price batch failed — keeping cached entry', { appid, itadId });
             skipped++;
             onProgress?.(++done, resolved.length);
             continue;

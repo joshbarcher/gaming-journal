@@ -77,7 +77,14 @@ export async function syncGame(appid, { force = false } = {}) {
     const summaryBody = await steamFetch(
         `${API_BASE}/${appid}?json=1&filter=all&language=all&purchase_type=all&num_per_page=0`
     );
-    const qs           = summaryBody.query_summary ?? {};
+    // A success:1 response with no query_summary is a transient/partial answer
+    // (Steam occasionally omits it under load). Treating it as 0 reviews would
+    // overwrite a good 100-review snapshot with an empty one — skip and keep prior.
+    if (!summaryBody.query_summary) {
+        logger.warn('[community-reviews] Missing query_summary — keeping cached entry', { appid });
+        return { skipped: true, appid };
+    }
+    const qs           = summaryBody.query_summary;
     const totalReviews  = qs.total_reviews  ?? 0;
     const totalPositive = qs.total_positive ?? 0;
     const totalNegative = qs.total_negative ?? 0;

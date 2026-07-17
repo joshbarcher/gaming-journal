@@ -84,9 +84,6 @@ export async function getSubreddit(appid, gameName, { force = false, fetchFn = f
         }
     }
 
-    let subreddit = null;
-    let igdbId    = null;
-
     try {
         // Search IGDB by game name — more reliable than external_games Steam uid lookup
         const games = await igdbQuery(
@@ -102,7 +99,8 @@ export async function getSubreddit(appid, gameName, { force = false, fetchFn = f
             ?? games?.[0]
             ?? null;
 
-        igdbId = match?.id ?? null;
+        const igdbId = match?.id ?? null;
+        let subreddit = null;
 
         if (igdbId) {
             // Fetch all websites for this game and find the Reddit one (category 14)
@@ -117,14 +115,22 @@ export async function getSubreddit(appid, gameName, { force = false, fetchFn = f
                 subreddit = m?.[1] ?? null;
             }
         }
+
+        // Only write on a CONFIRMED result (the query succeeded). A successful
+        // query that found no subreddit legitimately writes null and stamps
+        // fetchedAt — that's a real "no subreddit" answer, not a transient miss.
+        await fs.writeFile(entryPath(appid), JSON.stringify({
+            appid: Number(appid), igdbId, subreddit, fetchedAt: new Date().toISOString(),
+        }, null, 2));
+
+        logger.debug('[igdb] Subreddit resolved', { appid, subreddit });
+        return subreddit;
     } catch (err) {
-        logger.warn('[igdb] Subreddit lookup failed', { appid, err: err.message });
+        // Transient lookup failure — preserve the prior cached subreddit/igdbId and
+        // do NOT advance fetchedAt, so the next run retries instead of locking a
+        // null in for the 30-day TTL.
+        logger.warn('[igdb] Subreddit lookup failed — keeping cached entry', { appid, err: err.message });
+        const cached = await getEntry(appid);
+        return cached?.subreddit ?? null;
     }
-
-    await fs.writeFile(entryPath(appid), JSON.stringify({
-        appid: Number(appid), igdbId, subreddit, fetchedAt: new Date().toISOString(),
-    }, null, 2));
-
-    logger.debug('[igdb] Subreddit resolved', { appid, subreddit });
-    return subreddit;
 }

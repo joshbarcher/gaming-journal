@@ -33,7 +33,11 @@ async function readJson(p) {
 }
 async function writeJson(p, data) {
     await fs.mkdir(path.dirname(p), { recursive: true });
-    await fs.writeFile(p, JSON.stringify(data), 'utf8');
+    // Atomic: tmp + rename, so a crash/torn write can't leave a partial (then
+    // unparseable) player-counts.json that a later read would treat as empty.
+    const tmp = `${p}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(data), 'utf8');
+    await fs.rename(tmp, p);
 }
 
 // ── In-memory store ───────────────────────────────────────────────────────────
@@ -44,7 +48,18 @@ let _data  = null;
 let _index = null;
 
 async function _loadAll() {
-    return (await readJson(storePath())) ?? {};
+    // CRITICAL: distinguish "file absent" (ENOENT → fresh {}) from "read failed"
+    // (a transient NAS/permissions error or a torn read). Returning {} on a read
+    // error and then _saveAll-ing would DESTROY every game's multi-month sample
+    // history, leaving one sample each. On a non-ENOENT error, throw so the
+    // caller aborts the collect and leaves the good file untouched.
+    try {
+        return JSON.parse(await fs.readFile(storePath(), 'utf8'));
+    } catch (err) {
+        if (err.code === 'ENOENT') return {};
+        logger.warn('[player-counts] Consolidated store read failed — aborting to protect history', { err: err.message });
+        throw err;
+    }
 }
 
 async function _saveAll(data) {

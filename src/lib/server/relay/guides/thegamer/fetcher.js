@@ -432,6 +432,18 @@ async function buildTagAllowlist(browser, rootTags, cfg, cache, { force = false 
         }
     }
 
+    // If every tag listing came back empty this run while a previous run had built a
+    // real allowlist, the tag pages were almost certainly blocked (bot-detection /
+    // rate-limit / transient error at page 1), not genuinely emptied. Writing slugs:[]
+    // with a fresh fetchedAt would make allowlistIsFresh() trust the empty set for
+    // ALLOWLIST_TTL_DAYS and suppress retries. Keep the previous allowlist and do NOT
+    // re-stamp fetchedAt, so the next run retries.
+    const priorCount = cache.allowlist?.slugs?.length ?? 0;
+    if (allow.size === 0 && priorCount > 0) {
+        console.log(`[fetcher:thegamer] Tag allowlist came back empty but ${priorCount} cached — keeping previous allowlist; next run will retry.`);
+        return new Set(cache.allowlist.slugs);
+    }
+
     cache.allowlist = { fetchedAt: Date.now(), tags: [...rootTags], slugs: [...allow] };
     console.log(`[fetcher:thegamer] Tag allowlist: ${allow.size} article(s) from ${rootTags.size} tag listing(s).`);
     return allow;

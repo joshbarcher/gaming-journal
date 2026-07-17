@@ -10,7 +10,13 @@ function keyFor(steamId, source, guideId) { return `${steamId}:${source}:${guide
 
 async function loadAll() {
     try { return JSON.parse(await fs.readFile(pinsPath(), 'utf8')); }
-    catch { return {}; }
+    catch (err) {
+        if (err.code === 'ENOENT') return {};   // no pins file yet — empty is correct
+        // Transient read/parse error: rethrow so a read-modify-write (set/upsert/delete)
+        // aborts rather than treating the store as empty and clobbering every other tab's
+        // pins with {}.
+        throw err;
+    }
 }
 
 async function saveAll(data) {

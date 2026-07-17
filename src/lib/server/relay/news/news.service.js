@@ -82,6 +82,17 @@ export async function fetchAndCache(appid) {
     const json = await res.json();
     const raw  = json?.appnews?.newsitems ?? [];
 
+    // Steam's news API intermittently returns an empty newsitems array on an
+    // otherwise-200 response. Writing items:[] over a good cache would wipe the
+    // article list; keep the prior cache when the response is empty.
+    if (raw.length === 0) {
+        const prior = await readJson(newsPath(appid));
+        if (prior?.items?.length) {
+            logger.info('[news] Empty news response — keeping cached items', { appid, cached: prior.items.length });
+            return prior;
+        }
+    }
+
     const items = raw
         .filter(isRelevant)
         .filter(isEnglish)

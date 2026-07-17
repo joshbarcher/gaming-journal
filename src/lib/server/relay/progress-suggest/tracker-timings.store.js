@@ -12,17 +12,26 @@ function dataPath() { return join(featureDir('progress-suggest'), 'tracker-timin
 
 async function load() {
     try { return JSON.parse(await readFile(dataPath(), 'utf8')); }
-    catch { return { durations: [] }; }
+    catch (err) {
+        if (err.code === 'ENOENT') return { durations: [] };   // no file yet — empty is correct
+        // Transient read/parse error: rethrow so recordCompletion() doesn't push onto an
+        // empty array and overwrite real timing history with a single sample.
+        throw err;
+    }
 }
 
 export async function getEstimatedMs() {
-    const { durations } = await load();
+    let durations;
+    try { ({ durations } = await load()); }
+    catch { return DEFAULT_MS; }   // transient read error — fall back to the default estimate
     if (!durations.length) return DEFAULT_MS;
     return Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
 }
 
 export async function recordCompletion(durationMs) {
-    const data = await load();
+    let data;
+    try { data = await load(); }
+    catch { return; }   // transient read error — don't overwrite real history with one sample
     data.durations.push(durationMs);
     if (data.durations.length > MAX_SAMPLES) data.durations.shift();
     try {
