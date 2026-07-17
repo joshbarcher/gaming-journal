@@ -372,6 +372,20 @@ relocate relay `tools/*`.
 
 The original runbooks below are historical.
 
+## Data-integrity audit (2026-07-17)
+
+Adversarial audit of all ~40 write-bearing services for one bug class: a
+transient upstream failure/empty/block writing empty/null/0/[] over good cached
+data (the achievements-private-profile bug, generalized). Found + fixed ~19
+instances (all pre-existing in the relay). Universal fix pattern: **fresh (on
+confirmed success) → prior stored value → default; distinguish a confirmed
+not-found from a transient error; never re-stamp `fetchedAt` on a transient
+failure.** Two reusable backstops: a ManagedFile `audit` that quarantines an
+N>0→0 collapse (games/wishlist), and `createPersistedIndex`'s empty-rebuild
+guard. HIGH: library/wishlist/achievements/player-counts wipes, itad price
+zeroing, protondb tier wipe, igdb subreddit null, reddit source drop. See commit
+`11cea34` for the full list. Shipped + deployed; 2593 tests pass.
+
 ## Post-migration hardening (2026-07-17)
 
 Fixes after the user exercised the live system:
