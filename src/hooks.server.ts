@@ -5,6 +5,7 @@ import { getJournalService } from '$lib/server/services/journalService.js'
 import { getFranchiseService } from '$lib/server/services/franchiseService.js'
 import { cleanupOwned } from '$lib/server/services/localWishlistService.js'
 import { bootRelay, closeRelay } from '$lib/server/relay/boot.js'
+import { featureDir } from '$lib/server/relay/shared/data-root.js'
 import { installActivityTracker, recordRequest } from '../activity.js'
 
 logger.startup({ name: 'gaming-journal', version: '1.0.0' })
@@ -37,7 +38,9 @@ interface GamesFile {
     games?: { appid: number }[]
 }
 
-readFile(join(process.env.DATA_DIR!, 'relay', 'steam', 'games.json'), 'utf8')
+// featureDir() honors RELAY_DATA_ROOT — after the data relocation this reads
+// the live tree, not the frozen old $DATA_DIR/relay one.
+readFile(join(featureDir('steam'), 'games.json'), 'utf8')
     .then(raw => (JSON.parse(raw) as GamesFile).games ?? [])
     .then(games => cleanupOwned(games.map(g => g.appid)))
     .catch(() => { /* relay games not synced yet — skip */ })

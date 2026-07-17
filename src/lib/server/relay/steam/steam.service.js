@@ -596,6 +596,16 @@ async function _syncAchievementsImpl({ force, onProgress, scrapeFn }) {
 
                 const hasPlayerData = Object.keys(playerMap).length > 0;
 
+                // Data-integrity fallback for the merge paths below: prefer fresh
+                // player data, then the prior stored value, and only then 0 — so a
+                // blocked API (400/403, most often a temporarily private Steam
+                // profile) or a flaky response can never downgrade a real unlock
+                // back to locked. The schema list + playerDataBlocked flag are
+                // still written (so the UI shows the list and the re-queue logic
+                // works); only the achieved/unlocktime values are protected.
+                const priorAch = {};
+                for (const a of snapshot?.achievements ?? []) priorAch[a.apiname] = a;
+
                 // ── 3. Merge ──────────────────────────────────────────────────
                 let merged;
                 if (playerDataOnly) {
@@ -617,8 +627,8 @@ async function _syncAchievementsImpl({ force, onProgress, scrapeFn }) {
                             icon:        s.icon        ?? null,
                             icongray:    s.icongray    ?? null,
                             hidden:      s.hidden      ?? 0,
-                            achieved:    p.achieved    ?? 0,
-                            unlocktime:  p.unlocktime  ?? 0,
+                            achieved:    p.achieved    ?? priorAch[s.name]?.achieved   ?? 0,
+                            unlocktime:  p.unlocktime  ?? priorAch[s.name]?.unlocktime ?? 0,
                         };
                     });
                 } else {
@@ -626,15 +636,16 @@ async function _syncAchievementsImpl({ force, onProgress, scrapeFn }) {
                     const playerArr = Object.values(playerMap);
                     merged = scraped.map((s, i) => {
                         const p = playerArr[i] ?? {};
+                        const prior = snapshot?.achievements?.[i] ?? {};   // positional preserve
                         return {
-                            apiname:     p.apiname     ?? `ach_${i}`,
+                            apiname:     p.apiname     ?? prior.apiname ?? `ach_${i}`,
                             displayName: s.displayName ?? null,
                             description: s.description ?? null,
                             icon:        s.icon        ?? null,
                             icongray:    null,
                             hidden:      0,
-                            achieved:    p.achieved    ?? 0,
-                            unlocktime:  p.unlocktime  ?? 0,
+                            achieved:    p.achieved    ?? prior.achieved   ?? 0,
+                            unlocktime:  p.unlocktime  ?? prior.unlocktime ?? 0,
                         };
                     });
                 }

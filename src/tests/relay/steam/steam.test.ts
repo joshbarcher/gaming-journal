@@ -195,7 +195,15 @@ describe('steam service — achievements', () => {
         assert.ok(result.synced >= 1);
     });
 
-    it('syncAchievements shows full achievement list even when player stats return 403', async () => {
+    it('syncAchievements shows the full list on a 403 AND preserves prior unlocks (data-integrity)', async () => {
+        // Prior state: game 10 has a real unlock stored from earlier syncs. A 403
+        // (private profile) must NOT zero it — that silent overwrite was the bug
+        // behind a week-private profile wiping achievement counts. The schema list
+        // and the blocked flag are still written; only achieved/unlocktime are
+        // protected by the prior-value fallback in the merge.
+        const before = (await getAchievements())[10]?.achievements?.[0]?.achieved
+        assert.equal(before, 1, 'precondition: game 10 has a stored unlock')
+
         global.fetch.mockClear();
         global.fetch = vi.fn(async (url) => {
             const u = String(url);
@@ -213,7 +221,7 @@ describe('steam service — achievements', () => {
         assert.ok(data[10]);
         assert.equal(data[10].achievements.length, 1);
         assert.equal(data[10].achievements[0].displayName, 'First Achievement');
-        assert.equal(data[10].achievements[0].achieved, 0, 'no player data → achieved=0');
+        assert.equal(data[10].achievements[0].achieved, 1, '403 preserves the prior unlock, never zeroes it');
         assert.equal(data[10].hasPlayerData, false, 'hasPlayerData flag stored for fill pass');
         assert.equal(data[10].playerDataBlocked, true, '403 marks the game as blocked');
     });
