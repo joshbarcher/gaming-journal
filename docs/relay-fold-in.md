@@ -334,7 +334,31 @@ deliberately deferred.
    run the full RN smoke pass anyway; check the hardcoded `192.168.86.65` in
    `react-native/src/app/(drawer)/settings.tsx` for anything port-specific.
 
-## 4b. Wave 1 cutover runbook — ✅ EXECUTED 2026-07-16 ~23:56Z
+## 4b. Cutover status — ✅ ALL WAVES EXECUTED 2026-07-16/17
+
+**The migration's runtime is complete.** Every gaming feature is served,
+synced, scheduled and polled by the gaming-journal process:
+
+- **Wave 1** (23:56Z): itad, protondb, hltb, pcgw, community-reviews
+- **Wave 2** (01:01Z): guides, reddit, nexus, progress-suggest, news + media statics
+- **Wave 3+4** (01:04Z): steam core/store/images/videos/stats, games, wishlist,
+  discover, home, recommend, pin, player-counts, account, sessions, admin,
+  dashboard, steam statics — **and the now-playing poller handoff**: the journal
+  runs the debounced restart-safe port (NOW_PLAYING_CLOSE_MISSES=3); the
+  play-log open-session recovery carried state across the handoff.
+
+Verified post-cutover: all schedulers started (incl. the 30-min steam tick —
+steam:sessions/library/featured/hltb runs recording into `metrics/journal/`),
+reddit stealth browser warmed + live-syncing, 742 session files loaded,
+relay 404s every gaming route, relay mail (`/api/mail/accounts` 200) +
+dashboard intact. One fleet gotcha hit exactly as documented: Chrome needed
+the one-time manual install into `.puppeteer-cache` (deployment.md §6).
+
+**Remaining:** Phase 6 relocation (seed rsync of 569G in progress → delta +
+`RELAY_DATA_ROOT` flip at a quiet moment) and Phase 7 decommission (gated on
+the mail app port finishing; relay then retires entirely).
+
+The original runbooks below are historical.
 
 **Wave 1 is LIVE**: itad/protondb/hltb/pcgw/community-reviews serve from the
 journal with schedulers running (`RELAY_FORWARD_<X>=local` in `.env.local`);
