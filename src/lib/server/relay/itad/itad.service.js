@@ -210,7 +210,8 @@ async function resolveMissingIds(games, existingEntries, fetchFn) {
     return resolved;
 }
 
-async function syncGames(games, { force = false, onProgress, fetchFn = fetch } = {}) {
+// Exported for tests (fetchFn injection). Internal to syncAll/syncOne otherwise.
+export async function syncGames(games, { force = false, onProgress, fetchFn = fetch } = {}) {
     await fs.mkdir(itadDir(), { recursive: true });
 
     const intervalHours = parseInt(process.env.ITAD_SYNC_INTERVAL_HOURS ?? '72', 10);
