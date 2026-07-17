@@ -372,6 +372,27 @@ relocate relay `tools/*`.
 
 The original runbooks below are historical.
 
+## Post-migration hardening (2026-07-17)
+
+Fixes after the user exercised the live system:
+- **SSR loaders** (`+page.server`, `+layout.server`, alertsService, local-wishlist)
+  were calling `${RELAY_URL}/api/…` directly — the now mail-only relay, which
+  404s migrated routes → home showed zeros, nav lost session/history/sale cards.
+  Fixed via `journalRelayBase()` (loopback to the journal's own `/relay`).
+- **Achievement data-loss**: the sync's schema/scraper merge defaulted
+  `achieved:0` when `GetPlayerAchievements` was blocked (400/403 — private
+  profile), silently zeroing real unlocks. Fixed with a prior-value fallback
+  (fresh → stored → 0); the list + blocked-flag still write.
+- **Boot redesign (persisted-index)**: `community-reviews` (~45s/3099 files),
+  `games` (~40s), and `wishlist` (~18s) rebuilt their in-memory indexes by
+  scanning thousands of NAS files on every boot — a ~100s startup scan-storm
+  that made early requests slow and served half-built data. Now each persists
+  its index to a sidecar (`<feature>-index.json`); boot loads it in one read and
+  serves last-known-good immediately, then refreshes in the background and swaps
+  atomically. `shared/persisted-index.js` + tests. Verified: sidecar loads in
+  ms, counts identical, background refresh runs after serving. player-counts
+  (~1.3s, one consolidated file) and upcoming (~5s) left as-is — not scans.
+
 **Wave 1 is LIVE**: itad/protondb/hltb/pcgw/community-reviews serve from the
 journal with schedulers running (`RELAY_FORWARD_<X>=local` in `.env.local`);
 the relay 404s them directly; all other features still forward. Verified:
