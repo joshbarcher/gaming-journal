@@ -12,6 +12,7 @@ import logger from '../../logger.js';
 import { register } from '../shared/cache-manager.js';
 import { mapChunked } from '../shared/map-chunked.js';
 import { featureDir } from '../shared/data-root.js';
+import { createPersistedIndex } from '../shared/persisted-index.js';
 
 const TARGET_REVIEWS    = 100;
 const RECHECK_NORMAL_MS = 7  * 24 * 60 * 60 * 1_000;  // 7 days  — has reviews, not yet at target
@@ -162,33 +163,44 @@ export async function getEntry(appid) {
 }
 
 // ── In-memory index (summaries only — no review text) ────────────────────────
+//
+// Fast-boot: the index is persisted to a sidecar so boot() loads it in one read
+// instead of re-scanning every per-game file (see shared/persisted-index.js).
+// The sidecar lives OUTSIDE dir() so the scan below never picks it up.
 
-let _index = null;
+function indexFile() { return path.join(featureDir('steam'), 'community-reviews-index.json'); }
 
-export async function build() {
-    const t0 = Date.now();
-    try {
-        const files   = await fs.readdir(dir());
-        const eligible = files.filter(f => f.endsWith('.json'));
-        const entries = await mapChunked(eligible, async f => {
-            const d = await readJson(path.join(dir(), f));
-            if (!d) return null;
-            return {
-                appid:        d.appid,
-                checkedAt:    d.checkedAt,
-                totalReviews: d.totalReviews,
-                reviewCount:  d.reviewCount,
-                summary:      d.summary,
-            };
-        });
-        _index = entries.filter(Boolean);
-    } catch (err) {
-        if (err.code === 'ENOENT') { _index = []; }
-        else throw err;
-    }
-    logger.info('[community-reviews] Index built', { count: (_index ?? []).length, ms: Date.now() - t0 });
+// The slow scan — reads every cached entry and returns the summary index array.
+async function scanIndex() {
+    let files;
+    try { files = await fs.readdir(dir()); }
+    catch (err) { if (err.code === 'ENOENT') return []; throw err; }
+
+    const eligible = files.filter(f => f.endsWith('.json'));
+    const entries  = await mapChunked(eligible, async f => {
+        const d = await readJson(path.join(dir(), f));
+        if (!d) return null;
+        return {
+            appid:        d.appid,
+            checkedAt:    d.checkedAt,
+            totalReviews: d.totalReviews,
+            reviewCount:  d.reviewCount,
+            summary:      d.summary,
+        };
+    });
+    return entries.filter(Boolean);
 }
 
-export function getIndex() { return _index ?? []; }
+const _idx = createPersistedIndex({ name: 'community-reviews', file: indexFile, rebuild: scanIndex });
+
+/** Fast boot: load the persisted sidecar, then refresh in the background. */
+export async function boot() { await _idx.boot(); }
+
+/** Full rebuild + persist. Registered with cache-manager (post-sync refresh). */
+export async function build() { await _idx.refresh(); }
+
+export function getIndex()     { return _idx.get(); }
+export function getIndexMeta() { return _idx.meta(); }
+export async function ensureIndex() { await _idx.ensureLoaded(); }
 
 register('community-reviews', build);

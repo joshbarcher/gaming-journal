@@ -17,7 +17,7 @@ import { startDiskUsageScheduler, close as closeDiskUsage } from './metrics/disk
 import { startItadSyncScheduler } from './itad/itad.service.js'
 import { startProtonDbScheduler } from './protondb/protondb.service.js'
 import { startHltbRetryScheduler } from './hltb/hltb.service.js'
-import { build as buildCommunityReviewsCache } from './community-reviews/community-reviews.service.js'
+import { boot as bootCommunityReviews } from './community-reviews/community-reviews.service.js'
 import { closeBrowser as closePcgwBrowser } from './pcgw/pcgw.service.js'
 import { startBrowser as startRedditBrowser, closeBrowser as closeRedditBrowser, startRedditSyncScheduler } from './reddit/reddit.service.js'
 import { startup as startPin } from './pin/pin.service.js'
@@ -43,10 +43,12 @@ export async function bootRelay() {
     if (_booted) return
     _booted = true
 
-    // ── Unconditional cache builds (reads depend on these, schedulers or not) ──
-    // Relay server.js runs these in its listen callback regardless of any flag.
-    // Safe in dev: read-only NAS scans, no writes, no ManagedFile handles.
-    buildCommunityReviewsCache().catch(err => logger.error('[relay-boot] Community reviews cache build failed', { err: err?.message }))
+    // ── Fast-boot cache loads (reads depend on these, schedulers or not) ──────
+    // These load a persisted sidecar in one read and refresh in the background
+    // (shared/persisted-index.js) — replacing the old scan-thousands-of-files
+    // -on-every-boot that saturated startup. Fire-and-forget: boot() awaits only
+    // the fast sidecar read; the index route's ensureIndex() covers the race.
+    bootCommunityReviews().catch(err => logger.error('[relay-boot] Community reviews boot failed', { err: err?.message }))
     buildUpcomingCache().catch(err => logger.error('[relay-boot] Upcoming cache build failed', { err: err?.message }))
     loadAchievementsCache().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message }))
 
