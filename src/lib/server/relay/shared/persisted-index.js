@@ -29,8 +29,14 @@ import logger from '../../logger.js'
  * @param {(index: any[]) => void} [opts.onIndex]  Called synchronously whenever
  *        the in-memory index changes (sidecar load or refresh) — for deriving
  *        cheap secondary structures like an appid→entry Map. Must not throw.
+ * @param {boolean} [opts.allowEmpty=false]  When false (default), a rebuild that
+ *        returns an EMPTY array while a non-empty index is already loaded is
+ *        treated as a glitch (transient NAS/read failure, not a real emptying)
+ *        and REJECTED — the prior good index is kept, nothing is persisted. This
+ *        is the "never dump empty over good data" guard. Set true only for an
+ *        index that can legitimately go empty.
  */
-export function createPersistedIndex({ name, file, rebuild, onIndex }) {
+export function createPersistedIndex({ name, file, rebuild, onIndex, allowEmpty = false }) {
     let _index = null          // current in-memory index (array), or null before load
     let _builtAt = null        // ISO time the current index was produced
     let _refreshing = false    // coalesces concurrent refreshes
@@ -74,7 +80,16 @@ export function createPersistedIndex({ name, file, rebuild, onIndex }) {
         const t0 = Date.now()
         try {
             const fresh = await rebuild()
-            _setIndex(Array.isArray(fresh) ? fresh : [])
+            const arr = Array.isArray(fresh) ? fresh : []
+            // "Never dump empty over good data": a rebuild that comes back empty
+            // while we already hold a non-empty index is almost always a transient
+            // read glitch (NAS blip, an upstream cache momentarily unreadable), not
+            // a real emptying. Keep the prior good index and DON'T persist.
+            if (arr.length === 0 && !allowEmpty && (_index?.length ?? 0) > 0) {
+                logger.warn(`[${name}] index: rebuild returned empty — keeping prior ${_index.length} entries (glitch guard)`)
+                return
+            }
+            _setIndex(arr)
             _builtAt = new Date().toISOString()
             await _persist()
             logger.info(`[${name}] index: refreshed ${_index.length} entries`, { ms: Date.now() - t0 })

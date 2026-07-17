@@ -86,6 +86,35 @@ describe('createPersistedIndex', () => {
         expect(idx.meta()).toEqual({ builtAt: null, refreshing: false, count: 0 })
     })
 
+    it('GUARD: an empty rebuild does NOT overwrite a non-empty index (glitch protection)', async () => {
+        await writeFile(sidecar(), JSON.stringify({ builtAt: '2026-01-01T00:00:00Z', index: [{ appid: 1 }, { appid: 2 }] }))
+        // Simulate a transient read glitch: rebuild returns [].
+        const rebuild = vi.fn(async () => [])
+        const idx = createPersistedIndex({ name: 't', file: sidecar, rebuild })
+
+        await idx.boot()      // loads 2 from sidecar
+        await settle()        // background refresh runs, returns []
+        // The empty result is rejected — prior good data survives, both in memory
+        // and on disk.
+        expect(idx.get()).toEqual([{ appid: 1 }, { appid: 2 }])
+        const persisted = JSON.parse(await readFile(sidecar(), 'utf8'))
+        expect(persisted.index).toEqual([{ appid: 1 }, { appid: 2 }])
+    })
+
+    it('allowEmpty:true permits a legitimate emptying', async () => {
+        await writeFile(sidecar(), JSON.stringify({ builtAt: 'x', index: [{ appid: 1 }] }))
+        const idx = createPersistedIndex({ name: 't', file: sidecar, rebuild: async () => [], allowEmpty: true })
+        await idx.boot()
+        await settle()
+        expect(idx.get()).toEqual([])
+    })
+
+    it('a first-ever empty rebuild (no prior data) is allowed', async () => {
+        const idx = createPersistedIndex({ name: 't', file: sidecar, rebuild: async () => [] })
+        await idx.boot()   // no sidecar → builds empty, which is fine (nothing to protect)
+        expect(idx.get()).toEqual([])
+    })
+
     it('refresh coalesces — a second call during an in-flight rebuild is a no-op', async () => {
         let running = 0, maxConcurrent = 0
         const rebuild = vi.fn(async () => {
