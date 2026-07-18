@@ -365,10 +365,35 @@ degraded to a full ~600G re-copy with the app stopped, i.e. a longer window than
 "minutes." If relocating again, prefer `cp -a`/robocopy or accept the full-copy
 downtime; don't trust rsync deltas on this share.
 
-**Remaining:** only Phase 7 decommission — gated on the mail app port finishing.
-Then: remove relay from both fleet registries, `pm2 delete relay-server`,
-delete the frozen `$DATA_DIR/relay` tree, merge relay `docs/features/*` +
-relocate relay `tools/*`.
+## 4c. Phase 7 decommission — ✅ DONE 2026-07-17 ~23:08Z
+
+The mail app finished its own move to the standalone **emails** app
+(`C:\dev\emails`, :8025), clearing the last gate. Executed:
+
+- **Pre-flight (all green):** relay served only mail (`/api/mail/accounts` +
+  `/api/mail/messages` 200; every gaming route 404); emails app online (:8025);
+  now-playing idle; **no client consumes `/api/config`'s `relayUrl`** and the
+  140+ concrete `/relay/api/*` handlers shadow the catch-all, so nothing the
+  journal serves falls through to :8050; process-mgr is an on-demand controller
+  (code note: "pm2 revives a crashed *registered* process, never a *deleted*
+  one") — **not** a reconcile watchdog, so no resurrection risk and no
+  process-mgr restart needed (avoids bouncing the journal).
+- **Actions:** backed up both box registries (`*.pre-relay-decomm.<ts>`);
+  removed `relay-server` from `/home/jarcher/apps.json` +
+  `/home/jarcher/process-mgr/data/apps.config.json` (33→32 each);
+  `pm2 delete relay-server` + `pm2 save`. Local mirrors
+  (`C:\dev\media-server\files\apps.json`, `C:\dev\process-mgr\data\apps.config.json`)
+  edited to match — left **uncommitted** for user review.
+- **Verified after:** :8050 connection-refused (dead); journal :8061 → 200 and
+  serving its own data (`/relay/api/home` recentPlayed=10, stats.hours=80);
+  now-playing local + idle; emails :8025 healthy.
+- **NOT done deliberately:** the frozen `$DATA_DIR/relay` tree is **kept as a
+  rollback net**, not deleted — safe to remove later once soak confidence is
+  high (`$DATA_DIR/gaming-journal/relay` is authoritative).
+
+**Remaining housekeeping (non-urgent):** merge relay `docs/features/*` +
+relocate relay `tools/*` into this repo; then delete the frozen tree; optionally
+retire the now-dead catch-all proxy + `RELAY_URL`/`/api/config.relayUrl` config.
 
 The original runbooks below are historical.
 
