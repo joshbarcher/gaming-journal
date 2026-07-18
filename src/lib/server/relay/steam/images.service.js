@@ -356,20 +356,34 @@ export async function syncScreenshotImages({ force = false, onProgress } = {}) {
  * @param {Function} [opts.onProgress]
  */
 export async function syncAchievementImages({ force = false, appids, onProgress } = {}) {
-    const achPath = path.join(dataDir(), 'achievements.json');
-    let achData;
-    try {
-        achData = JSON.parse(await fs.readFile(achPath, 'utf8'));
-    } catch {
-        throw new Error('Achievements cache not found — run /api/steam/achievements/sync first');
+    // Achievements were sharded from a monolithic achievements.json into per-game
+    // files under steam/achievements/ (steam.service _migrateAchievementsMonolith),
+    // so the old monolith path is retired (…achievements.json.migrated) and reading
+    // it threw "Achievements cache not found" on every steam:images tick. Read from
+    // the service's in-memory cache instead. Dynamic import avoids the steam↔images
+    // module cycle (steam.service dynamically imports this file in turn).
+    const { getAchievements, getAchievementsForGame, loadAchievementsCache } =
+        await import('./steam.service.js');
+
+    // Read only the requested games (the incremental tick passes the just-synced
+    // appids) rather than materializing all ~3k cache entries every run. An explicit
+    // appids list — including an empty one — filters to exactly those; undefined
+    // means "all". (Empty array → download nothing, matching the pre-shard contract.)
+    const collect = () => appids
+        ? appids.map(id => [String(id), getAchievementsForGame(id)]).filter(([, e]) => e)
+        : Object.entries(getAchievements());
+
+    let entries = collect();
+    // Warm the cache once if it was cold (a tick raced the boot-load) AND there was
+    // actually something to look for — an explicit empty appids list is legitimately
+    // empty, not a cold-cache miss, so don't churn a full load for it.
+    if (entries.length === 0 && appids?.length !== 0) {
+        await loadAchievementsCache();
+        entries = collect();
     }
 
-    // Optional filter — convert to a Set of strings for O(1) lookup
-    const appidFilter = appids ? new Set(appids.map(String)) : null;
-
     const work = [];
-    for (const [appid, entry] of Object.entries(achData)) {
-        if (appidFilter && !appidFilter.has(appid)) continue;
+    for (const [appid, entry] of entries) {
         for (const ach of entry.achievements ?? []) {
             if (ach.icon)     work.push({ appid, name: ach.apiname, variant: 'color', url: ach.icon });
             if (ach.icongray) work.push({ appid, name: ach.apiname, variant: 'gray',  url: ach.icongray });
