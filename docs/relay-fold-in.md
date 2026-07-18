@@ -391,9 +391,22 @@ The mail app finished its own move to the standalone **emails** app
   rollback net**, not deleted — safe to remove later once soak confidence is
   high (`$DATA_DIR/gaming-journal/relay` is authoritative).
 
-**Remaining housekeeping (non-urgent):** merge relay `docs/features/*` +
-relocate relay `tools/*` into this repo; then delete the frozen tree; optionally
-retire the now-dead catch-all proxy + `RELAY_URL`/`/api/config.relayUrl` config.
+## 4d. Final cleanup — ✅ DONE 2026-07-18
+
+Site verified healthy end-to-end (incl. a full 5.6h live play session soaked
+clean through the debounced now-playing poller), so the rollback net was retired:
+
+- **Frozen data tree deleted:** `rm -rf /mnt/data-dir/relay` (569 G freed;
+  `RELAY_DATA_ROOT=/mnt/data-dir/gaming-journal/relay` is authoritative, verified
+  nothing held the old path open before removal).
+- **Dead code/config removed:** the `/relay/[...path]` catch-all proxy, the
+  `/api/config` endpoint (zero consumers), their tests, and every `RELAY_URL`
+  line (`.env` + `.env.production`) — all pointed at the retired :8050. Kept:
+  `forward.ts` + `route-helpers.ts` (`RELAY_FORWARD` is still a valid dev→prod
+  read-forward mechanism) and `journalRelayBase` (the live self-serve path).
+
+**Remaining (non-urgent, optional):** merge the old relay repo's `docs/features/*`
++ relocate its `tools/*` into this repo, then retire the dormant `C:\dev\relay-server`.
 
 The original runbooks below are historical.
 
