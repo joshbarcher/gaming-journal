@@ -256,7 +256,6 @@
 
     let pins          = $state<Pin[]>([])
     let pinsOpen      = $state(true)
-    let staleNotice   = $state(false)
     let brokenPinIds  = $state<Set<string>>(new Set())
 
     let ctxMenu = $state<{ x: number; y: number; blockPath: number[]; label: string } | null>(null)
@@ -282,36 +281,29 @@
             if (res.ok) server = await res.json()
         } catch { /* offline — fall through to empty/legacy */ }
 
-        let list        = Array.isArray(server.pins) ? server.pins : []
-        let listParsedAt = server.parsedAt ?? null
+        let list = Array.isArray(server.pins) ? server.pins : []
 
         // One-time migration: if the server has none yet, adopt any legacy localStorage pins.
         if (list.length === 0) {
             const legacy = readLegacyLocalPins()
             if (legacy.pins.length) {
                 list = legacy.pins
-                listParsedAt = legacy.parsedAt
                 savePins(list)
             }
             try { localStorage.removeItem(pinsKey) } catch {}
         }
 
-        // If the guide was re-downloaded since these pins were saved, their blockPaths may no
-        // longer line up — clear them and flag the notice (semantics unchanged).
-        const currentParsedAt = meta?.parsedAt ?? null
-        if (currentParsedAt && listParsedAt && listParsedAt !== currentParsedAt) {
-            pins = []
-            savePins([])
-            staleNotice = true
-        } else {
-            pins = list
-        }
+        // Pins are durable across re-parses: the server re-anchors them to the current
+        // content by text on GET (pins.service reanchorPinList), so we adopt whatever it
+        // returns. A pin whose block genuinely vanished isn't cleared here — applyPinHighlights
+        // flags it per-pin as "Location not found" so the user can delete/re-pin.
+        pins = list
     }
 
-    // Bulk overwrite of the whole guide's pins. Reserved for the two operations that are
-    // genuinely wholesale: the one-time legacy-localStorage migration, and the deliberate
-    // stale-clear when the guide was re-downloaded. Normal add/remove must NOT use this —
-    // a full-array PUT from one tab's stale snapshot clobbers pins added in other tabs.
+    // Bulk overwrite of the whole guide's pins. Reserved for the one genuinely wholesale
+    // operation left: the one-time legacy-localStorage → server migration. Normal add/remove
+    // must NOT use this — a full-array PUT from one tab's stale snapshot clobbers pins added
+    // in other tabs.
     function savePins(updated: Pin[]) {
         fetch(pinsApiUrl, {
             method:  'PUT',
@@ -453,6 +445,20 @@
         scrollToBlockPath(path)
     }
 
+    // Does the resolved block still contain the text this pin was dropped on? Compares on
+    // alphanumeric tokens so truncation (…) and the table-row ' · ' joiner don't matter, and
+    // so a table/list block (whose textContent holds all rows/items) still matches a pin on
+    // one of them. Legacy pins with no label are trusted (can't verify).
+    function blockMatchesPin(el: Element, pin: Pin): boolean {
+        if (!pin.label) return true
+        const elText = (el.textContent ?? '').toLowerCase()
+        if (!elText.trim()) return true
+        const toks = pin.label.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1)
+        if (toks.length === 0) return true
+        const hit = toks.filter(t => elText.includes(t)).length
+        return hit / toks.length >= 0.7
+    }
+
     function applyPinHighlights() {
         const inner = getContentInner()
         if (!inner) return
@@ -466,7 +472,10 @@
         for (const pin of pins) {
             if (pin.slug !== baseSlug) continue
             const el = resolveBlockPath(pin.blockPath)
-            if (!el) { newBroken.add(pin.id); continue }
+            // Broken if the path no longer resolves, OR resolves to a block that no longer
+            // contains the pinned text (an unhealed pin whose block was removed but whose
+            // old index coincidentally still lands on some other block).
+            if (!el || !blockMatchesPin(el, pin)) { newBroken.add(pin.id); continue }
             el.classList.add('gv-pinned')
             // Inject a real button so click-to-delete works
             const btn = document.createElement('button')
@@ -1021,12 +1030,6 @@
                 <div class="gv-sidebar-inner">
 
                     <!-- ── Pins ── -->
-                        {#if staleNotice}
-                            <div class="gv-pins-stale">
-                                <span>Pins cleared — guide was re-downloaded.</span>
-                                <button class="gv-pins-stale-close" onclick={() => staleNotice = false}>×</button>
-                            </div>
-                        {/if}
                         {#if pins.length > 0}
                             <div class="gv-pins-section">
                                 <button class="gv-pins-hd" onclick={togglePins}>

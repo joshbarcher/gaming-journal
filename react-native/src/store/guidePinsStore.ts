@@ -5,7 +5,7 @@
 // `pins`/`staleNotice` state closely enough.
 import { create } from 'zustand'
 
-import { clearPinStore, loadPinStore, savePinStore, type Pin } from '@/storage/guidePins'
+import { loadPinStore, savePinStore, type Pin } from '@/storage/guidePins'
 
 type GuidePinsState = {
     appid:    number | null
@@ -34,15 +34,14 @@ export const useGuidePinsStore = create<GuidePinsState>((set, get) => ({
 
     loadForGuide: async (appid, source, guideId, currentParsedAt) => {
         const stored = await loadPinStore(appid, source, guideId)
-        // Stale detection ported verbatim from loadPins(): if both parsedAt values are known and
-        // differ, the guide was re-downloaded since these pins were saved — their blockPath
-        // indices may no longer point at the same content, so clear them and flag the notice.
-        if (currentParsedAt && stored.parsedAt && stored.parsedAt !== currentParsedAt) {
-            await clearPinStore(appid, source, guideId)
-            set({ appid, source, guideId, parsedAt: currentParsedAt, pins: [], staleNotice: true })
-        } else {
-            set({ appid, source, guideId, parsedAt: currentParsedAt, pins: stored.pins, staleNotice: false })
-        }
+        // Pins are durable across re-parses: the relay re-anchors them to the current content
+        // by text on GET (pins.service reanchorPinList), so we adopt whatever it returns rather
+        // than wiping on a parsedAt change. A pin whose block genuinely vanished stays in the
+        // list; the section screen simply doesn't highlight/scroll to it.
+        // NOTE: healed blockPaths use the web/_fulltext coordinate (section children offset by
+        // +1 for the heading), which differs from this app's data-tree indices — so in-section
+        // scroll can be off by one until native re-anchoring lands (tracked as a follow-up).
+        set({ appid, source, guideId, parsedAt: currentParsedAt, pins: stored.pins, staleNotice: false })
     },
 
     createPin: async (slug, pageLabel, blockPath, label) => {

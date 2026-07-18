@@ -6,10 +6,8 @@ import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { getDownloadedGuides } from '@/api/journal'
 import { useApiHost } from '@/hooks/useApiHost'
-import { confirmDialog } from '@/store/confirmDialogStore'
 import { useGuideJobsStore } from '@/store/guideJobsStore'
 import { useGuidesModalStore } from '@/store/guidesModalStore'
-import { getPinCount, clearPinStore } from '@/storage/guidePins'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { guideIdFromUrl } from '@/utils/guideId'
 import { GUIDE_SOURCES, type GuideResult } from 'gaming-journal-contracts/guideSearch'
@@ -94,20 +92,9 @@ export function GuidesModalHost() {
         const existing = jobs.find(j => j.steamId === String(appid) && j.source === activeSource && j.guideId === guideId)
         if (existing?.status === 'pending' || existing?.status === 'running') return
 
-        // Port of the real re-download pin-clearing warning, now that Guide Pins actually exist
-        // (this modal's own earlier writeup deferred this exact check pending that feature).
-        if (activeDownloadedIds.has(guideId)) {
-            const pinCount = await getPinCount(appid, activeSource, guideId)
-            if (pinCount > 0) {
-                const ok = await confirmDialog(
-                    'Re-download will clear pins',
-                    `This guide has ${pinCount} pin${pinCount !== 1 ? 's' : ''}. Re-downloading will clear all of them.`,
-                    'Re-download',
-                )
-                if (!ok) return
-                await clearPinStore(appid, activeSource, guideId)
-            }
-        }
+        // Re-downloading a guide no longer clears its pins — the relay re-anchors them to the
+        // freshly-parsed content by text on the next pins GET (pins.service reanchorPinList), so
+        // no warning or clear is needed here.
         try {
             await enqueueJob({ steamId: String(appid), source: activeSource, guideId, url: guide.url, gameName: activeSourceData?.matchedGame?.name })
         } catch (err) {

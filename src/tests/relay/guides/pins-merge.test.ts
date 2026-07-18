@@ -90,13 +90,15 @@ describe('guide pins — delta merge', () => {
         assert.deepEqual(store, { parsedAt: null, pins: [] });
     });
 
-    it('a new parsedAt (guide re-downloaded) resets stale pins', async () => {
+    it('a new parsedAt (guide re-parsed) keeps prior pins — durable, not reset', async () => {
         await svc.upsertPin(STEAM, SRC, GUIDE, pin('a', 'p1'), 'v1');
         await svc.upsertPin(STEAM, SRC, GUIDE, pin('b', 'p2'), 'v1');
-        // Guide re-parsed → different parsedAt. Old blockPaths no longer valid.
+        // Guide re-parsed → different parsedAt. Pins are durable now: prior ones survive the add
+        // (getPins re-anchors the whole set to the new content by text on the next read).
         const after = await svc.upsertPin(STEAM, SRC, GUIDE, pin('c', 'p3'), 'v2');
-        assert.deepEqual(after.pins.map(p => p.id), ['c']);
-        assert.equal(after.parsedAt, 'v2');
+        assert.deepEqual(after.pins.map(p => p.id).sort(), ['a', 'b', 'c']);
+        // The store keeps the anchor parsedAt (v1) so a later getPins reconciles all pins.
+        assert.equal(after.parsedAt, 'v1');
     });
 
     it('rejects an invalid pin', async () => {
