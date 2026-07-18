@@ -151,6 +151,7 @@ export interface Settings {
     titleBlocklist:         string[]
     discoverFiltersEnabled: boolean
     hideAdultContent:       boolean
+    guidePinsCollapsed:     boolean
 }
 
 // ── Local review ──────────────────────────────────────────────────────────────

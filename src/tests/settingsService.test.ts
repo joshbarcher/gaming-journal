@@ -8,7 +8,7 @@ import type { Settings } from '../lib/types.js'
 const DEFAULTS: Settings = {
     showChildLocked: false, showFiltered: false, showSoftware: false,
     hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true,
-    hideAdultContent: true,
+    hideAdultContent: true, guidePinsCollapsed: false,
 }
 
 function makeTmpDir() {
@@ -121,6 +121,13 @@ describe('settingsService', () => {
         it('setting a default-true key to false persists', async () => {
             await patchSettings({ hideAdultContent: false })
             expect((await getSettings()).hideAdultContent).toBe(false)
+        })
+
+        it('guidePinsCollapsed defaults to false (pins open) and a true patch persists', async () => {
+            expect((await getSettings()).guidePinsCollapsed).toBe(false)
+            const result = await patchSettings({ guidePinsCollapsed: true })
+            expect(result.guidePinsCollapsed).toBe(true)
+            expect((await getSettings()).guidePinsCollapsed).toBe(true)
         })
     })
 

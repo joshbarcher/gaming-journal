@@ -1,7 +1,7 @@
 import { getStoreFile } from '../shared/store-file.js'
 import type { Settings } from '../../types.js'
 
-const DEFAULTS: Settings = { showChildLocked: false, showFiltered: false, showSoftware: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true }
+const DEFAULTS: Settings = { showChildLocked: false, showFiltered: false, showSoftware: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true, guidePinsCollapsed: false }
 
 function getFile() {
     return getStoreFile<Settings>('settings.json', 'settings', () => ({ ...DEFAULTS }))

@@ -7,7 +7,7 @@ import { GET, PATCH } from '../../routes/api/settings/+server.js'
 // settingsService goes through getStoreFile, which caches per resolved path —
 // a fresh DATA_DIR per test isolates every store.
 
-const DEFAULT_KEYS = ['showChildLocked', 'showFiltered', 'showSoftware', 'hideUnavailable', 'titleBlocklist', 'discoverFiltersEnabled', 'hideAdultContent'].sort()
+const DEFAULT_KEYS = ['showChildLocked', 'showFiltered', 'showSoftware', 'hideUnavailable', 'titleBlocklist', 'discoverFiltersEnabled', 'hideAdultContent', 'guidePinsCollapsed'].sort()
 
 function tmpDataDir() {
     return path.join(os.tmpdir(), `settings-route-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
