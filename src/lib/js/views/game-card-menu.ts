@@ -1,4 +1,3 @@
-import { goto } from '$app/navigation'
 import { showContextMenu, type ContextMenuItem } from './context-menu.js'
 import { GAME_SECTIONS } from '../game-sections.js'
 import { steamStoreUrl } from '../utils.js'
@@ -123,8 +122,8 @@ async function loadGuidesSubmenu(appid: number): Promise<ContextMenuItem[]> {
             return new Date(b.parsedAt ?? 0).getTime() - new Date(a.parsedAt ?? 0).getTime()
         })
         return sorted.map(g => ({
-            label:  `${GUIDE_SOURCE_LABELS[g.source] ?? g.source} — ${g.title}`,
-            action: () => goto(`/journal/${appid}/guides/${g.source}/${g.guideId}`),
+            label: `${GUIDE_SOURCE_LABELS[g.source] ?? g.source} — ${g.title}`,
+            href:  `/journal/${appid}/guides/${g.source}/${g.guideId}`,
         }))
     } catch {
         return [{ label: 'Failed to load guides', disabled: true }]
@@ -175,12 +174,12 @@ function buildGameCardMenu(appid: number): ContextMenuItem[] {
 
     items.push({
         label:   'Game info page',
-        submenu: GAME_SECTIONS.map(s => ({ label: s.label, action: () => goto(`/game/${appid}#${s.id}`) })),
+        submenu: GAME_SECTIONS.map(s => ({ label: s.label, href: `/game/${appid}#${s.id}` })),
     })
     items.push({ label: 'Steam page', external: true, action: () => openExternal(steamStoreUrl(appid)) })
     items.push({ label: 'ITAD', submenu: () => loadItadSubmenu(appid) })
-    items.push({ label: 'Journal page', action: () => goto(`/journal/${appid}`) })
-    items.push({ label: 'Community page', action: () => goto(`/community/${appid}`) })
+    items.push({ label: 'Journal page', href: `/journal/${appid}` })
+    items.push({ label: 'Community page', href: `/community/${appid}` })
     items.push({ label: 'Game guides', submenu: () => loadGuidesSubmenu(appid) })
     return items
 }

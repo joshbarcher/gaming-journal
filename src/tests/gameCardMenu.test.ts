@@ -3,7 +3,6 @@ import { describe, it, expect, vi, afterEach, beforeEach, beforeAll } from 'vite
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
 vi.mock('../lib/js/sidebar.js', () => ({ refreshAlertsBadge: vi.fn() }))
 
-import { goto } from '$app/navigation'
 import { refreshAlertsBadge } from '../lib/js/sidebar.js'
 import { onGameCardContextMenu } from '../lib/js/views/game-card-menu.js'
 import { GAME_SECTIONS } from '../lib/js/game-sections.js'
@@ -19,6 +18,10 @@ const menus       = () => [...document.querySelectorAll<HTMLElement>('.ctx-menu'
 const allItems    = () => [...document.querySelectorAll<HTMLElement>('.ctx-menu-item')]
 const itemByLabel = (label: string) => allItems().find(el => el.textContent === label)
 const menuLabels  = (menu: HTMLElement) => [...menu.querySelectorAll<HTMLElement>('.ctx-menu-item')].map(el => el.textContent)
+
+// A navigable row renders as a label link + a trailing ⧉ new-tab link inside one .ctx-menu-item.
+const navLabel  = (label: string) => [...document.querySelectorAll<HTMLAnchorElement>('a.ctx-menu-nav-label')].find(a => a.textContent === label)
+const navNewTab = (label: string) => navLabel(label)?.parentElement?.querySelector<HTMLAnchorElement>('a.ctx-menu-nav-newtab')
 
 // ── fetch harness ─────────────────────────────────────────────────────────────
 
@@ -165,28 +168,43 @@ describe('onGameCardContextMenu — navigation', () => {
         expect(menus()).toHaveLength(0) // menu closed
     })
 
-    it('Journal page navigates to /journal/<appid>', () => {
+    it('Journal page is a link to /journal/<appid> with a new-tab affordance', () => {
         const { inner } = makeCard('570')
         fireCtxMenu(inner)
-        itemByLabel('Journal page')!.click()
-        expect(goto).toHaveBeenCalledWith('/journal/570')
+        const label = navLabel('Journal page')!
+        expect(label.tagName).toBe('A')
+        expect(label.getAttribute('href')).toBe('/journal/570')
+        const nt = navNewTab('Journal page')!
+        expect(nt.getAttribute('href')).toBe('/journal/570')
+        expect(nt.getAttribute('target')).toBe('_blank')
+        expect(nt.getAttribute('rel')).toBe('noopener noreferrer')
     })
 
-    it('Community page navigates to /community/<appid>', () => {
+    it('Community page is a link to /community/<appid> with a new-tab affordance', () => {
         const { inner } = makeCard('570')
         fireCtxMenu(inner)
-        itemByLabel('Community page')!.click()
-        expect(goto).toHaveBeenCalledWith('/community/570')
+        expect(navLabel('Community page')!.getAttribute('href')).toBe('/community/570')
+        expect(navNewTab('Community page')!.getAttribute('href')).toBe('/community/570')
+        expect(navNewTab('Community page')!.getAttribute('target')).toBe('_blank')
     })
 
-    it('Game info page lists every GAME_SECTIONS entry and links with the section hash', () => {
+    it('Game info page lists every GAME_SECTIONS entry and links each with the section hash', () => {
         const { inner } = makeCard('570')
         fireCtxMenu(inner)
         itemByLabel('Game info page')!.click() // sync submenu — no fetch involved
         const fly = menus()[1]
         expect(menuLabels(fly)).toEqual(GAME_SECTIONS.map(s => s.label))
-        itemByLabel('Trailers')!.click()
-        expect(goto).toHaveBeenCalledWith('/game/570#game-sec-trailers')
+        expect(navLabel('Trailers')!.getAttribute('href')).toBe('/game/570#game-sec-trailers')
+        expect(navNewTab('Trailers')!.getAttribute('href')).toBe('/game/570#game-sec-trailers')
+    })
+
+    it('clicking a nav row dismisses the whole menu', async () => {
+        const { inner } = makeCard('570')
+        fireCtxMenu(inner)
+        expect(menus()).toHaveLength(1)
+        navLabel('Journal page')!.closest<HTMLElement>('.ctx-menu-item')!.click()
+        await flush() // dismissal is deferred a frame (rAF)
+        expect(menus()).toHaveLength(0)
     })
 })
 
@@ -408,13 +426,14 @@ describe('onGameCardContextMenu — game guides', () => {
         ])
     })
 
-    it('navigates to the guide route on click', async () => {
+    it('links each guide to its route with a new-tab affordance', async () => {
         guidesRes = [{ source: 'ign', guideId: 'g1', title: 'Wiki Guide', parsedAt: null, lastUsedAt: null }]
         const { inner } = makeCard('570')
         fireCtxMenu(inner)
         await openSub('Game guides')
-        itemByLabel('IGN — Wiki Guide')!.click()
-        expect(goto).toHaveBeenCalledWith('/journal/570/guides/ign/g1')
+        expect(navLabel('IGN — Wiki Guide')!.getAttribute('href')).toBe('/journal/570/guides/ign/g1')
+        expect(navNewTab('IGN — Wiki Guide')!.getAttribute('href')).toBe('/journal/570/guides/ign/g1')
+        expect(navNewTab('IGN — Wiki Guide')!.getAttribute('target')).toBe('_blank')
     })
 
     it('shows the empty state when no guides are downloaded', async () => {

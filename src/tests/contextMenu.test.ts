@@ -153,6 +153,41 @@ describe('showContextMenu — action items', () => {
     })
 })
 
+// ── Link (href) rows ──────────────────────────────────────────────────────────
+
+describe('showContextMenu — href rows', () => {
+    it('renders a label link and a trailing new-tab link, both to the href', () => {
+        openMenu([{ label: 'Journal', href: '/journal/570' }])
+        const row = menus()[0].querySelector<HTMLElement>('.ctx-menu-item--nav')!
+        const label = row.querySelector<HTMLAnchorElement>('a.ctx-menu-nav-label')!
+        const newTab = row.querySelector<HTMLAnchorElement>('a.ctx-menu-nav-newtab')!
+        expect(label.getAttribute('href')).toBe('/journal/570')
+        expect(label.textContent).toBe('Journal')
+        expect(newTab.getAttribute('href')).toBe('/journal/570')
+        expect(newTab.getAttribute('target')).toBe('_blank')
+        expect(newTab.getAttribute('rel')).toBe('noopener noreferrer')
+    })
+
+    it('still counts as a single .ctx-menu-item whose text is the label', () => {
+        openMenu([{ label: 'Journal', href: '/journal/570' }])
+        expect(allItems()).toHaveLength(1)
+        expect(itemByLabel('Journal')).toBeTruthy()
+    })
+
+    it('renders the label as inert text, not markup', () => {
+        openMenu([{ label: '<img src=x onerror="window.__pwned=9">', href: '/x' }])
+        expect(document.querySelector('.ctx-menu img')).toBeNull()
+        expect((window as any).__pwned).toBeUndefined()
+    })
+
+    it('dismisses the whole menu after a nav-row click (deferred a frame)', () => {
+        vi.stubGlobal('requestAnimationFrame', ((cb: FrameRequestCallback) => { cb(0); return 1 }) as any)
+        openMenu([{ label: 'Journal', href: '/journal/570' }])
+        menus()[0].querySelector<HTMLElement>('.ctx-menu-item--nav')!.click()
+        expect(menus()).toHaveLength(0)
+    })
+})
+
 // ── Checkable items ───────────────────────────────────────────────────────────
 
 describe('showContextMenu — checkable items', () => {

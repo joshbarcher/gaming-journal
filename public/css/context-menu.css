@@ -80,6 +80,59 @@
     flex-shrink: 0;
 }
 
+/* Navigable row: label link (same-tab) + a ⧉ link (new tab). The two anchors carry the
+   padding and their own hover, so the row reads as a split button — hover the label to
+   navigate, hover the ⧉ to open a new tab. */
+.ctx-menu-item--nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+}
+
+.ctx-menu-item--nav:hover {
+    background: transparent;
+}
+
+.ctx-menu-nav-label,
+.ctx-menu-nav-newtab {
+    color: var(--clr-text);
+    text-decoration: none;
+    border-radius: calc(var(--radius) - 2px);
+    transition: background var(--transition), opacity var(--transition);
+}
+
+.ctx-menu-nav-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 7px 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ctx-menu-nav-label:hover {
+    background: var(--clr-bg-hover);
+}
+
+.ctx-menu-nav-newtab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 7px 9px;
+    opacity: 0.4;
+}
+
+.ctx-menu-nav-newtab:hover {
+    opacity: 1;
+    background: var(--clr-bg-hover);
+}
+
+.ctx-menu-nav-newtab svg {
+    display: block;
+}
+
 .ctx-menu-item--checkable {
     display: flex;
     align-items: center;

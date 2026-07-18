@@ -4,6 +4,7 @@ export interface MenuItem {
     danger?:   boolean
     disabled?: boolean
     external?: boolean // shows a "opens in new tab" affordance
+    href?:     string  // renders the row as a link: the label navigates same-tab, a trailing ⧉ opens a new tab
     checked?:  boolean // when a boolean, renders a toggle with a checkmark; clicking flips it and keeps the menu open
     submenu?:  ContextMenuItem[] | (() => Promise<ContextMenuItem[]>)
 }
@@ -58,6 +59,40 @@ function _buildLevel(items: ContextMenuItem[], depth: number): HTMLElement {
             const row = document.createElement('div')
             row.className = 'ctx-menu-item ctx-menu-item--disabled'
             row.textContent = item.label
+            menu.appendChild(row)
+            continue
+        }
+
+        // A navigable row: the label is a real link (plain click → SvelteKit same-tab nav;
+        // ⌘/Ctrl/Shift/middle-click → native new tab/window) and a trailing ⧉ link always opens
+        // a new tab. target="_blank" is the escape hatch SvelteKit's router skips, so the ⧉ needs
+        // no custom JS. Dismissal is deferred a frame so detaching the anchor can't cancel the
+        // browser's native tab-open. Keeps working for both the label and the ⧉.
+        if (item.href) {
+            const row = document.createElement('div')
+            row.className = 'ctx-menu-item ctx-menu-item--nav'
+            row.addEventListener('mousedown', e => e.stopPropagation())
+            row.addEventListener('mouseenter', () => _collapseTo(depth))
+            const dismiss = () => requestAnimationFrame(() => _removeAll())
+            row.addEventListener('click', dismiss)
+            row.addEventListener('auxclick', dismiss)
+
+            const label = document.createElement('a')
+            label.className = 'ctx-menu-nav-label'
+            label.href = item.href
+            label.textContent = item.label
+
+            const newTab = document.createElement('a')
+            newTab.className = 'ctx-menu-nav-newtab'
+            newTab.href = item.href
+            newTab.target = '_blank'
+            newTab.rel = 'noopener noreferrer'
+            newTab.title = 'Open in new tab'
+            newTab.setAttribute('aria-label', 'Open in new tab')
+            newTab.appendChild(_externalIcon())
+
+            row.appendChild(label)
+            row.appendChild(newTab)
             menu.appendChild(row)
             continue
         }
