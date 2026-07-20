@@ -14,6 +14,11 @@ export const GuideJobSchema = z.object({
     guideId:     z.string(),
     url:         z.string(),
     gameName:    z.string(),
+    // 'reparse' re-runs parse-guide.js over the raw HTML already on disk, skipping the
+    // fetch step — used to pick up parser/adapter fixes without re-hitting the source.
+    // Optional: jobs enqueued before this field existed have no `mode`, and the queue
+    // treats anything other than 'reparse' as a normal download.
+    mode:        z.enum(['download', 'reparse']).optional(),
     status:      z.enum(['pending', 'running', 'done', 'error', 'cancelled']),
     progress:    z.object({ download: z.number(), pages: z.number(), subtask: z.number() }),
     log:         z.array(z.string()),

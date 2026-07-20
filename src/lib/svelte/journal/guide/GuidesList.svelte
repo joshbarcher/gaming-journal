@@ -1,8 +1,12 @@
 <script lang="ts">
     import { onMount } from 'svelte'
+    import { goto } from '$app/navigation'
     import Breadcrumb from '../../Breadcrumb.svelte'
 
     let { appid }: { appid: string } = $props()
+
+    // lucide refresh-cw — matches SVG_SYNC in GameHero.svelte
+    const SVG_REFRESH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>`
 
     interface DownloadedGuide {
         source: string
@@ -31,6 +35,35 @@
         if (!n) return ''
         if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
         return `${(n / (1024 * 1024)).toFixed(1)} MB`
+    }
+
+    // guideId of the card whose reparse request is in flight — prevents a double-click
+    // enqueueing twice while the POST is still on the wire.
+    let reparsing = $state<string | null>(null)
+
+    async function reparse(g: DownloadedGuide) {
+        if (reparsing) return
+        reparsing = g.guideId
+        try {
+            const res = await fetch('/relay/api/guides/jobs', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    steamId: appid, source: g.source, guideId: g.guideId,
+                    gameName, mode: 'reparse',
+                }),
+            })
+            if (!res.ok) {
+                error = 'Could not start the re-parse.'
+                return
+            }
+            // Land on Downloads so the job's progress is actually visible.
+            await goto('/downloads')
+        } catch {
+            error = 'Could not start the re-parse.'
+        } finally {
+            reparsing = null
+        }
     }
 
     onMount(async () => {
@@ -72,6 +105,10 @@
     {:else}
         <div class="gl-grid">
             {#each guides as g}
+                <!-- The refresh button is a SIBLING of the card link, not a child: a button
+                     nested inside an <a> is invalid, and SvelteKit intercepts link clicks on
+                     the capture phase, so a child's own handler can't reliably stop it. -->
+                <div class="gl-card-wrap">
                 <a class="gl-card" href="/journal/{appid}/guides/{g.source}/{g.guideId}">
                     <div class="gl-card-source">
                         {#if SOURCE_ICONS[g.source]}
@@ -93,6 +130,18 @@
                         <span class="gl-card-date">Added {fmtDate(g.parsedAt)}</span>
                     </div>
                 </a>
+                <button
+                    class="gl-card-refresh"
+                    class:gl-card-refresh--busy={reparsing === g.guideId}
+                    disabled={reparsing !== null}
+                    title="Re-parse this guide from the saved pages"
+                    aria-label="Re-parse {g.title}"
+                    onclick={() => reparse(g)}
+                >
+                    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                    {@html SVG_REFRESH}
+                </button>
+                </div>
             {/each}
         </div>
     {/if}

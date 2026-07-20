@@ -5,6 +5,7 @@ In-memory queue that manages guide download jobs. Each job runs two sequential c
 ## Data flow
 
 1. Client POSTs `POST /relay/api/guides/jobs` with `{ steamId, source, guideId, url, gameName }` → `enqueueJob(...)`, `202` + the job object.
+   - **Reparse:** POST `{ steamId, source, guideId, mode: 'reparse' }` — no `url`; the route reads `sourceUrl` from the guide's `_meta.json` (404 if the guide isn't on disk). The job carries `mode: 'reparse'` and `_runJob` **skips fetch-guide.js entirely**, re-running only the parse over the raw HTML already saved. See [../../features/guides/refreshing.md](../../features/guides/refreshing.md) for how this differs from a refresh.
 2. `enqueueJob` dedups: an existing `pending`/`running` job for the same `(steamId, source, guideId)` is returned instead of creating a duplicate.
 3. New job pushed to module-level `_jobs[]`; `_schedule()` runs immediately.
 4. `_schedule()` picks the first `pending` job whose `source` has no `running` job. **One job per source at a time.**

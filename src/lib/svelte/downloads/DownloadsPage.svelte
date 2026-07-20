@@ -104,6 +104,9 @@
                     <div class="dl-card-header">
                         <span class="dl-game">{job.gameName || job.guideId}</span>
                         <span class="dl-source">{SOURCE_LABELS[job.source] ?? job.source}</span>
+                        {#if job.mode === 'reparse'}
+                            <span class="dl-mode">Re-parse</span>
+                        {/if}
                         <span class="dl-status dl-status--{job.status}">{job.status === 'pending' ? 'Queued' : 'Running'}</span>
                         {#if job.status === 'pending'}
                             <button class="dl-cancel-btn" onclick={() => jobStore.cancel(job.id)}>Cancel</button>
@@ -111,11 +114,15 @@
                     </div>
                     {#if job.status === 'running'}
                         <div class="dl-bars">
-                            <div class="dl-bar-row">
-                                <span class="dl-bar-label">Fetch</span>
-                                <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.download}%"></div></div>
-                                <span class="dl-bar-pct">{job.progress.download}%</span>
-                            </div>
+                            <!-- A reparse never fetches, so the Fetch bar would sit at a
+                                 meaningless 100% — omit the row entirely. -->
+                            {#if job.mode !== 'reparse'}
+                                <div class="dl-bar-row">
+                                    <span class="dl-bar-label">Fetch</span>
+                                    <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.download}%"></div></div>
+                                    <span class="dl-bar-pct">{job.progress.download}%</span>
+                                </div>
+                            {/if}
                             <div class="dl-bar-row">
                                 <span class="dl-bar-label">Parse</span>
                                 <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.pages}%"></div></div>
@@ -354,6 +361,17 @@
 .dl-source--ai {
     color: #c9a84c;
     background: rgba(201,168,76,0.12);
+}
+/* Marks a parse-only job (no fetch) so it isn't mistaken for a fresh download */
+.dl-mode {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    color: #4ecdc4;
+    background: rgba(78, 205, 196, 0.14);
 }
 .dl-status {
     font-size: 0.72rem;

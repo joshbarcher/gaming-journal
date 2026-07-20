@@ -11,6 +11,11 @@ export const getGuideJobs = () => apiGet('/relay/api/guides/jobs', GuideJobsResp
 export const enqueueGuideJob = (params: { steamId: string; source: string; guideId: string; url: string; gameName?: string }) =>
     apiPost('/relay/api/guides/jobs', GuideJobSchema, params)
 
+// Re-runs parse-guide.js over the raw HTML already on disk (no re-fetch), to pick up
+// parser/adapter fixes. No `url` — the server reads it from the guide's _meta.json.
+export const reparseGuide = (params: { steamId: string; source: string; guideId: string; gameName?: string }) =>
+    apiPost('/relay/api/guides/jobs', GuideJobSchema, { ...params, mode: 'reparse' })
+
 export const cancelGuideJob = (jobId: string) =>
     apiDelete(`/relay/api/guides/jobs/${jobId}`, GuideJobCancelResponseSchema)
 

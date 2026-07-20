@@ -12,7 +12,7 @@ export type LucideName =
     | 'message-circle' | 'settings' | 'hourglass' | 'clock' | 'bar-chart' | 'notebook-pen'
     | 'file-text' | 'sparkles' | 'sparkle' | 'wand-sparkles' | 'party-popper' | 'crown' | 'gem'
     | 'award' | 'medal' | 'star' | 'search' | 'pencil' | 'triangle-alert' | 'download'
-    | 'diamond' | 'hexagon'
+    | 'diamond' | 'hexagon' | 'refresh-cw'
 
 const ICONS: Record<LucideName, React.ReactNode> = {
     'pin': <><Path d="M12 17v5" /><Path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" /></>,
@@ -44,6 +44,7 @@ const ICONS: Record<LucideName, React.ReactNode> = {
     'download': <><Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><Polyline points="7 10 12 15 17 10" /><Line x1="12" x2="12" y1="15" y2="3" /></>,
     'diamond': <Path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.71 2.71a2.41 2.41 0 0 0-3.41 0z" />,
     'hexagon': <Path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />,
+    'refresh-cw': <><Path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><Path d="M21 3v5h-5" /><Path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><Path d="M8 16H3v5" /></>,
 }
 
 export function Lucide({ name, size = 16, color = colors.accent, strokeWidth = 2 }: {

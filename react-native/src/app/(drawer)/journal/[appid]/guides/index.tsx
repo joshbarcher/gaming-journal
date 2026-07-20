@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { Image } from 'expo-image'
 import { router, useLocalSearchParams } from 'expo-router'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { getGameDetail } from '@/api/gamePage'
+import { reparseGuide } from '@/api/guideJobs'
 import { getDownloadedGuides } from '@/api/journal'
+import { Lucide } from '@/components/shared/Lucide'
 import { useApiHost } from '@/hooks/useApiHost'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import type { DownloadedGuide } from 'gaming-journal-contracts/downloadedGuides'
@@ -40,6 +43,26 @@ export default function GuidesListScreen() {
     const guides = guidesQuery.data ?? []
     const gameName = gameQuery.data?.name ?? ''
 
+    // guideId of the card whose reparse request is in flight — blocks a double-tap from
+    // enqueueing twice while the POST is still on the wire. Mirrors GuidesList.svelte.
+    const [reparsing, setReparsing] = useState<string | null>(null)
+    const [reparseError, setReparseError] = useState<string | null>(null)
+
+    async function reparse(g: DownloadedGuide) {
+        if (reparsing) return
+        setReparsing(g.guideId)
+        setReparseError(null)
+        try {
+            await reparseGuide({ steamId: String(appid), source: g.source, guideId: g.guideId, gameName })
+            // Land on Downloads so the job's progress is actually visible.
+            router.push('/downloads' as never)
+        } catch {
+            setReparseError('Could not start the re-parse.')
+        } finally {
+            setReparsing(null)
+        }
+    }
+
     return (
         <View style={styles.container}>
             <View style={styles.nav}>
@@ -59,6 +82,7 @@ export default function GuidesListScreen() {
                 </Text>
             ) : (
                 <ScrollView contentContainerStyle={styles.list}>
+                    {!!reparseError && <Text style={styles.errorText}>{reparseError}</Text>}
                     {guides.map((g: DownloadedGuide) => (
                         <Pressable
                             key={`${g.source}-${g.guideId}`}
@@ -71,6 +95,19 @@ export default function GuidesListScreen() {
                                 )}
                                 <Text style={styles.sourceLabel}>{SOURCE_LABELS[g.source] ?? g.source}</Text>
                             </View>
+                            {/* Top-right re-parse, matching the web card. Nested inside the card
+                                Pressable, so it stops propagation to avoid also navigating. */}
+                            <Pressable
+                                style={styles.refreshBtn}
+                                hitSlop={8}
+                                disabled={reparsing !== null}
+                                accessibilityLabel={`Re-parse ${g.title}`}
+                                onPress={(e) => { e.stopPropagation(); reparse(g) }}
+                            >
+                                {reparsing === g.guideId
+                                    ? <ActivityIndicator size="small" color={colors.accent} />
+                                    : <Lucide name="refresh-cw" size={16} color={colors.textMuted} />}
+                            </Pressable>
                             <Text style={styles.cardTitle} numberOfLines={2}>{g.title}</Text>
                             {!!g.author && <Text style={styles.cardAuthor}>by {g.author}</Text>}
                             <Text style={styles.cardMeta}>
@@ -92,12 +129,20 @@ const styles = StyleSheet.create({
     backBtn: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 13 },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 22 },
     stateText: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, padding: spacing.xl, textAlign: 'center', lineHeight: 19 },
+    errorText: { color: colors.coral, fontFamily: fonts.ui, fontSize: 12, textAlign: 'center', paddingBottom: spacing.xs },
     list: { padding: spacing.md, gap: spacing.sm },
     card: {
         backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, borderRadius: radius,
         padding: spacing.md, gap: 4,
+        position: 'relative',
     },
-    cardSource: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    // Always visible on native — there is no hover to reveal it on, unlike the web card.
+    refreshBtn: {
+        position: 'absolute', top: spacing.sm, right: spacing.sm,
+        width: 28, height: 28, alignItems: 'center', justifyContent: 'center',
+    },
+    // Leave room for refreshBtn so a long source label can't run under it
+    cardSource: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingRight: 28 },
     sourceIcon: { width: 20, height: 20 },
     sourceLabel: { color: colors.textMuted, fontFamily: fonts.uiBold, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
     cardTitle: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 14, lineHeight: 19 },

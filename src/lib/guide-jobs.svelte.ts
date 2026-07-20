@@ -5,6 +5,10 @@ export interface Job {
     guideId:     string
     url:         string
     gameName:    string
+    // 'reparse' re-runs the parser over raw HTML already on disk, skipping the fetch
+    // step. Optional: jobs enqueued before this field existed carry no `mode`, and
+    // anything other than 'reparse' is treated as a normal download.
+    mode?:       'download' | 'reparse'
     status:      'pending' | 'running' | 'done' | 'error' | 'cancelled'
     progress:    { download: number; pages: number; subtask: number }
     log:         string[]

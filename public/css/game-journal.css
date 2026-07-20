@@ -2460,6 +2460,13 @@ div.gj-ach-badge {
     gap: 12px;
 }
 
+/* Grid item. The refresh button is positioned against this rather than nested inside
+   the card link — a <button> inside an <a> is invalid markup. */
+.gl-card-wrap {
+    position: relative;
+    display: flex;
+}
+
 .gl-card {
     background: var(--clr-bg-raised);
     border: 1px solid var(--clr-border);
@@ -2472,6 +2479,62 @@ div.gj-ach-badge {
     transition: border-color var(--transition), background var(--transition);
     text-decoration: none;
     color: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+.gl-card-refresh {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition),
+                background var(--transition), border-color var(--transition);
+}
+
+.gl-card-refresh svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Revealed on card hover; always visible on touch/keyboard, which have no hover. */
+.gl-card-wrap:hover .gl-card-refresh,
+.gl-card-refresh:focus-visible,
+.gl-card-refresh.gl-card-refresh--busy {
+    opacity: 1;
+}
+
+.gl-card-refresh:hover:not(:disabled) {
+    color: var(--clr-accent);
+    background: var(--clr-bg-hover);
+    border-color: var(--clr-border-hi);
+}
+
+.gl-card-refresh:disabled {
+    cursor: default;
+}
+
+.gl-card-refresh--busy svg {
+    animation: gl-refresh-spin 0.9s linear infinite;
+}
+
+@keyframes gl-refresh-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (hover: none) {
+    .gl-card-refresh { opacity: 1; }
 }
 
 .gl-card:hover {
@@ -2483,6 +2546,8 @@ div.gj-ach-badge {
     display: flex;
     align-items: center;
     gap: 6px;
+    /* Clear the absolutely-positioned refresh button */
+    padding-right: 24px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.05em;

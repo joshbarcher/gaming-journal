@@ -2,6 +2,26 @@
 
 Users can re-download a guide that's already on disk — typically to pick up newly discovered pages or fix parse issues — without re-fetching every page from the network.
 
+## Refresh vs. Re-parse
+
+Two distinct actions, easily confused:
+
+| | **Refresh** (Guides modal) | **Re-parse** (guides list card) |
+|---|---|---|
+| Entry point | Guides modal, circular-arrow button | Guides **list** page, refresh icon top-right of each card |
+| Runs | `fetch-guide.js` (no `--force`) **then** `parse-guide.js` | `parse-guide.js` **only** |
+| Touches the network | Yes — for pages missing from `_raw/` | **Never** |
+| Finds new upstream pages | Yes | No |
+| Use when | Pages are missing, or the source added pages | An adapter/parser fix needs to reach existing `content.json` |
+
+Re-parse posts `{ mode: 'reparse' }` to the job queue, which skips the fetch phase entirely
+(see [../../server/guides/job-queue.md](../../server/guides/job-queue.md)). It appears in the
+Downloads page like any other job, badged **Re-parse**, with the Fetch bar omitted since no
+fetch happens. This replaces the old advice below of dropping to the CLI for a parse-only run.
+
+Implemented on **both** web (`GuidesList.svelte`) and native
+(`app/(drawer)/journal/[appid]/guides/index.tsx`).
+
 ## Data flow
 
 Same pipeline as a fresh download (see [downloading.md](downloading.md)), with one key difference: **fetch-guide.js runs without `--force`**, so pages whose `.html` file already exists in `_raw/` are read from disk rather than re-fetched.
@@ -19,7 +39,7 @@ The net effect: only genuinely missing pages hit the network; everything else us
 ## When to refresh
 
 - **Missing pages**: a page linked in guide content returns empty (no `content.json`). This typically means it wasn't discovered during the original BFS — refresh will find and fetch it.
-- **Parse fix**: a bug in the adapter/parser was fixed and you want updated `content.json` without re-fetching HTML. In this case, use `--no-images` via the CLI (`parse-guide.js` directly) rather than the UI refresh, since the UI always re-fetches the raw HTML step too.
+- **Parse fix**: a bug in the adapter/parser was fixed and you want updated `content.json` without re-fetching HTML. Use **Re-parse** on the guides list card (above) — it runs `parse-guide.js` alone. Refresh is the wrong tool here: it also runs the fetch step. (Historically this meant dropping to the CLI with `parse-guide.js --no-images`; that's no longer necessary from the UI.)
 - **New pages added upstream**: the source added new pages to the guide since original download.
 
 ## Key files

@@ -57,7 +57,20 @@ export function getJobs() {
     return _jobs;
 }
 
-export function enqueueJob({ steamId, source, guideId, url, gameName }) {
+/**
+ * @param {object}  params
+ * @param {string|number} params.steamId
+ * @param {string}  params.source
+ * @param {string}  params.guideId
+ * @param {string}  [params.url]       Source URL. Unused when mode is 'reparse'.
+ * @param {string}  [params.gameName]
+ * @param {'download'|'reparse'} [params.mode='download']
+ *   'download' — fetch the guide's pages, then parse them.
+ *   'reparse'  — parse only, reusing the raw HTML already on disk. Re-running a parse
+ *                after a parser/adapter fix must never re-hit the source site, so the
+ *                fetch step is skipped entirely rather than run against a warm cache.
+ */
+export function enqueueJob({ steamId, source, guideId, url, gameName, mode = 'download' }) {
     // Return existing active job rather than creating a duplicate
     const existing = _jobs.find(j =>
         j.steamId === String(steamId) &&
@@ -74,8 +87,11 @@ export function enqueueJob({ steamId, source, guideId, url, gameName }) {
         guideId,
         url,
         gameName:    gameName ?? '',
+        mode,
         status:      'pending',
-        progress:    { download: 0, pages: 0, subtask: 0 },
+        // A reparse has no download phase; report it complete so the UI's shared
+        // three-bar layout doesn't sit at 0% forever.
+        progress:    { download: mode === 'reparse' ? 100 : 0, pages: 0, subtask: 0 },
         log:         [],
         createdAt:   new Date().toISOString(),
         startedAt:   null,
@@ -179,14 +195,17 @@ async function _runJob(job) {
     _patch(job, { status: 'running', startedAt: new Date().toISOString() });
 
     try {
-        await _runScript(job, 'fetch-guide.js', [
-            '--url',      job.url,
-            '--steam-id', job.steamId,
-            '--source',   job.source,
-            '--guide-id', job.guideId,
-        ]);
+        // Reparse reuses the raw HTML already on disk — never re-hit the source site.
+        if (job.mode !== 'reparse') {
+            await _runScript(job, 'fetch-guide.js', [
+                '--url',      job.url,
+                '--steam-id', job.steamId,
+                '--source',   job.source,
+                '--guide-id', job.guideId,
+            ]);
 
-        _patch(job, { progress: { ...job.progress, download: 100 } });
+            _patch(job, { progress: { ...job.progress, download: 100 } });
+        }
 
         await _runScript(job, 'parse-guide.js', [
             '--steam-id', job.steamId,

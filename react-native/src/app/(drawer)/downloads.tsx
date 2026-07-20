@@ -132,6 +132,11 @@ export default function DownloadsScreen() {
                             <View style={styles.cardHeader}>
                                 <Text style={styles.cardGame} numberOfLines={1}>{job.gameName || job.guideId}</Text>
                                 <Text style={styles.cardSource}>{SOURCE_LABELS[job.source] ?? job.source}</Text>
+                                {job.mode === 'reparse' && (
+                                    <View style={styles.modeBadge}>
+                                        <Text style={styles.modeBadgeText}>Re-parse</Text>
+                                    </View>
+                                )}
                                 <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[job.status].bg }]}>
                                     <Text style={[styles.statusBadgeText, { color: STATUS_COLORS[job.status].fg }]}>
                                         {job.status === 'pending' ? 'Queued' : 'Running'}
@@ -145,9 +150,14 @@ export default function DownloadsScreen() {
                             </View>
                             {job.status === 'running' && (
                                 <View style={styles.bars}>
-                                    {(['download', 'pages', 'subtask'] as const).map((key, i) => (
+                                    {/* A reparse never fetches, so its Fetch bar would sit at a
+                                        meaningless 100% — drop the row, matching the web page. */}
+                                    {(job.mode === 'reparse'
+                                        ? ([['pages', 'Parse'], ['subtask', 'Index']] as const)
+                                        : ([['download', 'Fetch'], ['pages', 'Parse'], ['subtask', 'Index']] as const)
+                                    ).map(([key, label]) => (
                                         <View key={key} style={styles.barRow}>
-                                            <Text style={styles.barLabel}>{['Fetch', 'Parse', 'Index'][i]}</Text>
+                                            <Text style={styles.barLabel}>{label}</Text>
                                             <View style={styles.barTrack}><View style={[styles.barFill, { width: `${job.progress[key]}%` }]} /></View>
                                             <Text style={styles.barPct}>{job.progress[key]}%</Text>
                                         </View>
@@ -297,6 +307,9 @@ const styles = StyleSheet.create({
     cardSourceAiText: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11 },
     statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 3 },
     statusBadgeText: { fontFamily: fonts.uiBold, fontSize: 10, textTransform: 'uppercase' },
+    // Marks a parse-only job (no fetch) so it isn't mistaken for a fresh download
+    modeBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 3, backgroundColor: colors.progressBg },
+    modeBadgeText: { fontFamily: fonts.uiBold, fontSize: 10, textTransform: 'uppercase', color: colors.progress },
     cancelBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 3, paddingHorizontal: spacing.sm, paddingVertical: 2 },
     cancelBtnText: { color: colors.textMuted, fontSize: 11 },
     bars: { gap: spacing.xs },
