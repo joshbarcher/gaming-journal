@@ -79,15 +79,76 @@ export function buildAdapter(contentSelector) {
 }
 
 /**
+ * Promote lightbox-wrapped images to <figure> so the content parser can see them.
+ *
+ * Neoseeker wraps every content image in an <a class="image …"> lightbox link:
+ *
+ *   <div class="center-div-container">
+ *     <a class="image photoswipe" data-full_image="…/ew/a/a8/Ae_557.jpg">
+ *       <img src="…/ew/thumb/a/a8/Ae_557.jpg/600px-Ae_557.jpg">
+ *     </a>
+ *   </div>
+ *
+ * <a> is not a block tag, so the walker buffers the whole anchor as inline HTML and
+ * cleanInlineHtml then deletes the <img> (not in its KEEP_INLINE set, and a void
+ * element's innerHTML is ""). Every image on every Neoseeker guide was lost this way.
+ *
+ * Rewriting the anchor to <figure><img></figure> puts it on the parser's figure branch.
+ */
+function promoteLightboxImages(html) {
+    const $ = cheerio.load(html, { decodeEntities: false });
+
+    $('a.image').each((_, el) => {
+        const $a   = $(el);
+        const $img = $a.find('img').first();
+        if (!$img.length) return;
+
+        // a.image.no-cursor wraps img.img-icon — mid-sentence glyphs (chest markers,
+        // button prompts, ~12-24px). Promoting those to standalone figures would
+        // litter the page, so leave them on the inline path.
+        if ($a.hasClass('no-cursor') || $img.hasClass('img-icon')) return;
+
+        // Neoseeker carries data-full_image on the <a>, never on the <img>.
+        const full = $a.attr('data-full_image');
+        if (full) $img.attr('src', full);
+
+        // These describe the thumbnail, not the full-size src we just swapped in.
+        for (const attr of ['srcset', 'width', 'height', 'class', 'loading', 'decoding', 'fetchpriority']) {
+            $img.removeAttr(attr);
+        }
+
+        $a.replaceWith($('<figure></figure>').append($img));
+    });
+
+    // <figure> inside <p> is invalid nesting, and when the paragraph also carries text
+    // the parser takes its inline path and drops the image again. Re-tag those as <div>
+    // — a generic block wrapper the walker recurses into — so text and images both
+    // survive, in document order.
+    $('p:has(figure)').each((_, el) => {
+        const $p = $(el);
+        $p.replaceWith($('<div></div>').append($p.contents()));
+    });
+
+    // Serialize the whole document, not just <body> — extractTitle/extractAuthor read
+    // the JSON-LD block out of <head> further down the parse.
+    return $.html();
+}
+
+/**
  * Transform raw HTML before parsing:
- *   - Replace img[src] thumbnails with full-size URLs via data-full_image attribute
+ *   - Promote lightbox-wrapped images to <figure> (see promoteLightboxImages)
+ *   - Convert absolute guide-page links to bare slugs
  *   - Regex-fallback: strip /thumb/ and the NNNpx-{filename} resize suffix
  */
 export function preprocessRawHtml(html, guideId) {
-    // Pass 0: convert absolute Neoseeker guide page links to bare slug hrefs
+    // Pass 0: promote images first — this consumes the lightbox anchors, whose
+    // href="…/File:Ae_557.jpg" would otherwise survive pass 1 as a bare "File:…"
+    // slug and end up flagged gv-link-unavailable by rewriteInternalLinks.
+    let out = promoteLightboxImages(html);
+
+    // Pass 1: convert absolute Neoseeker guide page links to bare slug hrefs
     // so cleanInlineHtml doesn't treat them as external URLs and strip them.
     // https://www.neoseeker.com/{guideId}/{PageSlug} → {PageSlug}
-    let out = html;
     if (guideId) {
         const esc = guideId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         out = out.replace(
@@ -96,18 +157,9 @@ export function preprocessRawHtml(html, guideId) {
         );
     }
 
-    // Pass 1: replace src with data-full_image where available (preserves exact URL)
-    out = out.replace(
-        /(<img\s[^>]*?)src="(https?:\/\/cdn\.staticneo\.com\/ew\/thumb\/[^"]+)"([^>]*?data-full_image="([^"]+)")/g,
-        '$1src="$4"$3'
-    );
-    // Also handle reversed attribute order
-    out = out.replace(
-        /(<img\s[^>]*?data-full_image="([^"]+)"[^>]*?)src="(https?:\/\/cdn\.staticneo\.com\/ew\/thumb\/[^"]+)"/g,
-        '$1src="$2"'
-    );
-
-    // Pass 2: strip any remaining thumbnail URLs not covered by pass 1
+    // Pass 2: strip any thumbnail URLs pass 0 didn't already resolve — images with no
+    // lightbox anchor, and the inline icons we deliberately leave unpromoted.
+    //   /ew/thumb/a/a8/Ae_557.jpg/600px-Ae_557.jpg → /ew/a/a8/Ae_557.jpg
     out = out.replace(
         /https?:\/\/cdn\.staticneo\.com\/ew\/thumb\/([a-f0-9]\/[a-f0-9]{2}\/[^/]+)\/[^\s"']+/g,
         'https://cdn.staticneo.com/ew/$1'

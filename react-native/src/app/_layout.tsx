@@ -5,6 +5,7 @@ import { Slot, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { persistOptions, queryClient } from '@/api/queryClient';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -58,6 +59,11 @@ export default function RootLayout() {
     // Required by react-native-draggable-flatlist (and gesture-handler generally) — must wrap the
     // whole app, added now as the DraggableList shared component is built (Phase 1).
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* SafeAreaProvider was missing entirely — on edge-to-edge Android the drawer header rendered
+          under the status bar and every screen's content ran under the 3-button nav bar. With the
+          provider present, react-navigation's header auto-insets below the status bar; screens/drawer
+          apply useSafeAreaInsets() for the bottom (and the drawer rail for the top). */}
+      <SafeAreaProvider>
       <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <ThemeProvider value={navigationTheme}>
           <AnimatedSplashOverlay />
@@ -72,6 +78,7 @@ export default function RootLayout() {
           <ParticlesHost />
         </ThemeProvider>
       </PersistQueryClientProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

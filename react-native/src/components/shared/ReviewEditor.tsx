@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 
 import { putLocalReview } from '@/api/localReview'
+import { Lucide } from '@/components/shared/Lucide'
 import { useReviewEditorStore } from '@/store/reviewEditorStore'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { BADGES, PRESET_TAGS, SLIDER_KEYS, STAR_LABELS } from '@/utils/reviewConstants'
@@ -102,7 +103,11 @@ export function ReviewEditor() {
                         <View style={styles.starsRow}>
                             {Array.from({ length: 6 }, (_, i) => i + 1).map(n => (
                                 <Pressable key={n} onPress={() => setStars(s => s === n ? 0 : n)} hitSlop={4}>
-                                    <Text style={[styles.starBtn, n <= stars && styles.starBtnActive]}>{n === 6 ? '✦' : '★'}</Text>
+                                    {n === 6 ? (
+                                        <Lucide name="sparkles" color={n <= stars ? colors.accent : colors.textMuted} size={24} />
+                                    ) : (
+                                        <Text style={[styles.starBtn, n <= stars && styles.starBtnActive]}>★</Text>
+                                    )}
                                 </Pressable>
                             ))}
                             <Text style={styles.starLabel}>{STAR_LABELS[stars] ?? 'Not Rated'}</Text>

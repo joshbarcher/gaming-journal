@@ -1,7 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { Image } from 'expo-image'
 import { Link } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
+
+import { getFlags } from '@/api/flags'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import Animated, {
     Easing,
     runOnJS,
@@ -123,6 +127,9 @@ export function FlipMosaic({ posters, cols = 3 }: { posters: MosaicPoster[]; col
 function MosaicCell({ slot, index, onFlipEnd }: { slot: Slot; index: number; onFlipEnd: (i: number) => void }) {
     const rotation = useSharedValue(0)
     const isFlipping = slot.front.poster !== slot.back.poster
+    // Every mosaic tile links to /game/{appid}, so it gets the same long-press game-card menu as
+    // every other info-linking card. Flags come from the shared ['flags'] cache (no extra fetch).
+    const flags = useQuery({ queryKey: ['flags'], queryFn: getFlags }).data?.[slot.front.appid]
 
     useEffect(() => {
         if (!isFlipping) return
@@ -147,7 +154,10 @@ function MosaicCell({ slot, index, onFlipEnd }: { slot: Slot; index: number; onF
 
     return (
         <Link href={`/game/${slot.front.appid}` as never} asChild>
-            <Pressable style={styles.cell}>
+            <Pressable
+                style={styles.cell}
+                onLongPress={(e) => openGameCardMenu(slot.front.appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+            >
                 <Animated.View style={[styles.face, frontStyle]}>
                     <Image source={{ uri: slot.front.poster }} style={styles.image} contentFit="cover" />
                 </Animated.View>

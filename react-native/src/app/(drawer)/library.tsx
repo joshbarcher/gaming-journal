@@ -16,14 +16,16 @@ import { getFlags } from '@/api/flags'
 import { getSteamGamesList } from '@/api/games'
 import { getSettings } from '@/api/settings'
 import { openLongPressMenu } from '@/components/shared/LongPressMenu'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { useApiHost } from '@/hooks/useApiHost'
-import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { useGridColumns } from '@/hooks/useGridColumns'
 import { getWithTTL, setWithTTL } from '@/storage/ttl'
 import { getPlain, setPlain } from '@/storage/plain'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { formatPlaytime } from '@/utils/format'
 import { makeShouldShow } from '@/utils/gameFilter'
 import type { SteamGameRaw } from 'gaming-journal-contracts/steamGamesList'
+import type { GameFlags } from 'gaming-journal-contracts/flags'
 
 // Port of collections/library.md. Sort/dir persist indefinitely (plain AsyncStorage, matching the
 // web's plain-localStorage choice); page/query/letter expire (TTL storage) — same split as web, on
@@ -61,8 +63,11 @@ export default function LibraryScreen() {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const apiHostQuery = useApiHost()
-    const breakpoint = useBreakpoint()
-    const numColumns = breakpoint === 'mobilePortrait' ? 2 : 3 // matches library.css exactly
+    // Web `.lib-grid` fans out fluidly; native mirrors the collection minmax(160px,1fr) target so a
+    // desktop-tier tablet fans to ~5–6 columns instead of the old fixed phone/small-tablet density.
+    // min:2 mirrors the web's phone-portrait `repeat(2,1fr)` floor (and keeps the unconditional
+    // columnWrapperStyle valid — RN throws on a single-column list that sets one).
+    const numColumns = useGridColumns(160, { min: 2 })
 
     const [query, setQuery] = useState('')
     const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -202,7 +207,7 @@ export default function LibraryScreen() {
                 columnWrapperStyle={styles.gridRow}
                 ListEmptyComponent={<Text style={styles.emptyText}>No games match.</Text>}
                 renderItem={({ item }) => (
-                    <GameCard game={item} apiHost={apiHost} numColumns={numColumns} />
+                    <GameCard game={item} apiHost={apiHost} numColumns={numColumns} flags={flagsQuery.data?.[item.appid]} />
                 )}
             />
 
@@ -227,7 +232,7 @@ export default function LibraryScreen() {
     )
 }
 
-function GameCard({ game, apiHost, numColumns }: { game: SteamGameRaw; apiHost: string | undefined; numColumns: number }) {
+function GameCard({ game, apiHost, numColumns, flags }: { game: SteamGameRaw; apiHost: string | undefined; numColumns: number; flags: GameFlags | undefined }) {
     // expo-router's <Link asChild> clones its child and merges its own props/style in — passing an
     // array of styles to that child throws ("You are passing an array of styles to a child of
     // <Slot>"). Caught by the screenshot-first recipe (console error on every breakpoint). Flatten
@@ -235,7 +240,7 @@ function GameCard({ game, apiHost, numColumns }: { game: SteamGameRaw; apiHost: 
     const cardStyle = StyleSheet.flatten([styles.card, { flex: 1 / numColumns }])
     return (
         <Link href={`/game/${game.appid}` as never} asChild>
-            <Pressable style={cardStyle}>
+            <Pressable style={cardStyle} onLongPress={(e) => openGameCardMenu(game.appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}>
                 {apiHost && (
                     <Image
                         source={{ uri: `${apiHost}/relay/images/steam/games/${game.appid}/header.jpg` }}

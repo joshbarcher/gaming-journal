@@ -1,3 +1,4 @@
+import { router } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { AchievementIconRow } from '@/components/journal/AchievementIconRow'
@@ -5,9 +6,8 @@ import { colors, fonts, spacing } from '@/theme/tokens'
 import type { AchievementItem } from 'gaming-journal-contracts/achievements'
 
 // Port of JournalDashboard.svelte's Achievement card (summary bar + recent-unlocks strip).
-// Tapping navigates to /journal/{appid}/achievements — not yet built (no TODO item exists for a
-// dedicated achievements sub-page yet; the doc's route list doesn't mention one either), so this
-// is a dead tap for now, same treatment as every other not-yet-built destination link in this app.
+// Tapping navigates to /journal/{appid}/achievements — the full achievement list detail screen,
+// matching the web card's onclick={() => navigate(`journal/${appid}/achievements`)}.
 export function AchievementCard({ appid, achievements, apiHost }: { appid: number; achievements: AchievementItem[]; apiHost: string | undefined }) {
     const total = achievements.length
     const unlocked = achievements.filter(a => a.achieved).length
@@ -18,7 +18,7 @@ export function AchievementCard({ appid, achievements, apiHost }: { appid: numbe
         .slice(0, 4)
 
     return (
-        <Pressable style={styles.card} onPress={() => {}}>
+        <Pressable style={styles.card} onPress={() => router.push(`/journal/${appid}/achievements` as never)}>
             <Text style={styles.title}>Achievements</Text>
             {total > 0 ? (
                 <>

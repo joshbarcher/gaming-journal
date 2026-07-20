@@ -4,6 +4,7 @@
     import { showError } from '../../js/dialog.js'
     import { navigate } from '../../js/router.js'
     import type { Franchise, SteamGame } from '../../types.js'
+    import Icon from '../Icon.svelte'
 
     let franchises       = $state<Franchise[]>([])
     let flagsRes         = $state<Record<string, any>>({})
@@ -131,7 +132,7 @@
     {#if franchises.length === 0}
         <div class="frc-grid">
             <div class="frc-empty">
-                <div class="frc-empty-icon">🎮</div>
+                <div class="frc-empty-icon"><Icon name="gamepad-2" tone="sky" size={42} /></div>
                 <p class="frc-empty-text">No franchises yet</p>
                 <p class="frc-empty-sub">Create your first franchise to start tracking a game series.</p>
             </div>

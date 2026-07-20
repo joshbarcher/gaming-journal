@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
-import { apiGet, apiPut } from '@/api/client'
+import { apiGet, apiPut, apiDelete } from '@/api/client'
 import { GuidePinsSchema, type GuidePin } from 'gaming-journal-contracts/guidePins'
 
 // Guide TOC pins now live on the server (GET/PUT /relay/api/guides/{appid}/{source}/{guideId}/pins)
@@ -20,6 +20,12 @@ const EMPTY: PinStoreShape = { parsedAt: null, pins: [] }
 
 function pinsPath(appid: number, source: string, guideId: string): string {
     return `/relay/api/guides/${appid}/${source}/${encodeURIComponent(guideId)}/pins`
+}
+
+// Per-pin delta endpoint (PUT/DELETE .../pins/:id) — the merge-server-side routes that keep one
+// device's stale snapshot from clobbering pins added on another.
+function pinDeltaPath(appid: number, source: string, guideId: string, id: string): string {
+    return `${pinsPath(appid, source, guideId)}/${encodeURIComponent(id)}`
 }
 
 // Legacy/offline cache key (unchanged from the pre-server version).
@@ -62,6 +68,10 @@ export async function loadPinStore(appid: number, source: string, guideId: strin
     }
 }
 
+// Bulk overwrite of the WHOLE guide's pins (full-array PUT). Reserved for the one genuinely
+// wholesale operation left — the one-time legacy-AsyncStorage → server migration in loadPinStore.
+// Normal add/remove must NOT use this: a full-array PUT from one device's stale snapshot clobbers
+// pins added on another device. Use upsertPinRemote/deletePinRemote (per-pin deltas) instead.
 export async function savePinStore(appid: number, source: string, guideId: string, store: PinStoreShape): Promise<void> {
     void writeCache(appid, source, guideId, store) // optimistic offline cache
     try {
@@ -69,6 +79,37 @@ export async function savePinStore(appid: number, source: string, guideId: strin
     } catch { /* kept in cache; the next save retries the whole list */ }
 }
 
+// Optimistic offline cache write, exposed so the store can persist a just-added/removed pin
+// locally BEFORE the delta round-trip resolves (so an offline mutation survives a reload). The
+// delta calls below overwrite this with the authoritative store once the server responds.
+export function cachePinStore(appid: number, source: string, guideId: string, store: PinStoreShape): void {
+    void writeCache(appid, source, guideId, store)
+}
+
+// Add or replace a single pin via a server-side delta (PUT .../pins/:id). The relay merges the
+// pin into the live store (dropping any prior pin on the same page / with the same id) and returns
+// the authoritative {parsedAt, pins} — which also surfaces pins added on other devices, so the
+// caller should adopt it. Never sends the caller's whole array, so it can't wipe unseen pins.
+export async function upsertPinRemote(
+    appid: number, source: string, guideId: string, pin: Pin, parsedAt: string | null,
+): Promise<PinStoreShape> {
+    const store = await apiPut(pinDeltaPath(appid, source, guideId, pin.id), GuidePinsSchema, { pin, parsedAt: parsedAt ?? null })
+    void writeCache(appid, source, guideId, store)
+    return store
+}
+
+// Remove a single pin by id via a server-side delta (DELETE .../pins/:id). Targets one pin, so it
+// can never wipe pins this device never saw. Returns the authoritative {parsedAt, pins}.
+export async function deletePinRemote(
+    appid: number, source: string, guideId: string, id: string,
+): Promise<PinStoreShape> {
+    const store = await apiDelete(pinDeltaPath(appid, source, guideId, id), GuidePinsSchema)
+    void writeCache(appid, source, guideId, store)
+    return store
+}
+
+// Clears every pin on this guide (re-download flow). A wholesale operation by definition, so the
+// full-array PUT is the right tool here — not the per-pin deltas.
 export async function clearPinStore(appid: number, source: string, guideId: string): Promise<void> {
     await savePinStore(appid, source, guideId, { parsedAt: null, pins: [] })
 }

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { fmtExpiry } from '@/api/pin'
+import { Lucide } from '@/components/shared/Lucide'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import type { PinState } from 'gaming-journal-contracts/pin'
 
@@ -27,7 +28,7 @@ export function PinBadge({
     if (isGrace || isPinned) {
         return (
             <View style={[styles.badge, styles.badgePinned]}>
-                <Text style={styles.icon}>📌</Text>
+                <Lucide name="pin" color={colors.accent} size={12} />
                 <Text style={styles.label}>Pinned{pin ? ` · ${fmtExpiry(pin.expiresAt)}` : ''}</Text>
                 <Pressable onPress={onToggle} hitSlop={8}><Text style={styles.unpin}>×</Text></Pressable>
             </View>
@@ -35,7 +36,7 @@ export function PinBadge({
     }
     return (
         <Pressable style={styles.pinBtn} onPress={onToggle}>
-            <Text style={styles.iconMuted}>📌</Text>
+            <Lucide name="pin" color={colors.iconMuted} size={12} />
             <Text style={styles.pinBtnText}>Pin</Text>
         </Pressable>
     )

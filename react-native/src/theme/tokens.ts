@@ -22,6 +22,16 @@ export const colors = {
     accent2:    '#e0a996',
     progress:   '#4ecdc4',
     progressBg: 'rgba(78, 205, 196, 0.12)',
+    // Semantic icon accents (lucide set) — gold = accent. See project_no_emojis: colour by category
+    // so a heart, a comment and an achievement don't all read the same. Mid-tones tuned for the dark UI.
+    rose:       '#d08a7a', // affinity — hearts, wishlist, favorites
+    sky:        '#6b9fd4', // social & data — comments, charts, community
+    sage:       '#5cac7e', // positive — added, completion
+    lilac:      '#9b83d6', // AI / magic
+    coral:      '#d1705c', // alerts (semantic only)
+    bronze:     '#bd8a5a', // ranked badge tiers
+    silver:     '#aab0ba',
+    iconMuted:  'rgba(237,233,223,0.60)', // utility & empty-state icons
 } as const
 
 export const fonts = {

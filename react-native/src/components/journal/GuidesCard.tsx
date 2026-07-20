@@ -9,7 +9,7 @@ import type { DownloadedGuide } from 'gaming-journal-contracts/downloadedGuides'
 
 const SOURCE_LABELS: Record<string, string> = {
     gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8',
-    gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker',
+    gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker', thegamer: 'TheGamer',
 }
 
 // Port of JournalDashboard.svelte's Guides card. Downloaded tiles now navigate to the real guide
@@ -29,7 +29,13 @@ export function GuidesCard({
     return (
         <View style={styles.card}>
             <View style={styles.header}>
-                <Text style={styles.title}>Guides{guides.length > 0 ? ` (${guides.length})` : ''}</Text>
+                {/* The count is a link to the full downloaded-guides list (the web reaches it via the
+                    "Guides" breadcrumb); "Find" still opens the search modal. */}
+                <Pressable onPress={() => guides.length > 0 && router.push(`/journal/${appid}/guides` as never)} hitSlop={6}>
+                    <Text style={styles.title}>
+                        Guides{guides.length > 0 ? <Text style={styles.titleCount}> ({guides.length}) ›</Text> : ''}
+                    </Text>
+                </Pressable>
                 <Pressable style={styles.findBtn} onPress={() => openGuidesModal(appid, gameName, guides, searchData)}>
                     <Text style={styles.findBtnText}>Find</Text>
                 </Pressable>
@@ -63,6 +69,7 @@ const styles = StyleSheet.create({
     card: { backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.md, gap: spacing.sm },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     title: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 13 },
+    titleCount: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 13 },
     findBtn: { backgroundColor: colors.accentBg, borderWidth: 1, borderColor: colors.borderAct, borderRadius: 4, paddingHorizontal: spacing.sm, paddingVertical: 3 },
     findBtnText: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11 },
     noData: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12 },

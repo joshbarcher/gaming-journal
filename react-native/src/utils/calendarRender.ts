@@ -14,7 +14,7 @@ export const DOW    = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 
 export interface CalSession {
     startedAt:   string
-    endedAt?:    string
+    endedAt?:    string | null
     durationMin: number
 }
 
@@ -51,6 +51,7 @@ export interface FlagsLike {
 export interface SettingsLike {
     showChildLocked?: boolean
     showFiltered?:    boolean
+    showSoftware?:    boolean
 }
 
 export function localMidnight(dateStr: string): number {
@@ -93,7 +94,7 @@ export function buildDayMap(
     const raw = new Map<string, Map<number, DayEntry>>()
     for (const [appidStr, game] of Object.entries(sessions)) {
         const f = flags[appidStr] ?? flags[Number(appidStr)] ?? {}
-        if (f.software)                              continue
+        if (f.software  && !settings.showSoftware)    continue
         if (f.childLock && !settings.showChildLocked) continue
         if (f.filtered  && !settings.showFiltered)    continue
         const appid = Number(appidStr)
@@ -126,7 +127,7 @@ export function buildLastPlayedOverlay(
     for (const game of games) {
         if (!game.rtime_last_played || appsWithSessions.has(game.appid)) continue
         const f = flags[game.appid] ?? flags[String(game.appid)] ?? {}
-        if (f.software)                               continue
+        if (f.software  && !settings.showSoftware)    continue
         if (f.childLock && !settings.showChildLocked) continue
         if (f.filtered  && !settings.showFiltered)    continue
         const dateStr = localDateStr(new Date(game.rtime_last_played * 1000))

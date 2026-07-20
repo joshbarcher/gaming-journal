@@ -4,13 +4,18 @@ import { Link } from 'expo-router'
 import { useMemo, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 
+import { getFlags } from '@/api/flags'
 import { getSteamGamesList } from '@/api/games'
 import { getAllLocalReviews } from '@/api/localReview'
+import { getSettings } from '@/api/settings'
 import { LegendaryStars } from '@/components/shared/LegendaryStars'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { useApiHost } from '@/hooks/useApiHost'
-import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { useGridColumns } from '@/hooks/useGridColumns'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
+import { makeShouldShow } from '@/utils/gameFilter'
 import type { LocalReview } from 'gaming-journal-contracts/localReview'
+import type { GameFlags } from 'gaming-journal-contracts/flags'
 
 type SortBy = 'stars' | 'name' | 'recent'
 const SORTS: { key: SortBy; label: string }[] = [
@@ -26,17 +31,26 @@ const SORTS: { key: SortBy; label: string }[] = [
 export default function MyReviewsScreen() {
     const reviewsQuery = useQuery({ queryKey: ['allLocalReviews'], queryFn: getAllLocalReviews })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
+    const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
+    const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const apiHostQuery = useApiHost()
     const apiHost = apiHostQuery.data
-    const breakpoint = useBreakpoint()
-    const numColumns = breakpoint === 'mobilePortrait' ? 2 : 3
+    // Web `.mr-grid` = repeat(auto-fill, minmax(220px,1fr)); mirror that target so a desktop-tier
+    // tablet fans out fluidly instead of pinning the old 2/3 phone density.
+    const numColumns = useGridColumns(220)
 
     const [search, setSearch] = useState('')
     const [sortBy, setSortBy] = useState<SortBy>('stars')
 
     const gameMap = useMemo(() => new Map((gamesQuery.data ?? []).map(g => [g.appid, g])), [gamesQuery.data])
 
-    const allEntries = useMemo(() => Object.entries(reviewsQuery.data ?? {}) as [string, LocalReview][], [reviewsQuery.data])
+    // Content filter parity: MyReviews.svelte runs every review through loadGameFilter()/shouldShow()
+    // so childLock/filtered/software-flagged games are hidden. Native was building the list straight
+    // off the reviews map with no filter.
+    const allEntries = useMemo(() => {
+        const shouldShow = makeShouldShow(flagsQuery.data ?? {}, settingsQuery.data ?? {})
+        return (Object.entries(reviewsQuery.data ?? {}) as [string, LocalReview][]).filter(([appid]) => shouldShow(appid))
+    }, [reviewsQuery.data, flagsQuery.data, settingsQuery.data])
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase().trim()
@@ -58,7 +72,7 @@ export default function MyReviewsScreen() {
         })
     }, [allEntries, gameMap, search, sortBy])
 
-    if (reviewsQuery.isLoading || gamesQuery.isLoading) {
+    if (reviewsQuery.isLoading || gamesQuery.isLoading || flagsQuery.isLoading || settingsQuery.isLoading) {
         return <View style={styles.container}><Text style={styles.loadingText}>Loading reviews…</Text></View>
     }
 
@@ -107,7 +121,7 @@ export default function MyReviewsScreen() {
                             contentContainerStyle={styles.grid}
                             columnWrapperStyle={numColumns > 1 ? styles.row : undefined}
                             renderItem={({ item: [appid, rev] }) => (
-                                <ReviewCard appid={Number(appid)} rev={rev} name={gameMap.get(Number(appid))?.name ?? `App ${appid}`} apiHost={apiHost} numColumns={numColumns} />
+                                <ReviewCard appid={Number(appid)} rev={rev} name={gameMap.get(Number(appid))?.name ?? `App ${appid}`} apiHost={apiHost} numColumns={numColumns} flags={flagsQuery.data?.[appid]} />
                             )}
                             initialNumToRender={12}
                             windowSize={7}
@@ -120,7 +134,7 @@ export default function MyReviewsScreen() {
     )
 }
 
-function ReviewCard({ appid, rev, name, apiHost, numColumns }: { appid: number; rev: LocalReview; name: string; apiHost: string | undefined; numColumns: number }) {
+function ReviewCard({ appid, rev, name, apiHost, numColumns, flags }: { appid: number; rev: LocalReview; name: string; apiHost: string | undefined; numColumns: number; flags: GameFlags | undefined }) {
     const stars = rev.stars ?? 0
     const tags = rev.tags ?? []
     const excerpt = rev.review ?? ''
@@ -129,7 +143,7 @@ function ReviewCard({ appid, rev, name, apiHost, numColumns }: { appid: number; 
 
     return (
         <Link href={`/game/${appid}` as never} asChild>
-            <Pressable style={cardStyle}>
+            <Pressable style={cardStyle} onLongPress={(e) => openGameCardMenu(appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}>
                 <View style={styles.cardImgWrap}>
                     {!!apiHost && (
                         // Web dims unrated cards via `filter: saturate(0.4)` — expo-image has no

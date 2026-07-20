@@ -1,237 +1,172 @@
+import { router, useLocalSearchParams } from 'expo-router'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
-import { useState } from 'react'
+import Svg, { Line, Path, Polyline, Rect } from 'react-native-svg'
 
-import { colors, fonts, radius, spacing } from '@/theme/tokens'
-import { stripHtml } from '@/utils/gameRender'
+import { colors, fonts } from '@/theme/tokens'
 import type { Pcgw } from 'gaming-journal-contracts/pcgw'
 
-// Port of PCGW.svelte. Renders only if pcgwData?.found. badge() semantics ported exactly: "true"→
-// Yes, "false"→No, "hackable"→Hackable, "limited"→Limited, and any other free text (e.g.
-// "always on") is shown verbatim. Dropping unrecognised values used to hide the whole row, taking
-// its notes with it — which is where PCGW puts the detail that matters.
-type VideoKey = Exclude<keyof NonNullable<Pcgw['video']>, 'notes'>
+// Port of the CURRENT PCGW.svelte section — the glanceable "section status badges" row (a fresh icon
+// set distinct from the full detail page) plus links into the dedicated /pcgw detail page. All the
+// video/input/cloud/save/fixes detail now lives on that full page (game/[appid]/pcgw), matching the
+// web, which moved everything out of the inline section into PcgwDetail.svelte.
 
-const VIDEO_FEATURES: { key: VideoKey; label: string }[] = [
-    { key: 'widescreen', label: 'Widescreen' }, { key: 'ultrawide', label: 'Ultrawide' },
-    { key: 'uhd4k', label: '4K UHD' }, { key: 'hdr', label: 'HDR' },
-    { key: 'fps60', label: '60 FPS' }, { key: 'fps120', label: '120 FPS' },
-    { key: 'vsync', label: 'VSync' }, { key: 'aa', label: 'Anti-aliasing' }, { key: 'af', label: 'Anisotropic' },
-    { key: 'fov', label: 'FOV' }, { key: 'rayTracing', label: 'Ray Tracing' }, { key: 'frameGen', label: 'Frame Gen' },
-    { key: 'upscaling', label: 'Upscaling' }, { key: 'colorBlind', label: 'Color Blind' },
-]
-const CTRL_ROWS = ['support', 'fullSupport', 'remapping', 'sensitivity', 'yInversion', 'hotplugging', 'simultaneousInput', 'hapticFeedback', 'promptOverride', 'xinput', 'dinput', 'playstation', 'nintendo']
-const PLATFORM_ROWS = ['xboxPrompts', 'impulseTriggers', 'playstationPrompts', 'lightBar', 'adaptiveTriggers', 'dualSenseHaptics', 'motionSensors', 'steamDeckPrompts', 'steamInputModes', 'officialPresets', 'touchscreen', 'trackedMotion']
-const CLOUD_KEYS = ['steam', 'gogGalaxy', 'epicGames', 'eaApp', 'xbox', 'ubisoftConnect', 'xboxCloud', 'oneDrive']
+// ── Section badge icons (Lucide paths, copied verbatim from PCGW.svelte's ICON map) ──────────────
+type IconName = 'gauge' | 'vsync' | 'scan' | 'trend' | 'gem' | 'pad' | 'cloud'
 
-type BadgeType = 'yes' | 'no' | 'hack' | 'limited' | 'info'
-
-function badge(val: string | null | undefined): { type: BadgeType; text: string } | null {
-    if (val == null || val === '') return null
-    if (val === 'true') return { type: 'yes', text: 'Yes' }
-    if (val === 'false') return { type: 'no', text: 'No' }
-    if (val === 'hackable') return { type: 'hack', text: 'Hackable' }
-    if (val === 'limited') return { type: 'limited', text: 'Limited' }
-    return { type: 'info', text: val.charAt(0).toUpperCase() + val.slice(1) }
+function SBadgeIcon({ name, color }: { name: IconName; color: string }) {
+    const stroke = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' as const }
+    const common = { width: 24, height: 24, viewBox: '0 0 24 24' }
+    switch (name) {
+        case 'gauge':
+            return <Svg {...common}><Path {...stroke} d="m12 14 4-4" /><Path {...stroke} d="M3.34 19a10 10 0 1 1 17.32 0" /></Svg>
+        case 'vsync':
+            return <Svg {...common}><Path {...stroke} d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><Path {...stroke} d="M21 3v5h-5" /></Svg>
+        case 'scan':
+            return <Svg {...common}><Path {...stroke} d="M3 7V5a2 2 0 0 1 2-2h2" /><Path {...stroke} d="M17 3h2a2 2 0 0 1 2 2v2" /><Path {...stroke} d="M21 17v2a2 2 0 0 1-2 2h-2" /><Path {...stroke} d="M7 21H5a2 2 0 0 1-2-2v-2" /><Rect {...stroke} x={7} y={8} width={10} height={8} rx={1} /></Svg>
+        case 'trend':
+            return <Svg {...common}><Polyline {...stroke} points="22 7 13.5 15.5 8.5 10.5 2 17" /><Polyline {...stroke} points="16 7 22 7 22 13" /></Svg>
+        case 'gem':
+            return <Svg {...common}><Path {...stroke} d="M6 3h12l4 6-10 13L2 9Z" /><Path {...stroke} d="M11 3 8 9l4 13 4-13-3-6" /><Path {...stroke} d="M2 9h20" /></Svg>
+        case 'pad':
+            return <Svg {...common}><Line {...stroke} x1={6} x2={10} y1={11} y2={11} /><Line {...stroke} x1={8} x2={8} y1={9} y2={13} /><Line {...stroke} x1={15} x2={15.01} y1={12} y2={12} /><Line {...stroke} x1={18} x2={18.01} y1={10} y2={10} /><Path {...stroke} d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258A4 4 0 0 0 17.32 5z" /></Svg>
+        case 'cloud':
+            return <Svg {...common}><Path {...stroke} d="M12 13v8l-4-4" /><Path {...stroke} d="m12 21 4-4" /><Path {...stroke} d="M4.393 15.269A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.436 8.284" /></Svg>
+    }
 }
-function labelize(key: string) {
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())
+
+// on = supported, off = unsupported, neutral = caveats / unknown (see full page).
+type PcgwState = 'on' | 'off' | 'neutral'
+function pcgwState(raw: string | null | undefined): PcgwState {
+    if (raw == null || raw === '') return 'neutral'
+    if (raw === 'true' || raw === 'always on') return 'on'
+    if (raw === 'false') return 'off'
+    return 'neutral' // hackable, limited, etc.
 }
+const GLYPH: Record<PcgwState, string> = { on: '✓', off: '✕', neutral: '!' }
+// --badge-clr per state (PCGW.svelte's .pcgw-sbadge--{state}).
+const STATE_CLR: Record<PcgwState, string> = { on: '#4ecb8d', neutral: '#e0a24a', off: '#e0596e' }
+// color-mix(in srgb, --badge-clr 34%, #1a1a24) — the gradient centre, used as a solid circle fill.
+const STATE_BG: Record<PcgwState, string> = { on: '#2c5648', neutral: '#5d4831', off: '#5d2f3d' }
+
+type Badge = { label: string; icon: IconName; value: string | null | undefined }
 
 export function PCGW({ data, refreshing, onRefresh }: { data: Pcgw | null | undefined; refreshing: boolean; onRefresh: () => void }) {
-    const [ctrlExpanded, setCtrlExpanded] = useState(false)
+    const { appid: appidStr } = useLocalSearchParams<{ appid: string }>()
+    const appid = Number(appidStr)
     if (!data?.found) return null
 
-    const videoNotes = data.video?.notes ?? {}
-    const videoTiles = VIDEO_FEATURES
-        .map(f => ({ ...f, b: badge(data.video?.[f.key]), note: videoNotes[f.key] }))
-        .filter(f => f.b)
+    const v = (data.video ?? {}) as Record<string, string | null | undefined>
+    const inp = data.input ?? {}
+    const cl = (data.cloud ?? {}) as Record<string, string | null | undefined>
 
-    const mouseRows = Object.entries(data.input?.mouse ?? {}).filter(([, v]) => v != null)
-    const kbRows = Object.entries(data.input?.keyboard ?? {}).filter(([, v]) => v != null)
-    const ctrlAll = [...CTRL_ROWS, ...PLATFORM_ROWS]
-        .map(k => [k, data.input?.controller?.[k] ?? data.input?.platform?.[k]] as const)
-        .filter(([, v]) => v != null)
-    const ctrlVisible = ctrlExpanded ? ctrlAll : ctrlAll.slice(0, 5)
+    const badges: Badge[] = [
+        { label: '120+ FPS', icon: 'gauge', value: v.fps120 },
+        { label: 'VSync', icon: 'vsync', value: v.vsync },
+        { label: '4K UHD', icon: 'scan', value: v.uhd4k },
+        { label: 'Upscaling', icon: 'trend', value: v.upscaling },
+        { label: 'Ray Tracing', icon: 'gem', value: v.rayTracing },
+        { label: 'Controller', icon: 'pad', value: inp.controller?.support ?? inp.controller?.fullSupport },
+        { label: 'Cloud (Steam)', icon: 'cloud', value: cl.steam },
+    ]
 
-    const cloudRows = CLOUD_KEYS
-        .map(k => [k, data.cloud?.[k] as string | null | undefined] as const)
-        .filter(([, v]) => v != null)
-    const drmChips = data.availability?.drm ?? []
-    const savePaths = Object.entries(data.paths?.saveGame ?? {})
-    const configPaths = Object.entries(data.paths?.config ?? {})
-    // Unresolved issues before optional tweaks — a broken feature outranks a nice-to-have.
-    const GROUP_ORDER = ['Issues unresolved', 'Issues fixed', 'Essential improvements']
-    const fixGroups = [...(data.fixes ?? []).reduce((m, f) => {
-        const g = f.group || 'Fixes & Tweaks'
-        return m.set(g, [...(m.get(g) ?? []), f])
-    }, new Map<string, NonNullable<Pcgw['fixes']>>())]
-        .sort(([a], [b]) => {
-            const rank = (g: string) => (GROUP_ORDER.indexOf(g) + 1 || GROUP_ORDER.length + 1)
-            return rank(a) - rank(b)
-        })
+    const goDetail = () => router.push(`/game/${appid}/pcgw` as never)
 
     return (
         <View style={styles.section}>
             <View style={styles.titleRow}>
                 <Text style={styles.title}>PCGamingWiki</Text>
+                <Pressable onPress={goDetail} hitSlop={6}>
+                    <Text style={styles.detailsLink}>Details ›</Text>
+                </Pressable>
+                {data.pageUrl && (
+                    <Pressable onPress={() => Linking.openURL(data.pageUrl!)} hitSlop={6}>
+                        <Text style={styles.wikiLink}>↗</Text>
+                    </Pressable>
+                )}
                 <Pressable onPress={onRefresh} disabled={refreshing} hitSlop={8}>
                     <Text style={styles.refreshBtn}>{refreshing ? '⟳' : '↻'}</Text>
                 </Pressable>
-                {data.pageUrl && (
-                    <Pressable onPress={() => Linking.openURL(data.pageUrl!)}>
-                        <Text style={styles.link}>↗</Text>
-                    </Pressable>
-                )}
             </View>
 
-            {videoTiles.length > 0 && (
-                <Block title="Video & Display">
-                    <View style={styles.grid}>
-                        {videoTiles.map(f => (
-                            <View key={f.key} style={[styles.tile, f.note && styles.tileNoted]}>
-                                <View style={styles.tileHead}>
-                                    <Text style={styles.tileLabel}>{f.label}</Text>
-                                    <BadgeText b={f.b!} />
+            <View style={styles.sbadges}>
+                {badges.map((b) => {
+                    const st = pcgwState(b.value)
+                    const clr = STATE_CLR[st]
+                    return (
+                        <Pressable key={b.label} style={styles.sbadge} onPress={goDetail}>
+                            <View
+                                style={[
+                                    styles.circle,
+                                    { backgroundColor: STATE_BG[st], borderColor: withAlpha(clr, 0.55), shadowColor: clr },
+                                    st === 'off' && styles.circleOff,
+                                ]}
+                            >
+                                <SBadgeIcon name={b.icon} color={clr} />
+                                <View style={[styles.glyph, { backgroundColor: clr }]}>
+                                    <Text style={styles.glyphText}>{GLYPH[st]}</Text>
                                 </View>
-                                {f.note && <Text style={styles.tileNote}>{stripHtml(f.note)}</Text>}
                             </View>
-                        ))}
-                    </View>
-                </Block>
-            )}
+                            <Text style={[styles.sbadgeLabel, st === 'on' && styles.sbadgeLabelOn]}>{b.label}</Text>
+                        </Pressable>
+                    )
+                })}
+            </View>
 
-            {(mouseRows.length > 0 || kbRows.length > 0 || ctrlAll.length > 0) && (
-                <Block title="Input">
-                    {mouseRows.length > 0 && <SubGroup label="Mouse" rows={mouseRows} />}
-                    {kbRows.length > 0 && <SubGroup label="Keyboard" rows={kbRows} />}
-                    {ctrlAll.length > 0 && (
-                        <>
-                            <SubGroup label="Controller" rows={ctrlVisible} />
-                            {ctrlAll.length > 5 && (
-                                <Pressable onPress={() => setCtrlExpanded(v => !v)}>
-                                    <Text style={styles.moreLink}>{ctrlExpanded ? 'Show less ↑' : `${ctrlAll.length - 5} more ↓`}</Text>
-                                </Pressable>
-                            )}
-                        </>
-                    )}
-                </Block>
-            )}
-
-            {(drmChips.length > 0 || cloudRows.length > 0) && (
-                <Block title="Availability & Cloud Saves">
-                    {drmChips.length > 0 && (
-                        <View style={styles.chipRow}>
-                            {drmChips.map(d => <Text key={d} style={styles.chip}>{d}</Text>)}
-                        </View>
-                    )}
-                    {cloudRows.length > 0 && <SubGroup label="Cloud Saves" rows={cloudRows} />}
-                </Block>
-            )}
-
-            {(savePaths.length > 0 || configPaths.length > 0) && (
-                <Block title="Save & Config Locations">
-                    {savePaths.length > 0 && <PathCard title="Save Game" paths={savePaths} />}
-                    {configPaths.length > 0 && <PathCard title="Config File" paths={configPaths} />}
-                </Block>
-            )}
-
-            {fixGroups.map(([groupName, groupFixes]) => (
-                <Block key={groupName} title={groupName}>
-                    {groupFixes.map((f, i) => <FixItem key={i} title={f.title} html={f.html} />)}
-                </Block>
-            ))}
-        </View>
-    )
-}
-
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <View style={styles.block}>
-            <Text style={styles.blockTitle}>{title}</Text>
-            {children}
-        </View>
-    )
-}
-
-const BADGE_COLORS: Record<BadgeType, string> = {
-    yes: '#4caf72', no: '#e05252', hack: '#e0a052', limited: '#e0a996', info: colors.text,
-}
-
-function BadgeText({ b }: { b: { type: BadgeType; text: string } }) {
-    return <Text style={[styles.badgeText, { color: BADGE_COLORS[b.type] }]}>{b.text}</Text>
-}
-
-function SubGroup({ label, rows }: { label: string; rows: readonly (readonly [string, string | null | undefined])[] }) {
-    const visible = rows.map(([k, v]) => [k, badge(v)] as const).filter(([, b]) => b)
-    if (!visible.length) return null
-    return (
-        <View style={styles.subGroup}>
-            <Text style={styles.subGroupLabel}>{label}</Text>
-            {visible.map(([k, b]) => (
-                <View key={k} style={styles.row}>
-                    <Text style={styles.rowLabel}>{labelize(k)}</Text>
-                    <BadgeText b={b!} />
-                </View>
-            ))}
-        </View>
-    )
-}
-
-function PathCard({ title, paths }: { title: string; paths: [string, string][] }) {
-    return (
-        <View style={styles.pathCard}>
-            <Text style={styles.pathTitle}>{title}</Text>
-            {paths.map(([os, path]) => (
-                <View key={os} style={styles.pathRow}>
-                    <Text style={styles.pathOs}>{os}</Text>
-                    <Text style={styles.pathValue} numberOfLines={2}>{path}</Text>
-                </View>
-            ))}
-        </View>
-    )
-}
-
-function FixItem({ title, html }: { title: string; html: string }) {
-    const [open, setOpen] = useState(false)
-    return (
-        <View style={styles.fixItem}>
-            <Pressable onPress={() => setOpen(v => !v)}>
-                <Text style={styles.fixTitle}>{open ? '▾ ' : '▸ '}{title}</Text>
+            <Pressable onPress={goDetail} style={styles.moreRow} hitSlop={6}>
+                <Text style={styles.moreText}>Full PCGamingWiki details →</Text>
             </Pressable>
-            {open && <Text style={styles.fixBody}>{stripHtml(html)}</Text>}
         </View>
     )
+}
+
+// #rrggbb → rgba(r,g,b,a). The three state colours are all 6-digit hex.
+function withAlpha(hex: string, a: number): string {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    return `rgba(${r}, ${g}, ${b}, ${a})`
 }
 
 const styles = StyleSheet.create({
-    section: { padding: spacing.md },
-    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-    title: { color: colors.text, fontFamily: fonts.title, fontSize: 16, flex: 1 },
+    section: { padding: 12 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    title: { color: colors.text, fontFamily: fonts.title, fontSize: 16 },
+    detailsLink: { color: colors.accent, fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.5, opacity: 0.9, flex: 1 },
+    wikiLink: { color: colors.textMuted, fontSize: 15 },
     refreshBtn: { color: colors.textMuted, fontSize: 16 },
-    link: { color: colors.accent, fontSize: 14 },
-    block: { marginBottom: spacing.md },
-    blockTitle: { color: colors.textMuted, fontFamily: fonts.uiBold, fontSize: 11, textTransform: 'uppercase', marginBottom: spacing.xs },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    tile: { width: 100, backgroundColor: colors.bgRaised, borderRadius: radius, padding: spacing.xs, gap: 2 },
-    // Tiles carrying wiki notes take the full row so the prose isn't a 100px column.
-    tileNoted: { width: '100%' },
-    tileHead: { gap: 2 },
-    tileNote: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, lineHeight: 16, marginTop: 4 },
-    tileLabel: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 10 },
-    badgeText: { fontFamily: fonts.uiBold, fontSize: 12 },
-    subGroup: { marginBottom: spacing.sm },
-    subGroupLabel: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 12, marginBottom: 4 },
-    row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-    rowLabel: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12 },
-    moreLink: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11, marginTop: 2 },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm },
-    chip: { backgroundColor: colors.bgHover, color: colors.text, fontFamily: fonts.ui, fontSize: 11, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: 10 },
-    pathCard: { backgroundColor: colors.bgRaised, borderRadius: radius, padding: spacing.sm, marginBottom: spacing.sm },
-    pathTitle: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 12, marginBottom: 4 },
-    pathRow: { marginBottom: 4 },
-    pathOs: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 10 },
-    pathValue: { color: colors.text, fontFamily: 'monospace', fontSize: 11 },
-    fixItem: { marginBottom: spacing.sm },
-    fixTitle: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 12 },
-    fixBody: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12, marginTop: 4, paddingLeft: spacing.sm, lineHeight: 18 },
+
+    sbadges: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 16, columnGap: 22 },
+    sbadge: { width: 78, alignItems: 'center', gap: 8 },
+    circle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        borderWidth: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        // Approximates the web's colored box-shadow glow.
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    circleOff: { opacity: 0.75, shadowOpacity: 0, elevation: 0 },
+    glyph: {
+        position: 'absolute',
+        bottom: -3,
+        right: -3,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: colors.bg,
+    },
+    glyphText: { color: '#12100a', fontFamily: fonts.uiBold, fontSize: 11, lineHeight: 13 },
+    sbadgeLabel: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, textAlign: 'center', lineHeight: 13 },
+    sbadgeLabelOn: { color: colors.text },
+
+    moreRow: { marginTop: 18 },
+    moreText: { color: colors.accent, fontFamily: fonts.ui, fontSize: 12, opacity: 0.9 },
 })

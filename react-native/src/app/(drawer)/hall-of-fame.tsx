@@ -6,10 +6,14 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 
 import { getFlags } from '@/api/flags'
 import { getSteamGamesList } from '@/api/games'
+import { getSettings } from '@/api/settings'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { useApiHost } from '@/hooks/useApiHost'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { useGridColumns } from '@/hooks/useGridColumns'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { formatPlaytime } from '@/utils/format'
+import { makeShouldShow } from '@/utils/gameFilter'
 import type { SteamGameRaw } from 'gaming-journal-contracts/steamGamesList'
 
 // Port of collections/completed.md ("Hall of Fame"). Tier logic ported verbatim from
@@ -36,13 +40,26 @@ function tierFor(playtimeMin: number) {
     return TIERS.find(t => h >= t.minH) ?? TIERS[TIERS.length - 1]
 }
 
+// FlatList doesn't add filler cells, so a partial last row of `flex: 1/numColumns` cards would each
+// stretch to fill the row (flexBasis 0 grows to consume the whole width). Padding the data to a
+// whole number of rows keeps every real card at its true column width, left-aligned — mirroring the
+// web's `repeat(auto-fill, minmax(180px,1fr))` where trailing cards keep their column size.
+function padRows<T>(data: T[], numColumns: number): (T | null)[] {
+    if (numColumns <= 1) return data
+    const rem = data.length % numColumns
+    return rem === 0 ? data : [...data, ...Array<null>(numColumns - rem).fill(null)]
+}
+
 export default function HallOfFameScreen() {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
+    const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
     const apiHostQuery = useApiHost()
     const breakpoint = useBreakpoint()
-    const featuredColumns = breakpoint === 'mobilePortrait' ? 1 : 3 // matches web's explicit ≤479 override
-    const standardColumns = breakpoint === 'mobilePortrait' ? 2 : 3
+    const featuredColumns = breakpoint === 'mobilePortrait' ? 1 : 3 // Legend tier stays as-is (web: repeat(3,1fr), 1 col ≤479)
+    // Standard tiers: fluid, mirroring the web's `minmax(180px, 1fr)` auto-fill (~6 cols at desktop
+    // width) instead of a hardcoded 3.
+    const standardColumns = useGridColumns(180, { gap: spacing.sm, horizontalPadding: spacing.md * 2, min: 2 })
     const apiHost = apiHostQuery.data
 
     const items: CompletedItem[] = useMemo(() => {
@@ -50,14 +67,17 @@ export default function HallOfFameScreen() {
         const games = gamesQuery.data
         if (!flags || !games) return []
         const gameMap = new Map(games.map(g => [g.appid, g]))
-        const ids = Object.entries(flags).filter(([, f]) => f.completed).map(([id]) => Number(id))
+        const shouldShow = makeShouldShow(flags, settingsQuery.data ?? {})
+        const ids = Object.entries(flags)
+            .filter(([id, f]) => f.completed && shouldShow(id))
+            .map(([id]) => Number(id))
         return ids
             .map((appid): CompletedItem => {
                 const g: SteamGameRaw | undefined = gameMap.get(appid)
                 return { appid, name: g?.name ?? `App ${appid}`, playtime: g?.playtime_forever ?? 0 }
             })
             .sort((a, b) => b.playtime - a.playtime)
-    }, [flagsQuery.data, gamesQuery.data])
+    }, [flagsQuery.data, settingsQuery.data, gamesQuery.data])
 
     const grouped = useMemo(() => {
         const map = new Map<string, CompletedItem[]>(TIERS.map(t => [t.key, []]))
@@ -67,7 +87,7 @@ export default function HallOfFameScreen() {
 
     const totalMin = items.reduce((s, i) => s + i.playtime, 0)
     const subtitle = `${items.length} game${items.length !== 1 ? 's' : ''} conquered · ${formatPlaytime(totalMin)} total`
-    const isLoading = flagsQuery.isLoading || gamesQuery.isLoading
+    const isLoading = flagsQuery.isLoading || settingsQuery.isLoading || gamesQuery.isLoading
 
     if (isLoading) {
         return <View style={styles.container}><Text style={styles.loadingText}>Loading…</Text></View>
@@ -94,22 +114,28 @@ export default function HallOfFameScreen() {
                 const tierGames = grouped.get(tier.key) ?? []
                 if (!tierGames.length) return null
                 const numColumns = tier.featured ? featuredColumns : standardColumns
+                const data = padRows(tierGames, numColumns)
                 return (
                     <View key={tier.key} style={styles.section}>
                         <View style={styles.sectionHeading}>
-                            <Text style={[styles.sectionSymbol, { color: tier.color }]}>{tier.symbol}</Text>
-                            <Text style={[styles.sectionName, { color: tier.color }]}>{tier.label}</Text>
+                            {/* Web's tier heading is an amber uppercase pill (symbol + name), not plain text */}
+                            <View style={[styles.tierPill, { borderColor: tier.color }]}>
+                                <Text style={[styles.tierPillSymbol, { color: tier.color }]}>{tier.symbol}</Text>
+                                <Text style={[styles.tierPillLabel, { color: tier.color }]}>{tier.label}</Text>
+                            </View>
                             <Text style={styles.sectionMeta}>{tier.sublabel} · {tierGames.length} game{tierGames.length !== 1 ? 's' : ''}</Text>
                         </View>
+                        <View style={[styles.sectionUnderline, { backgroundColor: tier.color }]} />
                         <FlatList
                             key={`${tier.key}-${numColumns}`}
-                            data={tierGames}
+                            data={data}
                             numColumns={numColumns}
-                            keyExtractor={(item) => String(item.appid)}
+                            keyExtractor={(item, i) => (item ? String(item.appid) : `spacer-${i}`)}
                             scrollEnabled={false}
                             contentContainerStyle={styles.grid}
                             columnWrapperStyle={numColumns > 1 ? styles.gridRow : undefined}
                             renderItem={({ item }) => {
+                                if (!item) return <View style={{ flex: 1 / numColumns }} />
                                 const hours = item.playtime > 0 ? formatPlaytime(item.playtime) : null
                                 const cardStyle = StyleSheet.flatten([
                                     styles.card,
@@ -118,7 +144,10 @@ export default function HallOfFameScreen() {
                                 ])
                                 return (
                                     <Link href={`/game/${item.appid}` as never} asChild>
-                                        <Pressable style={cardStyle}>
+                                        <Pressable
+                                            style={cardStyle}
+                                            onLongPress={(e) => openGameCardMenu(item.appid, flagsQuery.data?.[item.appid], { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+                                        >
                                             <View style={[styles.cardImageWrap, tier.featured && styles.cardImageWrapFeatured]}>
                                                 {apiHost && (
                                                     <Image
@@ -136,6 +165,8 @@ export default function HallOfFameScreen() {
                                                 <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
                                                 <Text style={[styles.cardLabel, { color: tier.color }]}>{tier.label}</Text>
                                             </View>
+                                            {/* Amber underline bar beneath the tier label (web card accent) */}
+                                            <View style={[styles.cardLabelBar, { backgroundColor: tier.color }]} />
                                         </Pressable>
                                     </Link>
                                 )
@@ -157,10 +188,16 @@ const styles = StyleSheet.create({
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 22 },
     subtitle: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12, marginTop: 2 },
     section: { marginBottom: spacing.lg },
-    sectionHeading: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, paddingHorizontal: spacing.md, marginBottom: spacing.sm },
-    sectionSymbol: { fontSize: 14 },
-    sectionName: { fontFamily: fonts.title, fontSize: 15 },
-    sectionMeta: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, marginLeft: spacing.xs },
+    sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md },
+    tierPill: {
+        flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 1,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+    },
+    tierPillSymbol: { fontSize: 12 },
+    tierPillLabel: { fontFamily: fonts.uiBold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase' },
+    sectionMeta: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11 },
+    sectionUnderline: { height: 1, marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md, opacity: 0.4 },
     grid: { paddingHorizontal: spacing.md },
     gridRow: { gap: spacing.sm },
     card: {
@@ -176,10 +213,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, textAlign: 'center', lineHeight: 20,
     },
     cardHours: {
-        position: 'absolute', top: 4, right: 4, color: colors.text, fontFamily: fonts.uiBold, fontSize: 10,
-        backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2,
+        position: 'absolute', bottom: 4, right: 4, color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11,
+        backgroundColor: 'rgba(10,10,14,0.75)', borderWidth: 1, borderColor: 'rgba(201,168,76,0.3)',
+        borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden',
     },
     cardBody: { padding: spacing.xs, gap: 2 },
     cardName: { color: colors.text, fontFamily: fonts.ui, fontSize: 12 },
-    cardLabel: { fontFamily: fonts.uiBold, fontSize: 10 },
+    cardLabel: { fontFamily: fonts.uiBold, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
+    cardLabelBar: { height: 2, opacity: 0.8 },
 })

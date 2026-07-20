@@ -6,10 +6,12 @@ import { z } from 'zod'
 export const SettingsSchema = z.object({
     showChildLocked:        z.boolean(),
     showFiltered:           z.boolean(),
+    showSoftware:           z.boolean(),
     hideUnavailable:        z.boolean(),
     titleBlocklist:         z.array(z.string()),
     discoverFiltersEnabled: z.boolean(),
     hideAdultContent:       z.boolean(),
+    guidePinsCollapsed:     z.boolean(),
 })
 
 export type Settings = z.infer<typeof SettingsSchema>

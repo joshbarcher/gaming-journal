@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { subscribeGuideJobs } from '@/api/guideJobs'
 import { subscribeTrackerSuggestJobs } from '@/api/trackerSuggest'
+import { Lucide } from '@/components/shared/Lucide'
 import { useGuideJobsStore } from '@/store/guideJobsStore'
 import { useTrackerSuggestJobsStore } from '@/store/trackerSuggestJobsStore'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
@@ -28,7 +29,7 @@ import type { GuideJob } from 'gaming-journal-contracts/guideJobs'
 // downloads' ↺). Matched exactly, not an oversight.
 const SOURCE_LABELS: Record<string, string> = {
     gamefaqs: 'GameFAQs', ign: 'IGN', steam: 'Steam', game8: 'Game8',
-    gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker',
+    gamerguides: 'Gamer Guides', fandom: 'Fandom', neoseeker: 'Neoseeker', thegamer: 'TheGamer',
 }
 
 const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -114,7 +115,11 @@ export default function DownloadsScreen() {
             <Text style={styles.title}>Downloads</Text>
 
             {active.length === 0 && finished.length === 0 && tsActive.length === 0 && tsFinished.length === 0 && (
-                <Text style={styles.empty}>No downloads yet. Open a game's Journal → Guides → Find, then tap Download, or use ✦ on a journal dashboard to suggest trackers.</Text>
+                <View style={styles.emptyRow}>
+                    <Text style={styles.empty}>No downloads yet. Open a game's Journal → Guides → Find, then tap Download, or use </Text>
+                    <Lucide name="wand-sparkles" color={colors.lilac} size={13} />
+                    <Text style={styles.empty}> on a journal dashboard to suggest trackers.</Text>
+                </View>
             )}
 
             {(active.length > 0 || finished.length > 0) && <Text style={styles.categoryTitle}>Guide Downloads</Text>}
@@ -204,7 +209,10 @@ export default function DownloadsScreen() {
                         <View key={job.id} style={[styles.card, job.status === 'running' && styles.cardRunning]}>
                             <View style={styles.cardHeader}>
                                 <Text style={styles.cardGame} numberOfLines={1}>{job.gameName}</Text>
-                                <Text style={styles.cardSourceAi}>AI ✦</Text>
+                                <View style={styles.cardSourceAi}>
+                                    <Text style={styles.cardSourceAiText}>AI</Text>
+                                    <Lucide name="wand-sparkles" color={colors.lilac} size={12} />
+                                </View>
                                 <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[job.status].bg }]}>
                                     <Text style={[styles.statusBadgeText, { color: STATUS_COLORS[job.status].fg }]}>
                                         {job.status === 'pending' ? 'Queued' : 'Running'}
@@ -275,7 +283,8 @@ const styles = StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.bg },
     pageContent: { padding: spacing.md, paddingBottom: spacing.xl },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 22, marginBottom: spacing.md },
-    empty: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, paddingVertical: spacing.lg },
+    empty: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13 },
+    emptyRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingVertical: spacing.lg },
     categoryTitle: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 14, marginTop: spacing.md, marginBottom: spacing.sm, paddingBottom: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.border },
     section: { marginBottom: spacing.lg },
     sectionTitle: { color: colors.textMuted, fontFamily: fonts.uiBold, fontSize: 11, letterSpacing: 1, marginBottom: spacing.sm },
@@ -284,7 +293,8 @@ const styles = StyleSheet.create({
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
     cardGame: { flex: 1, color: colors.text, fontFamily: fonts.uiBold, fontSize: 13 },
     cardSource: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, backgroundColor: colors.bgHover, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 },
-    cardSourceAi: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11, backgroundColor: 'rgba(201,168,76,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 },
+    cardSourceAi: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(201,168,76,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 },
+    cardSourceAiText: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11 },
     statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 3 },
     statusBadgeText: { fontFamily: fonts.uiBold, fontSize: 10, textTransform: 'uppercase' },
     cancelBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 3, paddingHorizontal: spacing.sm, paddingVertical: 2 },

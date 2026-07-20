@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { LocalReview } from '../../../types.js'
     import { SLIDER_KEYS, BADGES } from '../../../js/review-modal.js'
+    import Icon from '../../Icon.svelte'
 
     interface Props { review: LocalReview }
     let { review }: Props = $props()
@@ -23,7 +24,7 @@
                     {i < displayStars ? '★' : '☆'}
                 </span>
             {/each}
-            {#if isLegendary}<span class="rev-legendary-badge">✦ Legendary</span>{/if}
+            {#if isLegendary}<span class="rev-legendary-badge"><Icon name="sparkles" color="#1a1208" size={12} />Legendary</span>{/if}
         </div>
     </div>
 

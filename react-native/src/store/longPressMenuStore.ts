@@ -23,10 +23,16 @@ type Level = {
     items: ContextMenuItem[] | 'loading' | 'error'
 }
 
+// Screen-space point the menu was opened from (the touch location). On tablet/desktop the menu
+// renders as a positioned popover anchored here (like the web's right-click menu at the cursor);
+// on phone it's ignored and the menu is a bottom sheet.
+export type MenuAnchor = { x: number; y: number }
+
 type LongPressMenuState = {
     visible: boolean
     levels:  Level[] // stack; last entry is what's currently shown
-    open:    (items: ContextMenuItem[]) => void
+    anchor:  MenuAnchor | null
+    open:    (items: ContextMenuItem[], anchor?: MenuAnchor | null) => void
     select:  (item: MenuItem) => void
     back:    () => void
     close:   () => void
@@ -35,8 +41,9 @@ type LongPressMenuState = {
 export const useLongPressMenuStore = create<LongPressMenuState>((set, get) => ({
     visible: false,
     levels:  [],
+    anchor:  null,
 
-    open: (items) => set({ visible: true, levels: [{ label: null, items }] }),
+    open: (items, anchor = null) => set({ visible: true, levels: [{ label: null, items }], anchor }),
 
     select: (item) => {
         if (item.disabled) return
@@ -85,9 +92,9 @@ export const useLongPressMenuStore = create<LongPressMenuState>((set, get) => ({
 
     back: () => set(state => ({ levels: state.levels.slice(0, -1) })),
 
-    close: () => set({ visible: false, levels: [] }),
+    close: () => set({ visible: false, levels: [], anchor: null }),
 }))
 
-export function openLongPressMenu(items: ContextMenuItem[]): void {
-    useLongPressMenuStore.getState().open(items)
+export function openLongPressMenu(items: ContextMenuItem[], anchor?: MenuAnchor | null): void {
+    useLongPressMenuStore.getState().open(items, anchor)
 }

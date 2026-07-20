@@ -423,13 +423,20 @@
         vp.scrollBy({ top: elTop - 16, behavior: 'smooth' })
     }
 
-    // On cold load, images above the target haven't expanded yet, making layout
-    // positions wrong. Wait for preceding images before computing scroll offset.
-    async function scrollToBlockPathWhenReady(path: number[]) {
+    // Land precisely on a block after a fresh (re)load — cold page open or a
+    // cross-page pin/nav jump. This can't use a single smooth scroll the way an
+    // in-page click can: on a still-settling page, images and web-font swaps
+    // above the target reflow it mid-animation, and the browser's scroll
+    // anchoring cancels the in-flight smooth scroll — leaving the page stranded
+    // near the top (the "open in new tab doesn't jump to the pin" bug). So we
+    // (1) wait for preceding images + fonts, then (2) position instantly and
+    // re-assert over a few frames until the block stops drifting.
+    async function landOnBlockPath(path: number[]) {
         const el = resolveBlockPath(path)
         const inner = getContentInner()
         if (!el || !inner) return
 
+        // Images above the target expand as they load and push it down.
         const pending = (Array.from(inner.querySelectorAll('img')) as HTMLImageElement[])
             .filter(img => !img.complete &&
                 !!(el.compareDocumentPosition(img) & Node.DOCUMENT_POSITION_PRECEDING))
@@ -441,8 +448,32 @@
                 setTimeout(resolve, 2000)
             })))
         }
+        // Late web-font swaps reflow the text above the target too.
+        try { await (document as any).fonts?.ready } catch { /* no FontFaceSet */ }
 
-        scrollToBlockPath(path)
+        const vp = scrollViewport()
+        if (!vp) return
+
+        // Instant + self-correcting: snap to the target and keep nudging for a
+        // short window until it holds still. Any residual reflow moves the block,
+        // and the next frame corrects for it — a fire-and-forget smooth scroll
+        // can't. Bails early once stable, or once clamped at the page's end (a
+        // pin in the last screenful can't reach the very top — that's expected).
+        let stable = 0
+        for (let i = 0; i < 60; i++) {
+            const cur = resolveBlockPath(path)
+            if (!cur) return
+            const delta = (cur.getBoundingClientRect().top - vp.getBoundingClientRect().top) - 16
+            if (Math.abs(delta) <= 1) {
+                if (++stable >= 3) return
+            } else {
+                stable = 0
+                const before = vp.scrollTop
+                vp.scrollBy({ top: delta, behavior: 'auto' })
+                if (Math.abs(vp.scrollTop - before) < 1) return // clamped — can't get closer
+            }
+            await new Promise<void>(r => requestAnimationFrame(() => r()))
+        }
     }
 
     // Does the resolved block still contain the text this pin was dropped on? Compares on
@@ -666,7 +697,7 @@
         if (pendingPinPath) {
             const path = pendingPinPath
             pendingPinPath = null
-            scrollToBlockPathWhenReady(path)
+            landOnBlockPath(path)
         } else if (anchor) {
             scrollToAnchor(anchor)
         } else {
@@ -786,7 +817,7 @@
         if (section && !section.includes('#')) {
             await tick()
             const pagePin = pins.find(p => p.slug === section.split('#')[0])
-            if (pagePin) scrollToBlockPathWhenReady(pagePin.blockPath)
+            if (pagePin) landOnBlockPath(pagePin.blockPath)
         }
 
         document.addEventListener('keydown', onKeyDown)

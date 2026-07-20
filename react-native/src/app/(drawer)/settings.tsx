@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 
 import { getApiHost, setApiHost } from '@/api/config'
 import { getFlags } from '@/api/flags'
+import { backfillAction, getBackfillStatus, getNexusSession } from '@/api/nexus'
 import { getSettings, patchSettings } from '@/api/settings'
 import { setCachedBlocklist } from '@/storage/discBlocklist'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
@@ -59,6 +60,7 @@ export default function SettingsScreen() {
         return {
             childLocked: flags.filter(f => f?.childLock).length,
             filtered: flags.filter(f => f?.filtered).length,
+            software: flags.filter(f => f?.software).length,
         }
     }, [flagsQuery.data])
 
@@ -99,6 +101,49 @@ export default function SettingsScreen() {
     }
 
     const blocklist = settings.titleBlocklist ?? []
+
+    // ── Nexus adult-mod image backfill (session + resumable job) ────────────────────────────────
+    // Port of Settings.svelte's Nexus block: session status + a resumable backfill with a live
+    // progress bar. The web's manual setInterval(pollBackfill, 2000) becomes a query refetchInterval
+    // that only polls while the job is running/building, and stops itself when it settles.
+    const queryClient = useQueryClient()
+    const sessionQuery = useQuery({ queryKey: ['nexusSession'], queryFn: getNexusSession })
+    const backfillQuery = useQuery({
+        queryKey: ['nexusBackfill'],
+        queryFn: getBackfillStatus,
+        refetchInterval: (q) => {
+            const s = q.state.data?.status
+            return s === 'running' || s === 'building' ? 2000 : false
+        },
+    })
+    const nexusSession = sessionQuery.data
+    const backfill = backfillQuery.data
+    const sessionActive = !!nexusSession?.present && nexusSession.status === 'active'
+    const bfRunning = backfill?.status === 'running' || backfill?.status === 'building'
+    const bfPct = backfill?.total ? Math.round((backfill.done / backfill.total) * 100) : 0
+
+    const backfillMut = useMutation({
+        mutationFn: (action: 'start' | 'pause') => backfillAction(action),
+        onSuccess: (b) => {
+            queryClient.setQueryData(['nexusBackfill'], b)
+            // A start can bounce straight to paused (needs-session / session-expired) — re-read the
+            // session so the badge reflects reality, matching the web's loadNexusStatus() follow-up.
+            queryClient.invalidateQueries({ queryKey: ['nexusSession'] })
+        },
+    })
+
+    function fmtShortDate(s?: string | null): string {
+        if (!s) return ''
+        try { return new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) } catch { return '' }
+    }
+
+    const backfillDesc = (() => {
+        if (backfill?.status === 'building') return 'Enumerating adult mods across your games…'
+        if (backfill?.status === 'running') return `Fetching${backfill.currentGame ? ` — ${backfill.currentGame}` : ''} · ${(backfill.added ?? 0).toLocaleString()} images saved`
+        if (backfill?.status === 'paused') return `Paused${backfill.pausedReason === 'session-expired' ? ' — session expired; reconnect, then Resume' : ''} · ${(backfill.done ?? 0).toLocaleString()}/${(backfill.total ?? 0).toLocaleString()} done`
+        if (backfill?.status === 'done') return `Done — ${(backfill.added ?? 0).toLocaleString()} images across ${(backfill.total ?? 0).toLocaleString()} adult mods`
+        return `Scrapes the top ${(backfill?.perGameCap ?? 500).toLocaleString()} adult mods per game (slow & gentle, resumable). Needs a connected session.`
+    })()
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -150,10 +195,23 @@ export default function SettingsScreen() {
                             onChange={(v) => onToggle('showFiltered', v, true)}
                         />
                         <ToggleRow
+                            label="Hide Software & Tools"
+                            count={flagCounts.software}
+                            desc="Hide non-game software and tools (e.g. Wallpaper Engine, SteamVR) from every list."
+                            value={!settings.showSoftware}
+                            onChange={(v) => onToggle('showSoftware', v, true)}
+                        />
+                        <ToggleRow
                             label="Hide Filtered Discovery Games"
                             desc="Hide games matching your Discovery Title Filter from the Discovery page and home page mosaic. Turn off to see all results unfiltered."
                             value={!!settings.discoverFiltersEnabled}
                             onChange={(v) => onToggle('discoverFiltersEnabled', v)}
+                        />
+                        <ToggleRow
+                            label="Hide Adult-Only Content"
+                            desc="Hide games flagged as adult-only (Steam mature/nudity/sexual-content) from Discovery and the home mosaic."
+                            value={!!settings.hideAdultContent}
+                            onChange={(v) => onToggle('hideAdultContent', v)}
                         />
 
                         <View style={styles.blocklistRow}>
@@ -212,6 +270,65 @@ export default function SettingsScreen() {
                             onChange={(v) => onToggle('hideUnavailable', v)}
                         />
                     </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Mod Images (Nexus)</Text>
+                        <Text style={styles.sectionDesc}>
+                            Adult (18+) mods on Nexus are gated behind a login, so their image galleries can&apos;t be fetched
+                            anonymously. Connect a Nexus session (with adult content enabled), then run a one-time backfill to
+                            mirror every adult mod&apos;s images locally — after that they&apos;re served from your own server.
+                        </Text>
+
+                        <View style={styles.toggleRow}>
+                            <View style={styles.toggleText}>
+                                <Text style={styles.toggleLabel}>
+                                    Nexus session
+                                    {sessionActive ? (
+                                        <Text style={styles.badgeOk}>  Connected</Text>
+                                    ) : nexusSession?.status === 'expired' ? (
+                                        <Text style={styles.badgeWarn}>  Expired</Text>
+                                    ) : (
+                                        <Text style={styles.filterCount}>  Not connected</Text>
+                                    )}
+                                </Text>
+                                <Text style={styles.toggleDesc}>
+                                    {sessionActive
+                                        ? `Captured ${fmtShortDate(nexusSession?.capturedAt)}. Adult mod images can be fetched.`
+                                        : `Run \`node scripts/capture-nexus-session.mjs\` in the relay repo to log in and capture a session${nexusSession?.status === 'expired' ? ', then Resume below' : ''}.`}
+                                </Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.blocklistRow}>
+                            <View style={styles.toggleText}>
+                                <Text style={styles.toggleLabel}>
+                                    Adult image backfill
+                                    {!!backfill?.total && (
+                                        <Text style={styles.filterCount}>  {(backfill.done ?? 0).toLocaleString()} / {backfill.total.toLocaleString()}</Text>
+                                    )}
+                                </Text>
+                                <Text style={styles.toggleDesc}>{backfillDesc}</Text>
+                            </View>
+                            {bfRunning ? (
+                                <Pressable style={styles.revealBtn} disabled={backfillMut.isPending} onPress={() => backfillMut.mutate('pause')}>
+                                    <Text style={styles.revealBtnText}>Pause</Text>
+                                </Pressable>
+                            ) : (
+                                <Pressable
+                                    style={[styles.revealBtn, (backfillMut.isPending || !sessionActive) && styles.revealBtnDisabled]}
+                                    disabled={backfillMut.isPending || !sessionActive}
+                                    onPress={() => backfillMut.mutate('start')}
+                                >
+                                    <Text style={styles.revealBtnText}>{backfill?.status === 'paused' ? 'Resume' : 'Start'}</Text>
+                                </Pressable>
+                            )}
+                        </View>
+                        {!!backfill && backfill.total > 0 && backfill.status !== 'idle' && (
+                            <View style={styles.progressTrack}>
+                                <View style={[styles.progressBar, { width: `${bfPct}%` }]} />
+                            </View>
+                        )}
+                    </View>
                 </>
             )}
         </ScrollView>
@@ -248,7 +365,9 @@ function ToggleRow({
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xxl },
+    // Cap the column like web's `.settings-body { max-width: 640px }` and center it — on a wide
+    // tablet the rows were spanning the full width, stranding each toggle at the far-right edge.
+    content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xxl, maxWidth: 640, width: '100%', alignSelf: 'center' },
     loadingText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.lg },
     errorText: { color: colors.text, fontFamily: fonts.ui, textAlign: 'center', margin: spacing.lg },
     pageTitle: { color: colors.text, fontFamily: fonts.title, fontSize: 22 },
@@ -271,7 +390,12 @@ const styles = StyleSheet.create({
         paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     revealBtn: { paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius, backgroundColor: colors.bgHover },
+    revealBtnDisabled: { opacity: 0.4 },
     revealBtnText: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 12 },
+    badgeOk: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 11 },
+    badgeWarn: { color: '#e0a33a', fontFamily: fonts.uiBold, fontSize: 11 },
+    progressTrack: { height: 6, borderRadius: 4, backgroundColor: colors.bgRaised, overflow: 'hidden', marginTop: spacing.sm },
+    progressBar: { height: '100%', backgroundColor: colors.accent },
     blocklistPanel: { gap: spacing.sm, paddingTop: spacing.xs },
     blocklistTags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
     blocklistTag: {

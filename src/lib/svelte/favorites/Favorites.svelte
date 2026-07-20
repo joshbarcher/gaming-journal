@@ -2,6 +2,7 @@
     import { onMount } from 'svelte'
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { SteamGame, LocalReview, Flags, FlagKey, CommunityReviews } from '../../types.js'
+    import Icon from '../Icon.svelte'
 
     let games         = $state<SteamGame[]>([])
     let loading       = $state(true)
@@ -29,7 +30,7 @@
     function starStr(n: number | null | undefined) {
         if (!n) return null
         const display = Math.min(n, 5)
-        return '★'.repeat(display) + '☆'.repeat(5 - display) + (n > 5 ? ' ✦' : '')
+        return '★'.repeat(display) + '☆'.repeat(5 - display)
     }
 
     // Slideshow: runs when bgA and bgB elements are available and hero is set
@@ -222,7 +223,7 @@
                     <div class="fav-hero-chips">
                         {#each chips as chip}
                             <div class="fav-hero-chip">
-                                <span class="fav-hero-chip-val{chip.accent ? ' fav-hero-chip-val--accent' : ''}">{chip.val}</span>
+                                <span class="fav-hero-chip-val{chip.accent ? ' fav-hero-chip-val--accent' : ''}">{chip.val}{#if chip.label === 'Rating' && (heroReview?.stars ?? 0) > 5} <Icon name="sparkles" tone="gold" size={14} />{/if}</span>
                                 <span class="fav-hero-chip-label">{chip.label}</span>
                             </div>
                         {/each}

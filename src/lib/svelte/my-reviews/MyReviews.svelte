@@ -2,6 +2,7 @@
     import { onMount } from 'svelte'
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { LocalReview, SteamGame } from '../../types.js'
+    import Icon from '../Icon.svelte'
 
     let allEntries = $state<[string, LocalReview][]>([])
     let gamesMap   = $state<Record<string, SteamGame>>({})
@@ -111,7 +112,7 @@
                             <div class="mr-card-stars">
                                 {#each Array.from({ length: Math.min(stars, 6) }, (_, i) => i + 1) as i}
                                     {#if i === 6}
-                                        <span class="mr-card-star mr-card-star--legendary">✦</span>
+                                        <span class="mr-card-star mr-card-star--legendary"><Icon name="sparkles" tone="gold" size={13} /></span>
                                     {:else}
                                         <span class="mr-card-star">★</span>
                                     {/if}

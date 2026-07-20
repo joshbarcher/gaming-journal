@@ -1,9 +1,11 @@
+import { z } from 'zod'
+
 import { apiGet, apiGetOrNull } from './client'
 import { getApiHost } from './config'
 import { GameDetailSchema } from 'gaming-journal-contracts/gameDetail'
 import { PlayerCountsSchema } from 'gaming-journal-contracts/playerCounts'
 import { VideosResponseSchema } from 'gaming-journal-contracts/videos'
-import { NewsResponseSchema } from 'gaming-journal-contracts/news'
+import { NewsItemSchema } from 'gaming-journal-contracts/news'
 import { ProtonDbRawSchema, type ProtonDbRaw } from 'gaming-journal-contracts/protondb'
 import { PcgwSchema, type Pcgw } from 'gaming-journal-contracts/pcgw'
 import { GameFlagsSchema, type GameFlags, type FlagKey } from 'gaming-journal-contracts/flags'
@@ -28,11 +30,70 @@ export async function getProtonDbForGame(appid: number): Promise<ProtonDbRaw | n
     const raw = await apiGet(`/relay/api/protondb/${appid}`, ProtonDbRawSchema)
     return (raw.notFound || !raw.tier) ? null : raw
 }
-export async function getPcgwForGame(appid: number): Promise<Pcgw | null> {
-    const data = await apiGet(`/relay/api/pcgw/${appid}`, PcgwSchema)
-    return data.found ? data : null
+// Discovered games have no PCGW backfill, so pass `?fetch=true&name=` to kick off an on-demand
+// fetch-by-name (mirrors GamePage.svelte ~292); cached/library games just read the entry. An
+// uncached miss answers 404 (library) or 202 {status:'pending'} (discovered) — both resolve to
+// "no section yet" via apiGetOrNull, never surfacing as a section-killing error (web never errors
+// this section either — it nulls on any failure).
+export async function getPcgwForGame(appid: number, isDiscovered = false, name = ''): Promise<Pcgw | null> {
+    const url = isDiscovered
+        ? `/relay/api/pcgw/${appid}?fetch=true&name=${encodeURIComponent(name)}`
+        : `/relay/api/pcgw/${appid}`
+    const data = await apiGetOrNull(url, PcgwSchema)
+    return data?.found ? data : null
 }
-export const getNews = (appid: number) => apiGet(`/relay/api/news/${appid}`, NewsResponseSchema)
+
+// ── News (list + single article) ─────────────────────────────────────────────────
+// The list endpoint carries previewImage/excerpt on each item and the single-article endpoint a
+// parsed `blocks` body — richer than the shared NewsResponse contract, which would strip those
+// fields on parse. Shapes confirmed against src/lib/server/relay/news/news.service.js.
+const RichNewsItemSchema = NewsItemSchema.extend({
+    previewImage: z.string().nullish(),
+    excerpt:      z.string().optional(),
+})
+export const RichNewsResponseSchema = z.object({
+    fetchedAt: z.string().optional(),
+    appid:     z.number().optional(),
+    items:     z.array(RichNewsItemSchema).optional(),
+})
+export type RichNewsItem = z.infer<typeof RichNewsItemSchema>
+
+// Article body blocks (guide-parser ContentBlock shape, mirrors src/lib/types.ts NexusBlock); lists
+// nest, hence the recursive item schema.
+type NewsListItem = { text?: string; children?: { ordered: boolean; items: NewsListItem[] } }
+const NewsListItemSchema: z.ZodType<NewsListItem> = z.lazy(() => z.object({
+    text:     z.string().optional(),
+    children: z.object({ ordered: z.boolean(), items: z.array(NewsListItemSchema) }).optional(),
+}))
+const NewsBlockSchema = z.object({
+    type:    z.string(),
+    level:   z.number().optional(),
+    text:    z.string().optional(),
+    html:    z.string().optional(),
+    ordered: z.boolean().optional(),
+    items:   z.array(NewsListItemSchema).optional(),
+    src:     z.string().optional(),
+    alt:     z.string().optional(),
+    caption: z.string().optional(),
+})
+export const NewsArticleSchema = z.object({
+    gid:          z.string().optional(),
+    date:         z.number().optional(),
+    feedlabel:    z.string().optional(),
+    feedname:     z.string().optional(),
+    author:       z.string().optional(),
+    title:        z.string(),
+    url:          z.string().optional(),
+    previewImage: z.string().nullish(),
+    excerpt:      z.string().optional(),
+    blocks:       z.array(NewsBlockSchema).optional().default([]),
+})
+export type NewsBlock   = z.infer<typeof NewsBlockSchema>
+export type NewsArticle = z.infer<typeof NewsArticleSchema>
+
+export const getNews = (appid: number) => apiGet(`/relay/api/news/${appid}`, RichNewsResponseSchema)
+export const getNewsArticle = (appid: number, gid: string) =>
+    apiGet(`/relay/api/news/${appid}/${encodeURIComponent(gid)}`, NewsArticleSchema)
 
 // ITAD always runs in Phase 2 regardless of release status (`hasItad = true` unconditionally, per
 // pricing.md) and never hides the section on failure — `itadData = data ?? {}` on the web, ported
@@ -85,6 +146,46 @@ export async function refreshItadForGame(appid: number, isDiscovered: boolean, n
     const host = await getApiHost()
     await fetch(`${host}/relay/api/itad/sync/${appid}?force=true`, { method: 'POST' })
     return getItadForGame(appid, isDiscovered, name)
+}
+
+// ── Cold-cache population (mirrors GamePage.svelte's Phase-2 "fill an empty section" fetches) ─────
+
+// Community reviews: an uncached game returns null from the hero endpoint; POST /sync then re-GET,
+// exactly as GamePage.svelte does for `needsCommunitySync` (~347-356). Returns the freshly synced
+// reviews (or null if the sync produced nothing).
+export async function syncCommunityReviews(appid: number) {
+    const host = await getApiHost()
+    await fetch(`${host}/relay/api/steam/community-reviews/${appid}/sync`, { method: 'POST' }).catch(() => {})
+    return getCommunityReviewsForHero(appid)
+}
+
+// About description: library/wishlist games can arrive with no store.detailedDescription; a
+// `?refresh=true` re-pull populates it (GamePage.svelte ~359-372). Returns the refreshed detail.
+export async function refreshAboutDescription(appid: number) {
+    return apiGet(`/relay/api/games/${appid}?refresh=true`, GameDetailSchema)
+}
+
+// HLTB cold fetch: uncached/unmatched games kick off an on-demand HLTB search via `?fetch=true`
+// (GamePage.svelte ~267-276). The relay answers 202 and warms its cache asynchronously (then
+// rebuilds the games cache), so we tolerate any status and re-read the merged game detail after.
+export async function fetchHltbColdCache(appid: number, name: string) {
+    const host = await getApiHost()
+    await fetch(`${host}/relay/api/hltb/${appid}?fetch=true&name=${encodeURIComponent(name)}`).catch(() => {})
+    return getGameDetail(appid)
+}
+
+// News refresh: caches written before previewImage/blocks — or still holding raw BBCode — are
+// re-pulled via the admin refresh endpoint, matching GamePage.svelte's `newsBBCodeDirty` branch
+// (~314-322). Returns the fresh list; `pokeNewsRefresh` is the fire-and-forget warm for clean caches.
+export async function refreshNews(appid: number) {
+    const host = await getApiHost()
+    await fetch(`${host}/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }).catch(() => {})
+    return getNews(appid)
+}
+export function pokeNewsRefresh(appid: number) {
+    getApiHost()
+        .then(host => fetch(`${host}/relay/api/admin/news/${appid}/refresh`, { method: 'POST' }))
+        .catch(() => {})
 }
 
 export type { GameFlags }

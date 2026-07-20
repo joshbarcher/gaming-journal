@@ -1,5 +1,7 @@
+import { Feather } from '@expo/vector-icons'
 import { Drawer } from 'expo-router/drawer'
-import { Pressable, Text } from 'react-native'
+import { Pressable } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { CustomDrawerContent } from '@/components/shared/DrawerContent'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
@@ -7,13 +9,15 @@ import { useGlobalSearchStore } from '@/store/globalSearchStore'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { colors, fonts } from '@/theme/tokens'
 
-// Persistent search trigger — the touch replacement for the web's Ctrl+Space shortcut (no keyboard
-// on touch). Shown in every screen's header via screenOptions, not a route-specific button.
-function HeaderSearchButton() {
+// Persistent global-search trigger — the touch replacement for the web's Ctrl+Space shortcut (no
+// keyboard on touch). A magnifying-glass icon in every drawer screen's header (via screenOptions).
+// Exported so the headerless detail screens (game/journal/community) can drop the same icon into
+// their own in-content header rows and keep search reachable everywhere.
+export function HeaderSearchButton({ color = colors.text }: { color?: string }) {
     const setOpen = useGlobalSearchStore(s => s.setOpen)
     return (
-        <Pressable onPress={() => setOpen(true)} hitSlop={8} style={{ marginRight: 16 }}>
-            <Text style={{ color: colors.accent, fontSize: 16 }}>Search</Text>
+        <Pressable onPress={() => setOpen(true)} hitSlop={10} style={{ marginRight: 16 }} accessibilityLabel="Search">
+            <Feather name="search" size={20} color={color} />
         </Pressable>
     )
 }
@@ -27,6 +31,7 @@ export default function DrawerLayout() {
     // original overlay drawer untouched.
     const isPermanentTier = breakpoint === 'tabletLandscape' || breakpoint === 'desktop'
     const drawerWidth = isPermanentTier && collapsed ? 68 : 280
+    const insets = useSafeAreaInsets()
 
     return (
         <Drawer
@@ -38,7 +43,10 @@ export default function DrawerLayout() {
                 headerRight:      () => <HeaderSearchButton />,
                 drawerType:       isPermanentTier ? 'permanent' : 'front',
                 drawerStyle:      { backgroundColor: colors.bgSidebar, width: drawerWidth, borderRightWidth: isPermanentTier ? 1 : 0, borderRightColor: colors.border },
-                sceneStyle:       { backgroundColor: colors.bg },
+                // Global bottom inset so no drawer screen's content runs under the Android nav bar.
+                // (The header handles the top via SafeAreaProvider.) Individual screens can still add
+                // their own aesthetic paddingBottom on top of this.
+                sceneStyle:       { backgroundColor: colors.bg, paddingBottom: insets.bottom },
             }}
         >
             <Drawer.Screen name="index"        options={{ title: 'Home' }} />
@@ -60,6 +68,13 @@ export default function DrawerLayout() {
             <Drawer.Screen name="my-reviews"   options={{ title: 'My Reviews' }} />
             <Drawer.Screen name="account"      options={{ title: 'Account' }} />
             <Drawer.Screen name="settings"     options={{ title: 'Settings' }} />
+            {/* Detail routes: inside the drawer so the permanent rail persists, but hidden from the
+                rail's item list and with no drawer app-bar (each has its own nested headerless stack
+                + in-content chrome). */}
+            <Drawer.Screen name="game"      options={{ headerShown: false, drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="journal"   options={{ headerShown: false, drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="community" options={{ headerShown: false, drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="franchise" options={{ headerShown: false, drawerItemStyle: { display: 'none' } }} />
         </Drawer>
     )
 }

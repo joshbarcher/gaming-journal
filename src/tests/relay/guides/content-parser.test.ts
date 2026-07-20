@@ -6,7 +6,7 @@
 // carried over unmodified).
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { parseContent } from '../../../lib/server/relay/guides/parser/content-parser.js';
+import { parseContent, collectImageBlocks } from '../../../lib/server/relay/guides/parser/content-parser.js';
 import { defaults } from '../../../lib/server/relay/guides/config.js';
 import * as cheerio from 'cheerio';
 
@@ -154,6 +154,147 @@ describe('images', () => {
     it('skips data: URI images', () => {
         const blocks = parse('<p><img src="data:image/png;base64,abc" alt=""></p>');
         assert.equal(blocks.filter(b => b.type === 'image').length, 0);
+    });
+});
+
+// ── Images inside table cells ─────────────────────────────────────────────────
+//
+// Cells are modelled as text, so an image in a cell used to be dropped with only its
+// alt text surviving. Data tables carry a large share of the screenshots on wiki-style
+// guides (Neoseeker, Game8), so `cellContent` now also attaches an `image`.
+// The text/html output must stay byte-identical — this is purely additive.
+
+const dataTable = (cells) => `<table><tr><th>H</th><th>H2</th></tr><tr>${cells}</tr></table>`;
+const firstRow  = (blocks) => blocks.find(b => b.type === 'table').rows[0];
+
+describe('table cell images', () => {
+    it('attaches an image to an image-only cell and keeps alt as the text', () => {
+        const blocks = parse(dataTable('<td><img src="/img/a.jpg" alt="Boss"></td><td>x</td>'));
+        const cell = firstRow(blocks)[0];
+        assert.equal(cell.image.src, '/img/a.jpg');
+        assert.equal(cell.image.alt, 'Boss');
+        assert.equal(cell.image.type, 'image', 'same shape as a top-level image block');
+        assert.equal(cell.text, 'Boss', 'alt-text fallback must be unchanged');
+    });
+
+    it('attaches an image to a cell that ALSO has text', () => {
+        // The original bug: only the image-only branch attached the image, so every
+        // cell pairing a screenshot with a label silently lost its image.
+        const blocks = parse(dataTable('<td>Iron Sword<img src="/img/s.jpg" alt="sword"></td><td>x</td>'));
+        const cell = firstRow(blocks)[0];
+        assert.equal(cell.image.src, '/img/s.jpg');
+        assert.equal(cell.text, 'Iron Sword', 'text must be untouched');
+    });
+
+    it('attaches an image to a cell that also carries a link (html branch)', () => {
+        const blocks = parse(dataTable('<td><a href="foo">Cave</a><img src="/img/c.jpg" alt="cave"></td><td>x</td>'));
+        const cell = firstRow(blocks)[0];
+        assert.equal(cell.image.src, '/img/c.jpg');
+        assert.ok(cell.html.includes('href'), 'link html must still be produced');
+    });
+
+    it('ignores glyph-sized icons so they do not become block images', () => {
+        // Item/button glyphs sit next to cell text as decoration — one Neoseeker page
+        // alone has 348 of them, which would swamp the table if promoted.
+        const blocks = parse(dataTable('<td>Chest<img src="/img/i.png" alt="i" width="17" height="15"></td><td>x</td>'));
+        assert.equal(firstRow(blocks)[0].image, undefined);
+    });
+
+    it('keeps an image whose stated size is above the glyph threshold', () => {
+        const blocks = parse(dataTable('<td><img src="/img/b.jpg" alt="b" width="600" height="338"></td><td>x</td>'));
+        assert.equal(firstRow(blocks)[0].image.src, '/img/b.jpg');
+    });
+
+    it('keeps an image with no stated size', () => {
+        const blocks = parse(dataTable('<td><img src="/img/n.jpg" alt="n"></td><td>x</td>'));
+        assert.equal(firstRow(blocks)[0].image.src, '/img/n.jpg');
+    });
+
+    it('picks the real image when a glyph comes first in the cell', () => {
+        // Cells pair one screenshot with several icons and the icons are not reliably
+        // last. Testing only the first <img> would return null and lose the screenshot.
+        const blocks = parse(dataTable(
+            '<td><img src="/img/icon.png" alt="i" width="17" height="15">' +
+            '<img src="/img/real.jpg" alt="shot" width="600" height="338"></td><td>x</td>',
+        ));
+        assert.equal(firstRow(blocks)[0].image.src, '/img/real.jpg');
+    });
+
+    it('returns no image when a cell holds only glyphs', () => {
+        const blocks = parse(dataTable(
+            '<td><img src="/img/a.png" alt="a" width="17">' +
+            '<img src="/img/b.png" alt="b" width="20"></td><td>x</td>',
+        ));
+        assert.equal(firstRow(blocks)[0].image, undefined);
+    });
+
+    it('skips data: URI images in cells', () => {
+        const blocks = parse(dataTable('<td><img src="data:image/png;base64,abc" alt=""></td><td>x</td>'));
+        assert.equal(firstRow(blocks)[0].image, undefined);
+    });
+
+    it('leaves image-free cells with no image key at all', () => {
+        const blocks = parse(dataTable('<td>plain</td><td>x</td>'));
+        const cell = firstRow(blocks)[0];
+        assert.equal(cell.image, undefined);
+        assert.deepEqual(Object.keys(cell), ['text'], 'no stray keys on ordinary cells');
+    });
+
+    it('carries the image through buildGrid alongside colspan', () => {
+        // buildGrid rebuilds the cell object field by field — a new field is dropped
+        // unless it is explicitly carried over.
+        const blocks = parse(
+            '<table><tr><th>A</th><th>B</th></tr>' +
+            '<tr><td colspan="2"><img src="/img/w.jpg" alt="wide"></td></tr></table>',
+        );
+        const cell = firstRow(blocks)[0];
+        assert.equal(cell.colspan, 2);
+        assert.equal(cell.image.src, '/img/w.jpg');
+    });
+
+    it('attaches images to header cells too', () => {
+        const blocks = parse('<table><tr><th><img src="/img/h.jpg" alt="hdr"></th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>');
+        assert.equal(blocks.find(b => b.type === 'table').headers[0].image.src, '/img/h.jpg');
+    });
+});
+
+// ── collectImageBlocks ────────────────────────────────────────────────────────
+
+describe('collectImageBlocks', () => {
+    it('returns top-level images and cell images together, in document order', () => {
+        const blocks = parse(
+            '<p><img src="/img/top.jpg" alt="top"></p>' +
+            dataTable('<td><img src="/img/cell.jpg" alt="cell"></td><td>x</td>'),
+        );
+        const srcs = collectImageBlocks(blocks).map(i => i.src);
+        assert.deepEqual(srcs, ['/img/top.jpg', '/img/cell.jpg']);
+    });
+
+    it('returns live references so the download pass can set localSrc in place', () => {
+        // downloadImages mutates each image object; cell images only get a localSrc
+        // if what we hand it are the same objects that live in the tree.
+        const blocks = parse(dataTable('<td><img src="/img/a.jpg" alt="a"></td><td>x</td>'));
+        collectImageBlocks(blocks).forEach(img => { img.localSrc = 'img/001.jpg'; });
+        assert.equal(firstRow(blocks)[0].image.localSrc, 'img/001.jpg');
+    });
+
+    it('finds images nested inside section children', () => {
+        const blocks = parse('<h2>Head</h2><p><img src="/img/deep.jpg" alt="d"></p>');
+        const nested = [{ type: 'section', level: 2, heading: 'H', id: 'h', children: blocks }];
+        assert.equal(collectImageBlocks(nested).length, 1);
+    });
+
+    it('tolerates null cells left by span placeholders', () => {
+        const blocks = parse(
+            '<table><tr><th>A</th><th>B</th></tr>' +
+            '<tr><td rowspan="2"><img src="/img/r.jpg" alt="r"></td><td>1</td></tr>' +
+            '<tr><td>2</td></tr></table>',
+        );
+        assert.equal(collectImageBlocks(blocks).length, 1);
+    });
+
+    it('returns an empty array for a tree with no images', () => {
+        assert.deepEqual(collectImageBlocks(parse('<p>text</p>')), []);
     });
 });
 

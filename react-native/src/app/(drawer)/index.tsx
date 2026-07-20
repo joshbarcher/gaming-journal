@@ -15,8 +15,10 @@ import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { useHomeData } from '@/hooks/useHomeData'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { FlipMosaic, type MosaicPoster } from '@/components/shared/FlipMosaic'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { makeShouldShow } from '@/utils/gameFilter'
 import type { AlertResult } from 'gaming-journal-contracts/alerts'
+import type { FlagsStore } from 'gaming-journal-contracts/flags'
 
 // Port of docs/features/global/home.md, rebuilt against the real source (Home.svelte,
 // HomeMosaic.svelte, home.css) after a side-by-side screenshot comparison found the earlier
@@ -54,11 +56,13 @@ export default function HomeScreen() {
     const discoverPosters = useMemo<MosaicPoster[]>(() => {
         if (!apiHost || !discoverFeaturedQuery.data || !flagsQuery.data || !settingsQuery.data) return []
         const shouldShow = makeShouldShow(flagsQuery.data, settingsQuery.data)
+        const hideAdult = settingsQuery.data.hideAdultContent ?? true
         const blocked = (settingsQuery.data.titleBlocklist ?? []).map(t => t.toLowerCase())
         const items = discoverFeaturedQuery.data
             .flatMap(section => section.items ?? [])
             .filter(item => {
                 if (!shouldShow(item.appid)) return false
+                if (hideAdult && item.isAdult) return false
                 if (blocked.length && blocked.some(t => item.name.toLowerCase().includes(t))) return false
                 return true
             })
@@ -102,7 +106,7 @@ export default function HomeScreen() {
     const topRow = (
         <View style={[styles.row, !isFixedHeightTier && styles.rowAutoHeight, { gap: spacingForTier.gap }, isFixedHeightTier && { flex: 45 }]}>
             {topRowCards.map(card => (
-                <TopRowCard key={card.kind} card={card} apiHost={apiHost} fixedHeight={isFixedHeightTier} />
+                <TopRowCard key={card.kind} card={card} apiHost={apiHost} flags={flagsQuery.data} fixedHeight={isFixedHeightTier} />
             ))}
         </View>
     )
@@ -169,7 +173,7 @@ function CardBackground({ uri }: { uri: string | undefined }) {
 // leaving dead space to the right, while MosaicPanel — a plain View outer element — filled
 // correctly). Fix: plain `View` carries the flex:1 sizing; the Link+Pressable is a separate,
 // absolutely-positioned full-cover overlay on top purely for the tap target.
-function TopRowCard({ card, apiHost, fixedHeight }: { card: TopRowCardData; apiHost: string | undefined; fixedHeight: boolean }) {
+function TopRowCard({ card, apiHost, flags, fixedHeight }: { card: TopRowCardData; apiHost: string | undefined; flags: FlagsStore | undefined; fixedHeight: boolean }) {
     if (card.kind === 'release' && card.release) {
         const { release } = card
         return (
@@ -181,7 +185,10 @@ function TopRowCard({ card, apiHost, fixedHeight }: { card: TopRowCardData; apiH
                     <Text style={styles.topCardMeta}>Available now on Steam</Text>
                 </View>
                 <Link href={`/game/${release.appid}` as never} asChild>
-                    <Pressable style={StyleSheet.absoluteFill} />
+                    <Pressable
+                        style={StyleSheet.absoluteFill}
+                        onLongPress={(e) => openGameCardMenu(release.appid, flags?.[release.appid], { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+                    />
                 </Link>
             </View>
         )
@@ -203,7 +210,10 @@ function TopRowCard({ card, apiHost, fixedHeight }: { card: TopRowCardData; apiH
                     <Text style={styles.topCardMeta}>{price ? `${price} · ` : ''}{store}</Text>
                 </View>
                 <Link href={href as never} asChild>
-                    <Pressable style={StyleSheet.absoluteFill} />
+                    <Pressable
+                        style={StyleSheet.absoluteFill}
+                        onLongPress={(e) => openGameCardMenu(saleGame.appid, flags?.[saleGame.appid], { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+                    />
                 </Link>
             </View>
         )
@@ -222,7 +232,10 @@ function TopRowCard({ card, apiHost, fixedHeight }: { card: TopRowCardData; apiH
                     </Text>
                 </View>
                 <Link href={`/game/${resume.appid}` as never} asChild>
-                    <Pressable style={StyleSheet.absoluteFill} />
+                    <Pressable
+                        style={StyleSheet.absoluteFill}
+                        onLongPress={(e) => openGameCardMenu(resume.appid, flags?.[resume.appid], { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+                    />
                 </Link>
             </View>
         )
@@ -236,6 +249,10 @@ function MosaicPanel({ testID, title, href, posters, cols = 3, fixedHeight }: {
 }) {
     return (
         <View style={[styles.mosaicPanel, !fixedHeight && styles.mosaicPanelAutoHeight]} testID={testID}>
+            {/* The individual mosaic poster tiles each link to /game/{appid}, but that per-tile
+                Pressable lives inside the shared FlipMosaic component (7 call sites app-wide), not here.
+                Wiring the game-card long-press menu onto them belongs in FlipMosaic itself so every
+                caller gets it consistently — out of scope for this screen's edit. */}
             <FlipMosaic posters={posters} cols={cols} />
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 <LinearGradient colors={['rgba(8,7,6,0.42)', 'rgba(8,7,6,0.12)']} style={styles.bgFill} />

@@ -53,17 +53,54 @@ function isDataTable($, el) {
     return !hasComplexCell;
 }
 
+// Images this small are inline glyphs — item/button icons sitting next to a cell's
+// text, not cell content. Neoseeker's are 12-24px; real screenshots are 300px+.
+const GLYPH_MAX_PX = 48;
+
+// Build an ImageBlock-shaped object from the first <img> in a cell, or null.
+// Deliberately the same shape as a top-level image block ({type,src,alt}) so the
+// download pass can mutate it in place through the same code path — see
+// collectImageBlocks below.
+function cellImage($, el, cfg) {
+    // Take the first NON-glyph image, not the first image. Cells routinely pair one
+    // screenshot with several icons (Neoseeker has cells holding 7 images, 6 of them
+    // glyphs), and the icons do not reliably come last — testing only the first image
+    // would return null and lose the screenshot sitting behind it.
+    //
+    // Glyphs are judged only when the markup states a size; with no width/height we
+    // assume real content, which still beats the old behaviour of dropping everything.
+    const $img = $(el).find('img').filter((_, i) => {
+        const w = parseInt($(i).attr('width') ?? '', 10);
+        const h = parseInt($(i).attr('height') ?? '', 10);
+        return !((w > 0 && w <= GLYPH_MAX_PX) || (h > 0 && h <= GLYPH_MAX_PX));
+    }).first();
+    if (!$img.length) return null;
+
+    const rawSrc = $img.attr('data-src') || $img.attr('src') || '';
+    const src    = cfg.imageUrlTransform ? cfg.imageUrlTransform(rawSrc) : rawSrc;
+    if (!src || src.startsWith('data:')) return null;
+
+    return { type: 'image', src, alt: $img.attr('alt') || '' };
+}
+
 // Extract content from a single table cell.
-// Returns { text, html? } — html is set when the cell contains links, so the
-// caller can render rich content instead of falling back to plain text.
+// Returns { text, html?, image? } — html is set when the cell contains links, so
+// the caller can render rich content instead of falling back to plain text.
 // For cells with multiple <p> children, joins them with " / ".
-// For image-only cells, falls back to alt text.
+// For image-only cells, text falls back to alt text.
+//
+// `image` is attached whenever the cell holds an <img>. Table cells are modelled as
+// text, so before this the image was dropped and only its alt text survived — on
+// image-heavy wiki guides that silently lost a third of the page's images.
+// It is purely additive: `text`/`html` are byte-identical to what they were.
 function cellContent($, el, cfg) {
-    const $el  = $(el);
-    const text = $el.text().trim();
+    const $el   = $(el);
+    const text  = $el.text().trim();
+    const image = cellImage($, el, cfg);
+    const withImage = (cell) => (image ? { ...cell, image } : cell);
 
     if (!text && $el.find('img').length > 0) {
-        return { text: $el.find('img').first().attr('alt') ?? '' };
+        return withImage({ text: $el.find('img').first().attr('alt') ?? '' });
     }
 
     const directParas = $el.find('> p');
@@ -73,16 +110,16 @@ function cellContent($, el, cfg) {
             return cleanInlineHtml(inner, cfg).trim();
         }).get().filter(Boolean);
         const plainText = parts.map(h => h.replace(/<[^>]+>/g, '')).join(' / ');
-        return { text: plainText, html: parts.join('<br>') };
+        return withImage({ text: plainText, html: parts.join('<br>') });
     }
 
     // Preserve HTML when the cell contains inline elements worth rendering
     if ($el.find('a[href], br').length > 0) {
         const html = cleanInlineHtml($el.html() ?? '', cfg).trim();
-        if (html) return { text, html };
+        if (html) return withImage({ text, html });
     }
 
-    return { text };
+    return withImage({ text });
 }
 
 /**
@@ -110,10 +147,11 @@ function buildGrid($, trElements, cfg) {
             const $cell   = $(cell);
             const colspan = Math.max(1, parseInt($cell.attr('colspan') ?? '1', 10));
             const rowspan = Math.max(1, parseInt($cell.attr('rowspan') ?? '1', 10));
-            const { text, html } = cellContent($, cell, cfg);
+            const { text, html, image } = cellContent($, cell, cfg);
 
             const obj = { text };
             if (html) obj.html = html;
+            if (image) obj.image = image;
             if (colspan > 1) obj.colspan = colspan;
             if (rowspan > 1) obj.rowspan = rowspan;
             grid[r][c] = obj;
@@ -496,6 +534,40 @@ export function parseContent($, el, cfg, ctx) {
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
+
+/**
+ * Collect every image object in a block tree, including those nested in table cells.
+ *
+ * Returns live references, not copies, so the download pass can set `localSrc` on
+ * each one in place — cell images ride the exact same path as top-level image blocks.
+ * Callers previously used `blocks.filter(b => b.type === 'image')`, which saw only
+ * top-level images and silently skipped anything inside a table.
+ *
+ * @param {ContentBlock[]} blocks
+ * @returns {object[]} image objects ({type:'image', src, alt}), in document order
+ */
+export function collectImageBlocks(blocks) {
+    const out = [];
+
+    const walk = (bs) => {
+        for (const b of bs ?? []) {
+            if (!b) continue;
+            if (b.type === 'image') out.push(b);
+            if (b.type === 'table') {
+                const rows = [...(b.headers ? [b.headers] : []), ...(b.rows ?? [])];
+                for (const row of rows) {
+                    for (const cell of row ?? []) {
+                        if (cell?.image) out.push(cell.image);
+                    }
+                }
+            }
+            if (Array.isArray(b.children)) walk(b.children);
+        }
+    };
+
+    walk(blocks);
+    return out;
+}
 
 function escapeTextForHtml(text) {
     return text

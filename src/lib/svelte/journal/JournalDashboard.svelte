@@ -9,6 +9,7 @@
         fmtDate, fmtHours, mergeSessionAchievements,
     } from '../../js/views/journal-render.js'
     import Stars from './Stars.svelte'
+    import Icon from '../Icon.svelte'
     import AchievementStrip from './AchievementStrip.svelte'
     import SessionAchievements from './SessionAchievements.svelte'
     import LastSessionCard from './LastSessionCard.svelte'
@@ -634,7 +635,7 @@
                         class="game-refresh-btn"
                         onclick={(e) => { e.stopPropagation(); enqueueTrackerSuggest() }}
                         title="AI-suggest trackers"
-                    >✦</button>
+                    ><Icon name="wand-sparkles" tone="lilac" size={15} /></button>
                 {/if}
             </div>
             {#if activeTrackerJob}

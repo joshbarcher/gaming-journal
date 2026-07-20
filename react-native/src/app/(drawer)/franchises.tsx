@@ -7,6 +7,7 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { createFranchise, getFranchises } from '@/api/franchises'
 import { getFlags } from '@/api/flags'
 import { getSteamGamesList } from '@/api/games'
+import { Lucide } from '@/components/shared/Lucide'
 import { useApiHost } from '@/hooks/useApiHost'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
@@ -79,7 +80,7 @@ export default function FranchisesScreen() {
 
             {franchises.length === 0 ? (
                 <View style={styles.empty}>
-                    <Text style={styles.emptyIcon}>🎮</Text>
+                    <View style={styles.emptyIcon}><Lucide name="gamepad-2" color={colors.sky} size={42} /></View>
                     <Text style={styles.emptyText}>No franchises yet</Text>
                     <Text style={styles.emptySub}>Create your first franchise to start tracking a game series.</Text>
                 </View>

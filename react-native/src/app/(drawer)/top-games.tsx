@@ -10,9 +10,11 @@ import { getTopGames, setTopGameFiltered } from '@/api/topGames'
 import { useApiHost } from '@/hooks/useApiHost'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { Sparkline } from '@/components/shared/Sparkline'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { makeShouldShow } from '@/utils/gameFilter'
 import type { TopGameEntry } from 'gaming-journal-contracts/topGames'
+import type { GameFlags } from 'gaming-journal-contracts/flags'
 
 // Port of collections/top-games.md. Column visibility ported directly from top-games.css's own
 // breakpoints (not invented): the web collapses to just rank/thumbnail/name/"Now" at ≤799px,
@@ -114,6 +116,7 @@ export default function TopGamesScreen() {
                         rank={item.displayRank}
                         apiHost={apiHost}
                         showFullRow={showFullRow}
+                        flags={flagsQuery.data?.[item.appid]}
                         onToggleFilter={() => filterMutation.mutate({ appid: item.appid, filtered: !item.filtered })}
                     />
                 )}
@@ -130,12 +133,13 @@ export default function TopGamesScreen() {
 }
 
 function TopGameRow({
-    entry, rank, apiHost, showFullRow, onToggleFilter,
+    entry, rank, apiHost, showFullRow, flags, onToggleFilter,
 }: {
     entry: TopGameEntry
     rank: string
     apiHost: string | undefined
     showFullRow: boolean
+    flags: GameFlags | undefined
     onToggleFilter: () => void
 }) {
     // <Link asChild> requires a flattened style object, not an array — the recurring PLAN.md gotcha.
@@ -143,7 +147,7 @@ function TopGameRow({
 
     return (
         <Link href={`/game/${entry.appid}` as never} asChild>
-            <Pressable style={rowStyle}>
+            <Pressable style={rowStyle} onLongPress={(e) => openGameCardMenu(entry.appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}>
                 <Text style={styles.rank}>{rank}</Text>
                 {apiHost && (
                     <Image

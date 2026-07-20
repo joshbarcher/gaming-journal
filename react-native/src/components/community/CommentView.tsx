@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { openScreenshotLightbox } from '@/store/screenshotLightboxStore'
 import { colors, fonts, spacing } from '@/theme/tokens'
 import { fmtScore, fmtTime, resolveLocalOrUrl, resolveMediaUrl } from '@/utils/communityRender'
+import type { LoadedPrefs } from '@/api/communityPrefs'
 import type { RedditComment } from 'gaming-journal-contracts/reddit'
 
 // Port of Comment.svelte — recursive, collapsed by default, same as the web. Image/gallery
@@ -13,11 +14,27 @@ import type { RedditComment } from 'gaming-journal-contracts/reddit'
 // ScreenshotLightboxHost (openScreenshotLightbox) instead of re-implementing the web's bespoke
 // DOM-built lightbox/carousel modals — same end capability (tap an image, swipe through the
 // album), one shared primitive instead of two new bespoke ones.
-export function CommentView({ comment, apiHost, depth = 0 }: { comment: RedditComment; apiHost: string | undefined; depth?: number }) {
+//
+// Author prefs (filter/mute/highlight/favorite) match CommunityThread.svelte + PostCard: long-press
+// any author to open the same 4-action menu, and the comment reflects pref styling (filtered/muted
+// dimmed, highlighted tinted, favorited author starred). prefs + onAuthorMenu thread down the
+// recursion so nested-comment authors are actionable too — the exact gap the parity audit flagged.
+export function CommentView({ comment, apiHost, prefs, onAuthorMenu, depth = 0 }: {
+    comment: RedditComment
+    apiHost: string | undefined
+    prefs: LoadedPrefs
+    onAuthorMenu: (author: string) => void
+    depth?: number
+}) {
     const [collapsed, setCollapsed] = useState(true)
     const usedDepth = comment.depth ?? depth
     const author = comment.author ?? ''
     const replies = comment.replies ?? []
+
+    const isFiltered    = !!author && prefs.filtered.has(author)
+    const isMuted       = !!author && prefs.muted.has(author)
+    const isFavorited   = !!author && prefs.favorited.has(author)
+    const isHighlighted = !!author && prefs.highlighted.has(author)
 
     const displayBody = useMemo(() => {
         const raw = comment.body ?? null
@@ -36,14 +53,23 @@ export function CommentView({ comment, apiHost, depth = 0 }: { comment: RedditCo
     const hasBody = !!(displayBody || images.length || gifs.length || imgur.length)
 
     return (
-        <View style={[styles.comment, usedDepth > 0 && styles.replyIndent]}>
+        <View style={[
+            styles.comment,
+            usedDepth > 0 && styles.replyIndent,
+            isHighlighted && styles.commentHighlighted,
+            (isFiltered || isMuted) && styles.commentDimmed,
+        ]}>
             <View style={styles.header}>
                 {replies.length > 0 && (
                     <Pressable onPress={() => setCollapsed(c => !c)} hitSlop={6}>
                         <Text style={styles.toggle}>{collapsed ? '+' : '−'}</Text>
                     </Pressable>
                 )}
-                <Text style={styles.author} numberOfLines={1}>{author || '[deleted]'}</Text>
+                <Pressable onLongPress={() => author && author !== '[deleted]' && onAuthorMenu(author)} hitSlop={4} style={styles.authorPress}>
+                    <Text style={[styles.author, isFavorited && styles.authorFavorited]} numberOfLines={1}>
+                        {isFavorited ? '★ ' : ''}{author || '[deleted]'}
+                    </Text>
+                </Pressable>
                 <Text style={styles.score}>▲ {fmtScore(comment.score)}</Text>
                 <Text style={styles.time}>{fmtTime(comment.createdUtc)}</Text>
             </View>
@@ -87,7 +113,9 @@ export function CommentView({ comment, apiHost, depth = 0 }: { comment: RedditCo
 
             {replies.length > 0 && !collapsed && (
                 <View style={styles.replies}>
-                    {replies.map((reply, i) => <CommentView key={reply.id ?? i} comment={reply} apiHost={apiHost} depth={usedDepth + 1} />)}
+                    {replies.map((reply, i) => (
+                        <CommentView key={reply.id ?? i} comment={reply} apiHost={apiHost} prefs={prefs} onAuthorMenu={onAuthorMenu} depth={usedDepth + 1} />
+                    ))}
                 </View>
             )}
         </View>
@@ -102,9 +130,13 @@ function CommentGif({ uri }: { uri: string }) {
 const styles = StyleSheet.create({
     comment: { paddingVertical: spacing.sm },
     replyIndent: { marginLeft: spacing.md, paddingLeft: spacing.sm, borderLeftWidth: 1, borderLeftColor: colors.border },
+    commentHighlighted: { backgroundColor: 'rgba(201,168,76,0.08)', borderRadius: 4 },
+    commentDimmed: { opacity: 0.4 },
     header: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 3 },
     toggle: { color: colors.textMuted, fontFamily: fonts.uiBold, fontSize: 13, width: 16, textAlign: 'center' },
+    authorPress: { flexShrink: 1 },
     author: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 12, flexShrink: 1 },
+    authorFavorited: { color: '#e8b870' },
     score: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11 },
     time: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, opacity: 0.7 },
     body: {},

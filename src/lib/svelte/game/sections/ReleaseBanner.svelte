@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { SteamGame } from '../../../types.js'
     import { releaseStatus } from '../../../js/views/game-render.js'
+    import Icon from '../../Icon.svelte'
 
     interface Props { game: SteamGame }
     let { game }: Props = $props()
@@ -13,7 +14,7 @@
     {@const lower    = dateStr.toLowerCase()}
     {@const datePart = dateStr && !['coming soon', 'tba', 'tbd'].includes(lower) ? ` — ${dateStr}` : ''}
     <div class="game-release-banner game-release-banner--soon">
-        <span class="game-release-banner-icon">⌛</span>Coming Soon{datePart}
+        <span class="game-release-banner-icon"><Icon name="hourglass" tone="gold" size={15} /></span>Coming Soon{datePart}
     </div>
 {:else if status === 'early_access'}
     {@const datePart = dateStr ? ` — in Early Access since ${dateStr}` : ''}

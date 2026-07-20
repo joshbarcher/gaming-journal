@@ -3,7 +3,10 @@ import { Link } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
+import { useQuery } from '@tanstack/react-query'
 
+import { getFlags } from '@/api/flags'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { colors, fonts } from '@/theme/tokens'
 import { fmt } from '@/utils/calendarRender'
 
@@ -34,10 +37,15 @@ export function CalendarEntryTile({
 
     const flatStyle = StyleSheet.flatten([styles.tile, style])
     const uri = apiHost ? `${apiHost}${useFallback ? fallbackPath : primaryPath}` : undefined
+    // Calendar tiles link to /game/{appid}, so they get the same long-press game-card menu.
+    const flags = useQuery({ queryKey: ['flags'], queryFn: getFlags }).data?.[appid]
 
     return (
         <Link href={`/game/${appid}` as never} asChild>
-            <Pressable style={flatStyle}>
+            <Pressable
+                style={flatStyle}
+                onLongPress={(e) => openGameCardMenu(appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+            >
                 {uri && !hidden && (
                     <Image
                         source={{ uri }}

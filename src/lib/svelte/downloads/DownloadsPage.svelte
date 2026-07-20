@@ -3,6 +3,7 @@
     import { jobStore, type Job } from '$lib/guide-jobs.svelte.js'
     import { trackerSuggestJobStore, type TrackerSuggestJob } from '$lib/tracker-suggest-jobs.svelte.js'
     import { confirmDialog } from '$lib/js/dialog.js'
+    import Icon from '../Icon.svelte'
 
     const SOURCE_LABELS: Record<string, string> = {
         gamefaqs:   'GameFAQs',
@@ -86,7 +87,7 @@
     <h1 class="dl-title">Downloads</h1>
 
     {#if !hasAnything}
-        <p class="dl-empty">No downloads yet. Open a game's guide panel and press Download, or use ✦ on a journal dashboard to suggest trackers.</p>
+        <p class="dl-empty">No downloads yet. Open a game's guide panel and press Download, or use <Icon name="wand-sparkles" tone="lilac" size={14} /> on a journal dashboard to suggest trackers.</p>
     {/if}
 
     <!-- ── Guide Downloads ──────────────────────────────────────────────────── -->
@@ -204,7 +205,7 @@
                 <div class="dl-card dl-card--{job.status}">
                     <div class="dl-card-header">
                         <span class="dl-game">{job.gameName}</span>
-                        <span class="dl-source dl-source--ai">AI ✦</span>
+                        <span class="dl-source dl-source--ai">AI <Icon name="wand-sparkles" tone="lilac" size={13} /></span>
                         <span class="dl-status dl-status--{job.status}">{job.status === 'pending' ? 'Queued' : 'Running'}</span>
                         {#if job.status === 'pending'}
                             <button class="dl-cancel-btn" onclick={() => trackerSuggestJobStore.cancel(job.id)}>Cancel</button>

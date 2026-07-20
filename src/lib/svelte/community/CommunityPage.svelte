@@ -7,6 +7,7 @@
     import { fmtScore, fmtTime, thumbSrc } from '../../js/views/community-render.js'
     import SubredditLoader from './SubredditLoader.svelte'
     import Breadcrumb from '../Breadcrumb.svelte'
+    import Icon from '../Icon.svelte'
 
     let { appid } = $props()
 
@@ -350,19 +351,19 @@
                 </div>
             {:else if isGrace}
                 <div class="community-pin-badge community-pin-badge--grace">
-                    <span class="community-pin-icon">📌</span>
+                    <span class="community-pin-icon"><Icon name="pin" tone="gold" size={14} /></span>
                     <span class="community-pin-label">Pinned · {fmtExpiry(pin!.expiresAt)}</span>
                     <button class="community-pin-unpin" onclick={handlePin} title="Unpin">×</button>
                 </div>
             {:else if isPinned}
                 <div class="community-pin-badge community-pin-badge--manual">
-                    <span class="community-pin-icon">📌</span>
+                    <span class="community-pin-icon"><Icon name="pin" tone="gold" size={14} /></span>
                     <span class="community-pin-label">Pinned · {fmtExpiry(pin!.expiresAt)}</span>
                     <button class="community-pin-unpin" onclick={handlePin} title="Unpin">×</button>
                 </div>
             {:else}
                 <button class="community-pin-btn" onclick={handlePin} title="Pin this game for live community updates">
-                    <span class="community-pin-icon community-pin-icon--muted">📌</span>
+                    <span class="community-pin-icon community-pin-icon--muted"><Icon name="pin" tone="neutral" size={14} /></span>
                     <span>Pin</span>
                 </button>
             {/if}
@@ -373,7 +374,7 @@
         {#if sources.length === 0 && pendingSub == null}
             <p class="community-empty">No community posts found for this game.</p>
             <div class="community-empty-manage">
-                <button class="community-manage-toggle" onclick={openModal}>⚙ Manage Subreddits</button>
+                <button class="community-manage-toggle" onclick={openModal}><Icon name="settings" tone="neutral" size={15} />Manage Subreddits</button>
             </div>
         {:else}
             <!-- Tab bar -->
@@ -396,7 +397,7 @@
                         </button>
                     {/if}
                 </div>
-                <button class="community-manage-toggle" title="Manage subreddits" onclick={openModal}>⚙ Subreddits</button>
+                <button class="community-manage-toggle" title="Manage subreddits" onclick={openModal}><Icon name="settings" tone="neutral" size={15} />Subreddits</button>
             </div>
 
             <!-- Panels -->
@@ -440,7 +441,7 @@
                                     {/if}
                                     <div class="community-post-meta">
                                         <span class="community-post-score">▲ {fmtScore(post.score)}</span>
-                                        <span class="community-post-comments">💬 {(post.numComments ?? 0).toLocaleString()}</span>
+                                        <span class="community-post-comments"><Icon name="message-circle" tone="sky" size={14} /> {(post.numComments ?? 0).toLocaleString()}</span>
                                         <span class="community-post-author">u/{post.author ?? ''}</span>
                                         <span class="community-post-sub">r/{post.subreddit ?? ''}</span>
                                         <span class="community-post-time">{fmtTime(post.createdUtc)}</span>

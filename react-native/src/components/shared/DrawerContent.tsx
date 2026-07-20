@@ -1,9 +1,14 @@
+import { useQuery } from '@tanstack/react-query'
 import { Feather } from '@expo/vector-icons'
+import { router } from 'expo-router'
 import { DrawerContentScrollView, DrawerItem, type DrawerContentComponentProps } from 'expo-router/drawer'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
-import { Image as RNImage, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Animated, Easing, Image as RNImage, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { getAlerts } from '@/api/alerts'
 import { useApiHost } from '@/hooks/useApiHost'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { useHomeData } from '@/hooks/useHomeData'
@@ -79,6 +84,104 @@ function HistoryBackdrop({ uri }: { uri: string }) {
     )
 }
 
+// Port of Sidebar.svelte's Now Playing / Last Session card (public/css/sidebar.css). The web card
+// signals an ACTIVE session two ways, both of which the native card was missing:
+//   • `.now-playing-card` runs @keyframes np-glow (2.5s): a pulsing box-shadow bloom + a
+//     border-color pulse (gold 0.45→0.95).
+//   • `.now-playing-orbit`/`.now-playing-particle` run @keyframes np-rotate (4s linear): a glowing
+//     spark orbiting the card's center — the "spinning glow".
+// Both are suppressed for the last-session fallback (`.now-playing-wrap--last { animation:none }`,
+// dimmed to 0.55) — so here they render ONLY while `playing` is truthy.
+//
+// How the effects are built in RN:
+//   • Glow: box-shadow can't be animated portably (see LastSessionCard.tsx's note), so the bloom is
+//     a gold halo ring inset just OUTSIDE the card whose OPACITY pulses (native-driver-safe). Keeping
+//     it outside the card edge also sidesteps expo-image's Android over-compositing — it never
+//     overlaps the header art, so it can't be swallowed by the image's SurfaceView layer.
+//   • Spinning glow: a real rotating transform loop. A zero-size pivot sits at the card's center
+//     (top/left 50%); the spark hangs `orbitRadius` above it, so interpolating the pivot's rotation
+//     0deg→360deg sweeps the spark in a circle around the card — the exact zero-size-pivot trick the
+//     web's `.now-playing-orbit` uses.
+function NowPlayingCard({ playing, appid, image, name, collapsed }: {
+    playing: boolean
+    appid: number | undefined
+    image: string | undefined
+    name: string
+    collapsed: boolean
+}) {
+    const glow = useRef(new Animated.Value(0)).current // 0 → dim, 1 → bright
+    const spin = useRef(new Animated.Value(0)).current // 0 → 1 maps to 0° → 360°
+
+    useEffect(() => {
+        if (!playing) return
+        // np-glow: symmetric ease in/out, ~2.5s round trip (1.25s each way).
+        const pulse = Animated.loop(Animated.sequence([
+            Animated.timing(glow, { toValue: 1, duration: 1250, useNativeDriver: true }),
+            Animated.timing(glow, { toValue: 0, duration: 1250, useNativeDriver: true }),
+        ]))
+        // np-rotate: one full turn every 4s, linear, forever.
+        const orbit = Animated.loop(
+            Animated.timing(spin, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: true }),
+        )
+        pulse.start()
+        orbit.start()
+        return () => { pulse.stop(); orbit.stop() }
+    }, [playing, glow, spin])
+
+    const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
+    // Mirrors np-glow's box-shadow alpha swing (0.2 → 0.55) + border brighten (0.45 → 0.95).
+    const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.85] })
+
+    const orbitRadius = collapsed ? 24 : 46
+    const spark = collapsed ? 5 : 7
+    const sizeStyle = collapsed ? styles.nowPlayingCardCollapsed : null
+
+    return (
+        <Pressable
+            style={styles.nowPlayingWrap}
+            disabled={appid == null}
+            onPress={() => { if (appid != null) router.push(`/game/${appid}` as never) }}
+        >
+            {/* Pulsing gold bloom, ringing just outside the card edge (np-glow's box-shadow). */}
+            {playing && (
+                <Animated.View pointerEvents="none" style={[styles.nowPlayingGlow, { opacity: glowOpacity }]} />
+            )}
+
+            <View style={[styles.nowPlayingCard, sizeStyle, playing ? styles.nowPlayingCardActive : styles.nowPlayingCardLast]}>
+                {image && (
+                    <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                )}
+                <LinearGradient
+                    colors={['rgba(8,7,6,0)', 'rgba(8,7,6,0.75)', 'rgba(8,7,6,0.97)']}
+                    style={StyleSheet.absoluteFill}
+                />
+                {!collapsed && (
+                    <View style={styles.nowPlayingBody}>
+                        <Text style={[styles.nowPlayingLabel, playing && styles.nowPlayingLabelActive]}>
+                            {playing ? 'Now Playing' : 'Last Session'}
+                        </Text>
+                        <Text style={styles.nowPlayingName} numberOfLines={1}>{name}</Text>
+                    </View>
+                )}
+            </View>
+
+            {/* "Spinning glow": glowing spark on a zero-size pivot at card center, swept 0°→360°. */}
+            {playing && (
+                <Animated.View pointerEvents="none" style={[styles.nowPlayingOrbit, { transform: [{ rotate }] }]}>
+                    <View
+                        style={[
+                            styles.nowPlayingSpark,
+                            { top: -orbitRadius, width: spark * 3, height: spark * 3, borderRadius: spark * 1.5, marginLeft: -spark * 1.5 },
+                        ]}
+                    >
+                        <View style={[styles.nowPlayingSparkCore, { width: spark, height: spark, borderRadius: spark / 2 }]} />
+                    </View>
+                </Animated.View>
+            )}
+        </Pressable>
+    )
+}
+
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
     const nowPlayingQuery = useNowPlaying()
     const homeQuery = useHomeData()
@@ -87,6 +190,9 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     const breakpoint = useBreakpoint()
     const { height: windowHeight } = useWindowDimensions()
     const { collapsed, toggle } = useSidebarStore()
+    // Rail needs BOTH insets: the Now Playing card sat under the status bar (top) and the bottom
+    // items under the nav bar (bottom).
+    const insets = useSafeAreaInsets()
 
     const playing = nowPlayingQuery.data?.playing
     const resume = homeQuery.data?.resume
@@ -106,24 +212,26 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     // computation already resolves for `resume`/lastPlayed — no separate contract needed.
     const historyBackdropUri = nowPlayingImage
 
+    // Sale Alerts nav backdrop (mirrors Sidebar.svelte): one on-sale game per wall-clock hour,
+    // stable across navigations. Reuses the already-cached ['alerts'] query (useSidebarCounts fetches
+    // it), so no extra request. Native was missing this backdrop + the green cut tag entirely.
+    const alertsQuery = useQuery({ queryKey: ['alerts'], queryFn: getAlerts })
+    const onSale = alertsQuery.data?.onSale ?? []
+    const saleBucket = Math.floor(Date.now() / 3_600_000)
+    const currentSale = onSale.length
+        ? [...onSale].sort((a, b) => a.appid - b.appid)[Math.abs(Math.imul(saleBucket ^ 0x9e3779b9, 2654435761)) % onSale.length]
+        : null
+    const saleBackdropUri = apiHost && currentSale ? `${apiHost}/relay/images/steam/games/${currentSale.appid}/header.jpg` : undefined
+    const saleCut = currentSale?.bestPrice?.cut ?? null
+
     const nowPlayingCard = (playing || resume) && (
-        <View style={[styles.nowPlayingWrap, isCollapsed && styles.nowPlayingWrapCollapsed]}>
-            {nowPlayingImage && (
-                <Image source={{ uri: nowPlayingImage }} style={StyleSheet.absoluteFill} contentFit="cover" />
-            )}
-            <LinearGradient
-                colors={['rgba(8,7,6,0)', 'rgba(8,7,6,0.75)', 'rgba(8,7,6,0.97)']}
-                style={StyleSheet.absoluteFill}
-            />
-            {!isCollapsed && (
-                <View style={styles.nowPlayingBody}>
-                    <Text style={styles.nowPlayingLabel}>{playing ? 'Now Playing' : 'Last Session'}</Text>
-                    <Text style={styles.nowPlayingName} numberOfLines={1}>
-                        {playing?.name ?? resume?.name ?? `App ${nowPlayingAppid}`}
-                    </Text>
-                </View>
-            )}
-        </View>
+        <NowPlayingCard
+            playing={!!playing}
+            appid={nowPlayingAppid}
+            image={nowPlayingImage}
+            name={playing?.name ?? resume?.name ?? `App ${nowPlayingAppid}`}
+            collapsed={isCollapsed}
+        />
     )
 
     const gutterBtn = isPermanentTier && (
@@ -147,7 +255,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         const rowPadV = clampPx(3, 0.0085, windowHeight, 7) // mirrors sidebar.css's clamp(4px, 0.85vh, 8px)
         const rowGap = clampPx(1, 0.003, windowHeight, 4)   // mirrors #sidebar-nav's clamp(1px, 0.3vh, 4px)
         return (
-            <View style={styles.root}>
+            <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
                 <View style={[styles.container, styles.fitted, isCollapsed && styles.containerCollapsed, { gap: rowGap }]}>
                     {nowPlayingCard}
                     {NAV_ITEMS.map(item => {
@@ -173,7 +281,13 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                                 onPress={() => props.navigation.navigate(item.route)}
                                 style={[styles.fittedRow, { paddingVertical: rowPadV }, focused && styles.fittedRowActive]}
                             >
-                                {item.hasBackdrop && historyBackdropUri && <HistoryBackdrop uri={historyBackdropUri} />}
+                                {item.route === 'history' && historyBackdropUri && <HistoryBackdrop uri={historyBackdropUri} />}
+                                {item.route === 'alerts' && saleBackdropUri && (
+                                    <>
+                                        <HistoryBackdrop uri={saleBackdropUri} />
+                                        {saleCut != null && saleCut > 0 && <Text style={styles.saleCutTag}>-{saleCut}%</Text>}
+                                    </>
+                                )}
                                 <Feather name={item.icon} size={16} color={focused ? colors.accent : colors.text} />
                                 <Text style={[styles.fittedRowLabel, focused && styles.fittedRowLabelActive]} numberOfLines={1}>
                                     {item.label}
@@ -193,7 +307,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     }
 
     return (
-        <View style={styles.root}>
+        <View style={[styles.root, { paddingTop: insets.top }]}>
             <DrawerContentScrollView {...props} style={styles.container}>
                 {nowPlayingCard}
                 {NAV_ITEMS.map(item => {
@@ -237,19 +351,78 @@ const styles = StyleSheet.create({
     containerCollapsed: {
         alignItems: 'center',
     },
+    // Wrap is the tap target + positioning context. It is NOT clipped, so the glow bloom and the
+    // orbiting spark can extend past the card's edges (the card itself is clipped for its rounded
+    // header art). Mirrors .now-playing-wrap (position:relative) + the <a>.now-playing-card split.
     nowPlayingWrap: {
-        marginBottom:     spacing.xs,
-        height:           80,
-        borderRadius:     radius,
-        borderWidth:      1,
-        borderColor:      colors.borderAct,
-        backgroundColor:  colors.accentBg,
-        overflow:         'hidden',
-        justifyContent:   'flex-end',
+        position:     'relative',
+        marginBottom: spacing.xs,
     },
-    nowPlayingWrapCollapsed: {
-        height:           44,
-        width:            44,
+    nowPlayingCard: {
+        height:         80,
+        borderRadius:   radius,
+        borderWidth:    1,
+        overflow:       'hidden',
+        justifyContent: 'flex-end',
+    },
+    // .now-playing-card active: gold border + faint accent wash (np-glow's box-shadow carries motion).
+    nowPlayingCardActive: {
+        borderColor:     'rgba(201, 168, 76, 0.55)',
+        backgroundColor: colors.accentBg,
+    },
+    // .now-playing-wrap--last: static, dim (opacity 0.55), faint white border, no glow.
+    nowPlayingCardLast: {
+        borderColor:     'rgba(255, 255, 255, 0.12)',
+        backgroundColor: 'transparent',
+        opacity:         0.55,
+    },
+    nowPlayingCardCollapsed: {
+        height: 44,
+        width:  44,
+    },
+    // Pulsing bloom ring — inset OUTSIDE the card edge (np-glow's expanding gold box-shadow).
+    nowPlayingGlow: {
+        position:     'absolute',
+        top:          -3,
+        left:         -3,
+        right:        -3,
+        bottom:       -3,
+        borderRadius: radius + 2,
+        borderWidth:  2,
+        borderColor:  'rgba(201, 168, 76, 0.9)',
+        // Soft outer bloom on iOS; Android leans on the translucent ring above.
+        shadowColor:   '#c9a84c',
+        shadowOpacity: 0.85,
+        shadowRadius:  10,
+        shadowOffset:  { width: 0, height: 0 },
+    },
+    // Zero-size pivot at the card's center; the spark child hangs above it and is swept around by
+    // the rotating transform — the same technique as .now-playing-orbit.
+    nowPlayingOrbit: {
+        position: 'absolute',
+        top:      '50%',
+        left:     '50%',
+        width:    0,
+        height:   0,
+        zIndex:   10,
+    },
+    // Glowing spark: translucent gold halo (the "glow") wrapping a bright white core.
+    nowPlayingSpark: {
+        position:        'absolute',
+        alignItems:      'center',
+        justifyContent:  'center',
+        backgroundColor: 'rgba(201, 168, 76, 0.3)',
+        shadowColor:     '#c9a84c',
+        shadowOpacity:   0.9,
+        shadowRadius:    6,
+        shadowOffset:    { width: 0, height: 0 },
+    },
+    nowPlayingSparkCore: {
+        backgroundColor: '#fff',
+        shadowColor:     '#fff',
+        shadowOpacity:   1,
+        shadowRadius:    3,
+        shadowOffset:    { width: 0, height: 0 },
     },
     nowPlayingBody: {
         padding: spacing.sm,
@@ -259,6 +432,10 @@ const styles = StyleSheet.create({
         fontFamily: fonts.ui,
         fontSize:   10,
         textTransform: 'uppercase',
+    },
+    // .now-playing-eyebrow (active): accent gold, not muted.
+    nowPlayingLabelActive: {
+        color: colors.accent,
     },
     nowPlayingName: {
         color:      colors.text,
@@ -318,6 +495,14 @@ const styles = StyleSheet.create({
     },
     // De-emphasized pill, right-aligned via fittedRowLabel's flex:1 pushing it to the row's end —
     // ports sidebar.css's .sidebar-collection-badge (muted) / .sidebar-alerts-badge (green) exactly.
+    saleCutTag: {
+        position:          'absolute',
+        right:             spacing.sm,
+        bottom:            3,
+        color:             '#5fd88a',
+        fontFamily:        fonts.uiBold,
+        fontSize:          9,
+    },
     badge: {
         minWidth:          20,
         height:            20,

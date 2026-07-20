@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 
-import { fonts } from '@/theme/tokens'
+import { Lucide } from '@/components/shared/Lucide'
+import { colors, fonts } from '@/theme/tokens'
 
 // Unifies two of the three independent star-rendering implementations found across the app:
 // LocalReviewCard.svelte (game/reviews.md) and Favorites.svelte's inline starStr() (already ported
@@ -34,11 +35,13 @@ export function LegendaryStars({
     if (variant === 'card') {
         const count = Math.min(stars, 6)
         return (
-            <Text style={{ fontSize: size, letterSpacing: 1 }}>
+            <View style={styles.cardRow}>
                 {Array.from({ length: count }, (_, i) => i + 1).map(i => (
-                    <Text key={i} style={{ color: ACTIVE_COLOR }}>{i === 6 ? '✦' : '★'}</Text>
+                    i === 6
+                        ? <Lucide key={i} name="sparkles" color={colors.accent} size={size} />
+                        : <Text key={i} style={{ color: ACTIVE_COLOR, fontSize: size }}>★</Text>
                 ))}
-            </Text>
+            </View>
         )
     }
 
@@ -55,11 +58,12 @@ export function LegendaryStars({
             </Text>
             {isLegendary && variant === 'badge' && (
                 <View style={styles.badge}>
-                    <Text style={styles.badgeText}>✦ Legendary</Text>
+                    <Lucide name="sparkles" color="#1a1208" size={10} />
+                    <Text style={styles.badgeText}>Legendary</Text>
                 </View>
             )}
             {isLegendary && variant === 'compact' && (
-                <Text style={[styles.compactMarker, { fontSize: size }]}> ✦</Text>
+                <Lucide name="sparkles" color={colors.accent} size={size} />
             )}
         </View>
     )
@@ -67,10 +71,14 @@ export function LegendaryStars({
 
 const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    // 'card' variant: a flex row of star glyphs + a Lucide sparkle for the 6th (Legendary) — replaces
+    // the old inline-Text run (a Lucide is a View/Svg and can't live inside <Text>). gap≈letterSpacing.
+    cardRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
     // The web's gradient badge background (linear-gradient) isn't ported 1:1 — no gradient
     // dependency exists yet in this app — approximated with the gradient's midpoint solid color
     // (#f0c040), a deliberate simplification of a cosmetic detail, not the semantic behavior.
     badge: {
+        flexDirection: 'row', alignItems: 'center', gap: 3,
         backgroundColor: '#f0c040', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 3,
     },
     badgeText: {

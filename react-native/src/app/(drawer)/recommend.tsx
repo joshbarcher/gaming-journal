@@ -5,7 +5,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeInUp } from 'react-native-reanimated'
 
 import { postRecommend } from '@/api/recommend'
+import { RecommendGraph } from '@/components/recommend/RecommendGraph'
 import { useApiHost } from '@/hooks/useApiHost'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { RECOMMEND_DEPTHS, type RecommendDepth, type RecommendGame, type RecommendQuestion } from 'gaming-journal-contracts/recommend'
 
@@ -14,16 +16,15 @@ const DEPTH_QUESTIONS: Record<RecommendDepth, number> = { shallow: 3, normal: 5,
 type Phase = 'start' | 'playing' | 'results'
 type Filter = { type: string; value: string | null }
 
-// Port of recommend/+page.svelte — **deliberately built from the web's own mobile-fallback stacked
-// list design, not the desktop SVG node graph**, per PLAN.md's standing decision: the web already
-// ships this simpler presentation layer for ≤479px screens (same state machine, same API, just a
-// different UI), so it's reused directly as the one RN implementation rather than porting an
-// animated SVG graph (elbow-routed edges, radial node layout, per-type edge colors) that would be
-// real, substantial scope for a single screen. No per-breakpoint variation needed here — this is
-// the same design at all 3 of this app's required tiers, not a mobile-only special case.
+// Port of recommend/+page.svelte. Two presentations mirroring the web: the desktop tier renders the
+// animated SVG node graph (RecommendGraph — radial option nodes, elbow-routed per-type-colored
+// edges, center node, result nodes with header art); the phone (mobilePortrait) tier keeps the
+// web's own stacked-list fallback. Same state machine + POST /recommend flow drive both; only the
+// presentation changes. Tablet-landscape (1440dp) classifies as the desktop tier, so it gets the graph.
 export default function RecommendScreen() {
     const apiHostQuery = useApiHost()
     const apiHost = apiHostQuery.data
+    const isMobilePortrait = useBreakpoint() === 'mobilePortrait'
 
     const [depth, setDepth] = useState<RecommendDepth>('normal')
     const [phase, setPhase] = useState<Phase>('start')
@@ -34,6 +35,11 @@ export default function RecommendScreen() {
     const [games, setGames] = useState<RecommendGame[] | null>(null)
     const [relaxed, setRelaxed] = useState(false)
     const [stepIndex, setStepIndex] = useState(0)
+    // The server is STATELESS: it derives both the narrowed game set (applyFilters(base, filters))
+    // and the step position (step = filters.length) from the CUMULATIVE filters array. Native was
+    // sending only the single latest answer, so every answer replaced the previous ones, step was
+    // stuck at 1, and the question sequence never advanced. Accumulate every answer here.
+    const [filters, setFilters] = useState<Filter[]>([])
 
     async function callRecommend(appliedFilters: Filter[], seq: string[] | null) {
         setLoading(true)
@@ -64,6 +70,7 @@ export default function RecommendScreen() {
         setGames(null)
         setRelaxed(false)
         setStepIndex(0)
+        setFilters([])
         setError(null)
         if (returnToStart) setPhase('start')
     }
@@ -74,20 +81,25 @@ export default function RecommendScreen() {
     }
 
     async function handleChoice(type: string, value: string) {
+        const next = [...filters, { type, value }]
+        setFilters(next)
         setStepIndex(i => i + 1)
-        await callRecommend([{ type, value }], sequence)
+        await callRecommend(next, sequence)
     }
 
     async function handleSkip() {
         if (!question) return
+        const next: Filter[] = [...filters, { type: question.type, value: null }]
+        setFilters(next)
         setStepIndex(i => i + 1)
-        await callRecommend([{ type: question.type, value: null }], sequence)
+        await callRecommend(next, sequence)
     }
 
     return (
         <View style={styles.container}>
+            {/* No in-content title here — the drawer app-bar already shows "Recommend" (matching web,
+                which surfaces the page title once). This bar is just the depth/skip/reset controls. */}
             <View style={styles.topbar}>
-                <Text style={styles.title}>Recommendations</Text>
                 <View style={styles.controls}>
                     {phase === 'start' ? (
                         <View style={styles.depthToggle}>
@@ -121,8 +133,8 @@ export default function RecommendScreen() {
                 </View>
             )}
 
-            <ScrollView style={styles.canvas} contentContainerStyle={styles.canvasContent}>
-                {phase === 'start' && (
+            {phase === 'start' ? (
+                <ScrollView style={styles.canvas} contentContainerStyle={styles.canvasContent}>
                     <View style={styles.startCard}>
                         <Text style={styles.startIcon}>◎</Text>
                         <Text style={styles.startTitle}>Find your next game</Text>
@@ -139,62 +151,86 @@ export default function RecommendScreen() {
                             <Text style={styles.startBtnText}>Start exploring</Text>
                         </Pressable>
                     </View>
-                )}
+                </ScrollView>
+            ) : isMobilePortrait ? (
+                // Phone tier: the web's own stacked-list fallback.
+                <ScrollView style={styles.canvas} contentContainerStyle={styles.canvasContent}>
+                    {error && (
+                        <View style={[styles.banner, styles.bannerError]}><Text style={styles.bannerErrorText}>{error}</Text></View>
+                    )}
+                    {relaxed && (
+                        <View style={[styles.banner, styles.bannerRelaxed]}><Text style={styles.bannerRelaxedText}>One filter was loosened to find enough results.</Text></View>
+                    )}
 
-                {phase !== 'start' && error && (
-                    <View style={[styles.banner, styles.bannerError]}><Text style={styles.bannerErrorText}>{error}</Text></View>
-                )}
-                {phase !== 'start' && relaxed && (
-                    <View style={[styles.banner, styles.bannerRelaxed]}><Text style={styles.bannerRelaxedText}>One filter was loosened to find enough results.</Text></View>
-                )}
+                    {loading && <Text style={styles.loadingText}>Thinking…</Text>}
 
-                {loading && <Text style={styles.loadingText}>Thinking…</Text>}
-
-                {!loading && phase === 'playing' && question && (
-                    <View key={stepIndex}>
-                        <View style={styles.questionCard}>
-                            <Text style={styles.questionType}>{question.type}</Text>
-                            <Text style={styles.questionLabel}>{question.label}</Text>
+                    {!loading && phase === 'playing' && question && (
+                        <View key={stepIndex}>
+                            <View style={styles.questionCard}>
+                                <Text style={styles.questionType}>{question.type}</Text>
+                                <Text style={styles.questionLabel}>{question.label}</Text>
+                            </View>
+                            <View style={styles.options}>
+                                {question.options.map((opt, i) => (
+                                    <Animated.View key={opt.value} entering={FadeInUp.delay(i * 65 + 120).duration(350)}>
+                                        <Pressable style={styles.option} onPress={() => handleChoice(question.type, opt.value)}>
+                                            <Text style={styles.optionLabel}>{opt.label}</Text>
+                                            {opt.count > 0 && <Text style={styles.optionCount}>{opt.count}</Text>}
+                                        </Pressable>
+                                    </Animated.View>
+                                ))}
+                            </View>
                         </View>
-                        <View style={styles.options}>
-                            {question.options.map((opt, i) => (
-                                <Animated.View key={opt.value} entering={FadeInUp.delay(i * 65 + 120).duration(350)}>
-                                    <Pressable style={styles.option} onPress={() => handleChoice(question.type, opt.value)}>
-                                        <Text style={styles.optionLabel}>{opt.label}</Text>
-                                        {opt.count > 0 && <Text style={styles.optionCount}>{opt.count}</Text>}
-                                    </Pressable>
-                                </Animated.View>
-                            ))}
-                        </View>
-                    </View>
-                )}
+                    )}
 
-                {!loading && phase === 'results' && games && (
-                    <View>
-                        <Text style={styles.resultsHd}>Here's what to play</Text>
-                        <View style={styles.results}>
-                            {games.map((game, i) => (
-                                <Animated.View key={game.appid} entering={FadeInUp.delay(i * 65 + 80).duration(350)}>
-                                    <Pressable style={styles.gameRow} onPress={() => router.push(`/game/${game.appid}` as never)}>
-                                        {!!apiHost && (
-                                            <Image source={{ uri: `${apiHost}${game.header}` }} style={styles.gameImg} contentFit="cover" />
-                                        )}
-                                        <Text style={styles.gameName} numberOfLines={2}>{game.name}</Text>
-                                    </Pressable>
-                                </Animated.View>
-                            ))}
+                    {!loading && phase === 'results' && games && (
+                        <View>
+                            <Text style={styles.resultsHd}>Here's what to play</Text>
+                            <View style={styles.results}>
+                                {games.map((game, i) => (
+                                    <Animated.View key={game.appid} entering={FadeInUp.delay(i * 65 + 80).duration(350)}>
+                                        <Pressable style={styles.gameRow} onPress={() => router.push(`/game/${game.appid}` as never)}>
+                                            {!!apiHost && (
+                                                <Image source={{ uri: `${apiHost}${game.header}` }} style={styles.gameImg} contentFit="cover" />
+                                            )}
+                                            <Text style={styles.gameName} numberOfLines={2}>{game.name}</Text>
+                                        </Pressable>
+                                    </Animated.View>
+                                ))}
+                            </View>
                         </View>
-                    </View>
-                )}
-            </ScrollView>
+                    )}
+                </ScrollView>
+            ) : (
+                // Desktop/tablet tier: the SVG node graph. Banners float over the bottom, as on web.
+                <View style={styles.graphContainer}>
+                    <RecommendGraph
+                        question={question}
+                        games={games}
+                        loading={loading}
+                        stepIndex={stepIndex}
+                        onChoice={handleChoice}
+                        apiHost={apiHost}
+                    />
+                    {error && (
+                        <View style={styles.bannerFloat}>
+                            <View style={[styles.banner, styles.bannerError]}><Text style={styles.bannerErrorText}>{error}</Text></View>
+                        </View>
+                    )}
+                    {relaxed && (
+                        <View style={styles.bannerFloat}>
+                            <View style={[styles.banner, styles.bannerRelaxed]}><Text style={styles.bannerRelaxedText}>One filter was loosened to find enough results.</Text></View>
+                        </View>
+                    )}
+                </View>
+            )}
         </View>
     )
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    topbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm },
-    title: { color: colors.text, fontFamily: fonts.uiBold, fontSize: 15 },
+    topbar: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.sm },
     controls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
     depthToggle: { flexDirection: 'row', borderWidth: 1, borderColor: colors.border, borderRadius: radius, overflow: 'hidden' },
     depthBtn: { paddingHorizontal: spacing.sm, paddingVertical: 5, borderRightWidth: 1, borderRightColor: colors.border },
@@ -212,6 +248,8 @@ const styles = StyleSheet.create({
     pipActive: { backgroundColor: colors.accent },
     canvas: { flex: 1 },
     canvasContent: { padding: spacing.md, gap: spacing.sm, flexGrow: 1 },
+    graphContainer: { flex: 1, position: 'relative' },
+    bannerFloat: { position: 'absolute', bottom: 16, left: 0, right: 0, alignItems: 'center' },
     startCard: { alignItems: 'center', gap: spacing.md, padding: spacing.xl, backgroundColor: colors.bgRaised, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginTop: spacing.xxl, alignSelf: 'center', maxWidth: 420, width: '100%' },
     startIcon: { color: colors.accent, fontSize: 40 },
     startTitle: { color: colors.text, fontFamily: fonts.title, fontSize: 20, textAlign: 'center' },

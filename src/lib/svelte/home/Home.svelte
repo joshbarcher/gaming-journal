@@ -2,6 +2,7 @@
     import type { HomeData } from '../../../routes/+page.server.js'
     import HomeMosaic from './HomeMosaic.svelte'
     import HomeGuideCard from './HomeGuideCard.svelte'
+    import Icon from '../Icon.svelte'
 
     let { data }: { data: HomeData } = $props()
 
@@ -23,12 +24,6 @@
         return `Added ${daysAgo} days ago`
     }
 
-    function sessionMeta(s: NonNullable<HomeData['session']>): string {
-        const parts = [`${s.hours}h played`]
-        if (s.achievements) parts.push(`${s.achievements.unlocked}/${s.achievements.total} 🏆`)
-        parts.push(resumeWhen(s.daysAgo))
-        return parts.join('  ·  ')
-    }
 </script>
 
 <div class="home-wrap">
@@ -58,16 +53,16 @@
         {:else}
             <div class="home-card home-card--stats">
                 <div class="home-card-body home-stats">
-                    <span class="home-chip home-chip--stats">✦ Last 30 Days</span>
+                    <span class="home-chip home-chip--stats"><Icon name="sparkle" tone="gold" size={13} />Last 30 Days</span>
                     <div class="home-stats-hero">
                         <span class="home-stats-num">{middle.hours}</span>
                         <span class="home-stats-unit">hours played</span>
                     </div>
                     <div class="home-stats-grid">
-                        <div class="home-stat"><b>{middle.achievements}</b><span>🏆 unlocked</span></div>
-                        <a class="home-stat" href="/my-reviews"><b>{middle.ratings}</b><span>✍ rated</span></a>
-                        <a class="home-stat" href="/library"><b>{middle.added}</b><span>🛒 added</span></a>
-                        <a class="home-stat" href="/wishlist"><b>{middle.wishlisted}</b><span>❤ wishlisted</span></a>
+                        <div class="home-stat"><b>{middle.achievements}</b><span><Icon name="trophy" tone="gold" size={14} /> unlocked</span></div>
+                        <a class="home-stat" href="/my-reviews"><b>{middle.ratings}</b><span><Icon name="square-pen" tone="gold" size={14} /> rated</span></a>
+                        <a class="home-stat" href="/library"><b>{middle.added}</b><span><Icon name="shopping-cart" tone="sage" size={14} /> added</span></a>
+                        <a class="home-stat" href="/wishlist"><b>{middle.wishlisted}</b><span><Icon name="heart" tone="rose" size={14} /> wishlisted</span></a>
                     </div>
                 </div>
             </div>
@@ -80,7 +75,7 @@
                 <div class="home-card-body">
                     <span class="home-chip home-chip--resume">▶ Resume</span>
                     <span class="home-card-title">{session.name}</span>
-                    <span class="home-card-meta">{sessionMeta(session)}</span>
+                    <span class="home-card-meta"><span>{session.hours}h played  ·  {#if session.achievements}{session.achievements.unlocked}/{session.achievements.total} <Icon name="trophy" tone="gold" size={14} />  ·  {/if}{resumeWhen(session.daysAgo)}</span></span>
                 </div>
             </a>
         {:else}

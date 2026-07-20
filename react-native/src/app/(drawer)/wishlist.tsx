@@ -16,13 +16,15 @@ import { getFlags } from '@/api/flags'
 import { getSettings } from '@/api/settings'
 import { getWishlist } from '@/api/wishlist'
 import { openLongPressMenu } from '@/components/shared/LongPressMenu'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { useApiHost } from '@/hooks/useApiHost'
-import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { useGridColumns } from '@/hooks/useGridColumns'
 import { getWithTTL, setWithTTL } from '@/storage/ttl'
 import { getPlain, setPlain } from '@/storage/plain'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { makeShouldShow } from '@/utils/gameFilter'
 import type { WishlistGame } from 'gaming-journal-contracts/wishlist'
+import type { GameFlags } from 'gaming-journal-contracts/flags'
 
 // Port of collections/wishlist.md. Reuses library.css's grid classes directly on the web side (no
 // wishlist-specific @media rules exist) — confirmed by reading WishlistPage.svelte's class names —
@@ -56,10 +58,12 @@ import type { WishlistGame } from 'gaming-journal-contracts/wishlist'
 const PAGE_SIZE = 48
 const ALPHA = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
 
-type SortKey = 'priority-asc' | 'priority-desc' | 'price-asc' | 'price-desc' | 'discount-asc' | 'discount-desc' | 'added-asc' | 'added-desc' | 'release-asc' | 'release-desc'
+type SortKey = 'priority-asc' | 'priority-desc' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc' | 'discount-asc' | 'discount-desc' | 'added-asc' | 'added-desc' | 'release-asc' | 'release-desc'
 const SORT_LABELS: Record<SortKey, string> = {
     'priority-asc':  'Priority',
     'priority-desc': 'Priority (rev)',
+    'name-asc':      'Name A→Z',
+    'name-desc':     'Name Z→A',
     'price-asc':     'Price ↑',
     'price-desc':    'Price ↓',
     'discount-asc':  'Discount ↑',
@@ -81,8 +85,10 @@ export default function WishlistScreen() {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const apiHostQuery = useApiHost()
-    const breakpoint = useBreakpoint()
-    const numColumns = breakpoint === 'mobilePortrait' ? 2 : 3 // same as Library — shared CSS classes on web
+    // Wishlist reuses the web's `.lib-grid`, so it shares Library's fluid minmax(160px,1fr) target —
+    // a desktop-tier tablet fans to ~5–6 columns instead of the old fixed 2/3 phone density. min:2
+    // mirrors the web's phone-portrait `repeat(2,1fr)` floor (and keeps columnWrapperStyle valid).
+    const numColumns = useGridColumns(160, { min: 2 })
 
     const [query, setQuery] = useState('') // NOT persisted — see comment above
     const [sort, setSort] = useState<SortKey>('priority-asc')
@@ -143,11 +149,13 @@ export default function WishlistScreen() {
     )
 
     const sorted = useMemo(() => {
-        const [key, dir] = sort.split('-') as ['priority' | 'price' | 'discount' | 'added' | 'release', 'asc' | 'desc']
+        const [key, dir] = sort.split('-') as ['priority' | 'name' | 'price' | 'discount' | 'added' | 'release', 'asc' | 'desc']
         const flip = dir === 'asc' ? 1 : -1
         const copy = [...filtered]
         copy.sort((a, b) => {
             switch (key) {
+                case 'name':
+                    return flip * a.name.localeCompare(b.name)
                 case 'price': {
                     const pa = a.itad?.bestPrice?.price ?? Infinity
                     const pb = b.itad?.bestPrice?.price ?? Infinity
@@ -230,7 +238,7 @@ export default function WishlistScreen() {
                 contentContainerStyle={styles.grid}
                 columnWrapperStyle={styles.gridRow}
                 ListEmptyComponent={<Text style={styles.emptyText}>No games match your search.</Text>}
-                renderItem={({ item }) => <WishlistCard game={item} apiHost={apiHost} numColumns={numColumns} />}
+                renderItem={({ item }) => <WishlistCard game={item} apiHost={apiHost} numColumns={numColumns} flags={flagsQuery.data?.[item.appid]} />}
             />
 
             <View style={styles.pager}>
@@ -254,7 +262,7 @@ export default function WishlistScreen() {
     )
 }
 
-function WishlistCard({ game, apiHost, numColumns }: { game: WishlistGame; apiHost: string | undefined; numColumns: number }) {
+function WishlistCard({ game, apiHost, numColumns, flags }: { game: WishlistGame; apiHost: string | undefined; numColumns: number; flags: GameFlags | undefined }) {
     const bp = game.itad?.bestPrice
     const retail = game.store?.price
     const onSale = (bp?.cut ?? 0) > 0
@@ -262,7 +270,7 @@ function WishlistCard({ game, apiHost, numColumns }: { game: WishlistGame; apiHo
 
     return (
         <Link href={`/game/${game.appid}` as never} asChild>
-            <Pressable style={cardStyle}>
+            <Pressable style={cardStyle} onLongPress={(e) => openGameCardMenu(game.appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}>
                 <View>
                     {apiHost && (
                         <Image

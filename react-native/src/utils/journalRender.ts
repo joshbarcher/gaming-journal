@@ -38,12 +38,13 @@ export const RATING_LBLS: Record<string, string> = {
 }
 export const TRACKER_TYPES = ['progress', 'progress-bars', 'counter', 'multi-counter']
 
-// Ported from journal-render.ts's TRACKER_META — labels only; icons are simple emoji here rather
-// than the web's hand-drawn SVG icon strings, same simplification already applied to review
-// badges elsewhere in this port.
+// Ported from journal-render.ts's TRACKER_META — labels + a simple text mark per type. The
+// multi-bar type has no text icon: its glyph was the only emoji (📊) and now renders as a Lucide
+// <bar-chart> in the consumer (JournalProgress), keyed by type. The other marks (✓ / #) are plain
+// symbols, left as-is.
 export const TRACKER_META: Record<string, { label: string; icon: string }> = {
     progress: { label: 'Progress tracker', icon: '✓' },
-    'progress-bars': { label: 'Multi-bar tracker', icon: '📊' },
+    'progress-bars': { label: 'Multi-bar tracker', icon: '' },
     counter: { label: 'Counter', icon: '#' },
     'multi-counter': { label: 'Multi-counter', icon: '#' },
 }

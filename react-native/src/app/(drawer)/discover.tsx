@@ -1,10 +1,13 @@
+import { useQuery } from '@tanstack/react-query'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 
 import { getFeatured, getFeaturedPage, getOwnership, searchGamesPaged } from '@/api/discover'
+import { getFlags } from '@/api/flags'
 import { getSettings } from '@/api/settings'
+import { openGameCardMenu } from '@/components/shared/useGameCardMenu'
 import { useApiHost } from '@/hooks/useApiHost'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { getCachedBlocklist, setCachedBlocklist } from '@/storage/discBlocklist'
@@ -12,6 +15,7 @@ import { getWithTTL, setWithTTL } from '@/storage/ttl'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 import { FEATURED_TABS, type DiscoverFeaturedItem, type DiscoverSection } from 'gaming-journal-contracts/discoverFeatured'
 import type { DiscoverItem } from 'gaming-journal-contracts/discoverSearch'
+import type { GameFlags } from 'gaming-journal-contracts/flags'
 
 const SEARCH_PAGE_SIZE = 40
 const STORAGE_KEY = 'disc-state'
@@ -36,6 +40,9 @@ export default function DiscoverScreen() {
     const apiHostQuery = useApiHost()
     const apiHost = apiHostQuery.data
     const breakpoint = useBreakpoint()
+    // Backs the game-card long-press menu's flag toggles (checkmarks). Discover's own content
+    // filters run off local useState (ownership/settings), so this is a separate, menu-only query.
+    const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     // Real, distinct breakpoints for THIS grid (confirmed via discover.css, not assumed to match
     // Library's 2/3/3): 2 cols ≤799px, 3 cols 800–1279px — narrower than Library's own 2/3/3 split.
     const numColumns = breakpoint === 'tabletLandscape' ? 3 : 2
@@ -50,6 +57,7 @@ export default function DiscoverScreen() {
     const [wishlist, setWishlist] = useState<Set<number>>(new Set())
     const [titleBlocklist, setTitleBlocklist] = useState<string[]>([])
     const [discoverFiltersEnabled, setDiscoverFiltersEnabled] = useState(true)
+    const [hideAdultContent, setHideAdultContent] = useState(true)
 
     const [searchResults, setSearchResults] = useState<DiscoverItem[]>([])
     const [searchTotal, setSearchTotal] = useState(0)
@@ -209,6 +217,7 @@ export default function DiscoverScreen() {
         getSettings().then(s => {
             setTitleBlocklist(s.titleBlocklist ?? [])
             setDiscoverFiltersEnabled(s.discoverFiltersEnabled ?? true)
+            setHideAdultContent(s.hideAdultContent ?? true)
             setCachedBlocklist(s.titleBlocklist ?? [])
         }).catch(() => {})
         ;(async () => {
@@ -248,11 +257,17 @@ export default function DiscoverScreen() {
     }
 
     const rawItems: CardItem[] = mode === 'browse' ? (activeSection?.items ?? []) : searchResults
-    // Ported verbatim from Discover.svelte's visibleBrowseItems/visibleSearchResults — identical
-    // filter applied to both modes, gated by discoverFiltersEnabled and a non-empty blocklist.
-    const items = titleBlocklist.length && discoverFiltersEnabled
-        ? rawItems.filter(item => !titleBlocklist.some(t => item.name.toLowerCase().includes(t)))
-        : rawItems
+    // Ported from Discover.svelte's passesContentFilters (applied to both browse + search modes):
+    // adult content is filtered whenever hideAdultContent is on, INDEPENDENT of the title blocklist
+    // (which is separately gated by discoverFiltersEnabled). Native previously applied only the
+    // blocklist, so adult titles leaked in even though hideAdultContent defaults on.
+    const passesContentFilters = (item: CardItem): boolean => {
+        if (hideAdultContent && item.isAdult) return false
+        if (!discoverFiltersEnabled || !titleBlocklist.length) return true
+        const lower = item.name.toLowerCase()
+        return !titleBlocklist.some(t => lower.includes(t))
+    }
+    const items = rawItems.filter(passesContentFilters)
     const loading = mode === 'browse' ? featuredLoading : searchLoading
     const errorMsg = mode === 'browse' ? featuredError : searchError
     const page = mode === 'browse' ? (activeSection?.page ?? 1) : searchPage
@@ -305,7 +320,7 @@ export default function DiscoverScreen() {
                     contentContainerStyle={styles.grid}
                     columnWrapperStyle={styles.gridRow}
                     renderItem={({ item }) => (
-                        <DiscoverCard item={item} apiHost={apiHost} numColumns={numColumns} badge={badgeFor(item.appid)} isSearch={mode === 'search'} />
+                        <DiscoverCard item={item} apiHost={apiHost} numColumns={numColumns} badge={badgeFor(item.appid)} isSearch={mode === 'search'} flags={flagsQuery.data?.[item.appid]} />
                     )}
                     ListFooterComponent={pages > 1 ? (
                         <View style={styles.pagination}>
@@ -324,12 +339,13 @@ export default function DiscoverScreen() {
     )
 }
 
-function DiscoverCard({ item, apiHost, numColumns, badge, isSearch }: {
+function DiscoverCard({ item, apiHost, numColumns, badge, isSearch, flags }: {
     item: CardItem
     apiHost: string | undefined
     numColumns: number
     badge: 'owned' | 'wish' | null
     isSearch: boolean
+    flags: GameFlags | undefined
 }) {
     // **Real, confirmed URL-convention difference**: search results' `headerImage` is already an
     // absolute steamstatic CDN URL; featured items' `headerImage` is relay-relative and needs the
@@ -337,7 +353,11 @@ function DiscoverCard({ item, apiHost, numColumns, badge, isSearch }: {
     const imgUri = isSearch ? item.headerImage : (apiHost ? `${apiHost}${item.headerImage}` : undefined)
     const cardStyle = StyleSheet.flatten([styles.card, { flex: 1 / numColumns }])
     return (
-        <Pressable style={cardStyle} onPress={() => router.push(`/game/${item.appid}` as never)}>
+        <Pressable
+            style={cardStyle}
+            onPress={() => router.push(`/game/${item.appid}` as never)}
+            onLongPress={(e) => openGameCardMenu(item.appid, flags, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+        >
             <View style={styles.cardImgWrap}>
                 {!!imgUri && <Image source={{ uri: imgUri }} style={styles.cardImg} contentFit="cover" cachePolicy="memory-disk" recyclingKey={String(item.appid)} />}
                 {!!badge && (

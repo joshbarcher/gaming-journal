@@ -23,6 +23,7 @@
     import ProtonDB from './sections/ProtonDB.svelte'
     import PCGW from './sections/PCGW.svelte'
     import NexusMods from './sections/NexusMods.svelte'
+    import Icon from '../Icon.svelte'
 
     let { appid } = $props()
 
@@ -506,8 +507,8 @@
                     <LocalReviewCard review={localReview} />
                     <button class="rev-edit-btn" onclick={openLocalReview}>Edit Review</button>
                 {:else}
-                    <button class="rev-no-review" onclick={openLocalReview}>✦ Write a Review for this game</button>
-                    <button class="rev-write-btn" onclick={openLocalReview}>✦ Write a Review</button>
+                    <button class="rev-no-review" onclick={openLocalReview}><Icon name="square-pen" tone="gold" size={15} /> Write a Review for this game</button>
+                    <button class="rev-write-btn" onclick={openLocalReview}><Icon name="square-pen" tone="gold" size={15} />Write a Review</button>
                 {/if}
             </section>
 

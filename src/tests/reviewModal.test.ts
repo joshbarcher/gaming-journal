@@ -110,7 +110,8 @@ describe('openReviewModal — structure', () => {
         expect(regular.length).toBe(5)
         expect(legendary.length).toBe(1)
         expect(regular.every(b => b.textContent === '★')).toBe(true)
-        expect(legendary[0].textContent).toBe('✦')
+        // The legendary (6th) star is now an inline lucide "sparkles" SVG, not the ✦ glyph.
+        expect(legendary[0].querySelector('svg')).not.toBeNull()
         pressEscape(); await p
     })
 })
@@ -140,7 +141,9 @@ describe('openReviewModal — injection resistance', () => {
     it('does not parse HTML in existing tags or review text', async () => {
         const evil = '<svg onload=alert(1)>'
         const p = openReviewModal(1, 'G', makeReview({ tags: [evil], review: evil }))
-        expect(document.querySelector('.rev-modal svg:not(.rev-badge-pick-circle svg)')).toBeNull()
+        // The modal legitimately contains the legendary-star lucide SVG now — so assert the ATTACK
+        // specifically didn't parse: no element carrying the injected onload handler.
+        expect(document.querySelector('.rev-modal [onload]')).toBeNull()
         expect(textarea().value).toBe(evil)
         pressEscape(); await p
     })

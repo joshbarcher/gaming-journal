@@ -5,10 +5,13 @@
         children?: { ordered: boolean; items: ListItem[] }
     }
 
-    // Table cells from buildGrid: { text: string, html?: string, colspan?: number, rowspan?: number } | null
+    // Table cells from buildGrid: { text, html?, image?, colspan?, rowspan? } | null
+    // `image` is an image living inside a cell — same shape as an image block, and it
+    // resolves through the same localSrc → imgUrl path.
     interface Cell {
         text: string
         html?: string
+        image?: { localSrc?: string | null; src?: string; alt?: string }
         colspan?: number
         rowspan?: number
     }
@@ -75,6 +78,34 @@
                 </li>
             {/each}
         </ul>
+    {/if}
+{/snippet}
+
+{#snippet cellBody(cell: Cell)}
+    {@const imgSrc = cell.image?.localSrc
+        ? imgUrl(cell.image.localSrc)
+        : (cell.image?.src ?? '')}
+    {#if imgSrc}
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <img
+            class="gv-cell-img"
+            src={imgSrc}
+            alt={cell.image?.alt ?? ''}
+            loading="lazy"
+            onclick={() => onImageClick(imgSrc)}
+            onkeydown={(e) => e.key === 'Enter' && onImageClick(imgSrc)}
+            role="button"
+            tabindex="0"
+        />
+        <!-- Cells can hold both an image and real content (item name, linked location).
+             Keep it, but skip when the text is just the image's own alt. -->
+        {#if (cell.html ?? cell.text) && cell.text !== cell.image?.alt}
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            <span class="gv-cell-label">{@html cell.html ?? cell.text}</span>
+        {/if}
+    {:else}
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+        {@html cell.html ?? cell.text}
     {/if}
 {/snippet}
 
@@ -151,8 +182,7 @@
                             {#each block.headers as h}
                                 {#if h}
                                     <th colspan={h.colspan ?? 1} rowspan={h.rowspan ?? 1}>
-                                        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                        {@html h.html ?? h.text}
+                                        {@render cellBody(h)}
                                     </th>
                                 {/if}
                             {/each}
@@ -165,8 +195,7 @@
                             {#each row as cell}
                                 {#if cell}
                                     <td colspan={cell.colspan ?? 1} rowspan={cell.rowspan ?? 1}>
-                                        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                        {@html cell.html ?? cell.text}
+                                        {@render cellBody(cell)}
                                     </td>
                                 {/if}
                             {/each}

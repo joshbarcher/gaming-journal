@@ -4,6 +4,7 @@ import Animated, {
     Easing, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue,
 } from 'react-native-reanimated'
 
+import { Lucide } from '@/components/shared/Lucide'
 import { useParticlesStore, type Burst, type Toast } from '@/store/particlesStore'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
 
@@ -154,7 +155,10 @@ function ToastItem({ toast, index, onDone }: { toast: Toast; index: number; onDo
 
     return (
         <Animated.View style={[styles.toast, { bottom: 24 + index * 56 }, style]}>
-            <Animated.Text style={styles.toastText}>✦ {toast.label} complete!</Animated.Text>
+            <View style={styles.toastRow}>
+                <Lucide name="party-popper" color={colors.sage} size={15} />
+                <Animated.Text style={styles.toastText}>{toast.label} complete!</Animated.Text>
+            </View>
         </Animated.View>
     )
 }
@@ -181,5 +185,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
         shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 16,
     },
+    toastRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     toastText: { color: colors.accent, fontFamily: fonts.uiBold, fontSize: 13 },
 })

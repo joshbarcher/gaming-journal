@@ -17,6 +17,15 @@
     --clr-accent-2-bg:  rgba(224, 169, 150, 0.10);
     --clr-progress:     #4ecdc4;
     --clr-progress-bg:  rgba(78, 205, 196, 0.12);
+    /* Semantic icon accents (lucide set) — gold = --clr-accent. Colour icons by category so a heart,
+       a comment and an achievement don't all read the same. Mid-tones tuned for the dark UI. */
+    --clr-rose:         #d08a7a; /* affinity — hearts, wishlist, favorites */
+    --clr-sky:          #6b9fd4; /* social & data — comments, charts, community */
+    --clr-sage:         #5cac7e; /* positive — added, completion */
+    --clr-lilac:        #9b83d6; /* AI / magic */
+    --clr-coral:        #d1705c; /* alerts (semantic only) */
+    --clr-bronze:       #bd8a5a; /* ranked badge tiers */
+    --clr-silver:       #aab0ba;
     --font-title:       'Cinzel', Georgia, 'Times New Roman', serif;
     --font-ui:          'Nunito', 'Segoe UI', system-ui, sans-serif;
     --sidebar-w:        300px;

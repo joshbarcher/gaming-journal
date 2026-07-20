@@ -5,7 +5,7 @@
 // `pins`/`staleNotice` state closely enough.
 import { create } from 'zustand'
 
-import { loadPinStore, savePinStore, type Pin } from '@/storage/guidePins'
+import { loadPinStore, cachePinStore, upsertPinRemote, deletePinRemote, type Pin } from '@/storage/guidePins'
 
 type GuidePinsState = {
     appid:    number | null
@@ -44,22 +44,38 @@ export const useGuidePinsStore = create<GuidePinsState>((set, get) => ({
         set({ appid, source, guideId, parsedAt: currentParsedAt, pins: stored.pins, staleNotice: false })
     },
 
+    // Add or replace this page's pin via a per-pin server delta (PUT .../pins/:id), mirroring the
+    // web's upsertPinRemote: optimistically patch local state for instant feedback, then adopt the
+    // authoritative store the relay returns (which merges in pins added on other devices). A stale
+    // full-array PUT would clobber those other-device pins — see storage/guidePins.ts's own note.
     createPin: async (slug, pageLabel, blockPath, label) => {
         const { appid, source, guideId, parsedAt, pins } = get()
         if (!appid) return
         const existing = pins.find(p => p.slug === slug)
         const pin: Pin = { id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`, slug, pageLabel, blockPath, label }
-        const updated = existing ? pins.map(p => (p.slug === slug ? pin : p)) : [...pins, pin]
-        set({ pins: updated })
-        await savePinStore(appid, source, guideId, { parsedAt, pins: updated })
+        // One pin per page: optimistically replace any local pin on this page (the relay enforces
+        // the same rule by slug, so a stale snapshot can't create a duplicate).
+        const optimistic = existing ? pins.map(p => (p.slug === slug ? pin : p)) : [...pins, pin]
+        set({ pins: optimistic })
+        cachePinStore(appid, source, guideId, { parsedAt, pins: optimistic }) // survive an offline reload
+        try {
+            const store = await upsertPinRemote(appid, source, guideId, pin, parsedAt)
+            set({ pins: store.pins })
+        } catch { /* offline — keep the optimistic state (already cached) */ }
     },
 
+    // Remove a single pin via a per-pin server delta (DELETE .../pins/:id) — targets one pin, so it
+    // can never wipe pins this device never saw. Optimistic, then reconcile with the relay's store.
     deletePin: async (id) => {
         const { appid, source, guideId, parsedAt, pins } = get()
         if (!appid) return
-        const updated = pins.filter(p => p.id !== id)
-        set({ pins: updated })
-        await savePinStore(appid, source, guideId, { parsedAt, pins: updated })
+        const optimistic = pins.filter(p => p.id !== id)
+        set({ pins: optimistic })
+        cachePinStore(appid, source, guideId, { parsedAt, pins: optimistic })
+        try {
+            const store = await deletePinRemote(appid, source, guideId, id)
+            set({ pins: store.pins })
+        } catch { /* offline — keep the optimistic removal (already cached) */ }
     },
 
     dismissStaleNotice: () => set({ staleNotice: false }),

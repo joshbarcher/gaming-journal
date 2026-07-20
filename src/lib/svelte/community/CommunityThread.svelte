@@ -6,6 +6,7 @@
     import { fmtScore, fmtTime, imgSrc, videoSrc, flattenComments, countComments } from '../../js/views/community-render.js'
     import Comment from './Comment.svelte'
     import Breadcrumb from '../Breadcrumb.svelte'
+    import Icon from '../Icon.svelte'
 
     let { appid, postId, sub = '' } = $props()
 
@@ -328,7 +329,7 @@
 
             <div class="community-post-meta">
                 <span class="community-post-score">▲ {fmtScore(post.score)}</span>
-                <span class="community-post-comments">💬 {(post.numComments ?? 0).toLocaleString()}</span>
+                <span class="community-post-comments"><Icon name="message-circle" tone="sky" size={14} /> {(post.numComments ?? 0).toLocaleString()}</span>
                 <span class="community-post-author">u/{post.author ?? ''}</span>
                 <span class="community-post-sub">r/{subreddit ?? post.subreddit ?? ''}</span>
                 <span class="community-post-time">{fmtTime(post.createdUtc)}</span>

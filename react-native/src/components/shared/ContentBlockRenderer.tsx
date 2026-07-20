@@ -1,11 +1,23 @@
 import { Image } from 'expo-image'
 import type { ReactNode } from 'react'
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { GestureResponderEvent, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
 import {
     RenderHTMLConfigProvider, RenderHTMLSource, TRenderEngineProvider,
 } from 'react-native-render-html'
+import Svg, { Path } from 'react-native-svg'
 
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
+
+// The web guide pin marker is an inlined lucide "Pin" SVG (GuideViewer.svelte's PIN_SVG), NOT an
+// emoji — replicated here via react-native-svg so native matches (no 📌 emoji).
+function PinIcon({ size = 13, color = colors.accent }: { size?: number; color?: string }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M12 17v5" />
+            <Path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1z" />
+        </Svg>
+    )
+}
 
 // Port of GuideBlockRenderer.svelte — renders a parsed guide's ContentBlock[] tree. Read the real
 // source directly (not just the guides-architecture memory, which omits the exact `heading`/`list`
@@ -25,6 +37,10 @@ export interface ListItem {
 export interface TableCell {
     text: string
     html?: string
+    // An image living inside the cell. Same shape as an `image` block and resolved
+    // through the same localSrc → imgUrl path; cells are otherwise text-only, so
+    // without this the image is lost and only its alt text survives.
+    image?: { localSrc?: string | null; src?: string; alt?: string }
     colspan?: number
     rowspan?: number
 }
@@ -64,7 +80,7 @@ function pathsEqual(a: number[], b: number[]): boolean {
 }
 
 export function ContentBlockRenderer({
-    blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlockRef, onBlockLongPress, pinnedPath, contentWidth,
+    blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlockRef, onBlockOffset, onBlockLongPress, onPinPress, pinnedPath, contentWidth,
 }: {
     blocks: ContentBlock[]
     // Precomputed by the caller (needs steamId/source/guideId/section — the Guide Viewer, a later
@@ -85,10 +101,17 @@ export function ContentBlockRenderer({
     // `onSectionRef`: the caller resolves a saved pin's `blockPath` to a live node via
     // `measureLayout` for auto-scroll.
     onBlockRef?: (path: number[], node: View | null) => void
+    // Reports each block's onLayout y RELATIVE TO ITS PARENT, keyed by index path. The caller sums a
+    // path's prefixes to get the absolute scroll offset — a deterministic alternative to measureLayout
+    // (whose getInnerViewNode() target is unreliable under the New Architecture), so pin/search/anchor
+    // scroll actually lands instead of silently no-op'ing.
+    onBlockOffset?: (path: number[], y: number) => void
     // Long-press = the web's right-click ("Pin this location" / "Move pin here"). Fires with the
-    // block's own index path plus an RN-native label snippet (see `blockLabel()` above — pulled
-    // from structured data instead of DOM inspection, a more reliable source for the same thing).
-    onBlockLongPress?: (path: number[], label: string) => void
+    // block's own index path, an RN-native label snippet (see `blockLabel()`), and the touch point so
+    // the menu can anchor at the finger (like the game-card menu) instead of the screen centre.
+    onBlockLongPress?: (path: number[], label: string, anchor?: { x: number; y: number }) => void
+    // Tap the pin marker to remove the current page's pin (web parity — its marker is a delete button).
+    onPinPress?: () => void
     // The current page's saved pin (if any) — highlights the matching block, mirroring `.gv-pinned`.
     pinnedPath?: number[] | null
     // Real warning caught during verification: react-native-render-html falls back to
@@ -117,15 +140,15 @@ export function ContentBlockRenderer({
             }}>
                 <Blocks
                     blocks={blocks} imgUrl={imgUrl} onImagePress={onImagePress} onLinkPress={onLinkPress} onSectionRef={onSectionRef}
-                    onBlockRef={onBlockRef} onBlockLongPress={onBlockLongPress} pinnedPath={pinnedPath ?? null}
-                    contentWidth={width} path={[]}
+                    onBlockRef={onBlockRef} onBlockOffset={onBlockOffset} onBlockLongPress={onBlockLongPress} onPinPress={onPinPress}
+                    pinnedPath={pinnedPath ?? null} contentWidth={width} path={[]}
                 />
             </RenderHTMLConfigProvider>
         </TRenderEngineProvider>
     )
 }
 
-function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlockRef, onBlockLongPress, pinnedPath, contentWidth, path }: {
+function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlockRef, onBlockOffset, onBlockLongPress, onPinPress, pinnedPath, contentWidth, path }: {
     blocks: ContentBlock[]
     imgUrl: (localSrc: string) => string
     onImagePress: (url: string) => void
@@ -134,7 +157,9 @@ function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlo
     onLinkPress?: (href: string) => void
     onSectionRef?: (id: string, node: View | null) => void
     onBlockRef?: (path: number[], node: View | null) => void
-    onBlockLongPress?: (path: number[], label: string) => void
+    onBlockOffset?: (path: number[], y: number) => void
+    onBlockLongPress?: (path: number[], label: string, anchor?: { x: number; y: number }) => void
+    onPinPress?: () => void
     pinnedPath: number[] | null
     contentWidth: number
     path: number[]
@@ -154,7 +179,9 @@ function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlo
                         key={i}
                         pinned={pinned}
                         onRef={onBlockRef ? (n) => onBlockRef(myPath, n) : undefined}
-                        onLongPress={onBlockLongPress ? () => onBlockLongPress(myPath, blockLabel(block)) : undefined}
+                        onOffset={onBlockOffset ? (y) => onBlockOffset(myPath, y) : undefined}
+                        onLongPress={onBlockLongPress ? (e) => onBlockLongPress(myPath, blockLabel(block), { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }) : undefined}
+                        onPinPress={pinned ? onPinPress : undefined}
                     >
                         {node}
                     </PinnableBlock>
@@ -166,7 +193,7 @@ function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlo
                             <Heading level={block.level} text={block.heading} />
                             {!!block.children?.length && (
                                 <Blocks blocks={block.children} imgUrl={imgUrl} onImagePress={onImagePress} onLinkPress={onLinkPress} onSectionRef={onSectionRef}
-                                    onBlockRef={onBlockRef} onBlockLongPress={onBlockLongPress} pinnedPath={pinnedPath} contentWidth={contentWidth} path={myPath} />
+                                    onBlockRef={onBlockRef} onBlockOffset={onBlockOffset} onBlockLongPress={onBlockLongPress} onPinPress={onPinPress} pinnedPath={pinnedPath} contentWidth={contentWidth} path={myPath} />
                             )}
                         </View>,
                     )
@@ -203,7 +230,8 @@ function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlo
                     )
                 }
                 if (block.type === 'table') {
-                    return wrap(<TableBlock caption={block.caption} headers={block.headers} rows={block.rows} contentWidth={contentWidth} />)
+                    return wrap(<TableBlock caption={block.caption} headers={block.headers} rows={block.rows}
+                        contentWidth={contentWidth} imgUrl={imgUrl} onImagePress={onImagePress} />)
                 }
                 return null
             })}
@@ -215,23 +243,27 @@ function Blocks({ blocks, imgUrl, onImagePress, onLinkPress, onSectionRef, onBlo
 // pin/move-pin, and a highlight + delete marker when this block is the current page's saved pin.
 // Kept as its own component (not inlined) so the `onLongPress` Pressable doesn't have to be
 // duplicated across all 6 block-type branches above.
-function PinnableBlock({ children, pinned, onRef, onLongPress }: {
+function PinnableBlock({ children, pinned, onRef, onOffset, onLongPress, onPinPress }: {
     children: ReactNode
     pinned: boolean
     onRef?: (node: View | null) => void
-    onLongPress?: () => void
+    onOffset?: (y: number) => void
+    onLongPress?: (e: GestureResponderEvent) => void
+    onPinPress?: () => void
 }) {
-    if (!onRef && !onLongPress) return <>{children}</>
+    if (!onRef && !onLongPress && !onOffset) return <>{children}</>
     return (
         <Pressable
             ref={onRef as never}
+            onLayout={onOffset ? (e) => onOffset(e.nativeEvent.layout.y) : undefined}
             onLongPress={onLongPress}
             style={pinned ? styles.pinnedBlock : undefined}
         >
             {pinned && (
-                <View style={styles.pinMarker}>
-                    <Text style={styles.pinMarkerIcon}>📌</Text>
-                </View>
+                // web `.gv-pin-marker`: a lucide Pin button in the LEFT gutter (left:-22), tap to delete.
+                <Pressable style={styles.pinMarker} onPress={onPinPress} hitSlop={12} accessibilityLabel="Remove pin">
+                    <PinIcon />
+                </Pressable>
             )}
             {children}
         </Pressable>
@@ -303,9 +335,27 @@ function ListBlock({ ordered, items, contentWidth }: { ordered: boolean; items: 
 // rather than routed through react-native-render-html, which expects an HTML string to parse.
 // Each cell's own text CAN contain inline HTML (`cell.html`), so cells still go through
 // RenderHTMLSource individually.
-function TableBlock({ caption, headers, rows, contentWidth }: {
+function TableBlock({ caption, headers, rows, contentWidth, imgUrl, onImagePress }: {
     caption?: string; headers?: (TableCell | null)[]; rows: (TableCell | null)[][]; contentWidth: number
+    imgUrl: (localSrc: string) => string; onImagePress: (url: string) => void
 }) {
+    const renderCell = (cell: TableCell) => {
+        const url = cell.image?.localSrc ? imgUrl(cell.image.localSrc) : (cell.image?.src ?? '')
+        if (!url) return <RenderHTMLSource source={{ html: cell.html ?? cell.text }} contentWidth={contentWidth} />
+        return (
+            <>
+                <Pressable onPress={() => onImagePress(url)}>
+                    <Image source={{ uri: url }} style={styles.tableCellImage} contentFit="contain" />
+                </Pressable>
+                {/* Cells can hold both an image and real content (item name, linked
+                    location). Keep it, but skip when the text is just the image's alt. */}
+                {!!(cell.html ?? cell.text) && cell.text !== cell.image?.alt && (
+                    <RenderHTMLSource source={{ html: cell.html ?? cell.text }} contentWidth={contentWidth} />
+                )}
+            </>
+        )
+    }
+
     return (
         <View style={styles.tableWrap}>
             {!!caption && <Text style={styles.tableCaption}>{caption}</Text>}
@@ -314,7 +364,7 @@ function TableBlock({ caption, headers, rows, contentWidth }: {
                     <View style={styles.tableRow}>
                         {headers.map((h, i) => h && (
                             <View key={i} style={[styles.tableCell, styles.tableHeaderCell]}>
-                                <RenderHTMLSource source={{ html: h.html ?? h.text }} contentWidth={contentWidth} />
+                                {renderCell(h)}
                             </View>
                         ))}
                     </View>
@@ -323,7 +373,7 @@ function TableBlock({ caption, headers, rows, contentWidth }: {
                     <View key={ri} style={styles.tableRow}>
                         {row.map((cell, ci) => cell && (
                             <View key={ci} style={styles.tableCell}>
-                                <RenderHTMLSource source={{ html: cell.html ?? cell.text }} contentWidth={contentWidth} />
+                                {renderCell(cell)}
                             </View>
                         ))}
                     </View>
@@ -383,11 +433,13 @@ const styles = StyleSheet.create({
     tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
     tableCell: { flex: 1, minWidth: 100, padding: spacing.xs, borderRightWidth: 1, borderRightColor: colors.border },
     tableHeaderCell: { backgroundColor: colors.bgHover },
-    // `.gv-pinned` equivalent — a subtle gold-tinted highlight, plus a small emoji marker instead
-    // of the web's injected Lucide-SVG button (matching this session's established simplification
-    // of dropping hand-drawn SVG icons for emoji/color where a component's own scope doesn't
-    // justify a new icon-asset pipeline, e.g. reviewConstants.ts's badge rings).
-    pinnedBlock: { backgroundColor: 'rgba(201,168,76,0.08)', borderRadius: radius, paddingLeft: spacing.md },
-    pinMarker: { position: 'absolute', left: 0, top: 2 },
-    pinMarkerIcon: { fontSize: 13 },
+    // Fills the cell's width; the fixed height keeps rows even across a table whose
+    // screenshots vary in aspect ratio, and contentFit="contain" avoids cropping.
+    tableCellImage: { width: '100%', height: 90, borderRadius: 4 },
+    tableCellLabel: { color: colors.textMuted, fontSize: 11, marginTop: 4, textAlign: 'center' },
+    // `.gv-pinned` — a subtle gold-tinted highlight; the marker itself is the lucide Pin (PinIcon),
+    // positioned in the LEFT gutter (web `.gv-pin-marker { left: -22px }`), and is a tap-to-delete
+    // button (web parity — its marker doubles as the remove control).
+    pinnedBlock: { backgroundColor: 'rgba(201,168,76,0.06)', borderRadius: radius },
+    pinMarker: { position: 'absolute', left: -22, top: 2, zIndex: 2, opacity: 0.85 },
 })

@@ -12,7 +12,12 @@ export const SessionAchievementSchema = z.object({
 
 export const JournalSessionSchema = z.object({
     startedAt:    z.string(),
-    endedAt:      z.string().optional(),
+    // A live/in-progress session has endedAt: null (not undefined). `.optional()` alone rejects
+    // null and made the whole /relay/api/account payload fail validation whenever a game was being
+    // played — which hard-failed Calendar (raw Zod dump on the UI) and emptied the Journal session
+    // history + Account sessions. `.nullish()` accepts both null and undefined. (contracts/account.ts
+    // already uses .nullable() for the same field — these two session contracts were inconsistent.)
+    endedAt:      z.string().nullish(),
     durationMin:  z.number().optional(),
     achievements: z.array(SessionAchievementSchema).optional(),
 })

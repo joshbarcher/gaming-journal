@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Icon from '../Icon.svelte'
     interface Props { stars?: number | null }
     let { stars }: Props = $props()
 </script>
@@ -10,6 +11,6 @@
         </span>
     {/each}
     {#if stars === 6}
-        <span class="gj-star-legendary">✦ Legendary</span>
+        <span class="gj-star-legendary"><Icon name="sparkles" tone="gold" size={12} /> Legendary</span>
     {/if}
 {/if}

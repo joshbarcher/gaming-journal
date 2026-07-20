@@ -10,7 +10,7 @@ export function makeShouldShow(flags: FlagsStore, settings: Partial<Settings>) {
         const f = flags[String(appid)] ?? {}
         if (f.childLock && !settings.showChildLocked) return false
         if (f.filtered && !settings.showFiltered) return false
-        if (f.software) return false
+        if (f.software && !settings.showSoftware) return false
         return true
     }
 }

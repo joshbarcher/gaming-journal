@@ -261,6 +261,11 @@ export default function CalendarScreen() {
                 ) : error ? (
                     <Text style={styles.errorText}>{error}</Text>
                 ) : (
+                    // The per-game day-cell tiles each link to /game/{appid}, but that Pressable lives
+                    // in the shared CalendarEntryTile (via CalendarMonth → CalendarGridCell/
+                    // CalendarDayCard), none of which are owned by this edit. Wiring the game-card
+                    // long-press menu belongs in CalendarEntryTile so both the grid and day-list
+                    // renderings get it — out of scope for this screen's file.
                     <CalendarMonth
                         year={year}
                         monthIdx={monthIdx}

@@ -31,7 +31,7 @@ import * as cheerio                    from 'cheerio';
 
 import { defaults, applyCliOverrides }  from '../config.js';
 import { loadAndClean }                 from '../parser/html-cleaner.js';
-import { parseContent }                 from '../parser/content-parser.js';
+import { parseContent, collectImageBlocks } from '../parser/content-parser.js';
 import { downloadImages }               from '../parser/image-downloader.js';
 import { convertImgDir }                from '../images.js';
 import { sectionize, extractOutline }  from '../parser/sectionize.js';
@@ -261,6 +261,14 @@ function renderCell(cell, tag) {
     if (cell.colspan > 1) attrs.push(`colspan="${cell.colspan}"`);
     if (cell.rowspan > 1) attrs.push(`rowspan="${cell.rowspan}"`);
     const attrStr = attrs.length ? ' ' + attrs.join(' ') : '';
+
+    // Image-bearing cell: render the image and keep the text (usually alt) as a label.
+    if (cell.image?.localSrc) {
+        const alt   = escHtml(cell.image.alt ?? '');
+        const label = cell.text ? `<span class="cell-label">${escHtml(cell.text)}</span>` : '';
+        return `<${tag}${attrStr}><img src="${escHtml(cell.image.localSrc)}" alt="${alt}" loading="lazy">${label}</${tag}>`;
+    }
+
     return `<${tag}${attrStr}>${escHtml(cell.text ?? '')}</${tag}>`;
 }
 
@@ -510,7 +518,10 @@ async function parseSection(page, manifest, nav, navTree, { pageIndex, totalPage
     const blocks     = sectionize(flatBlocks);
     const outline    = extractOutline(blocks);
 
-    const imgCount     = flatBlocks.filter(b => b.type === 'image').length;
+    // Includes images nested in table cells, which a plain type filter would miss.
+    // These are live references, so the download pass sets localSrc on them in place.
+    const imageBlocks  = collectImageBlocks(flatBlocks);
+    const imgCount     = imageBlocks.length;
     const headingCount = flatBlocks.filter(b => b.type === 'heading').length;
     console.log(`    ${flatBlocks.length} blocks (${headingCount} headings → ${blocks.length} top-level sections, ${imgCount} images)`);
 
@@ -522,7 +533,7 @@ async function parseSection(page, manifest, nav, navTree, { pageIndex, totalPage
     // Download images (operate on flat blocks — images are always leaves)
     if (imgCount > 0) {
         await mkdir(imgDir, { recursive: true });
-        const fetched = await downloadImages(flatBlocks, url, imgDir, {
+        const fetched = await downloadImages(imageBlocks, url, imgDir, {
             force, rawDir,
             onlyExisting: noImages,
             onProgress: !noImages ? (idx) => {
@@ -797,14 +808,10 @@ try {
         const contentPath = join(guideDir, r.slug.replace(/[\\/:*?"<>|]/g, '_'), 'content.json');
         try {
             const blocks = JSON.parse(await readFile(contentPath, 'utf8'));
-            const findImages = (bs) => {
-                const found = [];
-                for (const b of bs) {
-                    if (b.type === 'image' && b.localSrc) found.push(b.localSrc);
-                    if (b.children) found.push(...findImages(b.children));
-                }
-                return found;
-            };
+            // collectImageBlocks also reaches images nested in table cells, which a
+            // plain type walk would miss — those are eligible cover art too.
+            const findImages = (bs) =>
+                collectImageBlocks(bs).map(img => img.localSrc).filter(Boolean);
             for (const src of findImages(blocks)) {
                 if (coverImages.length >= 12) break;
                 const imgPath = join(guideDir, r.slug.replace(/[\\/:*?"<>|]/g, '_'), src);

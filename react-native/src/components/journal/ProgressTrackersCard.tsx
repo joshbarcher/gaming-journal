@@ -1,6 +1,7 @@
 import { router } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
+import { Lucide } from '@/components/shared/Lucide'
 import { confirmDialog } from '@/store/confirmDialogStore'
 import { useTrackerSuggestJobsStore } from '@/store/trackerSuggestJobsStore'
 import { colors, fonts, spacing } from '@/theme/tokens'
@@ -43,7 +44,7 @@ export function ProgressTrackersCard({ appid, gameName, pages }: { appid: number
                     </Pressable>
                 ) : (
                     <Pressable onPress={(e) => { e.stopPropagation(); onSuggestPress() }}>
-                        <Text style={styles.suggestBtn}>✦</Text>
+                        <Lucide name="wand-sparkles" color={colors.lilac} size={15} />
                     </Pressable>
                 )}
             </View>

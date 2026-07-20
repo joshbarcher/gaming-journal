@@ -113,7 +113,9 @@ describe('fireParticles — completion toast', () => {
     it('shows a toast with the label text', () => {
         fireParticles(source(), 'Boss Fight')
         expect(toasts().length).toBe(1)
-        expect(toasts()[0].textContent).toBe('✦ Boss Fight complete!')
+        // The leading ✦ glyph is now an inline lucide "party-popper" SVG; the label stays a text node.
+        expect(toasts()[0].querySelector('svg')).not.toBeNull()
+        expect(toasts()[0].textContent).toContain('Boss Fight complete!')
         expect(toasts()[0].style.bottom).toBe('24px')
     })
 

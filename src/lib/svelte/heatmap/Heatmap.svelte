@@ -2,9 +2,18 @@
     import type { Page } from '$lib/types.js'
     import { progressPercent, isSuperComplete } from '../../js/utils.js'
     import { heatmapRows } from '../../js/views/progress-helpers.js'
+    import Icon from '../Icon.svelte'
 
     const BADGE_THEMES = ['badge--teal', 'badge--purple', 'badge--blue', 'badge--rose', 'badge--amber']
-    const BADGE_ICONS  = ['✦', '◈', '✸', '⬡', '◆', '✤']
+    // Ranked milestone ramp: bronze → silver → gold → premium (replaces the old ✦◈✸⬡◆✤ glyphs)
+    const BADGE_ICONS = [
+        { name: 'award',    tone: 'bronze' },
+        { name: 'medal',    tone: 'silver' },
+        { name: 'trophy',   tone: 'gold'   },
+        { name: 'crown',    tone: 'gold'   },
+        { name: 'gem',      tone: 'sky'    },
+        { name: 'sparkles', tone: 'lilac'  },
+    ] as const
 
     let { pages }: { pages: Page[] } = $props()
 
@@ -65,9 +74,9 @@
                     <div class="badge {theme}{isSuper ? ' badge--super' : ''}">
                         <div class="badge-icon">
                             {#if isSuper}
-                                <span>{icon}</span><span>{icon}</span>
+                                <span><Icon name={icon.name} tone={icon.tone} size={24} /></span><span><Icon name={icon.name} tone={icon.tone} size={24} /></span>
                             {:else}
-                                {icon}
+                                <Icon name={icon.name} tone={icon.tone} size={24} />
                             {/if}
                         </div>
                     </div>
