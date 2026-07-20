@@ -7,6 +7,7 @@
     import GuideInlineSearch from './GuideInlineSearch.svelte'
     import GuidePageSearch from './GuidePageSearch.svelte'
     import Fuse from 'fuse.js'
+    import { trimGameNamePrefix } from '$contracts/guideLabels'
     import { getCachedFulltext } from '$lib/guide-cache.js'
     import type { FtEntry } from '$lib/guide-cache.js'
     import { store as sidebarStore } from '$lib/sidebar.svelte.js'
@@ -585,9 +586,10 @@
                 }
             }
         } else if (meta) {
+            // No navTree — labels here haven't been through filteredNavTree's trim.
             const pages = meta.pages ?? meta.nav ?? []
             pages.forEach((p: any, i: number) => {
-                result.push({ label: String(i + 1), fullLabel: p.label, slug: p.slug, navigable: true, isGroup: false })
+                result.push({ label: String(i + 1), fullLabel: trimGameNamePrefix(p.label, gameName), slug: p.slug, navigable: true, isGroup: false })
             })
         }
         return result
@@ -865,16 +867,20 @@
             return pageSet.has(slug) || pageSet.has(base)
         }
 
+        // Trim here rather than at each of the TOC's render sites — every consumer of
+        // filteredNavTree then gets the short label for free.
+        const short = (item: any) => ({ ...item, label: trimGameNamePrefix(item.label, gameName) })
+
         function filterItems(items: any[]): any[] {
             return items.flatMap((item: any) => {
-                if (item.type === 'label') return [item]
+                if (item.type === 'label') return [short(item)]
                 if (item.type === 'link') {
-                    return validSlug(item.slug) ? [item] : []
+                    return validSlug(item.slug) ? [short(item)] : []
                 }
                 if (item.type === 'group') {
                     const children = filterItems(item.children ?? [])
                     const selfValid = validSlug(item.slug)
-                    if (selfValid || children.length > 0) return [{ ...item, children }]
+                    if (selfValid || children.length > 0) return [{ ...short(item), children }]
                     return []
                 }
                 return []
@@ -1136,7 +1142,7 @@
                                         class="gv-toc-link"
                                         class:gv-toc-link--active={isActive(item.slug)}
                                         href={sectionHref(item.slug)}
-                                    >{item.label}</a>
+                                    >{trimGameNamePrefix(item.label, gameName)}</a>
                                 {/each}
                             </nav>
                         {/if}

@@ -3,10 +3,12 @@ import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
+import { getGameDetail } from '@/api/gamePage'
 import { getSettings, patchSettings } from '@/api/settings'
 import { useGuidePinsStore } from '@/store/guidePinsStore'
 import { useGuideTocStore } from '@/store/guideTocStore'
 import { colors, fonts, radius, spacing } from '@/theme/tokens'
+import { trimGameNamePrefix } from 'gaming-journal-contracts/guideLabels'
 import type { GuideMeta, NavItem } from 'gaming-journal-contracts/guideMeta'
 import type { Settings } from 'gaming-journal-contracts/settings'
 
@@ -40,6 +42,11 @@ export function GuideTocPanel({
 }) {
     const { pins, staleNotice, deletePin, requestScroll, dismissStaleNotice } = useGuidePinsStore()
     const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+
+    // Used only to strip a redundant game-name prefix off nav labels. Same queryKey the guide
+    // screens already use, so this is normally served from cache rather than a fresh request.
+    const gameQuery = useQuery({ queryKey: ['gameDetail', appid], queryFn: () => getGameDetail(appid) })
+    const gameName = gameQuery.data?.name ?? ''
 
     // The Pins dropdown's open/collapsed state is a single GLOBAL server pref (guidePinsCollapsed),
     // shared with the web and synced across devices via /api/settings. Default open until settings
@@ -119,14 +126,18 @@ export function GuideTocPanel({
         if (!slug) return false
         return pageSet.has(slug) || pageSet.has(slug.split('#')[0])
     }
+    // Trim here rather than at each render site, matching GuideViewer.svelte. Both platforms
+    // trim against the same input — the real game name — so the two TOCs can't disagree.
+    const short = <T extends NavItem>(item: T): T => ({ ...item, label: trimGameNamePrefix(item.label, gameName) })
+
     function filterItems(items: NavItem[]): NavItem[] {
         const out: NavItem[] = []
         for (const item of items) {
-            if (item.type === 'label') { out.push(item); continue }
-            if (item.type === 'link') { if (validSlug(item.slug)) out.push(item); continue }
+            if (item.type === 'label') { out.push(short(item)); continue }
+            if (item.type === 'link') { if (validSlug(item.slug)) out.push(short(item)); continue }
             if (item.type === 'group') {
                 const children = filterItems(item.children ?? [])
-                if (validSlug(item.slug) || children.length > 0) out.push({ ...item, children })
+                if (validSlug(item.slug) || children.length > 0) out.push({ ...short(item), children })
             }
         }
         return out
@@ -167,9 +178,10 @@ export function GuideTocPanel({
                     <NavRow key={i} item={item} currentSlug={currentSlug} openGroups={openGroups} onToggleGroup={toggleGroup} onNav={navTo} validSlug={validSlug} depth={0} />
                 ))
             ) : (
+                // No navTree — these labels haven't been through filterItems' trim.
                 (meta.pages ?? []).map(p => (
                     <Pressable key={p.slug} style={styles.link} onPress={() => navTo(p.slug)}>
-                        <Text style={[styles.linkText, p.slug === currentSlug && styles.linkTextActive]}>{p.label}</Text>
+                        <Text style={[styles.linkText, p.slug === currentSlug && styles.linkTextActive]}>{trimGameNamePrefix(p.label, gameName)}</Text>
                     </Pressable>
                 ))
             )}
