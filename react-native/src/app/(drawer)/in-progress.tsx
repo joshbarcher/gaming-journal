@@ -131,7 +131,7 @@ function HeroCard({
     )
 }
 
-export default function InProgressScreen() {
+export default function InProgressScreen({ embedded = false }: { embedded?: boolean }) {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
@@ -237,11 +237,15 @@ export default function InProgressScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            <View style={[styles.header, { paddingHorizontal: PAGE_PAD }]}>
-                <Text style={styles.eyebrow}>Collection</Text>
-                <Text style={styles.title}>In Progress</Text>
-                <Text style={styles.subtitle}>{subtitle}</Text>
-            </View>
+            {embedded ? (
+                <Text style={[styles.metaLine, { paddingHorizontal: PAGE_PAD }]}>{subtitle}</Text>
+            ) : (
+                <View style={[styles.header, { paddingHorizontal: PAGE_PAD }]}>
+                    <Text style={styles.eyebrow}>Collection</Text>
+                    <Text style={styles.title}>In Progress</Text>
+                    <Text style={styles.subtitle}>{subtitle}</Text>
+                </View>
+            )}
 
             <View style={[styles.queueSection, { paddingHorizontal: PAGE_PAD }]}>
                 <View style={styles.queueHeader}>
@@ -293,6 +297,7 @@ const styles = StyleSheet.create({
     emptyText: { color: colors.textMuted, fontFamily: fonts.ui, padding: 40, textAlign: 'center' },
 
     header: { paddingTop: 24, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 24 },
+    metaLine: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, paddingTop: 16, paddingBottom: 18 },
     eyebrow: { color: ACCENT, fontFamily: fonts.uiBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 30, letterSpacing: 0.5 },
     subtitle: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, marginTop: 6 },

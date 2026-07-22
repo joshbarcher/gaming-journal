@@ -44,7 +44,7 @@ function Hearts({ small }: { small?: boolean }) {
     )
 }
 
-export default function FavoritesScreen() {
+export default function FavoritesScreen({ embedded = false }: { embedded?: boolean }) {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
@@ -223,11 +223,15 @@ export default function FavoritesScreen() {
 
     return (
         <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.eyebrow}>Collection</Text>
-                <Text style={styles.title}>Favorites</Text>
-                <Text style={styles.subtitle}>{subtitle}</Text>
-            </View>
+            {embedded ? (
+                <Text style={styles.metaLine}>{subtitle}</Text>
+            ) : (
+                <View style={styles.header}>
+                    <Text style={styles.eyebrow}>Collection</Text>
+                    <Text style={styles.title}>Favorites</Text>
+                    <Text style={styles.subtitle}>{subtitle}</Text>
+                </View>
+            )}
 
             <View style={styles.flow} onLayout={(e) => setFlowWidth(e.nativeEvent.layout.width - HPAD * 2)}>
                 {flowWidth > 0 && (spanHero ? (
@@ -253,6 +257,7 @@ const styles = StyleSheet.create({
     loadingText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.lg },
     emptyText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.xl, textAlign: 'center' },
     header: { padding: spacing.md },
+    metaLine: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 16 },
     eyebrow: { color: FAV_ACCENT, fontFamily: fonts.uiBold, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 22 },
     subtitle: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12, marginTop: 2 },

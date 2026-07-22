@@ -50,7 +50,7 @@ function padRows<T>(data: T[], numColumns: number): (T | null)[] {
     return rem === 0 ? data : [...data, ...Array<null>(numColumns - rem).fill(null)]
 }
 
-export default function AbandonedScreen() {
+export default function AbandonedScreen({ embedded = false }: { embedded?: boolean }) {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
@@ -107,11 +107,15 @@ export default function AbandonedScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.eyebrow}>Collection</Text>
-                <Text style={styles.title}>Abandoned</Text>
-                <Text style={styles.subtitle}>{subtitle}</Text>
-            </View>
+            {embedded ? (
+                <Text style={styles.metaLine}>{subtitle}</Text>
+            ) : (
+                <View style={styles.header}>
+                    <Text style={styles.eyebrow}>Collection</Text>
+                    <Text style={styles.title}>Abandoned</Text>
+                    <Text style={styles.subtitle}>{subtitle}</Text>
+                </View>
+            )}
             <FlatList
                 key={numColumns}
                 data={data}
@@ -169,6 +173,7 @@ const styles = StyleSheet.create({
     loadingText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.lg },
     emptyText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.xl, textAlign: 'center' },
     header: { padding: spacing.md },
+    metaLine: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 16 },
     eyebrow: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, textTransform: 'uppercase' },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 22 },
     subtitle: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12, marginTop: 2 },

@@ -115,7 +115,7 @@ function HeroCard({
     )
 }
 
-export default function BacklogScreen() {
+export default function BacklogScreen({ embedded = false }: { embedded?: boolean }) {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
@@ -227,17 +227,27 @@ export default function BacklogScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            <View style={[styles.header, { paddingHorizontal: PAGE_PAD }]}>
-                <View style={styles.headerBody}>
-                    <Text style={styles.eyebrow}>Collection</Text>
-                    <Text style={styles.title}>Backlog</Text>
-                    <Text style={styles.subtitle}>{subtitle}</Text>
+            {embedded ? (
+                <View style={[styles.metaRow, { paddingHorizontal: PAGE_PAD }]}>
+                    <Text style={styles.metaLine}>{subtitle}</Text>
+                    <Pressable onPress={randomPick} style={styles.randomBtn}>
+                        <Feather name="shuffle" size={15} color={ACCENT} />
+                        <Text style={styles.randomBtnText}>Random Pick</Text>
+                    </Pressable>
                 </View>
-                <Pressable onPress={randomPick} style={styles.randomBtn}>
-                    <Feather name="shuffle" size={15} color={ACCENT} />
-                    <Text style={styles.randomBtnText}>Random Pick</Text>
-                </Pressable>
-            </View>
+            ) : (
+                <View style={[styles.header, { paddingHorizontal: PAGE_PAD }]}>
+                    <View style={styles.headerBody}>
+                        <Text style={styles.eyebrow}>Collection</Text>
+                        <Text style={styles.title}>Backlog</Text>
+                        <Text style={styles.subtitle}>{subtitle}</Text>
+                    </View>
+                    <Pressable onPress={randomPick} style={styles.randomBtn}>
+                        <Feather name="shuffle" size={15} color={ACCENT} />
+                        <Text style={styles.randomBtnText}>Random Pick</Text>
+                    </Pressable>
+                </View>
+            )}
 
             <View style={[styles.queueSection, { paddingHorizontal: PAGE_PAD }]}>
                 <View style={styles.queueHeader}>
@@ -294,6 +304,8 @@ const styles = StyleSheet.create({
         paddingTop: 24, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 24,
     },
     headerBody: { flexShrink: 1 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 16, paddingBottom: 18 },
+    metaLine: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, flexShrink: 1 },
     eyebrow: { color: ACCENT, fontFamily: fonts.uiBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 30, letterSpacing: 0.5 },
     subtitle: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, marginTop: 6 },

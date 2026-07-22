@@ -50,7 +50,7 @@ function padRows<T>(data: T[], numColumns: number): (T | null)[] {
     return rem === 0 ? data : [...data, ...Array<null>(numColumns - rem).fill(null)]
 }
 
-export default function HallOfFameScreen() {
+export default function HallOfFameScreen({ embedded = false }: { embedded?: boolean }) {
     const flagsQuery = useQuery({ queryKey: ['flags'], queryFn: getFlags })
     const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
     const gamesQuery = useQuery({ queryKey: ['steamGamesList'], queryFn: getSteamGamesList })
@@ -86,7 +86,9 @@ export default function HallOfFameScreen() {
     }, [items])
 
     const totalMin = items.reduce((s, i) => s + i.playtime, 0)
-    const subtitle = `${items.length} game${items.length !== 1 ? 's' : ''} conquered · ${formatPlaytime(totalMin)} total`
+    const subtitle = totalMin > 0
+        ? `${items.length} game${items.length !== 1 ? 's' : ''} conquered · ${formatPlaytime(totalMin)} total`
+        : `${items.length} game${items.length !== 1 ? 's' : ''} conquered`
     const isLoading = flagsQuery.isLoading || settingsQuery.isLoading || gamesQuery.isLoading
 
     if (isLoading) {
@@ -105,11 +107,15 @@ export default function HallOfFameScreen() {
 
     return (
         <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.eyebrow}>Collection</Text>
-                <Text style={styles.title}>Completed</Text>
-                <Text style={styles.subtitle}>{subtitle}</Text>
-            </View>
+            {embedded ? (
+                <Text style={styles.metaLine}>{subtitle}</Text>
+            ) : (
+                <View style={styles.header}>
+                    <Text style={styles.eyebrow}>Collection</Text>
+                    <Text style={styles.title}>Completed</Text>
+                    <Text style={styles.subtitle}>{subtitle}</Text>
+                </View>
+            )}
             {TIERS.map(tier => {
                 const tierGames = grouped.get(tier.key) ?? []
                 if (!tierGames.length) return null
@@ -184,6 +190,7 @@ const styles = StyleSheet.create({
     loadingText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.lg },
     emptyText: { color: colors.textMuted, fontFamily: fonts.ui, padding: spacing.xl, textAlign: 'center' },
     header: { padding: spacing.md },
+    metaLine: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 13, paddingHorizontal: spacing.md, paddingTop: 14, paddingBottom: 16 },
     eyebrow: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 11, textTransform: 'uppercase' },
     title: { color: colors.text, fontFamily: fonts.title, fontSize: 22 },
     subtitle: { color: colors.textMuted, fontFamily: fonts.ui, fontSize: 12, marginTop: 2 },
