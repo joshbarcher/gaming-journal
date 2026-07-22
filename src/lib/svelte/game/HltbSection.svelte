@@ -71,6 +71,13 @@
 
     const SHORT_LABELS = ['MAIN', 'EXTRAS', 'COMPLETE']
 
+    // When nothing has been played the gold progress fill stays at 0 (an empty track reads as
+    // "no progress" correctly). Instead of a blank bar we tint each milestone cell a distinct,
+    // de-emphasised colour so the three sections still read as an effort gradient — teal → gold
+    // (theme accent) → plum, muted for dark mode. Kept in sync with HltbSection.tsx.
+    const SECTION_TINTS = ['rgba(78,168,142,0.38)', 'rgba(201,168,76,0.38)', 'rgba(190,116,158,0.38)']
+    const tintFor = (i: number) => SECTION_TINTS[i] ?? SECTION_TINTS[SECTION_TINTS.length - 1]
+
     let segments = $derived(
         milestones.map((m, i) => {
             const leftPct = i === 0 ? 0 : pct(milestones[i - 1].h)
@@ -117,7 +124,7 @@
                         {#if i > 0}
                             <div class="hltb-seg-divider" style="left:{seg.leftPct.toFixed(2)}%"></div>
                         {/if}
-                        <div class="hltb-segment" style="left:{seg.leftPct.toFixed(2)}%; width:{seg.widthPct.toFixed(2)}%">
+                        <div class="hltb-segment" style="left:{seg.leftPct.toFixed(2)}%; width:{seg.widthPct.toFixed(2)}%;{playerHours > 0 ? '' : ` background:${tintFor(i)}`}">
                             <span class="hltb-seg-label">{seg.shortLabel}</span>
                             <span class="hltb-seg-hours">{fmtHours(seg.h)}</span>
                         </div>

@@ -26,6 +26,12 @@ import type { GameDetail } from 'gaming-journal-contracts/gameDetail'
 // tick, and the ≤479px mini-bar swap (the web hides the horizontal track and shows stacked mini-bars).
 const SHORT_LABELS = ['MAIN', 'EXTRAS', 'COMPLETE']
 
+// When nothing has been played the gold fill stays at 0; rather than a blank track we tint each
+// milestone cell a distinct de-emphasised colour (teal → gold accent → plum) so the three sections
+// still read as an effort gradient. Kept in sync with HltbSection.svelte's SECTION_TINTS.
+const SECTION_TINTS = ['rgba(78,168,142,0.38)', 'rgba(201,168,76,0.38)', 'rgba(190,116,158,0.38)']
+const tintFor = (i: number) => SECTION_TINTS[i] ?? SECTION_TINTS[SECTION_TINTS.length - 1]
+
 export function HltbSection({ game, onRefresh }: { game: GameDetail; onRefresh: () => Promise<void> }) {
     const breakpoint = useBreakpoint()
     const [refreshing, setRefreshing] = useState(false)
@@ -121,7 +127,14 @@ export function HltbSection({ game, onRefresh }: { game: GameDetail; onRefresh: 
                             i > 0 ? <View key={`d${i}`} style={[styles.divider, { left: `${seg.leftPct}%` }]} /> : null
                         ))}
                         {segments.map((seg, i) => (
-                            <View key={`s${i}`} style={[styles.segment, { left: `${seg.leftPct}%`, width: `${seg.widthPct}%` }]}>
+                            <View
+                                key={`s${i}`}
+                                style={[
+                                    styles.segment,
+                                    { left: `${seg.leftPct}%`, width: `${seg.widthPct}%` },
+                                    playerHours <= 0 && { backgroundColor: tintFor(i) },
+                                ]}
+                            >
                                 <Text style={styles.segLabel}>{seg.shortLabel}</Text>
                                 <Text style={styles.segHours}>{fmtHours(seg.h)}</Text>
                             </View>

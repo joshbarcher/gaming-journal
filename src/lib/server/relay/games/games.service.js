@@ -300,9 +300,16 @@ export async function patchGame(appid) {
     const existing = _byId.get(id);
 
     const [wishlistData, localData] = await Promise.all([
-        getWishlist().catch(() => ({ items: {} })),
+        getWishlist().catch(() => null),   // null = read FAILED (distinct from a genuinely empty {})
         readLocalWishlist(),
     ]);
+
+    // A transient wishlist read must not drop a wishlist-only game from the cache (inWishlist would
+    // wrongly compute false and remove it) — skip the delta; the next successful build reconciles.
+    if (wishlistData === null) {
+        logger.warn('[games] patchGame: wishlist read failed — skipping delta', { appid: id });
+        return;
+    }
 
     const steamWL = (wishlistData.items ?? {})[String(id)];
     const localWL = (localData.items  ?? {})[String(id)];

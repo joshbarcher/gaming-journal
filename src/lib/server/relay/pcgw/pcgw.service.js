@@ -164,6 +164,21 @@ function markOk(entry, section) {
     entry.sections[section] = { status: 'ok', fetchedAt: new Date().toISOString() };
 }
 
+// A section parse "returned nothing": null, an empty array, or an object whose every field is
+// null/empty. The PCGW parsers don't throw on structural drift — they silently return these — so
+// this lets the sync distinguish "genuinely no data" from "keep the good cached section".
+function isEmptySectionValue(v) {
+    if (v == null) return true;
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') {
+        return Object.values(v).every(x =>
+            x == null ||
+            (Array.isArray(x) && x.length === 0) ||
+            (typeof x === 'object' && Object.keys(x).length === 0));
+    }
+    return false;
+}
+
 function markFailed(entry, section, err) {
     const prev     = entry.sections[section] ?? {};
     const attempts = (prev.attempts ?? 0) + 1;
@@ -409,7 +424,15 @@ export async function syncGame(appid, { force = false, reparse = false, fetchFn 
         for (const [name, parseFn] of Object.entries(parsers)) {
             if (!sectionNeedsFetch(entry.sections[name], redo)) continue;
             try {
-                Object.assign(entry, parseFn());
+                const parsed = parseFn();       // { [name]: value }
+                // If the parse came back empty but we already have good data for this section, it's
+                // almost certainly PCGW structural drift (parsers return empty, they don't throw) —
+                // keep the cached section rather than blanking it. First-time empties still record.
+                if (isEmptySectionValue(parsed[name]) && !isEmptySectionValue(entry[name])) {
+                    logger.warn('[pcgw] Empty parse over good section — keeping cached', { appid, section: name });
+                    continue;
+                }
+                Object.assign(entry, parsed);
                 markOk(entry, name);
             } catch (err) {
                 markFailed(entry, name, err);

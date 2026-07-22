@@ -804,6 +804,13 @@ export async function syncRecentlyPlayed({ force = false } = {}) {
     const body = await res.json();
     const raw = body.response ?? {};
 
+    // A malformed/transient 200 (no total_count field) must not blank a good recently-played list.
+    // total_count === 0 IS Steam's authoritative "nothing played in 2 weeks" and may clear it.
+    if (raw.total_count == null && (cached.games?.length ?? 0) > 0) {
+        logger.warn('[steam] Recently-played response malformed — keeping cached list');
+        return cached;
+    }
+
     const next = {
         fetchedAt: new Date().toISOString(),
         totalCount: raw.total_count ?? 0,
@@ -964,7 +971,10 @@ export async function syncReviews({ force = false, onProgress } = {}) {
                     ...(existing?._scraperTs != null ? { _scraperTs: existing._scraperTs } : {}),
                     fetchedAt: new Date().toISOString(),
                     gameName: game.name,
-                    review: review ?? null,
+                    // A null here means "not found this pass" — often transient (success!=1) or the
+                    // review scrolled past the 3-page search window on a popular game — NOT a deletion.
+                    // Preserve the prior review rather than blanking a real one.
+                    review: review ?? existing?.review ?? null,
                 };
                 review ? found++ : notFound++;
             } catch (err) {
@@ -1090,7 +1100,9 @@ export async function scanReviews({ force = false, onProgress } = {}) {
                     [game.appid]: {
                         fetchedAt: new Date().toISOString(),
                         gameName:  game.name,
-                        review:    review ?? null,
+                        // Preserve the prior review when an exhaustive scan comes back empty
+                        // (transient success!=1), rather than blanking a real one on a force re-scan.
+                        review:    review ?? updated[game.appid]?.review ?? null,
                     },
                 });
                 if (review) {

@@ -89,6 +89,17 @@ async function scanCache() {
     const steamItems = wishlistData.items ?? {};
     const localItems = localData.items ?? {};
 
+    // A transient getWishlist() read can return an empty {} (a partial read, not a throw). If the
+    // current index already holds Steam-sourced entries, rebuilding from an empty Steam wishlist +
+    // non-empty local items yields a NON-empty (local-only) array that slips past persisted-index's
+    // all-empty guard and wipes the whole ~1100-entry Steam wishlist. Abort to keep the good index.
+    // (games.service._buildAll guards the library the same way.) A genuine local-only user — no prior
+    // Steam entries in the index — is unaffected and still builds.
+    if (Object.keys(steamItems).length === 0 && Object.keys(localItems).length > 0
+        && _idx.get().some(item => !item.wishlist?.local)) {
+        throw new Error('[wishlist] Steam wishlist empty while index holds Steam entries — transient read, aborting rebuild to preserve the good wishlist');
+    }
+
     // Local items that are NOT already in the Steam wishlist
     const localOnly = Object.entries(localItems).filter(([id]) => !(id in steamItems));
 
@@ -133,12 +144,19 @@ export async function patchItem(appid) {
     const id = Number(appid);
 
     const [wishlistData, localData, store, itad, flagsData] = await Promise.all([
-        getWishlist().catch(() => ({ items: {} })),
+        getWishlist().catch(() => null),   // null = read FAILED (distinct from a genuinely empty {})
         readJson(localWishlistPath()).then(d => d ?? { items: {} }),
         readJson(storePath(id)),
         readJson(itadPath(id)),
         readJson(flagsPath()).then(d => d ?? {}),
     ]);
+
+    // A transient wishlist read must not drop a Steam-wishlist-only entry from the index — bail on
+    // the delta and let the next successful build/patch reconcile it.
+    if (wishlistData === null) {
+        logger.warn('[wishlist] patchItem: wishlist read failed — skipping delta', { appid: id });
+        return;
+    }
 
     const steamMeta = (wishlistData.items ?? {})[String(id)];
     const localMeta = (localData.items ?? {})[String(id)];

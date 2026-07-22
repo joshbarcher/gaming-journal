@@ -77,10 +77,18 @@ export async function buildApplist({ force = false } = {}) {
 
     if (!apps) {
         logger.info('[applist] Downloading from Steam API...');
-        apps = await _download();
-        await fs.mkdir(path.dirname(cachePath), { recursive: true });
-        await fs.writeFile(cachePath, JSON.stringify(apps));
-        logger.info('[applist] Saved to disk', { count: apps.length });
+        const downloaded = await _download();
+        // A 200 with an empty/truncated app list is a known Steam hiccup — don't overwrite the good
+        // ~100k-entry cache (and blank the search index) with it. Keep the existing file if present.
+        if (!downloaded.length) {
+            logger.warn('[applist] Download returned no apps — keeping existing cache');
+            apps = JSON.parse(await fs.readFile(cachePath, 'utf8').catch(() => '[]'));
+        } else {
+            apps = downloaded;
+            await fs.mkdir(path.dirname(cachePath), { recursive: true });
+            await fs.writeFile(cachePath, JSON.stringify(apps));
+            logger.info('[applist] Saved to disk', { count: apps.length });
+        }
     }
 
     _index = apps

@@ -260,6 +260,15 @@ export async function syncAll({ force = false, searchFn = defaultSearch, onProgr
             const match   = pickBestMatch(results, game.name, game.appid);
 
             const hasTimes   = !!(match?.comp_main || match?.comp_plus || match?.comp_100);
+
+            // Same protection as syncGame (line ~193): a force refresh that comes back empty,
+            // match-less, or time-less must not null out completion times we already have.
+            const existingHasTimes = !!(existing?.gameplayMain || existing?.gameplayMainExtra || existing?.gameplayCompletionist);
+            if (!hasTimes && existingHasTimes) {
+                logger.warn('[hltb] Force refresh returned no usable times — keeping cached', { appid: game.appid, name: game.name });
+                skipped++; if (onProgress) onProgress(i + 1, games.length); continue;
+            }
+
             const resolved   = match && hasTimes;
             const retryCount = resolved ? 0 : (existing?.retryCount ?? 0) + 1;
 

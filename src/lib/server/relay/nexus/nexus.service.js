@@ -602,6 +602,8 @@ export async function startDeepPull(appid, { force = false, name = null, fetchFn
 
     const game = await resolveDomainForApp(appid, name, fetchFn);
     if (!game) {
+        // Domain resolution came back empty — don't blank a previously-good dataset over it.
+        if (existing?.status === 'done' && existing.mods?.length) return { status: 'done', total: existing.total };
         await writeDeep(appid, { appid, domainName: null, status: 'done', total: 0, pulled: 0, capped: false, cap: DEEP_CAP, mods: [], updatedAt: new Date().toISOString() });
         return { status: 'done', total: 0 };
     }
@@ -614,6 +616,9 @@ export async function startDeepPull(appid, { force = false, name = null, fetchFn
 }
 
 async function _crawlDeep(appid, game, fetchFn = fetch) {
+    // Capture the last-good dataset up front so a failed/degraded re-crawl can never replace it.
+    const prior = await getDeep(appid);
+    const priorDone = prior?.status === 'done' && prior.mods?.length ? prior : null;
     const base = {
         appid, domainName: game.domainName, nexusName: game.nexusName,
         gameUrl: `${SITE_BASE}/${game.domainName}`, cap: DEEP_CAP,
@@ -645,17 +650,31 @@ async function _crawlDeep(appid, game, fetchFn = fetch) {
 
             const snap = { ...base, total, pulled: mods.length, capped: false, status: 'running', updatedAt: new Date().toISOString(), mods };
             _deepMem.set(appid, snap);                              // memory every page → GET polls stay live
-            if (page % DEEP_FLUSH_EVERY === 0) await writeDeep(appid, snap);   // throttle disk writes
+            // Only persist partial progress to DISK when there's no prior complete dataset — with a
+            // good `done` on disk, keep it until this crawl finishes so a mid-crawl restart can't lose it.
+            if (!priorDone && page % DEEP_FLUSH_EVERY === 0) await writeDeep(appid, snap);
             if (nodes.length < DEEP_PAGE) break;   // reached the end of the catalogue
             await sleep(DEEP_PAGE_DELAY);
         }
 
         mods = mods.slice(0, DEEP_CAP);
         const capped = mods.length >= DEEP_CAP && mods.length < total;
+        // A transient valid-empty (or shrunk) result must not replace a good prior dataset.
+        if (priorDone && mods.length < priorDone.mods.length) {
+            _deepMem.set(appid, priorDone);   // restore the live view to the good dataset
+            logger.warn('[nexus] deep crawl shrank vs cached — keeping prior dataset', { appid, got: mods.length, had: priorDone.mods.length });
+            return;
+        }
         await writeDeep(appid, { ...base, total, pulled: mods.length, capped, status: 'done', updatedAt: new Date().toISOString(), mods });
         logger.info('[nexus] deep crawl complete', { appid, pulled: mods.length, total, capped });
     } catch (err) {
-        await writeDeep(appid, { ...base, total, pulled: mods.length, capped: false, status: 'error', error: err.message, updatedAt: new Date().toISOString(), mods });
+        // Never blank a good prior dataset with an error record — keep the last-good `done`.
+        if (priorDone) {
+            _deepMem.set(appid, priorDone);
+            logger.warn('[nexus] deep crawl failed — keeping cached dataset', { appid, err: err.message });
+        } else {
+            await writeDeep(appid, { ...base, total, pulled: mods.length, capped: false, status: 'error', error: err.message, updatedAt: new Date().toISOString(), mods });
+        }
         throw err;
     }
 }
@@ -915,6 +934,14 @@ export async function syncOne(appid, steamName, { force = false, domain = null, 
     }
 
     const { nodes, totalCount } = await fetchMods(domainName, MOD_COUNT, fetchFn);
+    // A valid-but-empty 200 (nodes:[]) must not blank a section that previously had mods — keep the
+    // prior list rather than flipping it to "no mods". (queryMods throws on 429/errors/null, so a
+    // real failure never reaches here; only a structurally-valid empty result does.)
+    if (nodes.length === 0 && existing?.mods?.length) {
+        logger.warn('[nexus] Empty mod list on refresh — keeping cached mods', { appid, domainName, had: existing.mods.length });
+        memSet(_entryMem, appid, existing);
+        return { skipped: 1, total: 1, entry: existing };
+    }
     const entry = {
         appid,
         steamName:  name,

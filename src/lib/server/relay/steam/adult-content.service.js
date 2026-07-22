@@ -50,7 +50,13 @@ async function load() {
             try {
                 const raw = JSON.parse(await fs.readFile(cachePath(), 'utf8'));
                 _cache = new Map(Object.entries(raw).map(([k, v]) => [Number(k), v]));
-            } catch { /* first run — no cache yet */ }
+            } catch (err) {
+                // ENOENT = genuine first run (no cache yet). ANY other error (NAS EAGAIN, torn/partial
+                // read, corruption, perms) must NOT seed an empty cache — a later save() would then
+                // persist the empty map over the good file, wiping days of descriptor backfill.
+                // Reset the memo so a later call retries, and rethrow so the caller aborts.
+                if (err.code !== 'ENOENT') { _loadPromise = null; throw err; }
+            }
             _loaded = true;
             logger.info('[adult-content] Cache loaded', { count: _cache.size });
         })();
@@ -59,6 +65,7 @@ async function load() {
 }
 
 async function save() {
+    if (!_loaded) return; // never persist before a confirmed load — guards against clobbering
     const obj = Object.fromEntries(_cache);
     await fs.mkdir(path.dirname(cachePath()), { recursive: true });
     await fs.writeFile(cachePath(), JSON.stringify(obj));

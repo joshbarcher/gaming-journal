@@ -184,7 +184,12 @@ async function _persistSpecialEntry(appid, entry) {
     let current    = Object.fromEntries(TAB_IDS.map(id => [id, {}]));
     try {
         current = JSON.parse(await fs.readFile(filePath, 'utf8'));
-    } catch { /* new week, start fresh */ }
+    } catch (err) {
+        // ENOENT = genuine new week, start fresh. A transient read error on an EXISTING, populated
+        // week file must NOT be treated as "new week" — that would rewrite the whole file with a
+        // single specials entry, dropping the week's new_releases/top_sellers/coming_soon. Abort.
+        if (err.code !== 'ENOENT') throw err;
+    }
     if (!current.specials) current.specials = {};
     current.specials[String(appid)] = entry;
     await fs.writeFile(filePath, JSON.stringify(current), 'utf8');

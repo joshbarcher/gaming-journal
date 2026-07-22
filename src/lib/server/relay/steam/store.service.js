@@ -323,7 +323,12 @@ export async function recheckAppDetail(appid) {
         await fs.writeFile(dest, JSON.stringify(detail, null, 2));
         return detail;
     }
-    // Still unavailable — reset fetchedAt so the 24-hour TTL starts fresh
+    // Fetch failed. recheckAppDetail also runs on games that HAVE good data but are just missing a
+    // description (the page's ?refresh=true → needsAbout path), so a null here — indistinguishable
+    // between a real delisting and a Steam throttle/403 — must NOT blank good data to the sentinel.
+    // Same protection the sync paths already apply (hasCachedStoreData).
+    if (await hasCachedStoreData(dest)) return null;
+    // No good data to protect — (re)stamp the sentinel with a fresh 24-hour recheck TTL.
     await fs.writeFile(dest, JSON.stringify({
         steam_appid: Number(appid),
         unavailable: true,

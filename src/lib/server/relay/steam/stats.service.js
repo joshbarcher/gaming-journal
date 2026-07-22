@@ -101,7 +101,10 @@ export async function syncPlayerStats({ force = false, onProgress } = {}) {
         async (game) => {
             try {
                 const raw   = await fetchUserStats(apiKey, steamId, game.appid);
-                const stats = raw.stats ?? [];
+                // A 200 with empty stats (temporarily private profile / server load) must not blank
+                // a game's previously-cached stat values — keep the prior non-empty set.
+                const prior = statsFile.get()[game.appid]?.stats;
+                const stats = raw.stats?.length ? raw.stats : (prior ?? []);
 
                 updates[game.appid] = {
                     fetchedAt: new Date().toISOString(),

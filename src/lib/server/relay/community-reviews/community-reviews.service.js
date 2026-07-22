@@ -116,7 +116,12 @@ export async function syncGame(appid, { force = false } = {}) {
     );
     const reviews = (reviewsBody.reviews ?? []).map(shapeReview);
 
-    const entry = { ...base, reviewCount: reviews.length, reviews };
+    // An empty reviews array here can be a transient 200 (or a language quirk pushing English
+    // reviews out of the window) — don't blank the cached review text. Refresh the summary (base)
+    // but retain the prior reviews when the new pull is empty.
+    const entry = (reviews.length === 0 && (cached?.reviews?.length ?? 0) > 0)
+        ? { ...base, reviewCount: cached.reviewCount ?? cached.reviews.length, reviews: cached.reviews }
+        : { ...base, reviewCount: reviews.length, reviews };
     await writeJson(entryPath(appid), entry);
 
     logger.debug('[community-reviews] Synced', { appid, totalReviews, reviewCount: reviews.length });

@@ -30,6 +30,13 @@ export async function build() {
         readJson(path.join(steamDir(), 'wishlist.json')),
     ]);
 
+    // Both source reads failing together is a transient NAS/disk error, not a legitimately empty
+    // library — keep the last-good in-memory cache rather than rebuilding it into an empty set.
+    if (gamesData == null && wishlistData == null && _cache) {
+        logger.warn('[upcoming] Source reads failed — keeping cached upcoming/releases');
+        return;
+    }
+
     const libraryIds  = new Set((gamesData?.games ?? []).map(g => g.appid));
     const wishlistIds = new Set(Object.keys(wishlistData?.items ?? {}).map(Number));
     const allIds      = [...new Set([...libraryIds, ...wishlistIds])];

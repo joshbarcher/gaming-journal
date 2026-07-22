@@ -183,6 +183,13 @@ export async function syncFriends({ force = false } = {}) {
 
     const friendList = await fetchFriendList(apiKey, steamId);
 
+    // A 200 with an empty friends list (temporarily private friends / transient body) must not wipe
+    // the whole cached list — mirror syncAccount's gotAnything guard and keep the good data.
+    if (friendList.length === 0 && (cached.friends?.length ?? 0) > 0) {
+        logger.warn('[steam] Friend list came back empty — keeping cached friends');
+        return cached;
+    }
+
     const profileMap = {};
     for (let i = 0; i < friendList.length; i += FRIEND_SUMMARY_BATCH) {
         const chunk    = friendList.slice(i, i + FRIEND_SUMMARY_BATCH);

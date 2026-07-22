@@ -6,9 +6,14 @@
 // the NAS (docs/relay-fold-in.md §2 "On-demand writes from dev machines").
 import { relayRoute, json } from '$lib/server/relay/shared/route-helpers.js'
 import { getOne, getOneDiscovered, rebuildOne, ensureBuilt } from '$lib/server/relay/games/games.service.js'
-import { syncOne, recheckAppDetail } from '$lib/server/relay/steam/store.service.js'
+import { syncOne, recheckAppDetail, getGameDetail } from '$lib/server/relay/steam/store.service.js'
 import { provisionGame } from '$lib/server/relay/provision.service.js'
 import { load as loadPlayLog, getEffectivePlaytimeMin } from '$lib/server/relay/steam/play-log.service.js'
+
+// A game marked "unavailable" is usually a stale sentinel from a past Steam throttle/403, not a real
+// delisting. The background sweep only re-checks wishlist items, so an owned game gets stuck forever.
+// Re-check on view once this TTL lapses (or on explicit refresh) so a recovered game self-heals.
+const UNAVAILABLE_RECHECK_MS = 24 * 60 * 60 * 1_000
 
 export const GET = relayRoute('games', async ({ params, url }) => {
     await Promise.all([ensureBuilt(), loadPlayLog()])
@@ -24,7 +29,18 @@ export const GET = relayRoute('games', async ({ params, url }) => {
         const needsStore = !game.store
         const needsAbout = game.store && !game.store.unavailable && !game.store.detailedDescription
 
-        if (refresh && (needsStore || needsAbout)) {
+        if (game.store?.unavailable) {
+            // Stale "unavailable" sentinel — re-check on view (synchronously, so a recovered game
+            // loses its banner on THIS load), but only once the TTL has lapsed or on explicit
+            // refresh, so a genuinely delisted game isn't re-hit on every visit.
+            const raw = await getGameDetail(appid)
+            const fetchedAt = Date.parse(raw?.fetchedAt ?? '')
+            const recent = Number.isFinite(fetchedAt) && (Date.now() - fetchedAt) < UNAVAILABLE_RECHECK_MS
+            if (refresh || !recent) {
+                await recheckAppDetail(appid)
+                game = await rebuildOne(appid) ?? game
+            }
+        } else if (refresh && (needsStore || needsAbout)) {
             // Caller is waiting for the description — await the re-fetch and return fresh data
             if (needsStore) await provisionGame(appid, game.name)
             else            await recheckAppDetail(appid)
