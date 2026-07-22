@@ -276,12 +276,12 @@ describe('onGameCardContextMenu — flag toggles', () => {
 // ── Lists & alerts submenu ────────────────────────────────────────────────────
 
 describe('onGameCardContextMenu — lists & alerts', () => {
-    it('shows Favorite / Wishlist / Sale Alert with wishlist state from the API', async () => {
+    it('shows Favorite / Play List / Wishlist / Sale Alert with wishlist state from the API', async () => {
         wlRes = { wishlisted: true }
         const { inner } = makeCard('570')
         fireCtxMenu(inner)
         await openSub('Lists & alerts')
-        expect(menuLabels(menus()[1])).toEqual(['Favorite', 'Wishlist', 'Sale Alert'])
+        expect(menuLabels(menus()[1])).toEqual(['Favorite', 'Play List', 'Wishlist', 'Sale Alert'])
         expect(itemByLabel('Wishlist')!.classList.contains('ctx-menu-item--checked')).toBe(true)
     })
 

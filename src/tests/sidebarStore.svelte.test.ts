@@ -15,7 +15,7 @@ function resetStore() {
     store.alertsCount    = 0
     store.saleAlerts     = []
     store.historyAppid   = null
-    store.counts         = { library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, franchises: 0 }
+    store.counts         = { library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, playlist: 0, franchises: 0 }
     store.pin            = null
     store.appSidebarOpen = false
 }

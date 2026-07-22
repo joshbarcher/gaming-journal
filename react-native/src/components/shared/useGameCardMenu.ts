@@ -112,6 +112,7 @@ export function openGameCardMenu(appid: number, flags: GameFlags | undefined, an
                 const wl = await getLocalWishlistEntry(appid).catch(() => ({ wishlisted: false }))
                 return [
                     flagItem(appid, { key: 'favorite', label: 'Favorite' }, flags),
+                    flagItem(appid, { key: 'playlist', label: 'Play List' }, flags),
                     { label: `${mark(wl.wishlisted)}Wishlist`, action: () => { void toggleWishlist(appid, wl.wishlisted) } },
                     flagItem(appid, { key: 'alert', label: 'Sale Alert' }, flags),
                 ]

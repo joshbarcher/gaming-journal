@@ -8,6 +8,7 @@ interface SidebarCounts {
     backlog:    number
     dropped:    number
     completed:  number
+    playlist:   number
     franchises: number
 }
 
@@ -30,7 +31,7 @@ class SidebarStore {
     alertsCount  = $state(0)
     saleAlerts   = $state<{ appid: number; cut: number }[]>([])
     historyAppid = $state<number | null>(null)
-    counts       = $state<SidebarCounts>({ library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, franchises: 0 })
+    counts       = $state<SidebarCounts>({ library: 0, wishlist: 0, favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, playlist: 0, franchises: 0 })
     pin          = $state<PinState | null>(null)
     // Mobile hamburger open state — hoisted here (not local to +layout.svelte) so other
     // mobile overlays (e.g. the Guide Viewer's TOC drawer) can react and close themselves

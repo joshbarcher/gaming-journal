@@ -3,7 +3,7 @@ import type { FlagKey, Flags, FlagsStore } from '../../types.js'
 
 const FLAGS: FlagKey[] = [
     'software', 'childLock', 'filtered', 'alert',
-    'favorite', 'revisit',
+    'favorite', 'revisit', 'playlist',
     'completed', 'dropped', 'inProgress', 'backlog',
 ]
 

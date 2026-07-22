@@ -48,7 +48,7 @@ test('game card context menu exposes flag/wishlist toggle submenus and toggles i
     // The submenu is a second .ctx-menu level with checkable items.
     const submenu = page.locator('.ctx-menu').nth(1)
     await expect(submenu).toBeVisible()
-    for (const label of ['Favorite', 'Wishlist', 'Sale Alert']) {
+    for (const label of ['Favorite', 'Play List', 'Wishlist', 'Sale Alert']) {
         await expect(submenu.getByText(label, { exact: true })).toBeVisible()
     }
 

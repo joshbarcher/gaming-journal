@@ -37,6 +37,8 @@
         favorites:  ICO(`<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>`),
         franchises: ICO(`<rect x="2" y="7" width="6" height="13" rx="1"/><rect x="9" y="4" width="6" height="16" rx="1"/><rect x="16" y="2" width="6" height="18" rx="1"/>`),
         inProgress: ICO(`<circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>`),
+        collections:ICO(`<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>`),
+        playing:    ICO(`<path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/>`),
         home:       ICO(`<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`),
         toc:        ICO(`<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`),
         library:    ICO(`<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>`),
@@ -66,6 +68,12 @@
     }
 
     const activeId = $derived(getActiveId(page.url.pathname))
+
+    // Total games across the five status collections now folded into /collections, shown as one badge.
+    const collectionsCount = $derived(
+        store.counts.inProgress + store.counts.backlog + store.counts.completed +
+        store.counts.favorites + store.counts.dropped
+    )
 
     // ── Keyboard nav ───────────────────────────────────────────────────────────
     let navEl = $state<HTMLElement | null>(null)
@@ -199,40 +207,19 @@
         {/if}
         {@html ICONS.history} <span class="sidebar-nav-label">History</span>
     </a>
-    <a class="sidebar-nav-btn sidebar-inprogress-btn" href="/in-progress"
-       data-tooltip={`In Progress${store.counts.inProgress > 0 ? ` (${store.counts.inProgress})` : ''}`}
-       data-id="in-progress" class:active={activeId === 'in-progress'}
+    <a class="sidebar-nav-btn sidebar-playing-btn" href="/playing"
+       data-tooltip={`Playing${store.counts.playlist > 0 ? ` (${store.counts.playlist})` : ''}`}
+       data-id="playing" class:active={activeId === 'playing'}
        onkeydown={arrowNav}>
-        {@html ICONS.inProgress} <span class="sidebar-nav-label">In Progress</span>
-        {#if store.counts.inProgress > 0}<span class="sidebar-collection-badge">{store.counts.inProgress}</span>{/if}
+        {@html ICONS.playing} <span class="sidebar-nav-label">Playing</span>
+        {#if store.counts.playlist > 0}<span class="sidebar-collection-badge">{store.counts.playlist}</span>{/if}
     </a>
-    <a class="sidebar-nav-btn sidebar-backlog-btn" href="/backlog"
-       data-tooltip={`Backlog${store.counts.backlog > 0 ? ` (${store.counts.backlog})` : ''}`}
-       data-id="backlog" class:active={activeId === 'backlog'}
+    <a class="sidebar-nav-btn sidebar-collections-btn" href="/collections"
+       data-tooltip={`Collections${collectionsCount > 0 ? ` (${collectionsCount})` : ''}`}
+       data-id="collections" class:active={activeId === 'collections'}
        onkeydown={arrowNav}>
-        {@html ICONS.backlog} <span class="sidebar-nav-label">Backlog</span>
-        {#if store.counts.backlog > 0}<span class="sidebar-collection-badge">{store.counts.backlog}</span>{/if}
-    </a>
-    <a class="sidebar-nav-btn sidebar-favorites-btn" href="/favorites"
-       data-tooltip={`Favorites${store.counts.favorites > 0 ? ` (${store.counts.favorites})` : ''}`}
-       data-id="favorites" class:active={activeId === 'favorites'}
-       onkeydown={arrowNav}>
-        {@html ICONS.favorites} <span class="sidebar-nav-label">Favorites</span>
-        {#if store.counts.favorites > 0}<span class="sidebar-collection-badge">{store.counts.favorites}</span>{/if}
-    </a>
-    <a class="sidebar-nav-btn sidebar-abandoned-btn" href="/abandoned"
-       data-tooltip={`Abandoned${store.counts.dropped > 0 ? ` (${store.counts.dropped})` : ''}`}
-       data-id="abandoned" class:active={activeId === 'abandoned'}
-       onkeydown={arrowNav}>
-        {@html ICONS.abandoned} <span class="sidebar-nav-label">Abandoned</span>
-        {#if store.counts.dropped > 0}<span class="sidebar-collection-badge">{store.counts.dropped}</span>{/if}
-    </a>
-    <a class="sidebar-nav-btn sidebar-hof-btn" href="/hall-of-fame"
-       data-tooltip={`Completed${store.counts.completed > 0 ? ` (${store.counts.completed})` : ''}`}
-       data-id="hall-of-fame" class:active={activeId === 'hall-of-fame'}
-       onkeydown={arrowNav}>
-        {@html ICONS.hallOfFame} <span class="sidebar-nav-label">Completed</span>
-        {#if store.counts.completed > 0}<span class="sidebar-collection-badge">{store.counts.completed}</span>{/if}
+        {@html ICONS.collections} <span class="sidebar-nav-label">Collections</span>
+        {#if collectionsCount > 0}<span class="sidebar-collection-badge">{collectionsCount}</span>{/if}
     </a>
     <a class="sidebar-nav-btn sidebar-franchises-btn" href="/franchises"
        data-tooltip={`Franchises${store.counts.franchises > 0 ? ` (${store.counts.franchises})` : ''}`}

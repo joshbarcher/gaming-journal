@@ -53,13 +53,14 @@ export async function load() {
         ? trackerJobsResult.value : []
 
     // Collection counts
-    const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 }
+    const counts = { favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, playlist: 0, library: 0, wishlist: 0, franchises: 0 }
     for (const f of Object.values(flags as any)) {
         if ((f as any).favorite)   counts.favorites++
         if ((f as any).inProgress) counts.inProgress++
         if ((f as any).backlog)    counts.backlog++
         if ((f as any).dropped)    counts.dropped++
         if ((f as any).completed)  counts.completed++
+        if ((f as any).playlist)   counts.playlist++
     }
     counts.library    = accountData?.stats?.totalGames    ?? 0
     counts.wishlist   = accountData?.stats?.wishlistCount ?? 0

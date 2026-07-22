@@ -31,6 +31,7 @@ const GROUPS: { key: FlagKey; icon: IconSpec; color: string }[][] = [
     [
         { key: 'favorite', icon: { set: 'feather', name: 'heart' }, color: '#e05577' },
         { key: 'revisit', icon: { set: 'feather', name: 'rotate-ccw' }, color: '#40b0d0' },
+        { key: 'playlist', icon: { set: 'mci', name: 'playlist-plus' }, color: '#46b98a' },
     ],
     [
         { key: 'completed', icon: { set: 'mci', name: 'trophy-outline' }, color: colors.accent },

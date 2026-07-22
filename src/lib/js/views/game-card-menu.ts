@@ -150,6 +150,7 @@ function buildGameCardMenu(appid: number): ContextMenuItem[] {
             const st = await getState()
             return [
                 flagItem(appid, { key: 'favorite', label: 'Favorite' }, st),
+                flagItem(appid, { key: 'playlist', label: 'Play List' }, st),
                 {
                     label:   'Wishlist',
                     checked: st.wishlisted,

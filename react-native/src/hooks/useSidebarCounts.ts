@@ -18,6 +18,8 @@ export type SidebarCounts = {
     backlog:     number
     dropped:     number
     completed:   number
+    playlist:    number
+    collections: number
     wishlist:    number
     franchises:  number
     onSale:      number
@@ -30,17 +32,26 @@ export function useSidebarCounts() {
     const franchisesQuery = useQuery({ queryKey: ['franchises'], queryFn: getFranchises })
     const alertsQuery = useQuery({ queryKey: ['alerts'], queryFn: getAlerts })
 
-    const counts: SidebarCounts | undefined = flagsQuery.data && gamesQuery.data ? {
-        library:    gamesQuery.data.length,
-        favorites:  countFlag(flagsQuery.data, 'favorite'),
-        inProgress: countFlag(flagsQuery.data, 'inProgress'),
-        backlog:    countFlag(flagsQuery.data, 'backlog'),
-        dropped:    countFlag(flagsQuery.data, 'dropped'),
-        completed:  countFlag(flagsQuery.data, 'completed'),
-        wishlist:   wishlistQuery.data?.length ?? 0,
-        franchises: franchisesQuery.data?.length ?? 0,
-        onSale:     alertsQuery.data?.onSale.length ?? 0,
-    } : undefined
+    const flags = flagsQuery.data
+    let counts: SidebarCounts | undefined
+    if (flags && gamesQuery.data) {
+        // Compute the five status-collection counts once, then sum them for the unified Collections
+        // nav badge (mirrors Sidebar.svelte's collectionsCount) — no extra scans over the flag store.
+        const favorites  = countFlag(flags, 'favorite')
+        const inProgress = countFlag(flags, 'inProgress')
+        const backlog    = countFlag(flags, 'backlog')
+        const dropped    = countFlag(flags, 'dropped')
+        const completed  = countFlag(flags, 'completed')
+        counts = {
+            library:     gamesQuery.data.length,
+            favorites, inProgress, backlog, dropped, completed,
+            playlist:    countFlag(flags, 'playlist'),
+            collections: inProgress + backlog + completed + favorites + dropped,
+            wishlist:    wishlistQuery.data?.length ?? 0,
+            franchises:  franchisesQuery.data?.length ?? 0,
+            onSale:      alertsQuery.data?.onSale.length ?? 0,
+        }
+    }
 
     return {
         counts,

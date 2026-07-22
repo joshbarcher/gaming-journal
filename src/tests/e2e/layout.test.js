@@ -24,8 +24,7 @@ test('sidebar renders all nav buttons', async ({ page }) => {
         '.sidebar-home-btn', '.sidebar-library-btn', '.sidebar-wishlist-btn',
         '.sidebar-discover-btn', '.sidebar-alerts-btn', '.sidebar-calendar-btn',
         '.sidebar-top-games-btn', '.sidebar-history-btn',
-        '.sidebar-inprogress-btn', '.sidebar-backlog-btn', '.sidebar-favorites-btn',
-        '.sidebar-abandoned-btn', '.sidebar-hof-btn', '.sidebar-franchises-btn',
+        '.sidebar-playing-btn', '.sidebar-collections-btn', '.sidebar-franchises-btn',
         '.sidebar-myreviews-btn', '.sidebar-account-btn', '.sidebar-settings-btn',
     ]
     for (const sel of buttons) {
@@ -43,11 +42,8 @@ const ACTIVE_CASES = [
     ['/alerts',       '.sidebar-alerts-btn'],
     ['/calendar',     '.sidebar-calendar-btn'],
     ['/history',      '.sidebar-history-btn'],
-    ['/in-progress',  '.sidebar-inprogress-btn'],
-    ['/backlog',      '.sidebar-backlog-btn'],
-    ['/favorites',    '.sidebar-favorites-btn'],
-    ['/abandoned',    '.sidebar-abandoned-btn'],
-    ['/hall-of-fame', '.sidebar-hof-btn'],
+    ['/playing',      '.sidebar-playing-btn'],
+    ['/collections',  '.sidebar-collections-btn'],
     ['/franchises',   '.sidebar-franchises-btn'],
     ['/my-reviews',   '.sidebar-myreviews-btn'],
     ['/account',      '.sidebar-account-btn'],
@@ -103,7 +99,8 @@ test('clicking nav buttons performs client-side navigation', async ({ page }) =>
     const navCases = [
         ['.sidebar-library-btn',    '/library'],
         ['.sidebar-history-btn',    '/history'],
-        ['.sidebar-backlog-btn',    '/backlog'],
+        ['.sidebar-collections-btn', '/collections'],
+        ['.sidebar-playing-btn',    '/playing'],
         ['.sidebar-home-btn',       '/'],
     ]
 
@@ -186,8 +183,7 @@ test('beforeNavigate sets gj_game_from when navigating to a game', async ({ page
 const ALL_ROUTES = [
     '/', '/toc', '/library', '/wishlist', '/account',
     '/calendar', '/releases', '/top-games', '/alerts',
-    '/favorites', '/backlog', '/abandoned', '/history',
-    '/in-progress', '/hall-of-fame', '/settings',
+    '/collections', '/playing', '/history', '/settings',
     '/franchises', '/my-reviews', '/discover',
     '/game/730', '/franchise/123',
     '/journal/730', '/journal/730/notes',
@@ -200,6 +196,25 @@ for (const route of ALL_ROUTES) {
         expect(response?.status()).toBe(200)
         await waitForLayout(page)
         await expect(page.locator('#main-content')).toBeVisible()
+    })
+}
+
+// ── Legacy collection routes redirect into the /collections tabs ──────────────
+
+const REDIRECTS = [
+    ['/in-progress',  '/collections?tab=in-progress'],
+    ['/backlog',      '/collections?tab=backlog'],
+    ['/favorites',    '/collections?tab=favorites'],
+    ['/abandoned',    '/collections?tab=abandoned'],
+    ['/hall-of-fame', '/collections?tab=completed'],
+]
+
+for (const [from, to] of REDIRECTS) {
+    test(`legacy ${from} redirects to ${to}`, async ({ page }) => {
+        await page.goto(from)
+        await waitForLayout(page)
+        await expect(page).toHaveURL(to)
+        await expect(page.locator('.sidebar-collections-btn')).toHaveClass(/\bactive\b/)
     })
 }
 

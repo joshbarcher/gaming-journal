@@ -136,7 +136,7 @@ describe('+layout.server load', () => {
             it('relay fully down still yields a complete renderable shape', async () => {
                 relayDown()
                 const data = await load()
-                expect(data.counts).toEqual({ favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, library: 0, wishlist: 0, franchises: 0 })
+                expect(data.counts).toEqual({ favorites: 0, inProgress: 0, backlog: 0, dropped: 0, completed: 0, playlist: 0, library: 0, wishlist: 0, franchises: 0 })
                 expect(data.pages).toEqual([])
                 expect(data.alertsCount).toBe(0)
                 expect(data.saleAlerts).toEqual([])
@@ -175,9 +175,10 @@ describe('+layout.server load', () => {
                 await setFlag(3, 'backlog', true)
                 await setFlag(4, 'dropped', true)
                 await setFlag(5, 'completed', true)
+                await setFlag(6, 'playlist', true)
                 stubRelay({ account: { stats: { totalGames: 42, wishlistCount: 7 } } })
                 const data = await load()
-                expect(data.counts).toEqual({ favorites: 2, inProgress: 1, backlog: 1, dropped: 1, completed: 1, library: 42, wishlist: 7, franchises: 0 })
+                expect(data.counts).toEqual({ favorites: 2, inProgress: 1, backlog: 1, dropped: 1, completed: 1, playlist: 1, library: 42, wishlist: 7, franchises: 0 })
             })
 
             it('an account payload without stats degrades counts to zero', async () => {

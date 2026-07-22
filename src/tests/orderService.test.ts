@@ -28,9 +28,10 @@ describe('orderService', () => {
     })
 
     describe('isValidOrderName', () => {
-        it('accepts exactly the two known lists', () => {
+        it('accepts exactly the three known lists', () => {
             expect(isValidOrderName('in-progress')).toBe(true)
             expect(isValidOrderName('backlog')).toBe(true)
+            expect(isValidOrderName('playlist')).toBe(true)
         })
 
         it('rejects case variants, padding, empty, and lookalike keys', () => {

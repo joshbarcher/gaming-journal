@@ -390,6 +390,7 @@
 .game-flag--active.game-flag--filtered  { color: #8888aa; }
 .game-flag--active.game-flag--favorite  { color: #e05577; }
 .game-flag--active.game-flag--revisit   { color: #40b0d0; }
+.game-flag--active.game-flag--playlist  { color: #46b98a; }
 .game-flag--active.game-flag--completed { color: var(--clr-accent); }
 .game-flag--active.game-flag--dropped   { color: #996655; }
 .game-flag--active.game-flag--inProgress    { color: #d07830; }

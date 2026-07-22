@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 export const FlagKeySchema = z.enum([
     'software', 'childLock', 'filtered', 'alert',
-    'favorite', 'revisit',
+    'favorite', 'revisit', 'playlist',
     'completed', 'dropped', 'inProgress', 'backlog',
 ])
 
@@ -16,6 +16,7 @@ export const GameFlagsSchema = z.object({
     alert:      z.boolean().optional(),
     favorite:   z.boolean().optional(),
     revisit:    z.boolean().optional(),
+    playlist:   z.boolean().optional(),
     completed:  z.boolean().optional(),
     dropped:    z.boolean().optional(),
     inProgress: z.boolean().optional(),

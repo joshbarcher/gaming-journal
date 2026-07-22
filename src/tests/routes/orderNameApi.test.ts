@@ -66,7 +66,7 @@ describe('/api/order/[name]', () => {
 
     describe('GET (valid names)', () => {
         it('returns [] for a valid name with no stored order', async () => {
-            for (const name of ['in-progress', 'backlog']) {
+            for (const name of ['in-progress', 'backlog', 'playlist']) {
                 const res = await GET(getReq(name))
                 expect(res.status).toBe(200)
                 expect(await res.json()).toEqual([])

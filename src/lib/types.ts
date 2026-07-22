@@ -134,7 +134,7 @@ export type Page =
 
 export type FlagKey =
     | 'software' | 'childLock' | 'filtered' | 'alert'
-    | 'favorite' | 'revisit'
+    | 'favorite' | 'revisit' | 'playlist'
     | 'completed' | 'dropped' | 'inProgress' | 'backlog'
 
 export type Flags = Partial<Record<FlagKey, boolean>>

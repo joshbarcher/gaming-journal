@@ -59,15 +59,20 @@ export default function DrawerLayout() {
             <Drawer.Screen name="calendar"     options={{ title: 'Calendar' }} />
             <Drawer.Screen name="top-games"    options={{ title: 'Top Games' }} />
             <Drawer.Screen name="history"      options={{ title: 'History' }} />
-            <Drawer.Screen name="in-progress"  options={{ title: 'In Progress' }} />
-            <Drawer.Screen name="backlog"      options={{ title: 'Backlog' }} />
-            <Drawer.Screen name="favorites"    options={{ title: 'Favorites' }} />
-            <Drawer.Screen name="abandoned"    options={{ title: 'Abandoned' }} />
-            <Drawer.Screen name="hall-of-fame" options={{ title: 'Completed' }} />
+            <Drawer.Screen name="playing"      options={{ title: 'Playing' }} />
+            <Drawer.Screen name="collections"  options={{ title: 'Collections' }} />
             <Drawer.Screen name="franchises"   options={{ title: 'Franchises' }} />
             <Drawer.Screen name="my-reviews"   options={{ title: 'My Reviews' }} />
             <Drawer.Screen name="account"      options={{ title: 'Account' }} />
             <Drawer.Screen name="settings"     options={{ title: 'Settings' }} />
+            {/* Legacy status-collection routes folded into /collections. Kept registered so deep
+                links / direct navigation still resolve, but hidden from the rail (which is driven by
+                DrawerContent's NAV_ITEMS, not by these registrations). */}
+            <Drawer.Screen name="in-progress"  options={{ title: 'In Progress', drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="backlog"      options={{ title: 'Backlog',     drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="favorites"    options={{ title: 'Favorites',   drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="abandoned"    options={{ title: 'Abandoned',   drawerItemStyle: { display: 'none' } }} />
+            <Drawer.Screen name="hall-of-fame" options={{ title: 'Completed',   drawerItemStyle: { display: 'none' } }} />
             {/* Detail routes: inside the drawer so the permanent rail persists, but hidden from the
                 rail's item list and with no drawer app-bar (each has its own nested headerless stack
                 + in-content chrome). */}
