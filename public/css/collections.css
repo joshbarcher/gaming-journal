@@ -1,0 +1,103 @@
+/* ── Collections — unified tabbed page (underline tabs) ─────────────────────────
+   The five status collections share one page. The tab strip is the primary control
+   and doubles as the page's identity, so each collection's own oversized header is
+   suppressed when embedded (see `embedded` prop) and replaced by the compact meta
+   line below. `--coll-acc` carries the active collection's signature colour: it's set
+   on the bar (for the eyebrow) and per-tab (for that tab's underline + count). */
+
+.coll-tabs-bar {
+    padding: 30px 40px 0;
+    margin-bottom: 20px;
+}
+
+.coll-eyebrow {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--coll-acc, var(--clr-accent));
+    margin: 0 0 13px;
+    transition: color var(--transition);
+}
+
+.coll-tabs {
+    display: flex;
+    align-items: flex-end;
+    gap: 26px;
+    border-bottom: 1px solid var(--clr-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.coll-tabs::-webkit-scrollbar { display: none; }
+
+.coll-tab {
+    position: relative;
+    padding: 0 1px 12px;
+    background: none;
+    border: none;
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--transition);
+}
+.coll-tab:hover { color: var(--clr-text); }
+
+.coll-tab-count {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--clr-text-muted);
+    margin-left: 6px;
+    font-variant-numeric: tabular-nums;
+    transition: color var(--transition);
+}
+
+.coll-tab--active { color: var(--clr-text); }
+.coll-tab--active .coll-tab-count { color: var(--coll-acc, var(--clr-accent)); }
+.coll-tab--active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--coll-acc, var(--clr-accent));
+}
+.coll-tab:focus-visible {
+    outline: 2px solid var(--coll-acc, var(--clr-accent));
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
+/* Compact per-collection metadata line — replaces each collection's tall header when
+   embedded in the tabbed page. Aligns with the collection body's horizontal padding. */
+.coll-panel-meta {
+    padding: 0 40px;
+    margin: 0 0 24px;
+    color: var(--clr-text-muted);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.coll-panel-meta--row { justify-content: space-between; }
+
+/* Responsive: track the same side padding the collection bodies use */
+@media (max-width: 1279px) {
+    .coll-tabs-bar   { padding: 24px 24px 0; margin-bottom: 16px; }
+    .coll-panel-meta { padding: 0 24px; margin-bottom: 18px; }
+}
+@media (max-width: 767px) {
+    .coll-tabs-bar   { padding: 20px 20px 0; }
+    .coll-panel-meta { padding: 0 20px; }
+    .coll-tabs       { gap: 18px; }
+    .coll-tab        { font-size: 0.9rem; }
+}
+@media (max-width: 479px) {
+    .coll-tabs-bar   { padding: 16px 0 0; }
+    .coll-panel-meta { padding: 0; }
+}

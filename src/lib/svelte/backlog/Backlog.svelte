@@ -3,6 +3,8 @@
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { SteamGame } from '../../types.js'
 
+    let { embedded = false }: { embedded?: boolean } = $props()
+
     let games           = $state<SteamGame[]>([])
     let loading         = $state(true)
     let error           = $state<string | null>(null)
@@ -174,28 +176,42 @@
 {:else if error}
     <p class="page-error">Failed to load backlog: {error}</p>
 {:else}
-    <div class="backlog-header">
-        <div class="backlog-header-body">
-            <p class="backlog-eyebrow">Collection</p>
-            <h1 class="backlog-title">Backlog</h1>
-            {#if games.length}<p class="backlog-subtitle">{subtitle}</p>{/if}
+    {#if !embedded}
+        <div class="backlog-header">
+            <div class="backlog-header-body">
+                <p class="backlog-eyebrow">Collection</p>
+                <h1 class="backlog-title">Backlog</h1>
+                {#if games.length}<p class="backlog-subtitle">{subtitle}</p>{/if}
+            </div>
+            {#if games.length}
+                <button class="backlog-random-btn" title="Pick a random game from your backlog" onclick={randomPick}>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+                        <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+                    </svg>
+                    Random Pick
+                </button>
+            {/if}
         </div>
-        {#if games.length}
-            <button class="backlog-random-btn" title="Pick a random game from your backlog" onclick={randomPick}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
-                    <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
-                </svg>
-                Random Pick
-            </button>
-        {/if}
-    </div>
+    {/if}
     {#if !games.length}
         <p class="page-empty" style="padding:40px">
             No games in your backlog yet. Open any game page and toggle the
             <strong>Backlog</strong> flag to add it here.
         </p>
     {:else}
+        {#if embedded}
+            <div class="coll-panel-meta coll-panel-meta--row">
+                <span>{subtitle}</span>
+                <button class="backlog-random-btn" title="Pick a random game from your backlog" onclick={randomPick}>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
+                        <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+                    </svg>
+                    Random Pick
+                </button>
+            </div>
+        {/if}
         <div class="backlog-queue">
             <div class="backlog-queue-header">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

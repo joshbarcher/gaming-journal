@@ -3,6 +3,8 @@
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { SteamGame } from '../../types.js'
 
+    let { embedded = false }: { embedded?: boolean } = $props()
+
     const TIERS = [
         { key: 'legend',    minH: 100, symbol: '◆', label: 'Legend',    sublabel: '100h+', cls: 'hof-tier--legend',    featured: true  },
         { key: 'veteran',   minH: 50,  symbol: '▲', label: 'Veteran',   sublabel: '50h+',  cls: 'hof-tier--veteran',   featured: false },
@@ -15,7 +17,11 @@
     let error   = $state<string | null>(null)
 
     let totalMin = $derived(games.reduce((s, g) => s + (g.playtime ?? 0), 0))
-    let subtitle = $derived(`${games.length} game${games.length !== 1 ? 's' : ''} conquered · ${fmtHours(totalMin)} total`)
+    let subtitle = $derived.by(() => {
+        const base = `${games.length} game${games.length !== 1 ? 's' : ''} conquered`
+        const total = fmtHours(totalMin)
+        return total ? `${base} · ${total} total` : base
+    })
     let grouped  = $derived.by(() => {
         const map = new Map<string, SteamGame[]>(TIERS.map(t => [t.key, []]))
         for (const g of games) map.get(tierFor(g.playtime ?? 0).key)!.push(g)
@@ -77,19 +83,22 @@
 {:else if error}
     <p class="page-error">Failed to load: {error}</p>
 {:else}
-    <div class="hof-header">
-        <div class="hof-header-body">
-            <p class="hof-eyebrow">Collection</p>
-            <h1 class="hof-title">Completed</h1>
-            {#if games.length}<p class="hof-subtitle">{subtitle}</p>{/if}
+    {#if !embedded}
+        <div class="hof-header">
+            <div class="hof-header-body">
+                <p class="hof-eyebrow">Collection</p>
+                <h1 class="hof-title">Completed</h1>
+                {#if games.length}<p class="hof-subtitle">{subtitle}</p>{/if}
+            </div>
         </div>
-    </div>
+    {/if}
     {#if !games.length}
         <p class="page-empty" style="padding:40px">
             No completed games yet. Open any game page and toggle the
             <strong>Completed</strong> flag to enshrine it here.
         </p>
     {:else}
+        {#if embedded}<p class="coll-panel-meta">{subtitle}</p>{/if}
         {#each TIERS as tier}
             {@const tierGames = grouped.get(tier.key) ?? []}
             {#if tierGames.length}

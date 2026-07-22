@@ -3,6 +3,8 @@
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { SteamGame } from '../../types.js'
 
+    let { embedded = false }: { embedded?: boolean } = $props()
+
     let games   = $state<SteamGame[]>([])
     let loading = $state(true)
     let error   = $state<string | null>(null)
@@ -89,19 +91,22 @@
 {:else if error}
     <p class="page-error">Failed to load: {error}</p>
 {:else}
-    <div class="ab-header">
-        <div class="ab-header-body">
-            <p class="ab-eyebrow">Collection</p>
-            <h1 class="ab-title">Abandoned</h1>
-            {#if games.length}<p class="ab-subtitle">{subtitle}</p>{/if}
+    {#if !embedded}
+        <div class="ab-header">
+            <div class="ab-header-body">
+                <p class="ab-eyebrow">Collection</p>
+                <h1 class="ab-title">Abandoned</h1>
+                {#if games.length}<p class="ab-subtitle">{subtitle}</p>{/if}
+            </div>
         </div>
-    </div>
+    {/if}
     {#if !games.length}
         <p class="page-empty" style="padding:40px">
             No dropped games yet. Open any game page and toggle the
             <strong>Dropped</strong> flag to track it here.
         </p>
     {:else}
+        {#if embedded}<p class="coll-panel-meta">{subtitle}</p>{/if}
         <div class="ab-grid">
             {#each games as g (g.appid)}
                 {@const invested  = fmtHours(g.playtime)}

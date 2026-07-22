@@ -4,6 +4,8 @@
     import type { SteamGame, LocalReview, Flags, FlagKey, CommunityReviews } from '../../types.js'
     import Icon from '../Icon.svelte'
 
+    let { embedded = false }: { embedded?: boolean } = $props()
+
     let games         = $state<SteamGame[]>([])
     let loading       = $state(true)
     let error         = $state<string | null>(null)
@@ -175,19 +177,22 @@
 {:else if error}
     <p class="page-error">Failed to load: {error}</p>
 {:else}
-    <div class="fav-header">
-        <div class="fav-header-body">
-            <p class="fav-eyebrow">Collection</p>
-            <h1 class="fav-title">Favorites</h1>
-            {#if games.length}<p class="fav-subtitle">{subtitle}</p>{/if}
+    {#if !embedded}
+        <div class="fav-header">
+            <div class="fav-header-body">
+                <p class="fav-eyebrow">Collection</p>
+                <h1 class="fav-title">Favorites</h1>
+                {#if games.length}<p class="fav-subtitle">{subtitle}</p>{/if}
+            </div>
         </div>
-    </div>
+    {/if}
     {#if !games.length}
         <p class="page-empty" style="padding:40px">
             No favorites yet. Open any game page and toggle the
             <strong>Favorite</strong> flag to add it here.
         </p>
     {:else}
+        {#if embedded}<p class="coll-panel-meta">{subtitle}</p>{/if}
         <div class="fav-grid">
             {#if hero}
                 {@const img        = `/relay/images/steam/games/${hero.appid}/header.jpg`}

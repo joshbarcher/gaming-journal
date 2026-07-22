@@ -3,6 +3,8 @@
     import { loadGameFilter } from '../../js/views/game-filter.js'
     import type { SteamGame } from '../../types.js'
 
+    let { embedded = false }: { embedded?: boolean } = $props()
+
     let games           = $state<SteamGame[]>([])
     let loading         = $state(true)
     let error           = $state<string | null>(null)
@@ -182,19 +184,22 @@
 {:else if error}
     <p class="page-error">Failed to load: {error}</p>
 {:else}
-    <div class="inprogress-header">
-        <div class="inprogress-header-body">
-            <p class="inprogress-eyebrow">Collection</p>
-            <h1 class="inprogress-title">In Progress</h1>
-            {#if games.length}<p class="inprogress-subtitle">{subtitle}</p>{/if}
+    {#if !embedded}
+        <div class="inprogress-header">
+            <div class="inprogress-header-body">
+                <p class="inprogress-eyebrow">Collection</p>
+                <h1 class="inprogress-title">In Progress</h1>
+                {#if games.length}<p class="inprogress-subtitle">{subtitle}</p>{/if}
+            </div>
         </div>
-    </div>
+    {/if}
     {#if !games.length}
         <p class="page-empty" style="padding:40px">
             No games on hold. Open any game page and toggle the
             <strong>In Progress</strong> flag to track paused playthroughs here.
         </p>
     {:else}
+        {#if embedded}<p class="coll-panel-meta">{subtitle}</p>{/if}
         <div class="inprogress-queue">
             <div class="inprogress-queue-header">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
