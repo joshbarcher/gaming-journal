@@ -19,6 +19,7 @@ import { refresh as refreshPosterPool } from './poster-pool.service.js';
 import { mapChunked } from '../shared/map-chunked.js';
 import { featureDir } from '../shared/data-root.js';
 import { createPersistedIndex } from '../shared/persisted-index.js';
+import { decodeEntities } from '../shared/decode-entities.js';
 import { getGames as getSteamGames, getWishlist } from '../steam/steam.service.js';
 import { getGameDetail } from '../steam/store.service.js';
 import { getEntry as getHltbEntry } from '../hltb/hltb.service.js';
@@ -64,7 +65,10 @@ function mergeStore(store) {
     return {
         type:            store.type ?? null,
         isFree:          store.is_free ?? false,
-        description:     store.short_description ?? null,
+        // short_description is rendered as plain text (hero blurb), so entities
+        // must be decoded here — the store cache keeps it raw. detailedDescription
+        // below stays raw because it's real HTML rendered via {@html}/render-html.
+        description:     decodeEntities(store.short_description) ?? null,
         developers:      store.developers ?? [],
         publishers:      store.publishers ?? [],
         price:           store.price_overview ?? null,

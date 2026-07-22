@@ -68,13 +68,15 @@ export default function TopGamesScreen() {
     }, [topGamesQuery.data, flagsQuery.data, settingsQuery.data])
     const filteredCount = allEntries.filter(e => e.filtered).length
 
+    // Muted games stay INTERLEAVED at their real rank (de-emphasized) when the filter is off, so the
+    // list reads as the true top-N with some rows dimmed — not a separate appended "—" block. Turning
+    // the filter on drops them and the survivors renumber so the ranks stay contiguous. (Web parity:
+    // TopGames.svelte displayRows.)
     const displayRows = useMemo(() => {
-        const active = allEntries.filter(e => !e.filtered)
-        const inactive = allEntries.filter(e => e.filtered)
-        return [
-            ...active.map((e, i) => ({ ...e, displayRank: String(i + 1) })),
-            ...(hideFiltered ? [] : inactive.map(e => ({ ...e, displayRank: '—' }))),
-        ]
+        let rank = 0
+        return allEntries
+            .filter(e => !(hideFiltered && e.filtered))
+            .map(e => ({ ...e, displayRank: String(++rank) }))
     }, [allEntries, hideFiltered])
 
     const apiHost = apiHostQuery.data
@@ -196,7 +198,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
         borderBottomWidth: 1, borderBottomColor: colors.border,
     },
-    rowFiltered: { opacity: 0.4 },
+    rowFiltered: { opacity: 0.5 }, // de-emphasised but readable (web parity: .tg-row-wrap--muted)
     rank: { width: 24, color: colors.textMuted, fontFamily: fonts.uiBold, fontSize: 12, textAlign: 'center' },
     thumb: { width: 48, height: 22, borderRadius: 3, backgroundColor: colors.bgHover },
     nameCell: { flex: 1, gap: 2 },

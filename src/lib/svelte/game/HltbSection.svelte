@@ -104,7 +104,7 @@
         {#if !milestones.length}
             <p class="game-section-empty">No data available for this game.</p>
         {:else}
-            {@const fillPct = playerHours > 0 ? pct(playerHours) : pct(milestones[0].h)}
+            {@const fillPct = playerHours > 0 ? pct(playerHours) : 0}
             <div class="hltb-bar-wrap" class:hltb--inview={inView} bind:this={barWrapEl}>
                 {#if playerHours > 0}
                     <div class="hltb-pin" style="left:{pct(playerHours).toFixed(2)}%">

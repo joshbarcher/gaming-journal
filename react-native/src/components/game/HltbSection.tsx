@@ -79,7 +79,9 @@ export function HltbSection({ game, onRefresh }: { game: GameDetail; onRefresh: 
     const pct = (h: number) => (Math.sqrt(h) / Math.sqrt(maxScale)) * 100
 
     const pinPct = playerHours > 0 ? pct(playerHours) : null
-    const fillPct = pinPct ?? pct(milestones[0].h)
+    // No playtime → no gold fill at all (an empty track). Filling to the Main milestone here
+    // read as progress the player hadn't actually made.
+    const fillPct = pinPct ?? 0
 
     const segments = milestones.map((m, i) => {
         const leftPct = i === 0 ? 0 : pct(milestones[i - 1].h)

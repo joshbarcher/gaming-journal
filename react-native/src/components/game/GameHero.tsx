@@ -89,11 +89,10 @@ export function GameHero({
     // title. media.logo is a host-relative relay path (absolute URLs pass through unchanged).
     const logo = game.media?.logo
     const logoUri = logo ? (logo.startsWith('http') ? logo : (apiHost ? `${apiHost}${logo}` : undefined)) : undefined
-    // The store description carries raw HTML entities (e.g. "Dungeons &amp; Dragons"); the web decodes
-    // them via the browser, but this plain <Text> would show them literally — decode the common ones.
-    const desc = (store?.description ?? '')
-        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ')
+    // Entities in the store description are now decoded server-side (games.service mergeStore →
+    // shared/decode-entities), so this plain <Text> can render it as-is. Decoding again here would
+    // double-decode intentionally double-escaped content, so we don't.
+    const desc = store?.description ?? ''
 
     // ── Data-panel rows (built once, mirrors GameHero.svelte's ordered blocks) ──
     const hltbRows: { label: string; value: string }[] = []

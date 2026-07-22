@@ -26,14 +26,14 @@
     let updatedAt    = $state('')
 
     let filtered    = $derived(allEntries.filter(e => e.filtered))
+    // Muted games stay INTERLEAVED at their real rank (de-emphasized) when the filter is off, so the
+    // list reads as the true top-N with some rows dimmed — not a separate appended "—" block. Turning
+    // the filter on drops them and the survivors renumber so the ranks stay contiguous.
     let displayRows = $derived.by(() => {
-        const active   = allEntries.filter(e => !e.filtered)
-        const inactive = allEntries.filter(e => e.filtered)
         let rank = 0
-        return [
-            ...active.map(e => ({ ...e, displayRank: ++rank })),
-            ...(hideFiltered ? [] : inactive.map(e => ({ ...e, displayRank: '—' }))),
-        ]
+        return allEntries
+            .filter(e => !(hideFiltered && e.filtered))
+            .map(e => ({ ...e, displayRank: ++rank }))
     })
 
     function fmt(n: number | null | undefined) {

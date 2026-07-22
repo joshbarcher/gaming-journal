@@ -105,11 +105,12 @@
 }
 
 .tg-row-wrap--muted {
-    opacity: 0.35;
+    /* De-emphasised but still readable — muted rows sit inline at their real rank. */
+    opacity: 0.5;
 }
 
 .tg-row-wrap--muted:hover {
-    opacity: 0.7;
+    opacity: 0.85;
 }
 
 /* ── Mute button ─────────────────────────────────────────────────────────────── */

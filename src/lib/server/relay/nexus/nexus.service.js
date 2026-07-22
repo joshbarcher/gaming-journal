@@ -14,6 +14,7 @@ import { tracked } from '../metrics/tracked.js';
 import { recordWrite } from '../../../../../activity.js';
 import { parseContent } from '../guides/parser/content-parser.js';
 import { bbcodeToHtml } from './bbcode.js';
+import { decodeEntities } from '../shared/decode-entities.js';
 import { scrapeAuthorImages } from './images-scraper.js';
 
 // Turn a mod's BBCode description into structured ContentBlock[] by reusing the guide
@@ -325,8 +326,8 @@ export function modPageUrl(domainName, modId) {
 export function shapeMod(node, domainName) {
     return {
         modId:          node.modId,
-        name:           node.name,
-        summary:        node.summary ?? null,
+        name:           decodeEntities(node.name),
+        summary:        decodeEntities(node.summary) ?? null,
         version:        node.version ?? null,
         author:         node.author ?? null,
         uploaderName:   node.uploader?.name ?? null,
@@ -353,9 +354,9 @@ export function shapeModDetail(node, domainName) {
     return {
         modId:               node.modId,
         gameId:              node.gameId ?? null,
-        name:                node.name,
-        summary:             node.summary ?? null,
-        description:         node.description ?? null,   // long-form (BBCode/HTML)
+        name:                decodeEntities(node.name),
+        summary:             decodeEntities(node.summary) ?? null,
+        description:         node.description ?? null,   // long-form (BBCode/HTML), stays raw for the parser
         version:             node.version ?? null,
         author:              node.author ?? null,
         fileSize:            node.fileSize ?? null,       // KB

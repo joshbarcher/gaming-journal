@@ -1,6 +1,64 @@
+<script module lang="ts">
+    import type { SteamGame as _SG, CommunityReviews as _CR, SteamUserReviewEntry as _MR, PlayerCounts as _PC, Flags as _FL, LocalReview as _LR, Trailer as _TR, ItadData as _ITAD, ProtonData as _PROT, PcgwData as _PCGW, NewsData as _NEWS, NexusData as _NEX } from '../../types.js'
+
+    // ── Back-navigation cache ────────────────────────────────────────────────
+    // A game page is a heavy multi-phase client fetch. When the user opens a sub-page (a news
+    // article, mods, PCGamingWiki…) and presses Back, SvelteKit unmounts and remounts this route,
+    // which would re-run every fetch and drop the scroll position. Within a short TTL we instead
+    // seed the whole component synchronously from this snapshot — so it renders at full height with
+    // zero refetch and we restore the exact scroll offset. Shared across all GamePage instances,
+    // hence <script module>.
+    const GAME_CACHE_TTL = 5 * 60_000
+    const GAME_CACHE_MAX = 12
+
+    interface GameSnapshot {
+        ts: number
+        scrollTop: number
+        game: _SG | null
+        communityReviews: _CR | null
+        myReview: _MR | null
+        playerCounts: _PC | null
+        flags: _FL
+        localReview: _LR | null
+        trailers: _TR[]
+        localWishlisted: boolean
+        hltbData: _SG['hltb'] | null | undefined
+        itadData: _ITAD | null | undefined
+        protonData: _PROT | null | undefined
+        pcgwData: _PCGW | null | undefined
+        newsData: _NEWS | null | undefined
+        nexusData: _NEX | null | undefined
+        hltbNeeded: boolean
+        itadNeeded: boolean
+        pcgwNeeded: boolean
+        nexusNeeded: boolean
+    }
+
+    const gameCache = new Map<string, GameSnapshot>()
+
+    function readGameSnapshot(appid: string): GameSnapshot | null {
+        const s = gameCache.get(appid)
+        if (!s) return null
+        if (Date.now() - s.ts > GAME_CACHE_TTL) { gameCache.delete(appid); return null }
+        return s
+    }
+
+    function writeGameSnapshot(appid: string, snap: Omit<GameSnapshot, 'ts'>): void {
+        for (const [k, v] of gameCache) if (Date.now() - v.ts > GAME_CACHE_TTL) gameCache.delete(k)
+        gameCache.delete(appid) // re-insert so it becomes the most-recent (Map keeps insertion order)
+        gameCache.set(appid, { ...snap, ts: Date.now() })
+        while (gameCache.size > GAME_CACHE_MAX) {
+            const oldest = gameCache.keys().next().value
+            if (oldest === undefined) break
+            gameCache.delete(oldest)
+        }
+    }
+</script>
+
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte'
+    import { onMount, onDestroy, tick } from 'svelte'
     import { page } from '$app/state'
+    import { getScrollInstance } from '$lib/actions/scrollbar.js'
     import type { SteamGame, CommunityReviews, SteamUserReviewEntry, PlayerCounts, Flags, LocalReview, Trailer, ItadData, ProtonData, PcgwData, NewsData, NexusData } from '../../types.js'
     import { escapeHtml } from '../../js/utils.js'
     import { navigate } from '../../js/router.js'
@@ -27,16 +85,20 @@
 
     let { appid } = $props()
 
+    // Fresh snapshot from a recent visit (see <script module>) — when present we render the whole
+    // page from it synchronously (no loader, no refetch) and restore scroll in onMount.
+    const _snap = readGameSnapshot(appid)
+
     // ── Phase 1 state (fast fetches) ─────────────────────────────────────────
-    let game             = $state<SteamGame | null>(null)
-    let communityReviews = $state<CommunityReviews | null>(null)
-    let myReview         = $state<SteamUserReviewEntry | null>(null)
-    let playerCounts     = $state<PlayerCounts | null>(null)
-    let flags            = $state<Flags>({})
-    let localReview      = $state<LocalReview | null>(null)
-    let trailers         = $state<Trailer[]>([])
-    let localWishlisted  = $state(false)
-    let loading          = $state(true)
+    let game             = $state<SteamGame | null>(_snap?.game ?? null)
+    let communityReviews = $state<CommunityReviews | null>(_snap?.communityReviews ?? null)
+    let myReview         = $state<SteamUserReviewEntry | null>(_snap?.myReview ?? null)
+    let playerCounts     = $state<PlayerCounts | null>(_snap?.playerCounts ?? null)
+    let flags            = $state<Flags>(_snap?.flags ?? {})
+    let localReview      = $state<LocalReview | null>(_snap?.localReview ?? null)
+    let trailers         = $state<Trailer[]>(_snap?.trailers ?? [])
+    let localWishlisted  = $state(_snap?.localWishlisted ?? false)
+    let loading          = $state(!_snap)
     let phase1Sections   = $state([
         { label: 'Game',      done: false },
         { label: 'Community', done: false },
@@ -50,19 +112,21 @@
     let error            = $state<string | null>(null)
 
     // ── Phase 2 state (background loads) ─────────────────────────────────────
-    // undefined = not yet fetched (show pending), null = fetched but no data, object = data
-    let hltbData    = $state<SteamGame['hltb'] | null | undefined>(undefined)
-    let itadData    = $state<ItadData | null | undefined>(undefined)
-    let protonData  = $state<ProtonData | null | undefined>(undefined)
-    let pcgwData    = $state<PcgwData | null | undefined>(undefined)
-    let newsData    = $state<NewsData | null | undefined>(undefined)
-    let nexusData   = $state<NexusData | null | undefined>(undefined)
+    // undefined = not yet fetched (show pending), null = fetched but no data, object = data.
+    // Restore-from-cache keeps the exact tri-state (null vs object vs undefined), so the ternaries
+    // below are deliberate — `_snap?.x ?? undefined` would wrongly collapse a cached null.
+    let hltbData    = $state<SteamGame['hltb'] | null | undefined>(_snap ? _snap.hltbData : undefined)
+    let itadData    = $state<ItadData | null | undefined>(_snap ? _snap.itadData : undefined)
+    let protonData  = $state<ProtonData | null | undefined>(_snap ? _snap.protonData : undefined)
+    let pcgwData    = $state<PcgwData | null | undefined>(_snap ? _snap.pcgwData : undefined)
+    let newsData    = $state<NewsData | null | undefined>(_snap ? _snap.newsData : undefined)
+    let nexusData   = $state<NexusData | null | undefined>(_snap ? _snap.nexusData : undefined)
     let bgPending    = $state(0)
-    let hltbNeeded   = $state(false)
-    let itadNeeded   = $state(false)
-    let pcgwNeeded   = $state(false)
-    let nexusNeeded  = $state(false)
-    let phase2Active = $state(false)
+    let hltbNeeded   = $state(_snap?.hltbNeeded ?? false)
+    let itadNeeded   = $state(_snap?.itadNeeded ?? false)
+    let pcgwNeeded   = $state(_snap?.pcgwNeeded ?? false)
+    let nexusNeeded  = $state(_snap?.nexusNeeded ?? false)
+    let phase2Active = $state(!!_snap)
 
     interface Section { label: string; done: boolean }
     let phase2Sections = $derived<Section[]>(
@@ -202,9 +266,31 @@
         })
     }
 
+    // ── Scroll container (OverlayScrollbars viewport on #main-content) ────────
+    function scrollViewport(): HTMLElement | null {
+        return (getScrollInstance()?.elements().viewport as HTMLElement | undefined)
+            ?? document.getElementById('main-content')
+    }
+
     // ── Phase 1: fast data fetch ──────────────────────────────────────────────
     onMount(async () => {
         document.getElementById('main-content')?.classList.add('has-game-hero')
+
+        // Restored from cache: everything is already seeded and rendered at full height. Skip all
+        // fetching and just put the scroll back where the user left it (unless a #section hash owns
+        // the scroll — the fragment-jump effect handles that case).
+        if (_snap) {
+            if (!page.url.hash) {
+                await tick()
+                const el = scrollViewport()
+                if (el) {
+                    el.scrollTop = _snap.scrollTop
+                    requestAnimationFrame(() => { const e = scrollViewport(); if (e) e.scrollTop = _snap.scrollTop })
+                }
+            }
+            return
+        }
+
         try {
             const [gameRes, crRes, mrRes, pcRes, flagsRes, localRevRes, trailersRes, localWlRes] = await Promise.all([
                 tracked(fetch(`/relay/api/games/${appid}`),                       'Game'),
@@ -376,6 +462,18 @@
     onDestroy(() => {
         _modalEl?.remove()
         document.getElementById('main-content')?.classList.remove('has-game-hero')
+
+        // Snapshot for instant Back-navigation restore — but only once fully settled (all phase-2
+        // sections resolved), so we never cache a half-loaded page whose pending fetches would be
+        // skipped on return. Errors and coming-soon/no-game states are naturally excluded.
+        if (game && !loading && phase2Active && bgPending === 0) {
+            writeGameSnapshot(appid, {
+                scrollTop: scrollViewport()?.scrollTop ?? 0,
+                game, communityReviews, myReview, playerCounts, flags, localReview, trailers, localWishlisted,
+                hltbData, itadData, protonData, pcgwData, newsData, nexusData,
+                hltbNeeded, itadNeeded, pcgwNeeded, nexusNeeded,
+            })
+        }
     })
 
     // ── Jump to a #game-sec-* fragment once its section exists in the DOM ─────
