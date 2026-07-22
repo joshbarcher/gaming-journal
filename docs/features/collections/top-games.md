@@ -27,7 +27,7 @@ Auto-refreshes every 30 minutes via `setInterval`. `updatedAt` shows the local t
 
 | Column | Description |
 |--------|-------------|
-| # | Rank (filtered games show "—") |
+| # | Rank — contiguous 1..N; muted rows keep their real rank, dimmed in place |
 | Game | Header thumbnail + name + owned/wishlisted badges |
 | Now | Current player count |
 | 24h Peak | Peak in last 24 hours (muted) |
@@ -43,9 +43,13 @@ Each row has a mute button (circle-slash icon). Clicking it toggles `entry.filte
 - **Filtered/hidden**: `POST /relay/api/player-counts/filtered/{appid}` — adds to hidden list
 - **Restored**: `DELETE /relay/api/player-counts/filtered/{appid}` — removes from hidden list
 
-Filtered games still appear in the table (rank shows "—", row is visually muted) unless the "Hide filtered" toggle is active.
+`displayRows` assigns a contiguous rank over whatever is shown:
+- **Filter OFF (default)**: muted games stay **interleaved at their real rank**, visually de-emphasised (`.tg-row-wrap--muted`, opacity 0.5) — the list reads as the true top-N with some rows dimmed, not a separate "—" block at the bottom.
+- **Filter ON**: muted games are dropped and the survivors renumber so ranks stay contiguous.
 
-**Hide filtered toggle**: appears in the header when at least one game is filtered. Shows count of hidden games. Clicking it toggles `hideFiltered` — when active, filtered games are removed from `displayRows` entirely.
+**Hide filtered toggle**: appears in the header when at least one game is filtered. Shows count of hidden games. Clicking it toggles `hideFiltered`.
+
+Native (`react-native/src/app/(drawer)/top-games.tsx`) mirrors this exactly (parity).
 
 ## Ownership badges
 
@@ -65,15 +69,19 @@ If `allEntries.length === 0` (no data collected yet), the page shows a message: 
 |------|------|
 | `src/lib/svelte/top-games/TopGames.svelte` | Top Games component |
 | `src/routes/top-games/+page.svelte` | Route shell |
-| `relay-server/src/controllers/player-counts/player-counts.controller.js` | `GET /api/player-counts/top`, filter endpoints |
+| `src/routes/relay/api/player-counts/top/+server.ts` | `GET /relay/api/player-counts/top`, filter endpoints |
+| `src/lib/server/relay/steam/player-counts.service.js` | Builds the merged player-count index (Steam official `GetMostPlayedGames` + owned/wishlist; re-sorted by current players, cap 100 — NOT SteamDB) |
 
 ## Common questions
 
 **Q: The page shows "No data yet."**
 The relay hasn't collected player count data. Trigger `POST /relay/api/player-counts/collect` from the relay (or wait for the scheduled collection to run). Once collected, the page populates.
 
-**Q: A game I hid keeps showing up at rank "—".**
-Filtering hides the rank but keeps the row. Use the "Hide filtered" toggle button in the header to remove filtered games from the table entirely.
+**Q: A game I muted still shows in the list.**
+With the filter off, muted games stay in place at their real rank, just dimmed — so you can still see what's hidden. Use the "Hide filtered" toggle in the header to drop them and renumber the rest.
+
+**Q: A game in SteamDB's top 100 (e.g. "TBH: Task Bar Hero") isn't in this list.**
+This list is NOT SteamDB. It's built from Steam's official `ISteamChartsService/GetMostPlayedGames` API plus your owned/wishlist games, re-sorted by current players and capped at 100. A game Steam's official API omits (and that you don't own/wishlist) is never collected, so it can't appear — no matter where SteamDB ranks it.
 
 **Q: The "Now" count seems stale.**
 Player counts refresh every 30 minutes. The `updatedAt` timestamp in the subtitle shows when the last refresh completed. The relay fetches from Steam's player count API — there may be a further delay between Steam's data and what the relay has cached.
