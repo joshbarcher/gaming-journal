@@ -962,22 +962,41 @@
                 {/if}
             </div>
         </div>
-        <!-- The TOC column is hidden in map mode, so its header label goes with
-             it — otherwise "Contents" sits over an empty column. -->
+        <!-- Same column in both modes: the guide's TOC and the map's layer list
+             are the same kind of thing — secondary navigation for whatever is in
+             the content column — so the heading just changes with the mode. -->
         <div class="gv-header-toc">
-            {#if !mapMode}<span class="gv-sidebar-label">Contents</span>{/if}
+            <span class="gv-sidebar-label">{mapMode ? 'Layers' : 'Contents'}</span>
         </div>
     </div>
 
     <!-- ── Full-width separator ──────────────────────────────────────────── -->
     <div class="gv-rule"></div>
 
+    <!-- Collapse handle. Lives outside .gv-body because that element is hidden in
+         map mode, and the handle has to drive both columns. It's position:fixed,
+         so its place in the DOM is presentational only. -->
+    <button class="gv-toc-gutter-btn" onclick={toggleToc}
+            title={tocCollapsed
+                ? (mapMode ? 'Expand layers' : 'Expand contents')
+                : (mapMode ? 'Collapse layers' : 'Collapse contents')}>
+        {#if tocCollapsed}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
+            </svg>
+        {:else}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>
+            </svg>
+        {/if}
+    </button>
+
     <!-- ── Interactive map ───────────────────────────────────────────────── -->
     <!-- Mounted only while active: Leaflet measures its container on creation,
          so keeping it alive behind display:none gives it a zero-size viewport. -->
     {#if mapMode}
         <div class="gv-mapbody">
-            <GuideMap {appid} {source} {guideId} />
+            <GuideMap {appid} {source} {guideId} collapsed={tocCollapsed} />
         </div>
     {/if}
 
@@ -1039,18 +1058,6 @@
                 </div>
             {/if}
         </div>
-
-        <button class="gv-toc-gutter-btn" onclick={toggleToc} title={tocCollapsed ? 'Expand contents' : 'Collapse contents'}>
-            {#if tocCollapsed}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>
-                </svg>
-            {:else}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>
-                </svg>
-            {/if}
-        </button>
 
         <!-- Drawer scrim — only rendered/visible below 1280px, where the TOC is an overlay -->
         {#if !tocCollapsed}

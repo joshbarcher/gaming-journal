@@ -13,11 +13,13 @@
     import { createMarkerLayer, loadSprite, spriteScaleFor, type MapIcon } from '$lib/js/ign-map-markers'
     import { jobStore } from '$lib/guide-jobs.svelte.js'
 
-    let { appid, source = 'ign', guideId, mapSlug = null }: {
+    let { appid, source = 'ign', guideId, mapSlug = null, collapsed = false }: {
         appid: string
         source?: string
         guideId: string
         mapSlug?: string | null
+        /** Driven by the guide viewer's shared TOC collapse, so both modes agree. */
+        collapsed?: boolean
     } = $props()
 
     const base = $derived(`/relay/guides-map/${appid}/${source}/${encodeURIComponent(guideId)}/_maps`)
@@ -116,6 +118,16 @@
     }
 
     let boundsApplied = false
+
+    // The rail animates its width over 220ms (matching the TOC's grid transition).
+    // Leaflet caches container size, so without a nudge afterwards the tile grid
+    // keeps the pre-collapse width and leaves a blank strip.
+    $effect(() => {
+        collapsed
+        if (!leaflet) return
+        const t = setTimeout(() => leaflet?.invalidateSize(), 260)
+        return () => clearTimeout(t)
+    })
 
     async function pollStatus() {
         if (!activeSlug) return
@@ -402,7 +414,7 @@
     })
 </script>
 
-<div class="gm-root" class:gm-root--fs={isFullscreen} bind:this={rootEl}>
+<div class="gm-root" class:gm-root--fs={isFullscreen} class:gm-root--collapsed={collapsed} bind:this={rootEl}>
     {#if !loading && !index.length}
         <!-- No map on disk. Guides downloaded before maps were folded into the
              download pipeline land here, so the map can be fetched without
@@ -433,6 +445,21 @@
             {/if}
             {#if probeError}<p class="gm-hint gm-hint--err">{probeError}</p>{/if}
         </div>
+    {:else}
+    <!-- The rail varies with the collapse state; the map surface below it does not,
+         so only the aside is branched. -->
+    {#if collapsed}
+        <!-- Collapsed rail, mirroring the TOC's collapsed view: the layers that are
+             currently on, as sprite swatches. Clicking one switches it off, so the
+             rail stays useful rather than being decoration. -->
+        <aside class="gm-side gm-side--collapsed">
+            {#each (mapData?.types ?? []).filter((t: any) => t.markerCount > 0 && enabled.has(t.typeSlug)) as t}
+                <button type="button" class="gm-rail-btn" title="{t.typeName} ({t.markerCount}) — click to hide"
+                        onclick={() => toggleType(t.typeSlug)}>
+                    <span class="gm-sw" style={swatch(t)}></span>
+                </button>
+            {/each}
+        </aside>
     {:else}
     <aside class="gm-side">
         {#if index.length > 1}
@@ -496,6 +523,7 @@
             {/each}
         </div>
     </aside>
+    {/if}
 
     <div class="gm-mapwrap">
         <button type="button" class="gm-fs" onclick={toggleFullscreen}
@@ -564,17 +592,57 @@
 </div>
 
 <style>
-    .gm-root { display: flex; height: 100%; min-height: 32rem; gap: 0; }
-
-    .gm-side {
-        width: 17rem; flex: 0 0 17rem; overflow-y: auto; padding: .6rem;
-        border-right: 1px solid var(--border, #2a2a32);
-        background: var(--panel, #16161c); font-size: .82rem;
+    /* Mirrors .gv-body's grid so the map sits in the content column and its
+       layer list lands in the same 300px column the TOC uses. Both modes then
+       share one skeleton — content centred, secondary nav always on the right —
+       instead of the map having its own left rail that shifts everything. */
+    .gm-root {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        height: 100%;
+        min-height: 32rem;
+        /* Same easing/duration as .gv-body so collapsing feels identical whether
+           you're on the guide or the map. */
+        transition: grid-template-columns 220ms cubic-bezier(0.4, 0, 0.2, 1);
     }
+
+    /* 40px matches .gv-toc--collapsed .gv-body, so the gutter handle lands in the
+       same place in both modes. */
+    .gm-root--collapsed { grid-template-columns: 1fr 40px; }
+
+    .gm-side--collapsed {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        padding: 12px 0 40px;
+    }
+    .gm-rail-btn {
+        display: grid; place-content: center;
+        width: 26px; height: 26px; padding: 0;
+        background: none; border: 0; cursor: pointer; border-radius: 4px;
+    }
+    .gm-rail-btn:hover { background: rgba(255, 255, 255, 0.08); }
+    /* The swatches are 33x44 sprite windows; scale them down to fit the rail
+       without redefining every icon's geometry. */
+    .gm-rail-btn .gm-sw { transform: scale(0.55); transform-origin: center; }
+
+    /* Explicit placement rather than DOM order: the layer list is declared first
+       so it reads before the canvas for keyboard and screen-reader users, while
+       still painting on the right. */
+    .gm-side {
+        grid-column: 2; grid-row: 1;
+        overflow-y: auto; scrollbar-width: none;
+        padding: 16px 16px 40px;
+        /* Same surface treatment as .gv-sidebar so the column doesn't change
+           character when you flip between Guide and Map. */
+        background: var(--clr-bg-raised);
+        border-left: 1px solid var(--clr-border);
+        font-size: .82rem;
+    }
+    .gm-side::-webkit-scrollbar { display: none; }
+
     .gm-mapsel, .gm-search {
         width: 100%; margin-bottom: .5rem; padding: .35rem .5rem;
-        background: var(--input-bg, #101015); color: inherit;
-        border: 1px solid var(--border, #2a2a32); border-radius: .3rem;
+        background: var(--clr-bg, #101015); color: inherit;
+        border: 1px solid var(--clr-border); border-radius: .3rem;
     }
 
     .gm-hits { list-style: none; margin: 0 0 .5rem; padding: 0; max-height: 14rem; overflow-y: auto; }
@@ -604,7 +672,7 @@
     /* Sprite window — same offsets the canvas layer draws with. */
     .gm-sw { display: inline-block; flex: 0 0 auto; background-repeat: no-repeat; }
 
-    .gm-mapwrap { position: relative; flex: 1 1 auto; min-width: 0; }
+    .gm-mapwrap { grid-column: 1; grid-row: 1; position: relative; min-width: 0; }
     .gm-map { position: absolute; inset: 0; background: #0d0d11; }
 
     /* Fullscreen makes the root the whole screen; the flex row inside is unchanged,
@@ -620,7 +688,10 @@
     }
     .gm-fs:hover { opacity: 1; }
 
+    /* Nothing downloaded yet — there is no map and no layer list, so this spans
+       both columns rather than leaving an empty rail beside it. */
     .gm-discover {
+        grid-column: 1 / -1;
         margin: auto; padding: 1.5rem; max-width: 26rem; text-align: center;
         align-self: center;
     }
@@ -674,9 +745,15 @@
     .gm-partial-bar > div { height: 100%; background: #d8b45c; transition: width .4s ease; }
     .gm-btn--sm { padding: .15rem .5rem; font-size: .72rem; }
 
-    @media (max-width: 900px) {
-        .gm-root { flex-direction: column; }
-        .gm-side { width: auto; flex: 0 0 auto; max-height: 14rem; border-right: 0; border-bottom: 1px solid var(--border, #2a2a32); }
-        .gm-mapwrap { min-height: 26rem; }
+    /* Matches the breakpoint where the guide viewer drops its own TOC column:
+       below it, layers stack above the map rather than squeezing it. */
+    @media (max-width: 1280px) {
+        .gm-root { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+        .gm-side {
+            grid-column: 1; grid-row: 1; max-height: 14rem;
+            border-left: 0; border-bottom: 1px solid var(--clr-border);
+            padding: 12px 16px;
+        }
+        .gm-mapwrap { grid-column: 1; grid-row: 2; min-height: 26rem; }
     }
 </style>
