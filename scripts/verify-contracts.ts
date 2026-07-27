@@ -42,6 +42,7 @@ import { GuideMetaSchema } from '../contracts/guideMeta.ts'
 import { GuideFulltextResponseSchema } from '../contracts/guideFulltext.ts'
 import { GuideSearchGetResponseSchema } from '../contracts/guideSearch.ts'
 import { GuideJobsResponseSchema } from '../contracts/guideJobs.ts'
+import { IgnMapSchema, IgnMapIndexSchema } from '../contracts/ignMap.ts'
 import { TrackerSuggestJobsResponseSchema } from '../contracts/trackerSuggest.ts'
 import { SettingsSchema } from '../contracts/settings.ts'
 import { ReleasesResponseSchema } from '../contracts/releases.ts'
@@ -104,6 +105,12 @@ const checks: Check[] = [
     { name: 'GuideFulltext', url: `${GATEWAY}/relay/api/guides/2161700/ign/persona-3-reload/fulltext`, schema: GuideFulltextResponseSchema },
     { name: 'GuideSearch',   url: `${GATEWAY}/relay/api/guides/2161700/search`, schema: GuideSearchGetResponseSchema },
     { name: 'GuideJobs',     url: `${GATEWAY}/relay/api/guides/jobs`, schema: GuideJobsResponseSchema },
+    // appid 1623730 (Palworld) — the Palpagos Islands map, 51 marker types / 11,138
+    // markers, confirmed downloaded with the full z8-16 pyramid. These are static
+    // files under the guides root rather than a controller response, so a failure
+    // here means the fetcher's output drifted from the contract, not an API change.
+    { name: 'IgnMapIndex',   url: `${GATEWAY}/relay/guides-map/1623730/ign/palworld/_maps/_index.json`, schema: IgnMapIndexSchema },
+    { name: 'IgnMap',        url: `${GATEWAY}/relay/guides-map/1623730/ign/palworld/_maps/palpagos-islands/map.json`, schema: IgnMapSchema },
     { name: 'TrackerSuggestJobs', url: `${GATEWAY}/relay/api/progress-suggest/jobs`, schema: TrackerSuggestJobsResponseSchema },
     { name: 'Settings',      url: `${GATEWAY}/api/settings`, schema: SettingsSchema },
     { name: 'Releases',      url: `${GATEWAY}/relay/api/steam/releases`, schema: ReleasesResponseSchema },

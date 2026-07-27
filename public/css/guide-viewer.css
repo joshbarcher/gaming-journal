@@ -1556,3 +1556,56 @@ a.gv-toc-group-hd--link {
     }
 }
 
+
+/* ── Guide / Map mode toggle ──────────────────────────────────────────────── */
+/* Shown only when an IGN interactive map has been downloaded for the guide. */
+
+.gv-title-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.gv-title-row .gv-page-title {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.gv-header-modes {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    background: var(--clr-bg-raised);
+}
+
+.gv-mode {
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    color: var(--clr-text-dim);
+    background: none;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.gv-mode:hover { color: var(--clr-text); }
+
+.gv-mode--on {
+    color: var(--clr-text);
+    background: var(--clr-bg-inset, rgba(255, 255, 255, 0.08));
+}
+
+/* The guide body stays mounted while the map is open so returning to it keeps
+   the loaded page and scroll position — see GuideViewer's mapMode branch. */
+.gv-body--hidden { display: none; }
+
+.gv-mapbody {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}

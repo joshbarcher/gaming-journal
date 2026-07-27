@@ -6,6 +6,7 @@
     import GuideLanding from './GuideLanding.svelte'
     import GuideInlineSearch from './GuideInlineSearch.svelte'
     import GuidePageSearch from './GuidePageSearch.svelte'
+    import GuideMap from './GuideMap.svelte'
     import Fuse from 'fuse.js'
     import { trimGameNamePrefix } from '$contracts/guideLabels'
     import { getCachedFulltext } from '$lib/guide-cache.js'
@@ -23,6 +24,9 @@
 
     let gameName       = $state('')
     let meta           = $state<any>(null)
+    // Downloaded interactive maps for this guide (usually empty).
+    let maps           = $state<any[]>([])
+    let mapMode        = $state(false)
     let blocks         = $state<any[]>([])
     let currentSlug    = $state<string | null>(null)
     let loading          = $state(true)
@@ -669,12 +673,18 @@
     // ── Data loading ───────────────────────────────────────────────────────────
 
     async function loadMeta() {
-        const [metaRes, gameRes] = await Promise.allSettled([
+        const [metaRes, gameRes, mapsRes] = await Promise.allSettled([
             fetch(`/relay/api/guides/${appid}/${source}/${guideId}/meta`).then(r => r.ok ? r.json() : null),
             fetch(`/relay/api/games/${appid}`).then(r => r.ok ? r.json() : null),
+            // Interactive maps are downloaded separately from the guide's pages,
+            // so their index is the only thing that says whether one exists. A
+            // 404 here is the normal case — most guides have no map.
+            fetch(`/relay/guides-map/${appid}/${source}/${encodeURIComponent(guideId)}/_maps/_index.json`)
+                .then(r => r.ok ? r.json() : null).catch(() => null),
         ])
         meta     = (metaRes as PromiseFulfilledResult<any>).value
         gameName = (gameRes as PromiseFulfilledResult<any>).value?.name ?? ''
+        maps     = (mapsRes as PromiseFulfilledResult<any>).value ?? []
         if (!meta) throw new Error('Guide not found')
     }
 
@@ -938,18 +948,43 @@
     <div class="gv-header-row">
         <div class="gv-header-main">
             <Breadcrumb {crumbs} />
-            <h1 class="gv-page-title">{sectionLabel || meta.title}</h1>
+            <div class="gv-title-row">
+                <h1 class="gv-page-title">{mapMode ? 'Interactive Map' : (sectionLabel || meta.title)}</h1>
+                {#if maps.length || source === 'ign'}
+                    <!-- Offered for every IGN guide, not just ones with a map already
+                         on disk: guides downloaded before maps were folded into the
+                         pipeline need a way in to fetch one. Non-IGN sources have no
+                         maps at all, so they never see the toggle. -->
+                    <div class="gv-header-modes">
+                        <button type="button" class="gv-mode" class:gv-mode--on={!mapMode} onclick={() => mapMode = false}>Guide</button>
+                        <button type="button" class="gv-mode" class:gv-mode--on={mapMode} onclick={() => mapMode = true}>Map</button>
+                    </div>
+                {/if}
+            </div>
         </div>
+        <!-- The TOC column is hidden in map mode, so its header label goes with
+             it — otherwise "Contents" sits over an empty column. -->
         <div class="gv-header-toc">
-            <span class="gv-sidebar-label">Contents</span>
+            {#if !mapMode}<span class="gv-sidebar-label">Contents</span>{/if}
         </div>
     </div>
 
     <!-- ── Full-width separator ──────────────────────────────────────────── -->
     <div class="gv-rule"></div>
 
+    <!-- ── Interactive map ───────────────────────────────────────────────── -->
+    <!-- Mounted only while active: Leaflet measures its container on creation,
+         so keeping it alive behind display:none gives it a zero-size viewport. -->
+    {#if mapMode}
+        <div class="gv-mapbody">
+            <GuideMap {appid} {source} {guideId} />
+        </div>
+    {/if}
+
     <!-- ── Three-column body ─────────────────────────────────────────────── -->
-    <div class="gv-body">
+    <!-- Hidden rather than unmounted while the map is open, so returning to the
+         guide keeps the loaded page and scroll position. -->
+    <div class="gv-body" class:gv-body--hidden={mapMode}>
 
         <!-- Reading progress bar — absolute, spans content column only -->
         {#if currentSlug}

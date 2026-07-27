@@ -18,7 +18,13 @@ export const GuideJobSchema = z.object({
     // fetch step — used to pick up parser/adapter fixes without re-hitting the source.
     // Optional: jobs enqueued before this field existed have no `mode`, and the queue
     // treats anything other than 'reparse' as a normal download.
-    mode:        z.enum(['download', 'reparse']).optional(),
+    // 'map' downloads an IGN interactive map (tiles + markers) into the guide's
+    // _maps/ dir. It runs as its OWN job rather than a phase of a guide download —
+    // a deep pyramid is ~87k tiles and over an hour, which must never gate guide
+    // availability. It has no parse phase either: fetch-map.js writes its own
+    // normalized map.json, so `pages`/`subtask` are reported complete immediately
+    // and tile progress rides on `download`.
+    mode:        z.enum(['download', 'reparse', 'map']).optional(),
     status:      z.enum(['pending', 'running', 'done', 'error', 'cancelled']),
     progress:    z.object({ download: z.number(), pages: z.number(), subtask: z.number() }),
     log:         z.array(z.string()),

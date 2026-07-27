@@ -6,9 +6,11 @@ export interface Job {
     url:         string
     gameName:    string
     // 'reparse' re-runs the parser over raw HTML already on disk, skipping the fetch
-    // step. Optional: jobs enqueued before this field existed carry no `mode`, and
-    // anything other than 'reparse' is treated as a normal download.
-    mode?:       'download' | 'reparse'
+    // step. 'map' downloads an IGN interactive map into the guide's _maps/ dir — its
+    // own job, never a phase of a guide download, so an hour of tiles can't gate the
+    // guide. Optional: jobs enqueued before this field existed carry no `mode`, and
+    // anything other than these is treated as a normal download.
+    mode?:       'download' | 'reparse' | 'map'
     status:      'pending' | 'running' | 'done' | 'error' | 'cancelled'
     progress:    { download: number; pages: number; subtask: number }
     log:         string[]

@@ -64,11 +64,14 @@ export function getJobs() {
  * @param {string}  params.guideId
  * @param {string}  [params.url]       Source URL. Unused when mode is 'reparse'.
  * @param {string}  [params.gameName]
- * @param {'download'|'reparse'} [params.mode='download']
+ * @param {'download'|'reparse'|'map'} [params.mode='download']
  *   'download' — fetch the guide's pages, then parse them.
  *   'reparse'  — parse only, reusing the raw HTML already on disk. Re-running a parse
  *                after a parser/adapter fix must never re-hit the source site, so the
  *                fetch step is skipped entirely rather than run against a warm cache.
+ *   'map'      — fetch an IGN interactive map (tiles + markers) into the guide's
+ *                _maps/ dir. There is no parse phase: fetch-map.js writes the
+ *                normalized map.json itself, so the pipeline is a single script.
  */
 export function enqueueJob({ steamId, source, guideId, url, gameName, mode = 'download' }) {
     // Return existing active job rather than creating a duplicate
@@ -90,8 +93,14 @@ export function enqueueJob({ steamId, source, guideId, url, gameName, mode = 'do
         mode,
         status:      'pending',
         // A reparse has no download phase; report it complete so the UI's shared
-        // three-bar layout doesn't sit at 0% forever.
-        progress:    { download: mode === 'reparse' ? 100 : 0, pages: 0, subtask: 0 },
+        // three-bar layout doesn't sit at 0% forever. A map job has no parse or
+        // index phase at all — it reports tile progress on `download` and the UI
+        // renders that single bar.
+        progress:    {
+            download: mode === 'reparse' ? 100 : 0,
+            pages:    mode === 'map' ? 100 : 0,
+            subtask:  mode === 'map' ? 100 : 0,
+        },
         log:         [],
         createdAt:   new Date().toISOString(),
         startedAt:   null,
@@ -195,6 +204,30 @@ async function _runJob(job) {
     _patch(job, { status: 'running', startedAt: new Date().toISOString() });
 
     try {
+        // A map is a self-contained fetch: fetch-map.js writes its own normalized
+        // map.json, so there is no parse script to follow it.
+        if (job.mode === 'map') {
+            await _runScript(job, 'fetch-map.js', [
+                '--url',      job.url,
+                '--steam-id', job.steamId,
+                '--guide-id', job.guideId,
+            ]);
+
+            let sizeBytes = null;
+            const mapRoot = guidesRoot();
+            if (mapRoot) {
+                sizeBytes = await dirSize(join(mapRoot, job.steamId, job.source, job.guideId, '_maps'));
+            }
+
+            _patch(job, {
+                status:      'done',
+                completedAt: new Date().toISOString(),
+                progress:    { download: 100, pages: 100, subtask: 100 },
+                sizeBytes,
+            });
+            return;
+        }
+
         // Reparse reuses the raw HTML already on disk — never re-hit the source site.
         if (job.mode !== 'reparse') {
             await _runScript(job, 'fetch-guide.js', [
@@ -212,6 +245,11 @@ async function _runJob(job) {
             '--source',   job.source,
             '--guide-id', job.guideId,
         ]);
+
+        // Interactive maps are deliberately NOT a phase of this job. A deep map is
+        // ~87k tiles / over an hour (Palworld), which would hold a guide hostage to
+        // an optional extra and stall every re-download behind it. Maps run as
+        // their own 'map' job, queued from the map view — see docs/features/guides/maps.md.
 
         let sizeBytes = null;
         const root = guidesRoot();

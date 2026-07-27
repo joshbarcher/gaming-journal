@@ -106,6 +106,10 @@
                         <span class="dl-source">{SOURCE_LABELS[job.source] ?? job.source}</span>
                         {#if job.mode === 'reparse'}
                             <span class="dl-mode">Re-parse</span>
+                        {:else if job.mode === 'map'}
+                            <!-- A side download: the guide is already usable, and this
+                                 can run for an hour without holding anything up. -->
+                            <span class="dl-mode dl-mode--map">Map</span>
                         {/if}
                         <span class="dl-status dl-status--{job.status}">{job.status === 'pending' ? 'Queued' : 'Running'}</span>
                         {#if job.status === 'pending'}
@@ -118,21 +122,27 @@
                                  meaningless 100% — omit the row entirely. -->
                             {#if job.mode !== 'reparse'}
                                 <div class="dl-bar-row">
-                                    <span class="dl-bar-label">Fetch</span>
+                                    <!-- A map job's only phase IS the tile download. -->
+                                    <span class="dl-bar-label">{job.mode === 'map' ? 'Tiles' : 'Fetch'}</span>
                                     <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.download}%"></div></div>
                                     <span class="dl-bar-pct">{job.progress.download}%</span>
                                 </div>
                             {/if}
-                            <div class="dl-bar-row">
-                                <span class="dl-bar-label">Parse</span>
-                                <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.pages}%"></div></div>
-                                <span class="dl-bar-pct">{job.progress.pages}%</span>
-                            </div>
-                            <div class="dl-bar-row">
-                                <span class="dl-bar-label">Index</span>
-                                <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.subtask}%"></div></div>
-                                <span class="dl-bar-pct">{job.progress.subtask}%</span>
-                            </div>
+                            <!-- A map has no parse or index phase — fetch-map.js writes its
+                                 own normalized map.json — so those rows would be permanent
+                                 100%s that say nothing. -->
+                            {#if job.mode !== 'map'}
+                                <div class="dl-bar-row">
+                                    <span class="dl-bar-label">Parse</span>
+                                    <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.pages}%"></div></div>
+                                    <span class="dl-bar-pct">{job.progress.pages}%</span>
+                                </div>
+                                <div class="dl-bar-row">
+                                    <span class="dl-bar-label">Index</span>
+                                    <div class="dl-bar-track"><div class="dl-bar-fill" style="width:{job.progress.subtask}%"></div></div>
+                                    <span class="dl-bar-pct">{job.progress.subtask}%</span>
+                                </div>
+                            {/if}
                         </div>
                         {#if job.log.length}
                             <div class="dl-log-tail">{job.log[job.log.length - 1]}</div>
@@ -372,6 +382,12 @@
     border-radius: 3px;
     color: #4ecdc4;
     background: rgba(78, 205, 196, 0.14);
+}
+/* A map is a side download — distinct colour so a long-running tile pull isn't
+   mistaken for a guide that's taking forever. */
+.dl-mode--map {
+    color: #b892e8;
+    background: rgba(184, 146, 232, 0.14);
 }
 .dl-status {
     font-size: 0.72rem;
