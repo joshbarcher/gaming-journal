@@ -157,6 +157,23 @@ export const IgnMapSchema = z.object({
     markers: z.array(MapMarkerSchema),
 })
 
+// GET/PUT /relay/api/guides/:steamId/:source/:guideId/maps/:mapSlug/prefs —
+// server-persisted marker-layer filters for one map, so it reopens as it was left
+// (and does so on any machine, unlike localStorage).
+//
+// Stored under the user's journal data, NOT in the map's own directory: a map
+// re-download rewrites map.json/tiles.json and must never take the user's filters
+// with it. Keyed per map because one game can ship many with unrelated layer sets.
+//
+// `enabled: null` means never saved, which is deliberately distinct from `[]`
+// (every layer switched off on purpose). The client needs that difference — null
+// falls back to IGN's own defaults, `[]` must be honoured as-is.
+export const IgnMapPrefsSchema = z.object({
+    enabled: z.array(z.string()).nullable(),
+    collapsedGroups: z.array(z.string()),
+    updatedAt: z.string().nullable(),
+})
+
 // _maps/_index.json — every map downloaded for one guide, so the viewer can
 // offer a switcher without stat-ing the directory tree.
 export const IgnMapIndexSchema = z.array(z.object({

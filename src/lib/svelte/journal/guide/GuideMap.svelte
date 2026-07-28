@@ -189,6 +189,71 @@
 
     const foundKey = $derived(`ign-map-found:${appid}:${guideId}:${activeSlug}`)
 
+    // ── Filter persistence ───────────────────────────────────────────────────
+    // Layer filters are saved server-side per map, so a map reopens exactly as it
+    // was left — on any machine, unlike the localStorage-backed found markers.
+    const prefsUrl = $derived(
+        `/relay/api/guides/${appid}/${source}/${encodeURIComponent(guideId)}/maps/${activeSlug}/prefs`
+    )
+
+    // Guards a first-load race: the map applies IGN's defaults before prefs arrive,
+    // and without this the resulting state change would immediately save those
+    // defaults back over what the user had stored.
+    let prefsLoaded = $state(false)
+    let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+    /**
+     * Persist the current filter state, debounced.
+     *
+     * Called from the toggle handlers rather than an $effect on `enabled`: an effect
+     * would also fire for the programmatic default-application during load, which is
+     * exactly the write we must not make.
+     */
+    // The write the debounce is currently holding, so it can be flushed early.
+    let pendingSave: { url: string, body: string } | null = null
+
+    function flushPrefs() {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+        if (!pendingSave) return
+        const { url, body } = pendingSave
+        pendingSave = null
+        fetch(url, { method: 'PUT', headers: { 'content-type': 'application/json' }, body })
+            .catch(() => { /* best-effort; the map stays usable either way */ })
+    }
+
+    function savePrefs() {
+        if (!prefsLoaded || !activeSlug) return
+        // URL and body are captured NOW, not at fire time: switching maps inside the
+        // debounce window would otherwise PUT this map's filters to the next map's key.
+        pendingSave = {
+            url:  prefsUrl,
+            body: JSON.stringify({ enabled: [...enabled], collapsedGroups: [...collapsedGroups] }),
+        }
+        if (saveTimer) clearTimeout(saveTimer)
+        // "All"/"None" and rapid checkbox runs would otherwise be one PUT per click.
+        saveTimer = setTimeout(flushPrefs, 600)
+    }
+
+    /**
+     * Apply saved filters over the map's own defaults.
+     *
+     * Saved slugs are intersected with the types this map currently has: a re-download
+     * can add or drop layers, and a stale slug would otherwise sit in `enabled`
+     * forever, or worse, leave the user with a set referencing nothing.
+     *
+     * `enabled: null` means never-saved and falls through to IGN's defaults, while an
+     * empty array is a deliberate "everything off" and is honoured.
+     */
+    function applyPrefs(prefs: any, data: any) {
+        const known = new Set<string>(data.types.map((t: any) => t.typeSlug))
+        if (Array.isArray(prefs?.enabled)) {
+            enabled = new Set<string>(prefs.enabled.filter((s: string) => known.has(s)))
+        }
+        if (Array.isArray(prefs?.collapsedGroups)) {
+            collapsedGroups = new Set<string>(prefs.collapsedGroups.filter((s: string) => known.has(s)))
+        }
+    }
+
     // ── Load ─────────────────────────────────────────────────────────────────
     async function loadIndex() {
         const res = await fetch(`${base}/_index.json`)
@@ -217,7 +282,16 @@
             mapData = data
             tileStatus = statusRes?.ok ? await statusRes.json() : data.tiles
             boundsApplied = false
+
+            // IGN's own first-load selection is the floor; saved prefs override it below.
             enabled = new Set(data.types.filter((t: any) => t.defaultOn && t.markerCount > 0).map((t: any) => t.typeSlug))
+            prefsLoaded = false
+            collapsedGroups = new Set()
+            try {
+                const p = await fetch(prefsUrl).then(r => r.ok ? r.json() : null)
+                applyPrefs(p, data)
+            } catch { /* unreachable prefs must not block the map — defaults stand */ }
+            prefsLoaded = true
             try {
                 found = new Set(JSON.parse(localStorage.getItem(foundKey) ?? '[]'))
             } catch { found = new Set() }
@@ -314,6 +388,9 @@
 
     onDestroy(() => {
         document.removeEventListener('fullscreenchange', onFullscreenChange)
+        // Toggling a layer then leaving inside the debounce window would otherwise
+        // drop the write — flush it on the way out.
+        flushPrefs()
         stopPolling()
         leaflet?.remove()
         leaflet = null
@@ -344,6 +421,7 @@
         const next = new Set(enabled)
         next.has(slug) ? next.delete(slug) : next.add(slug)
         enabled = next
+        savePrefs()
     }
 
     function toggleGroup(group: any) {
@@ -351,18 +429,21 @@
         const next = new Set(enabled)
         for (const k of group.kids) allOn ? next.delete(k.typeSlug) : next.add(k.typeSlug)
         enabled = next
+        savePrefs()
     }
 
     function toggleCollapse(slug: string) {
         const next = new Set(collapsedGroups)
         next.has(slug) ? next.delete(slug) : next.add(slug)
         collapsedGroups = next
+        savePrefs()
     }
 
     function setAll(on: boolean) {
         enabled = on
             ? new Set(mapData.types.filter((t: any) => t.markerCount > 0).map((t: any) => t.typeSlug))
             : new Set()
+        savePrefs()
     }
 
     function toggleFound(id: string) {
