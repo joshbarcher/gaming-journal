@@ -16,14 +16,14 @@ puppeteerExtra.use(StealthPlugin());
 let _browser = null;
 
 async function _getBrowser() {
+    // browser.connected, not browser.version(): puppeteer memoises version()
+    // after the first successful call, so it keeps resolving from cache once
+    // Chrome has died and the health check never fires.
     if (_browser) {
-        try {
-            await _browser.version(); // throws if Chrome has died
-            return _browser;
-        } catch {
-            logger.warn('[ach-scraper] Shared browser disconnected — relaunching');
-            _browser = null;
-        }
+        if (_browser.connected) return _browser;
+        logger.warn('[ach-scraper] Shared browser disconnected — relaunching');
+        await _browser.close().catch(() => {});
+        _browser = null;
     }
     _browser = await puppeteerExtra.launch({
         headless: true,

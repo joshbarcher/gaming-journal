@@ -14,6 +14,15 @@ AI-powered feature that auto-generates game-specific progress trackers for a com
 ### CLI path (`suggestTrackersViaCli` — `progress-suggest-cli.service.js`)
 - Spawns `claude -p --model claude-opus-4-8 --output-format stream-json --verbose --allowedTools WebSearch,WebFetch` (`shell: true` for the Windows `.cmd` wrapper), pipes the prompt to stdin.
 - Strips `ANTHROPIC_API_KEY` from the child env so it bills against the Max/OAuth subscription. Prepends the node bin dir to `PATH` so `claude` resolves.
+
+### Authentication (prod)
+The CLI needs a subscription credential; there is no API-key fallback, so a missing one fails the job outright with `Not logged in · Please run /login`.
+
+- **Prod** authenticates via `CLAUDE_CODE_OAUTH_TOKEN` in `/home/jarcher/gaming-journal/.env.local` (loaded by `start.js` into `process.env`, inherited by the spawned child). Generate it with `claude setup-token` on any machine — it is not host-bound. The token is subscription-billed (`sk-ant-oat01-…`), **not** an API key (`sk-ant-api03-…`).
+- The value is read from `process.env` at **process launch**, so adding or rotating it requires a `pm2 restart gaming-journal` — editing `.env.local` alone does nothing.
+- Do **not** rely on an interactive `claude` login on the box (`~/.claude/.credentials.json`). Its access token is short-lived, and once that file is gone nothing can refresh it.
+
+> **Outage 2026-07-18 → 07-23.** The relay fold-in (2026-07-17) moved the code into gaming-journal but left `CLAUDE_CODE_OAUTH_TOKEN` behind in the decommissioned `/home/jarcher/relay-server/.env.local`. It kept working for a day only because the box happened to have an interactive login as fallback; when that lapsed, the feature failed with `Not logged in` and stayed broken for five days. **Lesson: when folding an app in, migrate `.env.local` secrets explicitly — a working feature is not proof the env var came across.**
 - Parses NDJSON stream events, blends time + tool-activity progress, saves a failure dump to `data/failed-responses/` on non-zero exit or parse error. 15-min timeout.
 - Shares `buildPrompt` / `parseTrackers` (which applies `withIds`) from `progress-suggest.service.js`.
 
@@ -46,4 +55,5 @@ Jobs finish in minutes; a restart clears them. `_jobs` is module-level with no s
 - Job statuses are `pending` / `running` / `done` / `error` / `cancelled` — note `done`, not `completed`.
 - The model is pinned to `claude-opus-4-8` so dev and prod don't drift to each machine's CLI default.
 - The `POST /[appid]` route streams the CLI directly as SSE with no job entry and no page persistence — debug/dev only.
+- A dead credential is only visible when someone manually clicks ✦ on a game — there is no health check or startup probe, so an auth outage is silent until a user hits it.
 - Replacing the `/api/pages` HTTP loopback with a direct service call is a noted follow-up (validation + task-id normalization live in the route handler).
