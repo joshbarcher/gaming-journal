@@ -68,6 +68,21 @@ export class NoMapError extends Error {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function jitter(minMs, maxMs) { return minMs + Math.floor(Math.random() * Math.max(1, maxMs - minMs)); }
 
+// Progress lines are emitted every Nth one-second tick. Frequent enough that the
+// status text never looks stuck, sparse enough that a 75-minute run doesn't push
+// thousands of SSE broadcasts at the browser.
+const LOG_EVERY_TICKS = 4;
+
+/** Compact "1h 12m" / "12m 30s" / "45s" for a duration in seconds. */
+function formatEta(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return '—';
+    const s = Math.round(seconds);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+    return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
 // When a map runs as a phase of a guide download it shares the job's progress
 // object, so its emits must land on their own bar instead of overwriting the
 // guide's Fetch/Parse bars. Set via fetchMap's `progressBar` option; null means
@@ -335,7 +350,7 @@ async function downloadTiles(remoteTemplate, tilesDir, view, opts) {
 
     console.log(
         `[fetcher:ign-map] Tile pyramid z${minZoom}–z${topZoom} — ${net.concurrency} workers, ` +
-        `${net.paceLabel} between requests (~${net.estRps} req/s)`
+        `${net.paceLabel} between requests (≤${net.estRps} req/s to tiles.mapgenie.io; ign.com is one page load)`
     );
 
     let parents = await seedLevel(remoteTemplate, minZoom, view.initialLat, view.initialLng, net);
@@ -361,6 +376,9 @@ async function downloadTiles(remoteTemplate, tilesDir, view, opts) {
     // covers the whole map, so the rectangle is exact and cheap to derive.
     const bounds  = boundsForTiles(parents, minZoom);
 
+    // Set when a level turns out not to exist remotely — see the probe below.
+    let truncatedAt = null;
+
     for (let z = minZoom; z <= topZoom; z++) {
         // Level minZoom is the seed itself; deeper levels are the children of
         // whatever actually existed one level up.
@@ -368,10 +386,44 @@ async function downloadTiles(remoteTemplate, tilesDir, view, opts) {
             ? parents
             : parents.flatMap(([x, y]) => childTiles(x, y));
 
+        // A map's declared maxZoom is not always rendered. Lego Batman advertises
+        // maxZoom 16 while its tileset stops at 15 — every z16 tile 403s. Without
+        // a check that costs 65,536 pointless requests to the CDN and a progress
+        // bar that climbs through a level producing nothing.
+        //
+        // The pyramid is a strict quadtree, so one parent's four children settle
+        // it: if none of them exist, the level does not exist. Four requests
+        // instead of tens of thousands. Skipped when the level is already on disk
+        // (a resumed run), and skipped at the base level, which seedLevel proved.
+        if (z > minZoom && candidates.length > 8) {
+            const probeParent = parents[0];
+            const probes = childTiles(probeParent[0], probeParent[1]);
+            const onDisk = force ? new Map() : await scanLevel(tilesDir, z);
+            const anyCached = probes.some(([px, py]) => onDisk.get(px)?.has(py));
+            if (!anyCached) {
+                const found = await pool(
+                    probes.map(([px, py]) => async () => {
+                        try { return await fetchBuffer(tileUrl(remoteTemplate, z, px, py), net.opts); }
+                        catch { return null; }   // transport error — treat as inconclusive below
+                    }),
+                    Math.min(4, net.concurrency), net.pace
+                );
+                if (found.every(b => b === null)) {
+                    console.log(`  z${z}: not rendered by the source — stopping at z${z - 1} (saved ${candidates.length.toLocaleString()} requests)`);
+                    truncatedAt = z;
+                    break;
+                }
+            }
+        }
+
         const existing = force ? new Map() : await scanLevel(tilesDir, z);
         const present  = [];
         let   levelCached = 0;
         let   levelBytes  = 0;
+        // Fetched vs cached are tracked apart so the ETA is built from real
+        // network throughput — see the ticker below.
+        let   fetchedThisLevel = 0;
+        const levelStarted     = Date.now();
 
         const tasks = candidates.map(([x, y]) => async () => {
             if (existing.get(x)?.has(y)) {
@@ -391,6 +443,7 @@ async function downloadTiles(remoteTemplate, tilesDir, view, opts) {
                 return null;
             }
             done++;
+            fetchedThisLevel++;
             if (!buf) return null;                  // tile genuinely absent
             const dir = join(tilesDir, String(z), String(x));
             await ensureDir(dir);
@@ -399,12 +452,38 @@ async function downloadTiles(remoteTemplate, tilesDir, view, opts) {
             return [x, y];
         });
 
-        // Emit progress on a timer rather than per tile — 87k stdout lines
-        // would swamp the job-queue's line reader.
-        const ticker = setInterval(
-            () => emitProgress('download', Math.min(99, Math.round((done / grandTotal) * 100))),
-            1000
-        );
+        // Emit progress on a timer rather than per tile — 87k stdout lines would
+        // swamp the job-queue's line reader.
+        //
+        // Two separate cadences, because they answer different questions:
+        //   - the BAR every second, to one decimal. The pyramid is back-loaded
+        //     (z16 alone is 65,536 of 87,381 tiles), so whole-percent steps mean
+        //     ~45s of a motionless bar; 0.1% moves roughly every 4 seconds.
+        //   - a LOG line every few seconds, because the per-level summary below
+        //     only prints when a level FINISHES. On the deepest level that left
+        //     the status text frozen for the better part of an hour while the
+        //     bar climbed — the run looked hung when it was working fine.
+        let ticks = 0;
+        const ticker = setInterval(() => {
+            const pct = Math.min(99.9, (done / grandTotal) * 100);
+            emitProgress('download', Math.round(pct * 10) / 10);
+
+            if (++ticks % LOG_EVERY_TICKS !== 0) return;
+            const levelDone  = levelCached + fetchedThisLevel;
+            const levelTotal = candidates.length;
+            const elapsed    = (Date.now() - levelStarted) / 1000;
+            // Rate from newly-fetched tiles only: cached ones return instantly and
+            // would inflate it into a uselessly optimistic ETA on a resumed run.
+            const rate       = fetchedThisLevel > 0 ? fetchedThisLevel / elapsed : 0;
+            const remaining  = grandTotal - done;
+            const eta        = rate > 0 ? formatEta(remaining / rate) : '—';
+            console.log(
+                `  z${z}: ${levelDone.toLocaleString()}/${levelTotal.toLocaleString()} ` +
+                `(${(levelBytes / 1024 / 1024).toFixed(1)}mb) — ` +
+                `${done.toLocaleString()}/${grandTotal.toLocaleString()} overall ` +
+                `· ${pct.toFixed(1)}% · ${rate ? rate.toFixed(1) : '—'}/s · ETA ${eta}`
+            );
+        }, 1000);
         try {
             const results = await pool(tasks, net.concurrency, net.pace);
             for (const r of results) if (r) present.push(r);
@@ -450,7 +529,12 @@ async function downloadTiles(remoteTemplate, tilesDir, view, opts) {
         bytes,
         cached,
         bounds,
-        complete: failed === 0 && topZoom === view.maxZoom,
+        // Having every level the SOURCE renders counts as complete. A map whose
+        // tileset stops short of its declared maxZoom (Lego Batman: declares 16,
+        // renders 15) would otherwise sit forever showing "Download rest" and
+        // re-probe the missing level on every run.
+        complete: failed === 0 && (topZoom === view.maxZoom || truncatedAt !== null),
+        truncatedAt,
         maxZoomReached: Math.max(...Object.keys(byZoom).map(Number)),
         failed,
     };
@@ -664,7 +748,12 @@ export async function fetchMap(url, mapDir, cfg, opts = {}) {
         concurrency: workers,
         pace:        () => jitter(dMin, dMax),
         paceLabel:   `${dMin}-${dMax}ms`,
-        estRps:      Math.round(workers / (((dMin + dMax) / 2 + 100) / 1000)),
+        // Upper bound: workers / average pace, assuming zero latency. The old
+        // estimate added 100ms of assumed round-trip and so under-reported the
+        // real rate (measured ~25/s against a claimed 19/s). A throttle figure
+        // that reads lower than reality is worse than none, so this is the
+        // ceiling the pacing can actually produce.
+        estRps:      Math.ceil(workers / (((dMin + dMax) / 2) / 1000)),
         opts: {
             retries:   mapCfg.tileRetries ?? 3,
             backoffMs: mapCfg.retryBackoffMs ?? 800,
