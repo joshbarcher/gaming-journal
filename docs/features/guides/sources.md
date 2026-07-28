@@ -5,6 +5,8 @@ Each guide source (IGN, GameFAQs, Steam, Game8, Gamer Guides, Fandom, Neoseeker)
 **Per-source detail docs** — DOM structure, fetch strategy, preprocessing, search mechanism, gotchas:
 [IGN](sources/ign.md) · [GameFAQs](sources/gamefaqs.md) · [Steam](sources/steam.md) · [Game8](sources/game8.md) · [Gamer Guides](sources/gamerguides.md) · [Fandom](sources/fandom.md) · [Neoseeker](sources/neoseeker.md)
 
+Interactive **maps** are a separate pipeline with its own adapters — no HTML parsing, no `parse-guide.js`. Two sources: IGN (Map Genie) and Game8. See [map-sources.md](map-sources.md).
+
 ## Adapter contract
 
 Every adapter must export:

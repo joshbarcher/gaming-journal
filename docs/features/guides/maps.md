@@ -1,76 +1,61 @@
-# Interactive Maps
+# Interactive Maps (viewer)
 
-Offline viewer for a downloaded IGN interactive map, shown as a **Map** mode inside the guide viewer. Everything it renders — tile pyramid, marker sprite, `map.json` — comes off the NAS through `/relay/guides-map`. No request leaves the box.
-
-The Map toggle appears on **every IGN guide**. Non-IGN sources have no maps at all and never see it.
-
-Downloading a map is a **separate, explicit action** — a button in Map mode, never part of the guide download. A deep pyramid runs over an hour (Palworld: 87k tiles), so it is queued as its own job, shown on the Downloads page tagged **Map**, and can be started, resumed or abandoned without affecting guide availability or updates. Nothing about the guide waits on it.
-
-The map is usable **while it downloads**. Levels are published as they complete, so the map opens at whatever depth exists so far and gets deeper as tiles land — no waiting for all 87k. Resuming is the same button as starting: the fetcher skips whatever is already on disk.
-
-## URL / entry
-
-There is no separate route. `GuideViewer` probes `/relay/guides-map/{appid}/{source}/{guideId}/_maps/_index.json` alongside its meta fetch; a 404 is the normal "nothing downloaded yet" case and simply leaves `maps` empty.
-
-Discovery itself is opt-in: `GET .../maps?probe=1` costs one request to ign.com, so it only fires when the user clicks **Check IGN for a map** — never on a normal guide load. `POST .../maps` with a `mapSlug` queues the download.
-
-## Fullscreen
-
-The fullscreen button (top-right of the map) requests fullscreen on the component root, so the filter rail travels with the map rather than being left behind. Leaflet caches its container size, so `invalidateSize()` runs after the transition — without it the tile grid keeps its pre-fullscreen dimensions and leaves the new area blank. Esc exits, and the button reflects state via a `fullscreenchange` listener rather than assuming its own click succeeded.
-
-When Map mode is on, the guide body is **hidden rather than unmounted**, so returning to the guide keeps the loaded page and scroll position. The map itself is mounted only while active — Leaflet measures its container on creation, so keeping it alive behind `display:none` would give it a zero-size viewport.
+Offline viewer for a downloaded game map, shown as a **Map** mode inside the guide viewer. Tiles, marker icons and `map.json` all come off the NAS through `/relay/guides-map` — no request leaves the box. Two sources are supported with one renderer: IGN (Map Genie) and Game8. See [map-sources.md](map-sources.md) for how they differ and [server/guides/maps.md](../../server/guides/maps.md) for downloading.
 
 ## Data flow
 
-1. `GuideMap` fetches `_maps/_index.json` → the list of downloaded maps.
-2. It selects the requested `mapSlug` when present and downloaded, else the first map.
-3. `{mapSlug}/map.json` and `{mapSlug}/tiles.json` are fetched together → config, 51 marker types, 11,138 markers, plus the live tile depth.
-4. Layers default to `type.defaultOn`, which mirrors IGN's own first-load selection (43 of 51 on).
-5. Leaflet initialises with the map's `minZoom`/`initialZoom` and `L.CRS.EPSG3857`; tiles come from the local `tiles/{z}/{x}/{y}.jpg` template.
-6. The sprite sheet loads once, then the canvas marker layer is added.
-
-`maxZoom` is clamped to the depth actually on disk, so a capped or in-flight download can't zoom into blank tiles.
-
-## While a download runs
-
-`tiles.json` is the live authority on tile depth — a few hundred bytes, rewritten by the fetcher after each completed zoom level. The viewer polls it every 5s while `complete` is false and raises Leaflet's zoom ceiling as levels land, then stops polling. A finished map polls nothing.
-
-A badge shows the depth available (`z8–13 of 16`), with either live download progress or a **Download rest** button. Because the pyramid is back-loaded — z8–13 is 1,365 tiles against 65,536 for z16 alone — a map becomes genuinely usable within about a minute of starting.
-
-Panning is bounded by `tiles.bounds`, applied as soon as the base level publishes it. Without it you can drag off the edge into empty grey and lose the map.
-
-## Marker rendering
-
-Markers are painted onto **one canvas** in Leaflet's overlay pane (`lib/js/ign-map-markers.ts`), not as `L.Marker` instances. With 11k markers and 43 layers on by default, that many DOM nodes is not a panning experience. The canvas keeps IGN's exact sprite artwork — no substituted dots, no clustering that changes what the map looks like.
-
-- Markers outside the viewport (plus a 96px pad) are culled per frame, so cost tracks what's visible rather than the full set.
-- The canvas is backed at `devicePixelRatio` so sprite art stays crisp on HiDPI.
-- Hit-testing walks the drawn set back-to-front, so a click selects the marker visually on top.
-- Selection draws a soft halo rather than scaling the sprite — scaling would resample the artwork and look mushy next to its neighbours.
-
-**The sprite sheet is @2x while every icon reports `pixelRatio: 1`** (Palworld: a 660×792 sheet for a 330×396 coordinate space). The scale is measured at load (`spriteScaleFor`) rather than trusted, because slicing at face value renders every marker as a quarter of itself plus its neighbours.
-
-## Filtering
-
-The 51 types form a two-level tree: 8 parent groups (Locations, Items, Enemies, …) holding the leaf types that carry markers. Parents have `markerCount: 0` and exist only to group the filter UI. A leaf whose parent is missing is surfaced under "Other" rather than dropped, so no layer is unreachable.
-
-Each row shows a legend swatch windowed from the same sprite sheet the canvas draws from, using icon-coordinate units so CSS and canvas agree regardless of the sheet's @Nx scale.
-
-Search filters the drawn set live and lists up to 40 name matches; picking one flies to it and selects it.
-
-## Found markers
-
-Marker "found" state is local-only and persisted to `localStorage` under `ign-map-found:{appid}:{guideId}:{mapSlug}`. Found markers draw at reduced opacity rather than disappearing.
-
-IGN's own `checklistTaskId` is carried through in `map.json` but **never sent anywhere** — their checklist API needs a logged-in IGN account. It is retained so local state has a stable key that survives a re-fetch, in the same spirit as guide pins keying off a parsed slug.
+1. `GuideViewer.loadMeta()` probes `/relay/guides-map/{appid}/{source}/{guideId}/_maps/_index.json` alongside its meta fetch. A 404 is normal — most guides have no map.
+2. The **Guide | Map** toggle renders when `maps.length || source === 'ign'`. Clicking Map mounts `GuideMap` and hides `.gv-body` (hidden, not unmounted, so the guide keeps its page and scroll).
+3. `GuideMap` loads `{mapSlug}/map.json`, then `tiles.json` **only if** `projection !== 'Simple'`.
+4. Saved filters load from `GET /relay/api/guides/{appid}/{source}/{guideId}/maps/{mapSlug}/prefs` and override `type.defaultOn`.
+5. Leaflet initialises: `CRS.EPSG3857` + `L.tileLayer` for tiled maps, or `CRS.Simple` + `L.imageOverlay` over a `grid × grid` square.
+6. Icons resolve to a `DrawSpec` — a sprite window (IGN) or a whole PNG (Game8) — and one canvas layer draws both.
+7. Filter changes call `savePrefs()`, debounced 600 ms, flushed on unmount.
 
 ## Key files
 
 | File | Role |
 |------|------|
-| `lib/svelte/journal/guide/GuideMap.svelte` | viewer: map init, filter tree, search, popup |
-| `lib/js/ign-map-markers.ts` | canvas marker layer, sprite scale detection, hit-testing |
-| `lib/svelte/journal/guide/GuideViewer.svelte` | Guide/Map mode toggle, `_index.json` probe |
-| `public/css/guide-viewer.css` | `.gv-header-modes`, `.gv-mapbody` |
+| `src/lib/svelte/journal/guide/GuideMap.svelte` | Viewer: Leaflet init, filter tree, search, popup, discovery panel |
+| `src/lib/js/ign-map-markers.ts` | Canvas marker layer, `DrawSpec` factories, hit-testing |
+| `src/lib/svelte/journal/guide/GuideViewer.svelte` | Guide/Map toggle, `_index.json` probe, collapse handle |
+| `src/lib/server/relay/guides/map-prefs.service.js` | Server-persisted per-map filters |
+| `src/routes/relay/guides-map/[...file]/+server.ts` | Static serving of tiles/images/icons/json |
+| `public/css/guide-viewer.css` | `.gv-header-modes`, `.gv-mapbody`, collapse overrides |
 
-Downloading a map is server-side — see [server/guides/maps.md](../../server/guides/maps.md).
+## Layout
+
+`GuideMap` mirrors `.gv-body`'s `1fr 300px` grid, so the map sits in the content column and the layer list lands in the same column the TOC uses. Both modes share one skeleton; the header heading switches **Contents ↔ Layers**.
+
+Collapse is the shared `tocCollapsed` state, passed in as the `collapsed` prop. Collapsed shows a 40px rail of the enabled layers' icons, each clickable to switch that layer off.
+
+## Rendering
+
+Markers are painted onto **one canvas** in the overlay pane, not as `L.Marker`s — Palworld has 11,138 markers with 43 layers on by default. Off-screen markers (plus 96px pad) are culled per frame. The canvas is backed at `devicePixelRatio`. Hit-testing walks the drawn set back-to-front so a click selects the marker on top.
+
+## Common questions
+
+**Q: Why is the collapse handle invisible on the map but fine on the guide?**
+It isn't missing — it's painted under. Leaflet stacks panes/controls at z-index 400–1000, which competed with `.gv-toc-gutter-btn` (z-index 2) in the shared root context. Fixed with `isolation: isolate` on `.gv-mapbody`, which confines Leaflet's z-indexes to its subtree. Don't fix this by raising the button's z-index — that would put it over modals and the lightbox.
+
+**Q: Why do markers vanish when I search?**
+Search filters the drawn set, not just the results list. `visibleMarkers` intersects the enabled layers with the query.
+
+**Q: Are "found" markers saved to the server?**
+No. Found state is `localStorage` only, keyed `ign-map-found:{appid}:{guideId}:{mapSlug}`. **Filters** are server-side; found markers are not, so they don't follow you between machines.
+
+**Q: A map shows "Zoom z8–15 of 16 available". Is it broken?**
+No. The viewer clamps `maxZoom` to what's on disk. Either the download is still running, or the source doesn't render the level it declares (see [map-sources.md](map-sources.md)).
+
+**Q: Is Game8's popup HTML safe to render?**
+It's sanitised at **fetch** time, not render time, so what's on disk has already been through the allowlist. See `sanitizePopupHtml` in `game8/map-fetcher.js`.
+
+## Gotchas
+
+- **Leaflet caches container size.** Any layout change needs `invalidateSize()` afterwards — collapse (260 ms, past the 220 ms transition) and fullscreen (120 ms) both do. Without it the tile grid keeps its old dimensions and leaves a blank strip.
+- **The map is mounted only while active.** Leaflet measures its container on creation, so keeping it alive behind `display:none` gives it a zero-size viewport.
+- **`enabled: null` ≠ `enabled: []`** in saved prefs. `null` means never saved and falls back to the source's defaults; `[]` is a deliberate all-off and must be honoured. Collapsing them switches every layer back on for anyone who cleared them.
+- **Prefs save from the toggle handlers, not an `$effect`.** An effect would also fire when defaults are applied during load, immediately overwriting the user's stored filters. A `prefsLoaded` guard backs this up.
+- **Debounced saves capture URL and body at call time.** Switching maps inside the 600 ms window would otherwise PUT one map's filters to the next map's key.
+- **`tiles.json` is only fetched for tiled maps.** Asking before knowing the projection cost a guaranteed 404 on every single-image map.
+- **Icon sizing differs per source.** IGN sprite windows are 33×44 by construction; Game8 ships whatever resolution the artist uploaded, so `imageSpecFactory` scales to a fixed 26px height. Drawing Game8 icons 1:1 buries the map under its own markers.

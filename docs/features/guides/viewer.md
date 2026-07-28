@@ -2,6 +2,8 @@
 
 Displays a downloaded guide in a two-column layout: scrollable content area on the left, sticky TOC nav tree on the right. Users navigate between guide pages, pin locations for quick return, and click images to enlarge.
 
+When a map has been downloaded, a **Guide | Map** toggle in the header swaps the content column for an offline interactive map, reusing the same two-column skeleton — the TOC column becomes the layer list. See [maps.md](maps.md).
+
 ## URL structure
 
 ```
