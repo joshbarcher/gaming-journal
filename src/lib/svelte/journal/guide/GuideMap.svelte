@@ -10,7 +10,8 @@
     import { onMount, onDestroy } from 'svelte'
     import L from 'leaflet'
     import 'leaflet/dist/leaflet.css'
-    import { createMarkerLayer, loadSprite, spriteScaleFor, type MapIcon } from '$lib/js/ign-map-markers'
+    import { createMarkerLayer, loadSprite, spriteScaleFor, spriteSpecFactory, imageSpecFactory, type MapIcon }
+        from '$lib/js/ign-map-markers'
     import { jobStore } from '$lib/guide-jobs.svelte.js'
 
     let { appid, source = 'ign', guideId, mapSlug = null, collapsed = false }: {
@@ -32,13 +33,19 @@
     let probeError = $state<string | null>(null)
     let queued     = $state<Set<string>>(new Set())
 
+    // Game8 maps are queued by article URL rather than map slug, so the panel
+    // offers a field for one when the scan finds nothing (or finds the wrong page).
+    let manualUrl = $state('')
+
     async function probeForMaps() {
         probing = true
         probeError = null
         try {
             const res = await fetch(`/relay/api/guides/${appid}/${source}/${encodeURIComponent(guideId)}/maps?probe=1`)
             const data = await res.json()
-            probed = data.missing ?? data.available ?? []
+            // IGN answers with map slugs it found on ign.com; Game8 answers with
+            // candidate article URLs scanned out of the guide already on disk.
+            probed = data.candidates ?? data.missing ?? data.available ?? []
             if (data.probeError) probeError = data.probeError
         } catch (err) {
             probeError = err instanceof Error ? err.message : String(err)
@@ -47,12 +54,17 @@
         }
     }
 
-    async function downloadMap(m: { mapSlug: string }) {
-        queued = new Set([...queued, m.mapSlug])
+    /**
+     * Queue a map download. IGN identifies a map by slug; Game8 by the article
+     * URL the map hangs off, since its id isn't derivable from the guide.
+     */
+    async function downloadMap(m: { mapSlug?: string, url?: string }) {
+        const key = m.mapSlug ?? m.url ?? ''
+        queued = new Set([...queued, key])
         const res = await fetch(`/relay/api/guides/${appid}/${source}/${encodeURIComponent(guideId)}/maps`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ mapSlug: m.mapSlug }),
+            body: JSON.stringify(m.url ? { url: m.url } : { mapSlug: m.mapSlug }),
         }).catch(() => null)
         // Seed the shared store so the banner flips to "downloading" immediately
         // rather than waiting for the next SSE push.
@@ -272,15 +284,21 @@
         try {
             // map.json is published before the tiles start arriving, so the map —
             // markers, filters, legend — opens while the pyramid is still filling.
-            // tiles.json is the live authority on how deep it currently goes.
-            const [res, statusRes] = await Promise.all([
-                fetch(`${base}/${slug}/map.json`),
-                fetch(`${base}/${slug}/tiles.json`, { cache: 'no-store' }).catch(() => null),
-            ])
+            const res = await fetch(`${base}/${slug}/map.json`)
             if (!res.ok) throw new Error(`map.json missing for "${slug}"`)
             const data = await res.json()
             mapData = data
-            tileStatus = statusRes?.ok ? await statusRes.json() : data.tiles
+
+            // tiles.json is the live authority on pyramid depth, but only tiled maps
+            // have one. Asking for it before knowing the projection cost a guaranteed
+            // 404 on every single-image map, so the projection is read first — the
+            // extra round trip is nothing against map.json's own size.
+            if (data.projection === 'Simple') {
+                tileStatus = null
+            } else {
+                const statusRes = await fetch(`${base}/${slug}/tiles.json`, { cache: 'no-store' }).catch(() => null)
+                tileStatus = statusRes?.ok ? await statusRes.json() : (data.tiles ?? null)
+            }
             boundsApplied = false
 
             // IGN's own first-load selection is the floor; saved prefs override it below.
@@ -311,15 +329,22 @@
         leaflet = null
 
         const { view } = mapData
-        const tiles = tileStatus ?? mapData.tiles
+        // Game8 maps are a single image on a fixed square grid with no geographic
+        // meaning; IGN maps are Web Mercator tile pyramids. Everything below this
+        // point is shared — only the CRS and the base layer differ.
+        const isSimple = mapData.projection === 'Simple'
+        const tiles = isSimple ? null : (tileStatus ?? mapData.tiles)
+
         // The pyramid can stop short of the map's own maxZoom (a --max-zoom cap,
         // or a download still in flight), so clamp to what is actually on disk —
         // zooming past it would just paint blank tiles. pollStatus() raises this
-        // as deeper levels land.
-        const maxZoom = Math.max(view.minZoom, Math.min(view.maxZoom, tiles.maxZoom ?? view.maxZoom))
+        // as deeper levels land. A single image has no such limit.
+        const maxZoom = isSimple
+            ? view.maxZoom
+            : Math.max(view.minZoom, Math.min(view.maxZoom, tiles.maxZoom ?? view.maxZoom))
 
         leaflet = L.map(mapEl, {
-            crs: L.CRS.EPSG3857,
+            crs: isSimple ? L.CRS.Simple : L.CRS.EPSG3857,
             minZoom: view.minZoom,
             maxZoom,
             zoomControl: true,
@@ -329,35 +354,61 @@
             maxBoundsViscosity: 1,
         })
 
-        if (tiles.bounds) {
-            leaflet.setMaxBounds(L.latLngBounds(tiles.bounds[0], tiles.bounds[1]))
+        if (isSimple) {
+            // The image is stretched over the whole virtual grid, and markers were
+            // normalised into that same space at fetch time (lat pre-flipped), so
+            // overlay and markers share one coordinate system with no per-marker math.
+            const grid = mapData.grid ?? 256
+            const bounds = L.latLngBounds([0, 0], [grid, grid])
+            L.imageOverlay(`${base}/${activeSlug}/${mapData.image.file}`, bounds).addTo(leaflet)
+            leaflet.setMaxBounds(bounds.pad(0.15))
             boundsApplied = true
+            leaflet.fitBounds(bounds)
+        } else {
+            if (tiles.bounds) {
+                leaflet.setMaxBounds(L.latLngBounds(tiles.bounds[0], tiles.bounds[1]))
+                boundsApplied = true
+            }
+            leaflet.setView([view.initialLat, view.initialLng], Math.min(view.initialZoom, maxZoom))
+
+            const tileTemplate = `${base}/${activeSlug}/${tiles.template}`
+            tileLayer = L.tileLayer(tileTemplate, {
+                minZoom: view.minZoom,
+                maxZoom,
+                noWrap: true,
+                // Keep showing the parent tile while a child loads instead of flashing
+                // empty — the NAS is fast but not instant over SMB.
+                keepBuffer: 4,
+            }).addTo(leaflet)
+
+            // Watch for deeper levels only while the pyramid is still filling.
+            startPolling()
         }
-        leaflet.setView([view.initialLat, view.initialLng], Math.min(view.initialZoom, maxZoom))
 
         if (view.backgroundColor) mapEl.style.background = view.backgroundColor
 
-        const tileTemplate = `${base}/${activeSlug}/${tiles.template}`
-        tileLayer = L.tileLayer(tileTemplate, {
-            minZoom: view.minZoom,
-            maxZoom,
-            noWrap: true,
-            // Keep showing the parent tile while a child loads instead of flashing
-            // empty — the NAS is fast but not instant over SMB.
-            keepBuffer: 4,
-        }).addTo(leaflet)
-
-        // Watch for deeper levels only while the pyramid is still filling.
-        startPolling()
-
-        const sprite = await loadSprite(`${base}/${activeSlug}/${mapData.sprite.file}`)
-        const icons: MapIcon[] = mapData.types.flatMap((t: any) => [t.icon, t.legend].filter(Boolean))
-        const spriteScale = spriteScaleFor(sprite, icons)
+        // Icon source differs per site: IGN windows one sprite sheet, Game8 ships a
+        // PNG per layer. Both resolve to the same DrawSpec, so the canvas renderer
+        // is identical either way.
+        let specFor
+        if (isSimple) {
+            const images = new Map<string, HTMLImageElement>()
+            await Promise.all(mapData.types
+                .filter((t: any) => t.iconFile)
+                .map(async (t: any) => {
+                    try { images.set(t.typeSlug, await loadSprite(`${base}/${activeSlug}/${t.iconFile}`)) }
+                    catch { /* one missing icon must not blank the whole map */ }
+                }))
+            specFor = imageSpecFactory(images)
+        } else {
+            const sprite = await loadSprite(`${base}/${activeSlug}/${mapData.sprite.file}`)
+            const icons: MapIcon[] = mapData.types.flatMap((t: any) => [t.icon, t.legend].filter(Boolean))
+            specFor = spriteSpecFactory(sprite, spriteScaleFor(sprite, icons),
+                (slug: string) => typeBySlug.get(slug)?.icon ?? null)
+        }
 
         markerLayer = createMarkerLayer(visibleMarkers, {
-            sprite,
-            spriteScale,
-            iconFor: (slug: string) => typeBySlug.get(slug)?.icon ?? null,
+            specFor,
             isFound: (id: string) => found.has(id),
             onSelect: (m: any) => { selected = m; markerLayer?.setSelected(m?.id ?? null) },
         })
@@ -460,8 +511,22 @@
         leaflet?.setView([m.lat, m.lng], Math.max(leaflet.getZoom(), mapData.view.initialZoom))
     }
 
-    /** Inline style windowing the sprite sheet for a legend swatch. */
+    /**
+     * Inline style for a legend swatch.
+     *
+     * Game8 ships a standalone PNG per layer, so the swatch is just that image
+     * scaled to fit. IGN has no per-layer file — every icon is a window into one
+     * sheet — so it falls through to the offset/background-size path below.
+     */
     function swatch(t: any): string {
+        if (t?.iconFile) {
+            return [
+                'width:22px', 'height:22px',
+                `background-image:url(${base}/${activeSlug}/${t.iconFile})`,
+                'background-size:contain',
+                'background-position:center',
+            ].join(';')
+        }
         const ic = t.legend ?? t.icon
         if (!ic) return 'display:none'
         // Background-size is expressed in icon-coordinate units so the same
@@ -505,25 +570,51 @@
             {#if probed === null}
                 <p>Guides downloaded before map support was added don’t have one yet.</p>
                 <button type="button" class="gm-btn" onclick={probeForMaps} disabled={probing}>
-                    {probing ? 'Checking IGN…' : 'Check IGN for a map'}
+                    {#if probing}
+                        {source === 'game8' ? 'Scanning guide…' : 'Checking IGN…'}
+                    {:else}
+                        {source === 'game8' ? 'Find map pages in this guide' : 'Check IGN for a map'}
+                    {/if}
                 </button>
             {:else if probed.length}
-                <p>{probed.length === 1 ? '1 map available' : `${probed.length} maps available`} for this guide:</p>
+                <p>
+                    {source === 'game8'
+                        ? `${probed.length} page${probed.length === 1 ? '' : 's'} in this guide look like maps:`
+                        : `${probed.length} map${probed.length === 1 ? '' : 's'} available for this guide:`}
+                </p>
                 <ul class="gm-avail">
                     {#each probed as m}
+                        {@const key = m.mapSlug ?? m.url}
                         <li>
-                            <span>{m.mapName}</span>
+                            <span class="gm-avail-name" title={m.url ?? ''}>{m.mapName}</span>
                             <button type="button" class="gm-btn" onclick={() => downloadMap(m)}
-                                    disabled={queued.has(m.mapSlug)}>
-                                {queued.has(m.mapSlug) ? 'Queued' : 'Download'}
+                                    disabled={queued.has(key)}>
+                                {queued.has(key) ? 'Queued' : 'Download'}
                             </button>
                         </li>
                     {/each}
                 </ul>
                 <p class="gm-hint">Downloads run in the queue — watch progress on the Downloads page. Reload this page when it finishes.</p>
+            {:else if source === 'game8'}
+                <p>No page in this guide looks like a map.</p>
             {:else}
                 <p>IGN has no interactive map for this game.</p>
             {/if}
+
+            {#if source === 'game8' && probed !== null}
+                <!-- The title scan is a convenience, not an authority: Game8 names
+                     map articles inconsistently, so an explicit URL is always allowed. -->
+                <div class="gm-manual">
+                    <input class="gm-search" type="url" placeholder="…or paste a game8.co map URL"
+                           bind:value={manualUrl} />
+                    <button type="button" class="gm-btn"
+                            onclick={() => downloadMap({ url: manualUrl.trim() })}
+                            disabled={!/^https?:\/\/(www\.)?game8\.co\//i.test(manualUrl.trim()) || queued.has(manualUrl.trim())}>
+                        {queued.has(manualUrl.trim()) ? 'Queued' : 'Download'}
+                    </button>
+                </div>
+            {/if}
+
             {#if probeError}<p class="gm-hint gm-hint--err">{probeError}</p>{/if}
         </div>
     {:else}
@@ -637,6 +728,17 @@
                 <button class="gm-popup-x" type="button" onclick={() => { selected = null; markerLayer?.setSelected(null) }}>×</button>
                 <h4>{selected.name || typeBySlug.get(selected.typeSlug)?.typeName}</h4>
                 <p class="gm-popup-type">{typeBySlug.get(selected.typeSlug)?.typeName}</p>
+                {#if selected.description}
+                    <p class="gm-popup-desc">{selected.description}</p>
+                {/if}
+                {#if selected.html}
+                    <!-- Sanitised at FETCH time (game8/map-fetcher.js sanitizePopupHtml),
+                         not here: the allowlist drops script/style/iframe/handlers and any
+                         non-http URL before it is ever written to disk, so what renders has
+                         already been through it. Sanitising on disk rather than at render
+                         means it cannot be bypassed by a different consumer of map.json. -->
+                    <div class="gm-popup-html">{@html selected.html}</div>
+                {/if}
                 <label class="gm-popup-found">
                     <input type="checkbox" checked={found.has(selected.id)} onchange={() => toggleFound(selected.id)} />
                     Mark as found
@@ -805,6 +907,37 @@
     }
     .gm-popup h4 { margin: 0 1rem .15rem 0; font-size: .9rem; }
     .gm-popup-type { margin: 0 0 .4rem; opacity: .6; font-size: .75rem; }
+    .gm-popup-desc { margin: 0 0 .4rem; font-size: .78rem; opacity: .85; }
+
+    /* Game8 popup markup — drop tables, item lists, links. Capped and scrollable:
+       some entries are long enough to cover the map otherwise. */
+    .gm-popup-html {
+        max-height: 16rem;
+        overflow-y: auto;
+        margin: 0 0 .5rem;
+        font-size: .76rem;
+        line-height: 1.45;
+    }
+    .gm-popup-html :global(table) {
+        width: 100%; border-collapse: collapse; margin: .3rem 0;
+    }
+    .gm-popup-html :global(th),
+    .gm-popup-html :global(td) {
+        border: 1px solid var(--clr-border, #2a2a32);
+        padding: .2rem .35rem; text-align: left; vertical-align: top;
+    }
+    .gm-popup-html :global(th) { background: rgba(255, 255, 255, .05); font-weight: 600; }
+    .gm-popup-html :global(img) { max-width: 100%; height: auto; }
+    .gm-popup-html :global(a) { color: #7fb8ff; }
+    .gm-popup-html :global(p) { margin: .25rem 0; }
+    .gm-popup-html :global(ul), .gm-popup-html :global(ol) { margin: .25rem 0; padding-left: 1.1rem; }
+
+    /* The map popup is wider when it carries Game8's rich content. */
+    .gm-popup:has(.gm-popup-html) { width: 22rem; }
+
+    .gm-manual { display: flex; gap: .35rem; margin-top: .6rem; }
+    .gm-manual .gm-search { margin-bottom: 0; }
+    .gm-avail-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .gm-popup-found { display: flex; align-items: center; gap: .35rem; font-size: .8rem; cursor: pointer; }
     .gm-popup-x {
         position: absolute; top: .25rem; right: .35rem; background: none; border: 0;

@@ -29,22 +29,94 @@ export interface MapMarker {
     typeSlug: string
 }
 
+/**
+ * One marker's draw instruction: a source rectangle out of some image, a
+ * destination size, and the anchor point that sits on the marker's position.
+ *
+ * This is the seam that lets one canvas renderer serve both sources. IGN windows
+ * every icon out of a single sprite sheet, so `img` is that sheet and the source
+ * rect varies. Game8 ships a standalone PNG per classification, so `img` is that
+ * PNG and the source rect is the whole thing. Neither case needs its own draw
+ * loop, and neither knows about the other.
+ */
+export interface DrawSpec {
+    img: HTMLImageElement
+    sx: number
+    sy: number
+    sw: number
+    sh: number
+    w: number
+    h: number
+    ax: number
+    ay: number
+}
+
 export interface MarkerLayerOptions {
-    sprite: HTMLImageElement
-    /**
-     * Sprite pixels per icon-coordinate unit.
-     *
-     * IGN reports `pixelRatio: 1` on every icon while shipping an @2x sheet — the
-     * Palworld sprite is 660x792 for a 330x396 icon coordinate space. Trusting the
-     * reported ratio slices the wrong rectangle out of the sheet and every marker
-     * renders as a quarter of itself plus its neighbours. Measure it instead:
-     * see spriteScaleFor().
-     */
-    spriteScale: number
-    iconFor: (typeSlug: string) => MapIcon | null
+    /** Draw instruction for a marker type, or null to skip it. */
+    specFor: (typeSlug: string) => DrawSpec | null
     /** Markers already dimmed as "found" draw at reduced opacity. */
     isFound: (id: string) => boolean
     onSelect: (marker: MapMarker | null) => void
+}
+
+/**
+ * Build a spec factory for an IGN sprite sheet.
+ *
+ * `spriteScale` is sprite pixels per icon-coordinate unit. IGN reports
+ * `pixelRatio: 1` on every icon while shipping an @2x sheet — the Palworld
+ * sprite is 660x792 for a 330x396 icon coordinate space. Trusting the reported
+ * ratio slices the wrong rectangle and every marker renders as a quarter of
+ * itself plus its neighbours. Measure it instead: see spriteScaleFor().
+ */
+export function spriteSpecFactory(
+    sprite: HTMLImageElement,
+    spriteScale: number,
+    iconFor: (typeSlug: string) => MapIcon | null,
+): (typeSlug: string) => DrawSpec | null {
+    return (typeSlug: string) => {
+        const icon = iconFor(typeSlug)
+        if (!icon) return null
+        return {
+            img: sprite,
+            sx: icon.offsetX * spriteScale,
+            sy: icon.offsetY * spriteScale,
+            sw: icon.width * spriteScale,
+            sh: icon.height * spriteScale,
+            w: icon.width,
+            h: icon.height,
+            ax: icon.anchorX ?? icon.width / 2,
+            ay: icon.anchorY ?? icon.height,   // default: the pin's tip sits on the point
+        }
+    }
+}
+
+/**
+ * Build a spec factory from one loaded image per marker type (Game8).
+ *
+ * Icons are centred on the point — Game8's pins are round badges rather than
+ * tipped pins, so bottom-anchoring them would sit every marker a full icon above
+ * where it belongs.
+ *
+ * They are also drawn to a fixed display height rather than their natural size.
+ * Unlike IGN's sprite windows, which are 33x44 by construction, Game8 ships
+ * whatever resolution the artist uploaded — often a few hundred pixels — so
+ * drawing them 1:1 buries the map under its own markers.
+ *
+ * @param displayHeight rendered height in CSS pixels; width follows the aspect ratio
+ */
+export function imageSpecFactory(
+    images: Map<string, HTMLImageElement>,
+    displayHeight = 26,
+): (typeSlug: string) => DrawSpec | null {
+    return (typeSlug: string) => {
+        const img = images.get(typeSlug)
+        if (!img || !img.naturalWidth || !img.naturalHeight) return null
+        const sw = img.naturalWidth
+        const sh = img.naturalHeight
+        const h = displayHeight
+        const w = Math.max(1, Math.round((sw / sh) * h))
+        return { img, sx: 0, sy: 0, sw, sh, w, h, ax: w / 2, ay: h / 2 }
+    }
 }
 
 /**
@@ -154,7 +226,7 @@ export const MarkerCanvasLayer = L.Layer.extend({
         if (!map || !canvas) return
 
         const ctx: CanvasRenderingContext2D = canvas.getContext('2d')
-        const { sprite, spriteScale, iconFor, isFound } = this._opts as MarkerLayerOptions
+        const { specFor, isFound } = this._opts as MarkerLayerOptions
 
         ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0)
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -166,13 +238,10 @@ export const MarkerCanvasLayer = L.Layer.extend({
             const p = map.latLngToContainerPoint([m.lat, m.lng])
             if (p.x < -CULL_PAD || p.y < -CULL_PAD || p.x > size.x + CULL_PAD || p.y > size.y + CULL_PAD) continue
 
-            const icon = iconFor(m.typeSlug)
-            if (!icon) continue
+            const spec = specFor(m.typeSlug)
+            if (!spec) continue
 
-            const w = icon.width
-            const h = icon.height
-            const ax = icon.anchorX ?? w / 2
-            const ay = icon.anchorY ?? h            // default: point sits on the pin's tip
+            const { w, h, ax, ay } = spec
             const x = p.x - ax
             const y = p.y - ay
 
@@ -193,12 +262,7 @@ export const MarkerCanvasLayer = L.Layer.extend({
                 ctx.globalAlpha = found ? 0.5 : 1
             }
 
-            ctx.drawImage(
-                sprite,
-                icon.offsetX * spriteScale, icon.offsetY * spriteScale,
-                w * spriteScale, h * spriteScale,
-                x, y, w, h,
-            )
+            ctx.drawImage(spec.img, spec.sx, spec.sy, spec.sw, spec.sh, x, y, w, h)
             drawn.push({ m, x, y, w, h })
         }
 

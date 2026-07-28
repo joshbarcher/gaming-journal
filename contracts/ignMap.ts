@@ -39,13 +39,19 @@ export const MapTypeSchema = z.object({
     typeName: z.string(),
     parentTypeSlug: z.string().nullable(),
     // Sprite window used when drawing this type's markers on the map.
+    // Null on Game8 maps, which use `iconFile` instead of a sheet.
     icon: MapIconSchema.nullable(),
     // Sprite window used for the filter-list swatch. Same artwork, no anchor.
     legend: MapIconSchema.nullable(),
+    // Game8 only: a standalone icon PNG for this layer, relative to the map dir
+    // ("icons/blue-chest.png"). Downloaded once per classification rather than
+    // per marker — Crimson Desert has 1,610 markers over 107 icons.
+    iconFile: z.string().nullable().optional(),
     markerCount: z.number(),
-    // Child type slugs, in IGN's own order. Empty for leaf types.
+    // Child type slugs, in the source's own order. Empty for leaf types.
     children: z.array(z.string()),
-    // Whether IGN shows this layer on first load (`map.initialTypes`).
+    // Whether the source shows this layer on first load. IGN takes it from
+    // `map.initialTypes`; Game8 shows everything, so all leaves are true.
     defaultOn: z.boolean(),
 })
 
@@ -70,6 +76,15 @@ export const MapMarkerSchema = z.object({
     regionId: z.number().nullable(),
     wikiPage: z.string().nullable(),
     checklistTaskId: z.number().nullable(),
+
+    // ── Game8 extras ─────────────────────────────────────────────────────────
+    // Optional so IGN markers are unaffected.
+    description: z.string().nullable().optional(),
+    // Rich popup markup, sanitised at fetch time — never Game8's raw HTML. See
+    // the fetcher's clean pass; rendering unsanitised source markup would be an
+    // injection hole in a page that also holds the user's own journal data.
+    html: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
 })
 
 // Leaflet view parameters, passed straight through from IGN's map config.
@@ -134,6 +149,19 @@ export const IgnMapTileStatusSchema = MapTilesSchema.partial({
     tilesDone: z.number().optional(),
 })
 
+// A single base image, used instead of a tile pyramid. Game8's maps are one
+// image per area rather than a pyramid (`tileLayerMode: false`), so there is
+// nothing to descend and `tiles` is absent entirely.
+//
+// `width`/`height` are the image's natural pixel size, recorded at download time
+// so the viewer can size its overlay without waiting for the image to decode.
+export const MapImageSchema = z.object({
+    file: z.string(),                // "base.gif", relative to the map dir
+    remoteUrl: z.string(),
+    width: z.number(),
+    height: z.number(),
+})
+
 export const IgnMapSchema = z.object({
     schemaVersion: z.literal(1),
     id: z.string(),                  // "palworld:palpagos-islands"
@@ -147,12 +175,33 @@ export const IgnMapSchema = z.object({
     wikiSlug: z.string().nullable(),
     sourceUrl: z.string(),
     fetchedAt: z.string(),
+
+    // ── Source / projection ──────────────────────────────────────────────────
+    // Defaulted rather than required so every map.json written before Game8
+    // support stays valid as-is — an already-downloaded IGN map must not need a
+    // re-fetch (Palworld alone is 87,381 tiles).
+    source: z.enum(['ign', 'game8']).default('ign'),
+    // How to read marker lat/lng. IGN serves ordinary Web Mercator slippy tiles.
+    // Game8 uses a fixed square grid with no geographic meaning, which Leaflet
+    // renders via CRS.Simple.
+    projection: z.enum(['EPSG3857', 'Simple']).default('EPSG3857'),
+    // Side of the virtual coordinate square, for `Simple` only. Game8's own
+    // bundle converts with `coord * (imageSize / 256)`, hence 256.
+    grid: z.number().optional(),
+
     view: MapViewSchema,
-    tiles: MapTilesSchema,
+    // Exactly one of `tiles` / `image` is present: a pyramid to descend, or a
+    // single base image. Both are optional so neither source has to carry a
+    // meaningless placeholder for the other's mode.
+    tiles: MapTilesSchema.optional(),
+    image: MapImageSchema.optional(),
+    // IGN windows every marker icon out of one sprite sheet. Game8 ships a PNG
+    // per classification instead, carried on each type as `iconFile`, so there
+    // is no sheet to reference.
     sprite: z.object({
         file: z.string(),            // "sprite.png", relative to the map dir
         remoteUrl: z.string(),
-    }),
+    }).optional(),
     types: z.array(MapTypeSchema),
     markers: z.array(MapMarkerSchema),
 })
