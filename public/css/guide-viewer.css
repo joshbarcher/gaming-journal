@@ -1608,4 +1608,11 @@ a.gv-toc-group-hd--link {
     min-height: 0;
     overflow: hidden;
     position: relative;
+    /* Leaflet stacks its own panes and controls at z-index 400-1000. Without a
+       stacking context here those compete directly with .gv-toc-gutter-btn
+       (z-index 2) in the shared root context, and the map paints over the
+       collapse handle — it's present and hit-testable, just invisible.
+       Isolating confines Leaflet's z-indexes to this subtree, so the handle
+       hangs over the layer panel exactly as it does over the TOC. */
+    isolation: isolate;
 }
