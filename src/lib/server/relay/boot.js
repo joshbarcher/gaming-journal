@@ -36,6 +36,7 @@ import { load as loadPlayLog } from './steam/play-log.service.js'
 import { startPoller as startNowPlayingPoller, stopPoller as stopNowPlayingPoller } from './steam/now-playing.service.js'
 import { build as buildAccountCache } from './account/account.service.js'
 import { startSnapshotScheduler, stopSnapshotScheduler } from './steam/sessions.service.js'
+import { warmHomeCache } from './home/home.service.js'
 
 let _booted = false
 
@@ -51,6 +52,12 @@ export async function bootRelay() {
     bootCommunityReviews().catch(err => logger.error('[relay-boot] Community reviews boot failed', { err: err?.message }))
     buildUpcomingCache().catch(err => logger.error('[relay-boot] Upcoming cache build failed', { err: err?.message }))
     loadAchievementsCache().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message }))
+
+    // Landing-page payload. Unconditional (read-only, so dev is safe) and ahead of
+    // the schedulers-disabled return: assembling it walks the guides tree on the
+    // NAS, and that must never happen on a render. Warmed here, then kept current
+    // stale-while-revalidate — see getHomeData.
+    warmHomeCache()
 
     // Unconditional: even a schedulers-off instance can lazily launch Chrome via
     // an on-demand pcgw syncGame or reddit/imgur browser call — the closers are

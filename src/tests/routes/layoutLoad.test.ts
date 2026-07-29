@@ -7,17 +7,57 @@ import * as layoutUniversal from '../../routes/+layout.js'
 import { setFlag } from '../../lib/server/services/flagsService.js'
 import { getJournalService } from '../../lib/server/services/journalService.js'
 import { getFranchiseService } from '../../lib/server/services/franchiseService.js'
+import { _resetForTests as resetAlertsCache } from '../../lib/server/services/alertsService.js'
 
-// ── Fetch plumbing ──────────────────────────────────────────────────────────
+// ── Service plumbing ────────────────────────────────────────────────────────
 //
-// The layout load fans out to five relay endpoints via safeRelayJson, plus
-// per-appid /api/games and /api/itad calls from alertsService when alert
-// flags exist. Everything is routed through a stubbed global fetch — no real
-// relay. flags persist under DATA_DIR (path-keyed store cache → fresh tmp dir
-// per test = fresh flags). journal/franchise services are process-lifetime
-// singletons pinned to the FIRST DATA_DIR they see; in production
-// hooks.server.ts loads them at startup, which we mirror in beforeAll below —
-// except for the initialization-hazard test that must run before that.
+// The layout load reads five relay data sources, plus per-appid game/itad reads
+// from alertsService when alert flags exist. These used to be loopback HTTP calls
+// to the app's own /relay/api/* routes and were stubbed here through global fetch.
+// They are now direct in-process service calls (see lib/server/ssrData.ts — the
+// round-trip was pure overhead on the render path and its pooled socket going
+// stale was the post-idle stall), so the stubs mock the SERVICES instead. The
+// behavioural assertions below are unchanged: what matters is that the layout
+// degrades to a renderable shape when a source fails, however it is reached.
+//
+// flags persist under DATA_DIR (path-keyed store cache → fresh tmp dir per test =
+// fresh flags). journal/franchise services are process-lifetime singletons pinned
+// to the FIRST DATA_DIR they see; in production hooks.server.ts loads them at
+// startup, which we mirror in beforeAll below — except for the
+// initialization-hazard test that must run before that.
+
+vi.mock('../../lib/server/relay/account/account.service.js', () => ({
+    get:         vi.fn(() => null),
+    ensureBuilt: vi.fn(async () => {}),
+}))
+vi.mock('../../lib/server/relay/steam/play-log.service.js', () => ({
+    load:              vi.fn(async () => {}),
+    getLastPlayedMap:  vi.fn(() => null),
+}))
+vi.mock('../../lib/server/relay/steam/now-playing.service.js', () => ({
+    get: vi.fn(() => null),
+}))
+vi.mock('../../lib/server/relay/pin/pin.service.js', () => ({
+    get: vi.fn(() => null),
+}))
+vi.mock('../../lib/server/relay/progress-suggest/suggest-job-queue.js', () => ({
+    getJobs: vi.fn(() => null),
+}))
+vi.mock('../../lib/server/relay/games/games.service.js', () => ({
+    getOne:      vi.fn(() => null),
+    ensureBuilt: vi.fn(async () => {}),
+}))
+vi.mock('../../lib/server/relay/itad/itad.service.js', () => ({
+    getEntry: vi.fn(async () => null),
+}))
+
+import * as accountService    from '../../lib/server/relay/account/account.service.js'
+import * as playLogService    from '../../lib/server/relay/steam/play-log.service.js'
+import * as nowPlayingService from '../../lib/server/relay/steam/now-playing.service.js'
+import * as pinService        from '../../lib/server/relay/pin/pin.service.js'
+import * as jobQueue          from '../../lib/server/relay/progress-suggest/suggest-job-queue.js'
+import * as gamesService      from '../../lib/server/relay/games/games.service.js'
+import * as itadService       from '../../lib/server/relay/itad/itad.service.js'
 
 const NETWORK  = Symbol('network-error')
 const BAD_JSON = Symbol('bad-json')
@@ -25,11 +65,13 @@ const NO_CONTENT = Symbol('http-204')
 
 type Stub = unknown | typeof NETWORK | typeof BAD_JSON | typeof NO_CONTENT
 
-function respond(v: Stub) {
-    if (v === NETWORK)    throw new TypeError('fetch failed')
-    if (v === BAD_JSON)   return { ok: true, status: 200, json: () => Promise.reject(new SyntaxError('Unexpected token <')) }
-    if (v === NO_CONTENT) return { ok: true, status: 204, json: () => Promise.reject(new Error('204 has no body')) }
-    return { ok: true, status: 200, json: async () => v }
+// NETWORK / BAD_JSON both modelled as "the read threw" — the failure the loader
+// has to absorb. NO_CONTENT (the relay's 204 "nothing pinned") is the service
+// returning null. All three must degrade to null, never reject the load.
+function valueOf(v: Stub): unknown {
+    if (v === NETWORK || v === BAD_JSON) throw new TypeError('relay read failed')
+    if (v === NO_CONTENT) return null
+    return v
 }
 
 interface LayoutStubs {
@@ -43,23 +85,38 @@ interface LayoutStubs {
 }
 
 function stubRelay(cfg: LayoutStubs = {}) {
-    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
-        const url = String(input)
-        if (url.includes('/api/account'))                    return respond(cfg.account ?? null)
-        if (url.includes('/api/steam/playtime/last-played')) return respond(cfg.playtime ?? null)
-        if (url.includes('/api/steam/now-playing'))          return respond(cfg.nowPlaying ?? null)
-        if (url.includes('/api/pin'))                        return respond(cfg.pin ?? null)
-        if (url.includes('/api/progress-suggest/jobs'))      return respond(cfg.jobs ?? null)
-        const game = url.match(/\/api\/games\/(\d+)/)
-        if (game) return respond(cfg.games?.[game[1]] ?? null)
-        const itad = url.match(/\/api\/itad\/(\d+)/)
-        if (itad) return respond(cfg.itad?.[itad[1]] ?? null)
-        return { ok: false, status: 404, json: async () => null }
-    }))
+    // Module mocks live for the whole file, so call history accumulates across
+    // tests — clear it so "was never looked up" assertions mean this test.
+    vi.clearAllMocks()
+    vi.mocked(accountService.get).mockImplementation(() => valueOf(cfg.account ?? null) as never)
+    vi.mocked(accountService.ensureBuilt).mockImplementation(async () => {})
+    vi.mocked(playLogService.load).mockImplementation(async () => {})
+    vi.mocked(playLogService.getLastPlayedMap).mockImplementation(() => valueOf(cfg.playtime ?? null) as never)
+    vi.mocked(nowPlayingService.get).mockImplementation(() => valueOf(cfg.nowPlaying ?? null) as never)
+    vi.mocked(pinService.get).mockImplementation(() => valueOf(cfg.pin ?? null) as never)
+    vi.mocked(jobQueue.getJobs).mockImplementation(() => valueOf(cfg.jobs ?? null) as never)
+    vi.mocked(gamesService.ensureBuilt).mockImplementation(async () => {})
+    vi.mocked(gamesService.getOne).mockImplementation(
+        ((appid: number) => valueOf(cfg.games?.[String(appid)] ?? null)) as never
+    )
+    vi.mocked(itadService.getEntry).mockImplementation(
+        (async (appid: number) => valueOf(cfg.itad?.[String(appid)] ?? null)) as never
+    )
 }
 
 function relayDown() {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('fetch failed'))))
+    vi.clearAllMocks()
+    const boom = () => { throw new TypeError('relay read failed') }
+    vi.mocked(accountService.get).mockImplementation(boom as never)
+    vi.mocked(accountService.ensureBuilt).mockImplementation(boom as never)
+    vi.mocked(playLogService.load).mockImplementation(boom as never)
+    vi.mocked(playLogService.getLastPlayedMap).mockImplementation(boom as never)
+    vi.mocked(nowPlayingService.get).mockImplementation(boom as never)
+    vi.mocked(pinService.get).mockImplementation(boom as never)
+    vi.mocked(jobQueue.getJobs).mockImplementation(boom as never)
+    vi.mocked(gamesService.getOne).mockImplementation(boom as never)
+    vi.mocked(gamesService.ensureBuilt).mockImplementation(boom as never)
+    vi.mocked(itadService.getEntry).mockImplementation(boom as never)
 }
 
 function minutesAgoIso(minutes: number): string {
@@ -88,6 +145,9 @@ describe('+layout.server load', () => {
         dataDir = tmpDataDir()
         process.env.DATA_DIR  = dataDir
         process.env.RELAY_URL = 'http://relay.test'
+        // Alert rows are memoized per appid for the process lifetime, so without
+        // this a previous test's prices leak into the next one's assertions.
+        resetAlertsCache()
     })
 
     afterEach(async () => {
@@ -147,10 +207,9 @@ describe('+layout.server load', () => {
                 expect(data.trackerJobs).toEqual([])
             })
 
-            it('a malformed relay body is caught by safeRelayJson (awaited json — the fixed pattern) and degrades to null', async () => {
-                // Contrast with the fetchJson bug in +page.server.ts:71 —
-                // +layout.server.ts:15 awaits res.json() inside the try, so a bad
-                // body on any endpoint must NOT reject the load.
+            it('a failing read on any source degrades to null instead of rejecting the load', async () => {
+                // ssrRead catches per-source, so one unavailable service costs its own
+                // card and nothing else — it must never 500 the whole page.
                 stubRelay({ account: BAD_JSON, playtime: BAD_JSON, nowPlaying: BAD_JSON, pin: BAD_JSON, jobs: BAD_JSON })
                 const data = await load()
                 expect(data.counts.library).toBe(0)
@@ -308,13 +367,12 @@ describe('+layout.server load', () => {
                 expect(data.saleAlerts).toEqual([{ appid: 111, cut: 50 }])
             })
 
-            it('no alert flags → zero alerts without any relay lookups for games/itad', async () => {
+            it('no alert flags → zero alerts without any price lookups', async () => {
                 stubRelay({})
                 const data = await load()
                 expect(data.alertsCount).toBe(0)
                 expect(data.saleAlerts).toEqual([])
-                const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.map(c => String(c[0]))
-                expect(calls.some(u => u.includes('/api/itad/'))).toBe(false)
+                expect(vi.mocked(itadService.getEntry)).not.toHaveBeenCalled()
             })
         })
 

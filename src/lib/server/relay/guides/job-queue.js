@@ -12,6 +12,8 @@ import { join }                  from 'node:path';
 import { randomUUID }            from 'node:crypto';
 import { featureDir }            from '../shared/data-root.js';
 import { TOOLS_DIR }             from './tools-dir.js';
+import { invalidateGuideCard }   from '../home/guide-card.service.js';
+import { invalidateHomeCache }   from '../home/home.service.js';
 
 async function dirSize(dir) {
     let total = 0;
@@ -270,6 +272,10 @@ async function _runJob(job) {
             error:       err.message,
         });
     } finally {
+        // A download/reparse rewrites this game's guides tree, so the memoized home
+        // card for it is stale. Also on error: a partial tree may already be on disk.
+        invalidateGuideCard(job.steamId);
+        invalidateHomeCache();
         _schedule();
     }
 }

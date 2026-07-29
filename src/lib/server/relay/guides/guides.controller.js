@@ -26,6 +26,7 @@ import { launchBrowser as launchNeoseekerBrowser,   searchGame as searchNeoseeke
 import { launchBrowser as launchTheGamerBrowser,    searchGame as searchTheGamer }  from './thegamer/search.service.js';
 import { getOne as getGame }                                                           from '../games/games.service.js';
 import { invalidateHomeCache }                                                         from '../home/home.service.js';
+import { invalidateGuideCard }                                                        from '../home/guide-card.service.js';
 import { featureDir }                                                                  from '../shared/data-root.js';
 import { TOOLS_DIR }                                                                   from './tools-dir.js';
 
@@ -284,8 +285,10 @@ export async function markUsed(steamId, source, guideId) {
     const lastUsedAt = new Date().toISOString();
     try {
         await writeFile(usagePath(steamId, source, guideId), JSON.stringify({ lastUsedAt }));
-        // Bust the home payload cache so the landing page's guide card reflects
-        // the new "most recently used" ordering immediately.
+        // Bust both caches so the landing page's guide card reflects the new
+        // "most recently used" ordering immediately: the memoized card for this
+        // game (which carries lastUsedAt) and the payload that embeds it.
+        invalidateGuideCard(steamId);
         invalidateHomeCache();
         return { status: 200, body: { ok: true, lastUsedAt } };
     } catch (err) {

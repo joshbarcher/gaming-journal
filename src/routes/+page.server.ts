@@ -1,6 +1,12 @@
 import { getAllFlags } from '$lib/server/services/flagsService.js'
 import { getSettings } from '$lib/server/services/settingsService.js'
 import { journalRelayBase } from '$lib/server/journalRelayBase.js'
+import { internalJson } from '$lib/server/internalFetch.js'
+import { ssrRead } from '$lib/server/ssrData.js'
+import { getHomeData } from '$lib/server/relay/home/home.service.js'
+import { ensureBuilt as ensureGamesBuilt } from '$lib/server/relay/games/games.service.js'
+import { getPosterBatch } from '$lib/server/relay/games/poster-pool.service.js'
+import { load as loadPlayLog } from '$lib/server/relay/steam/play-log.service.js'
 import type { DiscoverSection, FlagsStore, Settings } from '$lib/types.js'
 
 interface HomePoster  { appid: number; poster: string }
@@ -62,16 +68,11 @@ const EMPTY_RELAY: RelayHomeData = {
     release: null, libPosters: [], wlPosters: [],
 }
 
-async function fetchJson<T>(url: string): Promise<T | null> {
-    try {
-        const res = await fetch(url)
-        // await inside the try — an un-awaited res.json() rejection (malformed body)
-        // would escape the catch and 500 the whole home page via Promise.all.
-        return res.ok ? await (res.json() as Promise<T>) : null
-    } catch {
-        return null
-    }
-}
+// Only /api/discover/featured still goes over HTTP: unlike the others it is not a
+// thin service delegate (adult annotation, relay-path rewriting, background image
+// caching), so it stays behind its route. internalJson gives it the pooled,
+// retried dispatcher instead of the default 4s-keepalive one — see internalFetch.ts.
+const fetchJson = internalJson
 
 function makeShouldShow(flags: FlagsStore, settings: Settings) {
     return function shouldShow(appid: number | string): boolean {
@@ -138,12 +139,21 @@ export async function load(): Promise<HomeData> {
     // RELAY_URL — that mail-only shell 404s these now. See journalRelayBase.
     const base = journalRelayBase()
 
-    // The home payload is precomputed + cached, so this is a fast single read;
-    // the poster endpoints feed the (12+ tile) mosaics.
+    // The home payload is served from last-known-good and refreshed in the
+    // background (see home.service getHomeData), so this never waits on the NAS.
     const [homeData, libPosters, wlPosters, discoverData, flags, settings] = await Promise.all([
-        fetchJson<RelayHomeData>(`${base}/api/home`),
-        fetchJson<HomePoster[]>(`${base}/api/games/posters?source=library&n=50`),
-        fetchJson<HomePoster[]>(`${base}/api/games/posters?source=wishlist&n=50`),
+        ssrRead<RelayHomeData>('home', '/api/home', async () => {
+            await Promise.all([ensureGamesBuilt(), loadPlayLog()])
+            return await getHomeData() as RelayHomeData
+        }),
+        ssrRead<HomePoster[]>('games', '/api/games/posters?source=library&n=50', async () => {
+            await ensureGamesBuilt()
+            return getPosterBatch('library')
+        }),
+        ssrRead<HomePoster[]>('games', '/api/games/posters?source=wishlist&n=50', async () => {
+            await ensureGamesBuilt()
+            return getPosterBatch('wishlist')
+        }),
         fetchJson<DiscoverSection[]>(`${base}/api/discover/featured`),
         getAllFlags().catch(() => ({} as FlagsStore)),
         getSettings().catch(() => ({ showChildLocked: false, showFiltered: false, showSoftware: false, hideUnavailable: false, titleBlocklist: [], discoverFiltersEnabled: true, hideAdultContent: true, guidePinsCollapsed: false } as Settings)),

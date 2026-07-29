@@ -7,14 +7,35 @@ import { setFlag } from '../../lib/server/services/flagsService.js'
 import { patchSettings } from '../../lib/server/services/settingsService.js'
 import type { DiscoverItem, DiscoverSection } from '../../lib/types.js'
 
-// ── Fixtures / fetch plumbing ───────────────────────────────────────────────
+// ── Fixtures / plumbing ─────────────────────────────────────────────────────
 //
-// load() talks to four relay endpoints via global fetch. We stub fetch with a
-// tiny router; special sentinels simulate the failure modes. flags/settings
-// persist through DATA_DIR-keyed store files, so a fresh tmp dir per test
-// gives fresh service state (same pattern as localReviewsService.test.ts).
+// load() reads the home payload and the two poster batches IN-PROCESS now (see
+// lib/server/ssrData.ts — the loopback round-trip was overhead on the render path
+// and its stale pooled socket was the post-idle stall), so those are mocked as
+// services. /api/discover/featured is NOT a thin service delegate (adult
+// annotation, path rewriting, background image caching) so it stays behind its
+// route and is still stubbed through fetch. flags/settings persist through
+// DATA_DIR-keyed store files, so a fresh tmp dir per test gives fresh service
+// state (same pattern as localReviewsService.test.ts).
 
-const NETWORK  = Symbol('network-error')   // fetch itself rejects
+vi.mock('../../lib/server/relay/home/home.service.js', () => ({
+    getHomeData: vi.fn(async () => null),
+}))
+vi.mock('../../lib/server/relay/games/games.service.js', () => ({
+    ensureBuilt: vi.fn(async () => {}),
+}))
+vi.mock('../../lib/server/relay/games/poster-pool.service.js', () => ({
+    getPosterBatch: vi.fn(() => []),
+}))
+vi.mock('../../lib/server/relay/steam/play-log.service.js', () => ({
+    load: vi.fn(async () => {}),
+}))
+
+import * as homeService  from '../../lib/server/relay/home/home.service.js'
+import * as gamesService from '../../lib/server/relay/games/games.service.js'
+import * as posterPool   from '../../lib/server/relay/games/poster-pool.service.js'
+
+const NETWORK  = Symbol('network-error')   // the read rejects
 const HTTP_500 = Symbol('http-500')        // non-ok response
 const BAD_JSON = Symbol('bad-json')        // ok response, body fails to parse
 
@@ -27,20 +48,35 @@ function respond(v: Stub) {
     return { ok: true, status: 200, json: async () => v }
 }
 
+// All three sentinels mean the same thing to an in-process read: it threw, and the
+// loader must degrade that source to null rather than reject the page.
+function serve(v: Stub): unknown {
+    if (v === NETWORK || v === HTTP_500 || v === BAD_JSON) throw new TypeError('read failed')
+    return v
+}
+
 interface RelayStubs { home?: Stub; lib?: Stub; wl?: Stub; discover?: Stub }
 
 function stubRelay({ home = null, lib = [], wl = [], discover = [] }: RelayStubs = {}) {
+    vi.clearAllMocks()
+    vi.mocked(homeService.getHomeData).mockImplementation((async () => serve(home)) as never)
+    vi.mocked(gamesService.ensureBuilt).mockImplementation(async () => {})
+    vi.mocked(posterPool.getPosterBatch).mockImplementation(
+        ((source: string) => serve(source === 'wishlist' ? wl : lib)) as never
+    )
     vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
         const url = String(input)
-        if (url.includes('/api/home'))              return respond(home)
-        if (url.includes('source=library'))         return respond(lib)
-        if (url.includes('source=wishlist'))        return respond(wl)
         if (url.includes('/api/discover/featured')) return respond(discover)
         return { ok: false, status: 404, json: async () => null }
     }))
 }
 
 function relayDown() {
+    vi.clearAllMocks()
+    const boom = () => { throw new TypeError('read failed') }
+    vi.mocked(homeService.getHomeData).mockImplementation(boom as never)
+    vi.mocked(posterPool.getPosterBatch).mockImplementation(boom as never)
+    vi.mocked(gamesService.ensureBuilt).mockImplementation(async () => {})
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('fetch failed'))))
 }
 

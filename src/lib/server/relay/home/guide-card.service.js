@@ -63,6 +63,26 @@ function screenshotUrl(appid, source, guideId, cover) {
     return `/relay/guides-img/${appid}/${source}/${guideId}/${encodeURIComponent(cover.section)}/img/${filename}`;
 }
 
+// ── Memo ──────────────────────────────────────────────────────────────────────
+// Resolving one card walks the game's guides tree: a readdir per source, then a
+// stat + two readFiles per guide. On the NAS mount that is dozens of round-trips,
+// and the home payload resolves six games' worth every rebuild. Nothing here
+// changes unless a guide is downloaded, re-parsed, or opened — all of which call
+// invalidateGuideCard — so memoize aggressively and treat the TTL purely as a
+// backstop for out-of-band edits to the tree.
+const MEM_TTL_MS = 30 * 60 * 1_000;
+
+const _memo = new Map();   // appid → { value, at }
+
+/**
+ * Drop the memo for one game (or all of it) so the next read re-walks the tree.
+ * @param {number|string|null} [appid] omit to clear every game
+ */
+export function invalidateGuideCard(appid = null) {
+    if (appid === null) _memo.clear();
+    else _memo.delete(Number(appid));
+}
+
 /**
  * Returns the best guide card for a game, or null if it has no downloaded guides.
  * "Best" = most-recently-used, else the one with the most cover images (richest),
@@ -70,6 +90,18 @@ function screenshotUrl(appid, source, guideId, cover) {
  *   { source, guideId, title, sourceUrl, screenshot, screenshots, pageCount }
  */
 export async function getGuideCard(appid) {
+    const key = Number(appid);
+    const hit = _memo.get(key);
+    if (hit && (Date.now() - hit.at) < MEM_TTL_MS) return hit.value;
+
+    const value = await resolveGuideCard(appid);
+    // Cache misses too (null = "this game has no guides"): that answer costs a
+    // readdir to reach and is the common case across a large library.
+    _memo.set(key, { value, at: Date.now() });
+    return value;
+}
+
+async function resolveGuideCard(appid) {
     const root = gameRoot(appid);
     let sources;
     try { sources = await readdir(root); } catch { return null; }

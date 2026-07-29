@@ -2,18 +2,18 @@ import { getAllFlags }        from '$lib/server/services/flagsService.js'
 import { getJournalService }  from '$lib/server/services/journalService.js'
 import { getFranchiseService } from '$lib/server/services/franchiseService.js'
 import { getAlerts }          from '$lib/server/services/alertsService.js'
-import { journalRelayBase }   from '$lib/server/journalRelayBase.js'
+import { ssrRead }            from '$lib/server/ssrData.js'
 import type { Page, PinState } from '$lib/types.js'
 
-// The journal serves its own gaming data at /relay/api/* (fold-in) — NOT
-// RELAY_URL, which now 404s these. See journalRelayBase.
-async function safeRelayJson(path: string): Promise<any> {
-    try {
-        const res = await fetch(`${journalRelayBase()}${path}`)
-        if (!res.ok || res.status === 204) return null
-        return await res.json()
-    } catch { return null }
-}
+// These read the journal's own gaming data in-process — no loopback socket. See
+// ssrData.ts for why (this layout runs on EVERY page, so it was the single
+// biggest contributor to the post-idle stall).
+import { get as getAccountSnapshot, ensureBuilt as ensureAccountBuilt } from '$lib/server/relay/account/account.service.js'
+import { load as loadPlayLog, getLastPlayedMap }                       from '$lib/server/relay/steam/play-log.service.js'
+import { get as getNowPlaying }                                        from '$lib/server/relay/steam/now-playing.service.js'
+import { get as getPin }                                               from '$lib/server/relay/pin/pin.service.js'
+import { getJobs as getTrackerJobs }                                   from '$lib/server/relay/progress-suggest/suggest-job-queue.js'
+import { getOne as getOneGame, ensureBuilt as ensureGamesBuilt }       from '$lib/server/relay/games/games.service.js'
 
 function fmtElapsed(startIso: string | null): string {
     if (!startIso) return ''
@@ -34,11 +34,18 @@ export async function load() {
             (async () => getJournalService().getAll())(),
             (async () => getFranchiseService().getAll())(),
             getAlerts(),
-            safeRelayJson('/api/account'),
-            safeRelayJson('/api/steam/playtime/last-played'),
-            safeRelayJson('/api/steam/now-playing'),
-            safeRelayJson('/api/pin'),
-            safeRelayJson('/api/progress-suggest/jobs'),
+            ssrRead('account', '/api/account', async () => {
+                await loadPlayLog()
+                await ensureAccountBuilt()
+                return getAccountSnapshot()
+            }),
+            ssrRead('sessions', '/api/steam/playtime/last-played', async () => {
+                await loadPlayLog()
+                return getLastPlayedMap()
+            }),
+            ssrRead('now-playing', '/api/steam/now-playing', () => getNowPlaying()),
+            ssrRead('pin', '/api/pin', () => getPin()),
+            ssrRead('progress-suggest', '/api/progress-suggest/jobs', () => getTrackerJobs()),
         ])
 
     const flags      = flagsResult.status      === 'fulfilled' ? flagsResult.value      : {}
@@ -72,16 +79,28 @@ export async function load() {
         .map(a => ({ appid: a.appid, cut: a.bestPrice?.cut ?? 0 }))
         .filter(a => a.cut > 0)
 
-    // History backdrop: find most-recently-played game
+    // History backdrop: most-recently-played game. Single pass for the max — this
+    // runs on every page, and sorting the whole map to read one element is work
+    // we pay per request for nothing.
     let historyAppid: number | null = null
     let lastPlayed: { appid: number; name: string } | null = null
     if (playtimeData) {
-        const sorted = Object.entries(playtimeData as Record<string, any>)
-            .filter(([, v]) => v.lastPlayedAt)
-            .sort((a, b) => new Date(b[1].lastPlayedAt).getTime() - new Date(a[1].lastPlayedAt).getTime())
-        if (sorted.length) {
-            historyAppid = Number(sorted[0][0])
-            const game = await safeRelayJson(`/api/games/${historyAppid}`)
+        let bestMs = -Infinity
+        for (const [appid, v] of Object.entries(playtimeData as Record<string, any>)) {
+            if (!v?.lastPlayedAt) continue
+            const ms = new Date(v.lastPlayedAt).getTime()
+            if (!Number.isFinite(ms) || ms <= bestMs) continue
+            bestMs = ms
+            historyAppid = Number(appid)
+        }
+        if (historyAppid !== null) {
+            // Cached read only. The full /api/games/:appid route also provisions and
+            // re-checks store data on view; a nav backdrop label must not trigger
+            // that, and it was a SECOND serial round-trip after the batch above.
+            const game = await ssrRead('games', `/api/games/${historyAppid}`, async () => {
+                await ensureGamesBuilt()
+                return getOneGame(historyAppid)
+            })
             if (game?.name) lastPlayed = { appid: historyAppid, name: game.name }
         }
     }

@@ -2,116 +2,148 @@ import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import os from 'node:os'
 import path from 'node:path'
 import fsp from 'node:fs/promises'
-import { getAlerts } from '../lib/server/services/alertsService.js'
+import { getAlerts, _resetForTests } from '../lib/server/services/alertsService.js'
+import { setFlag } from '../lib/server/services/flagsService.js'
+
+// alertsService runs in the ROOT layout, so it runs on every page. It used to make
+// two loopback HTTP calls per alerted game; it now reads the games + itad services
+// in-process and memoizes each row stale-while-revalidate (see the service header).
+// So these mock the services rather than global fetch, and the memo is reset per
+// test since it is module-level state.
+vi.mock('../lib/server/relay/games/games.service.js', () => ({
+    getOne:      vi.fn(() => null),
+    ensureBuilt: vi.fn(async () => {}),
+}))
+vi.mock('../lib/server/relay/itad/itad.service.js', () => ({
+    getEntry: vi.fn(async () => null),
+}))
+
+import * as gamesService from '../lib/server/relay/games/games.service.js'
+import * as itadService  from '../lib/server/relay/itad/itad.service.js'
 
 function makeTmpDir() {
     return path.join(os.tmpdir(), `alerts-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-}
-
-type FetchMock = ReturnType<typeof vi.fn>
-
-function ok(data: unknown) {
-    return { ok: true, json: async () => data }
-}
-function notFound() {
-    return { ok: false, status: 404, json: async () => ({}) }
 }
 
 describe('alertsService', () => {
     let tmpDir: string
     let flagsPath: string
     let prevDataDir: string | undefined
-    let prevRelayUrl: string | undefined
-    let prevPort: string | undefined
-    let fetchMock: FetchMock
 
     async function writeFlags(store: Record<string, Record<string, unknown>>) {
         await fsp.writeFile(flagsPath, JSON.stringify(store))
     }
 
+    /** Point the mocked services at fixture data, keyed by appid. Anything not
+     *  listed reads as "not cached" (null) — the services' own miss behaviour. */
+    function relay(games: Record<string, unknown>, itad: Record<string, unknown>) {
+        vi.mocked(gamesService.getOne).mockImplementation(
+            ((appid: number) => games[String(appid)] ?? null) as never
+        )
+        vi.mocked(itadService.getEntry).mockImplementation(
+            (async (appid: number) => itad[String(appid)] ?? null) as never
+        )
+    }
+
     beforeEach(async () => {
+        vi.clearAllMocks()
+        _resetForTests()
         tmpDir = makeTmpDir()
         await fsp.mkdir(path.join(tmpDir, 'gaming-journal'), { recursive: true })
         flagsPath = path.join(tmpDir, 'gaming-journal', 'flags.json')
         prevDataDir = process.env.DATA_DIR
-        prevRelayUrl = process.env.RELAY_URL
-        prevPort = process.env.PORT
         process.env.DATA_DIR = tmpDir
-        // Alerts now call the journal's OWN /relay/* on loopback (fold-in), keyed
-        // off PORT — not RELAY_URL (the mail-only relay). See journalRelayBase.
-        process.env.PORT = '9999'
-        fetchMock = vi.fn(async () => notFound())
-        vi.stubGlobal('fetch', fetchMock)
         vi.spyOn(console, 'log').mockImplementation(() => {})
         vi.spyOn(console, 'warn').mockImplementation(() => {})
         vi.spyOn(console, 'error').mockImplementation(() => {})
     })
 
     afterEach(async () => {
-        vi.unstubAllGlobals()
         vi.restoreAllMocks()
         if (prevDataDir === undefined) delete process.env.DATA_DIR
         else process.env.DATA_DIR = prevDataDir
-        if (prevRelayUrl === undefined) delete process.env.RELAY_URL
-        else process.env.RELAY_URL = prevRelayUrl
-        if (prevPort === undefined) delete process.env.PORT
-        else process.env.PORT = prevPort
         await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
     })
 
     describe('no alert flags', () => {
-        it('returns empty lists and never touches the relay when the flags file is missing', async () => {
+        it('returns empty lists and never reads a game or price when the flags file is missing', async () => {
             expect(await getAlerts()).toEqual({ onSale: [], watching: [] })
-            expect(fetchMock).not.toHaveBeenCalled()
+            expect(vi.mocked(gamesService.getOne)).not.toHaveBeenCalled()
+            expect(vi.mocked(itadService.getEntry)).not.toHaveBeenCalled()
         })
 
         it('ignores appids whose flags do not include alert', async () => {
             await writeFlags({ '1': { favorite: true }, '2': { backlog: true } })
             expect(await getAlerts()).toEqual({ onSale: [], watching: [] })
-            expect(fetchMock).not.toHaveBeenCalled()
+            expect(vi.mocked(itadService.getEntry)).not.toHaveBeenCalled()
         })
 
         it('contract: alert:false on disk is treated as no alert', async () => {
             await writeFlags({ '1': { alert: false } })
             expect(await getAlerts()).toEqual({ onSale: [], watching: [] })
-            expect(fetchMock).not.toHaveBeenCalled()
+            expect(vi.mocked(itadService.getEntry)).not.toHaveBeenCalled()
         })
     })
 
-    describe('URL construction', () => {
-        it('fetches game and itad endpoints for each alert appid', async () => {
+    describe('service reads', () => {
+        it('reads the game and its prices for each alert appid', async () => {
             await writeFlags({ '123': { alert: true } })
             await getAlerts()
-            const urls = fetchMock.mock.calls.map(c => String(c[0])).sort()
-            expect(urls).toEqual([
-                'http://127.0.0.1:9999/relay/api/games/123',
-                'http://127.0.0.1:9999/relay/api/itad/123',
-            ])
+            expect(vi.mocked(gamesService.getOne)).toHaveBeenCalledWith(123)
+            expect(vi.mocked(itadService.getEntry)).toHaveBeenCalledWith(123)
         })
 
-        it('targets the journal\'s own /relay base, never a double slash', async () => {
-            await writeFlags({ '5': { alert: true } })
+        it('waits for the games cache before reading it, so a cold process is not a miss', async () => {
+            await writeFlags({ '123': { alert: true } })
             await getAlerts()
-            const urls = fetchMock.mock.calls.map(c => String(c[0]))
-            expect(urls.length).toBeGreaterThan(0)
-            for (const u of urls) {
-                expect(u).toMatch(/^http:\/\/127\.0\.0\.1:9999\/relay\/api\//)
-                expect(u.replace(/^https?:\/\//, '')).not.toContain('//')
-            }
-        })
-
-        it('defaults to loopback:5173 when PORT is unset', async () => {
-            delete process.env.PORT
-            await writeFlags({ '5': { alert: true } })
-            await getAlerts()
-            expect(String(fetchMock.mock.calls[0][0])).toMatch(/^http:\/\/127\.0\.0\.1:5173\/relay\/api\//)
+            expect(vi.mocked(gamesService.ensureBuilt)).toHaveBeenCalled()
         })
     })
 
-    describe('relay failures', () => {
-        it('network errors on both endpoints degrade to a watching entry with fallbacks', async () => {
+    describe('memoization', () => {
+        it('a second call inside the TTL serves the memo instead of re-reading', async () => {
+            await writeFlags({ '10': { alert: true } })
+            relay({ '10': { name: 'Deep Rock', source: 'wishlist' } }, { '10': { deals: [] } })
+
+            const first = await getAlerts()
+            const readsAfterFirst = vi.mocked(itadService.getEntry).mock.calls.length
+            const second = await getAlerts()
+
+            expect(second).toEqual(first)
+            expect(vi.mocked(itadService.getEntry).mock.calls.length).toBe(readsAfterFirst)
+        })
+
+        // Mutations go through setFlag, not writeFlags: the flags store is an
+        // in-memory ManagedFile, so rewriting the file underneath it is not seen.
+        it('a newly alerted game is read on the next call rather than waiting for a refresh', async () => {
+            relay({ '10': { name: 'A', source: 'wishlist' }, '20': { name: 'B', source: 'wishlist' } }, {})
+            await setFlag(10, 'alert', true)
+            await getAlerts()
+
+            await setFlag(20, 'alert', true)
+            const result = await getAlerts()
+
+            expect(vi.mocked(itadService.getEntry)).toHaveBeenCalledWith(20)
+            expect(result.watching.map(r => r.appid).sort((a, b) => a - b)).toEqual([10, 20])
+        })
+
+        it('rows for games no longer alerted are dropped from the memo', async () => {
+            relay({ '10': { name: 'A', source: 'wishlist' }, '20': { name: 'B', source: 'wishlist' } }, {})
+            await setFlag(10, 'alert', true)
+            await setFlag(20, 'alert', true)
+            await getAlerts()
+
+            await setFlag(20, 'alert', false)
+            const result = await getAlerts()
+            expect(result.watching.map(r => r.appid)).toEqual([10])
+        })
+    })
+
+    describe('read failures', () => {
+        it('a failing read on both sources degrades to a watching entry with fallbacks', async () => {
             await writeFlags({ '123': { alert: true } })
-            fetchMock.mockRejectedValue(new Error('ECONNREFUSED'))
+            vi.mocked(gamesService.getOne).mockImplementation((() => { throw new Error('ECONNREFUSED') }) as never)
+            vi.mocked(itadService.getEntry).mockImplementation((async () => { throw new Error('ECONNREFUSED') }) as never)
             const result = await getAlerts()
             expect(result.onSale).toEqual([])
             expect(result.watching).toEqual([{
@@ -123,37 +155,29 @@ describe('alertsService', () => {
             }])
         })
 
-        it('non-ok responses degrade the same way', async () => {
+        it('an uncached game/price (null) degrades the same way', async () => {
             await writeFlags({ '123': { alert: true } })
-            fetchMock.mockResolvedValue(notFound())
+            relay({}, {})
             const result = await getAlerts()
             expect(result.watching[0].name).toBe('App 123')
             expect(result.watching[0].bestPrice).toBeNull()
         })
 
-        // REGRESSION: fetchJson once did `return res.json()` (no await) inside try/catch,
-        // so a rejected json() promise escaped the catch and rejected the whole
-        // getAlerts() Promise.all; it now awaits res.json() so a malformed body degrades.
-        it('a malformed JSON body from the relay must not reject the whole getAlerts call', async () => {
-            await writeFlags({ '123': { alert: true } })
-            fetchMock.mockResolvedValue({ ok: true, json: () => Promise.reject(new SyntaxError('Unexpected token <')) })
+        // REGRESSION: one unreadable source must not empty the whole sidebar — the
+        // per-appid reads are independent and a throw is absorbed per row.
+        it('one game failing must not reject the whole getAlerts call', async () => {
+            await writeFlags({ '10': { alert: true }, '20': { alert: true } })
+            vi.mocked(gamesService.getOne).mockImplementation(((appid: number) => {
+                if (appid === 10) throw new Error('boom')
+                return { name: 'Fine', source: 'wishlist' }
+            }) as never)
             const result = await getAlerts()
-            expect(result.watching.length).toBe(1)
+            expect(result.watching.length).toBe(2)
+            expect(result.watching.map(r => r.name).sort()).toEqual(['App 10', 'Fine'])
         })
     })
 
     describe('classification — onSale vs watching', () => {
-        function relay(games: Record<string, unknown>, itad: Record<string, unknown>) {
-            fetchMock.mockImplementation(async (input: unknown) => {
-                const url = String(input)
-                let m = url.match(/\/api\/games\/(.+)$/)
-                if (m) return games[m[1]] !== undefined ? ok(games[m[1]]) : notFound()
-                m = url.match(/\/api\/itad\/(.+)$/)
-                if (m) return itad[m[1]] !== undefined ? ok(itad[m[1]]) : notFound()
-                return notFound()
-            })
-        }
-
         it('a positive cut lands in onSale with the deal mapped to bestPrice', async () => {
             await writeFlags({ '10': { alert: true } })
             relay(
@@ -245,9 +269,8 @@ describe('alertsService', () => {
             expect(result.onSale[0].bestPrice!.cut).toBe(50)
         })
 
-        // REGRESSION: same non-exhaustive classification — a NaN cut (relay garbage;
-        // in-process the deal carries a real NaN) once dropped the game from BOTH lists;
-        // watching is now the exact complement of onSale, so a NaN cut lands in watching.
+        // REGRESSION: same non-exhaustive classification — a NaN cut once dropped the
+        // game from BOTH lists; watching is now the exact complement of onSale.
         it('a NaN cut must not make the alerted game vanish from both lists', async () => {
             await writeFlags({ '10': { alert: true } })
             relay({}, { '10': { deals: [{ price: 5, cut: NaN, store: 'A' }] } })
@@ -265,10 +288,11 @@ describe('alertsService', () => {
             expect(result.watching[0].name).toBe('App NaN')
         })
 
-        it('multiple alert flags fan out one game+itad fetch pair each', async () => {
+        it('multiple alert flags fan out one game+price read each', async () => {
             await writeFlags({ '1': { alert: true }, '2': { alert: true } })
             await getAlerts()
-            expect(fetchMock).toHaveBeenCalledTimes(4)
+            expect(vi.mocked(gamesService.getOne)).toHaveBeenCalledTimes(2)
+            expect(vi.mocked(itadService.getEntry)).toHaveBeenCalledTimes(2)
         })
     })
 })

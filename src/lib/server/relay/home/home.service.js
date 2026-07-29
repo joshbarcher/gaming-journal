@@ -8,8 +8,8 @@
 // it does NOT go through relayDataRoot().
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { getAll } from '../games/games.service.js';
-import { getLastPlayedMap, getSessions } from '../steam/play-log.service.js';
+import { getAll, ensureBuilt as ensureGamesBuilt } from '../games/games.service.js';
+import { getLastPlayedMap, getSessions, load as loadPlayLog } from '../steam/play-log.service.js';
 import { getAchievements } from '../steam/steam.service.js';
 import { getLibraryFirstSeen } from '../provision.service.js';
 import { get as getUpcoming } from '../steam/upcoming.service.js';
@@ -274,6 +274,24 @@ function getTodayRelease() {
 
 let _payload   = null;
 let _payloadAt = 0;
+let _inflight  = null;
+let _lastFail  = 0;
+
+// After a failed rebuild, wait this long before trying again — a NAS hiccup must
+// not turn into a rebuild attempt on every single request.
+const REFRESH_BACKOFF_MS = 15 * 1000;
+
+/** Test hook — payload state is module-level and would otherwise leak between
+ *  tests (same convention as nexus _resetCaches / sessions _resetForTests). */
+export function _resetForTests() {
+    _payload   = null;
+    _payloadAt = 0;
+    _inflight  = null;
+    _lastFail  = 0;
+    _libSets   = [];
+    _wlSets    = [];
+    _lastBuilt = 0;
+}
 
 async function buildPayload() {
     if (!_libSets.length || Date.now() - _lastBuilt > TTL_MS) {
@@ -308,27 +326,78 @@ async function buildPayload() {
     };
 }
 
-/**
- * Precomputed home payload, cached in memory for PAYLOAD_TTL_MS so the landing
- * page never waits on the filesystem/ITAD reads that assemble it. The first call
- * after expiry rebuilds; everything else is served from the warm cache.
- */
 /** Drop the cached payload so the next request rebuilds (e.g. after a guide is
- *  marked used, so the "most recent guide" card updates immediately). */
+ *  marked used, so the "most recent guide" card updates immediately).
+ *  Marks the payload stale rather than deleting it: the next request should still
+ *  render the previous cards instantly and pick up the change a moment later. */
 export function invalidateHomeCache() {
-    _payload   = null;
     _payloadAt = 0;
 }
 
+/**
+ * Rebuild off the request path. Single-flight: a burst of requests arriving after
+ * expiry triggers ONE rebuild, not one each.
+ * A failure keeps the previous payload — degraded-but-present beats blank.
+ */
+function refreshInBackground() {
+    if (_inflight) return _inflight;
+
+    _inflight = buildPayload()
+        .then((next) => {
+            // Don't promote a degenerate payload built before the games cache is
+            // warm — the session/sale cards derive from getAll(), so an empty build
+            // would blank them. Leave the old payload (and stale stamp) in place so
+            // the next request tries again.
+            if (getAll().length > 0) {
+                _payload   = next;
+                _payloadAt = Date.now();
+                _lastFail  = 0;
+            }
+            return _payload ?? next;
+        })
+        .catch((err) => {
+            _lastFail = Date.now();
+            logger.error('[home] Payload rebuild failed — serving last-known-good', { err: err?.message ?? String(err) });
+            return _payload;
+        })
+        .finally(() => { _inflight = null; });
+
+    return _inflight;
+}
+
+/**
+ * The landing-page payload — stale-while-revalidate.
+ *
+ * Assembling it walks the guides tree on the NAS and scans the session/achievement
+ * stores, which is far too slow to sit on a render. It used to be cached for
+ * PAYLOAD_TTL_MS and then rebuilt INLINE on the next request, so any gap in
+ * browsing longer than the TTL meant the next visitor waited seconds for the page
+ * to fill in. Now the TTL only decides when to refresh in the background; a cached
+ * payload is always returned immediately, however old it is.
+ *
+ * Only a genuinely cold process (nothing built yet) awaits a build — and boot
+ * warming (see warmHomeCache) means that normally finishes before the first visit.
+ */
 export async function getHomeData() {
-    if (_payload && Date.now() - _payloadAt < PAYLOAD_TTL_MS) return _payload;
-    const payload = await buildPayload();
-    // Don't cache a degenerate payload built before the games cache is warm — the
-    // session/sale cards derive from getAll(); caching an empty build would blank
-    // them for a full TTL after a relay restart. Rebuild each call until warm.
-    if (getAll().length > 0) {
-        _payload   = payload;
-        _payloadAt = Date.now();
+    if (_payload) {
+        const stale      = Date.now() - _payloadAt >= PAYLOAD_TTL_MS;
+        const backingOff = _lastFail && Date.now() - _lastFail < REFRESH_BACKOFF_MS;
+        if (stale && !backingOff) refreshInBackground();   // NOT awaited — that's the point
+        return _payload;
     }
-    return payload;
+    return await refreshInBackground();
+}
+
+/**
+ * Build the payload at boot so the first visitor after a deploy/restart doesn't
+ * have to wait for it either. Read-only (guide tree + session/achievement stores),
+ * so it is safe to run on dev instances that must never write the NAS.
+ * Fire-and-forget: startup must not block on the NAS.
+ */
+export function warmHomeCache() {
+    // The same prerequisites the routes ensure — a payload built before the games
+    // cache is warm is degenerate and won't be promoted, wasting the walk.
+    Promise.all([ensureGamesBuilt(), loadPlayLog()])
+        .then(() => refreshInBackground())
+        .catch(err => logger.error('[home] Cache warm failed', { err: err?.message ?? String(err) }));
 }
