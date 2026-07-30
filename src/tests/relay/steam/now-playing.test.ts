@@ -34,11 +34,17 @@ function stubFetch() {
     }) as any
 }
 
+// Held so afterEach can flush play-log's debounced boot-snapshot write. Without
+// that, the write lands ~3s later, recreates the temp tree via mkdir, and the
+// cleanup rm fails with ENOTEMPTY.
+let loadedPlayLog: typeof import('../../../lib/server/relay/steam/play-log.service.js') | null = null
+
 async function loadModules() {
     vi.resetModules()
     const np = await import('../../../lib/server/relay/steam/now-playing.service.js')
     const playLog = await import('../../../lib/server/relay/steam/play-log.service.js')
     await playLog.load()
+    loadedPlayLog = playLog
     return { np, playLog }
 }
 
@@ -56,7 +62,12 @@ beforeEach(async () => {
 afterEach(async () => {
     globalThis.fetch = realFetch
     vi.restoreAllMocks()
-    await rm(dataDir, { recursive: true, force: true })
+    await loadedPlayLog?.close().catch(() => {})   // flush + stop writing before the tree goes away
+    loadedPlayLog = null
+    // maxRetries: on Windows an rm of a tree that was just written intermittently
+    // fails ENOTEMPTY while handles are still being released (the store files here are
+    // written right up to the end of each test).
+    await rm(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })
 })
 
 // Let the fire-and-forget promises inside poll() settle.

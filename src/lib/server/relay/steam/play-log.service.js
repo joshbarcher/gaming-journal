@@ -31,11 +31,156 @@ const BASELINE_BUFFER_MIN = 10;   // absorbs Steam rounding + poll drift
 // load() must be called once at server startup (before the now-playing
 // poller or any other consumer runs).  After that, everything is in-memory.
 
-const _store  = new Map();
+let   _store  = new Map();
 let   _loaded = false;
 
 function _sessionsDir() {
     return path.join(featureDir('steam'), 'sessions');
+}
+
+// ── Boot snapshot ─────────────────────────────────────────────────────────────
+// load() used to read all ~750 per-game session files individually. That is the
+// slowest thing in startup: 3s on local disk, ~51s on the NAS while the index
+// refreshes compete for it — and it gates the session card, the history/last-played
+// backdrops and the 30-day hours, so the landing page renders visibly incomplete
+// until it finishes (measured: last boot line to appear, +51.2s).
+//
+// So the store is also written to ONE snapshot file, read in a single call at boot.
+// The per-game files remain the source of truth: the snapshot is only an
+// accelerator, and a missing/corrupt/stale one falls back to (or is repaired by) the
+// full scan. Same shape of guarantee as shared/persisted-index.js, but that helper
+// models a read-only array index — this store is mutated by the now-playing poller,
+// so it needs its own write-aware handling below.
+const SNAPSHOT_VERSION      = 1;
+const SNAPSHOT_DEBOUNCE_MS  = 3_000;
+
+let _snapshotTimer     = null;
+let _scanning          = false;
+let _closed            = false;
+const _writtenDuringScan = new Set();
+
+function _snapshotPath() {
+    return path.join(featureDir('steam'), 'sessions-index.json');
+}
+
+function _entry(appid, raw) {
+    return {
+        name:        raw.name        ?? `App ${appid}`,
+        baseline:    raw.baseline    ?? 0,
+        openSession: raw.openSession ?? null,
+        sessions:    raw.sessions    ?? [],
+    };
+}
+
+async function _persistSnapshot() {
+    if (_closed) return;
+    const games = [];
+    for (const [appid, g] of _store) games.push({ appid, ...g });
+    const file = _snapshotPath();
+    const tmp  = `${file}.tmp`;
+    try {
+        // Deliberately no mkdir: every path that reaches here has already created the
+        // steam dir (the scan and _flush both mkdir the sessions dir beneath it), and
+        // re-creating it would let a late debounced write resurrect a tree that was
+        // deliberately removed. The snapshot is only an accelerator, so a skipped
+        // write costs nothing — the next flush or boot scan rewrites it.
+        //
+        // tmp + rename so a torn write can never be read back as a valid snapshot.
+        await fs.writeFile(tmp, JSON.stringify({ v: SNAPSHOT_VERSION, builtAt: new Date().toISOString(), games }));
+        await fs.rename(tmp, file);
+    } catch (err) {
+        if (err.code === 'ENOENT') return;   // data dir went away — nothing to accelerate
+        logger.warn('[play-log] Snapshot persist failed', { err: err.message });
+    }
+}
+
+/** Debounced: a poller tick can flush several games in a row; one rewrite covers them. */
+function _scheduleSnapshot() {
+    if (_snapshotTimer) return;
+    _snapshotTimer = setTimeout(() => {
+        _snapshotTimer = null;
+        _persistSnapshot().catch(() => { /* logged in _persistSnapshot */ });
+    }, SNAPSHOT_DEBOUNCE_MS);
+    _snapshotTimer.unref?.();   // never hold the process open on shutdown
+}
+
+async function _loadSnapshot() {
+    try {
+        const raw = JSON.parse(await fs.readFile(_snapshotPath(), 'utf8'));
+        if (raw?.v !== SNAPSHOT_VERSION || !Array.isArray(raw.games)) return false;
+        const next = new Map();
+        for (const g of raw.games) {
+            const appid = Number(g.appid);
+            if (appid) next.set(appid, _entry(appid, g));
+        }
+        if (next.size === 0) return false;    // nothing useful — scan instead
+        _store = next;
+        logger.info('[play-log] Loaded from snapshot', { count: _store.size, builtAt: raw.builtAt ?? null });
+        return true;
+    } catch (err) {
+        if (err.code !== 'ENOENT') logger.warn('[play-log] Snapshot unreadable — falling back to scan', { err: err.message });
+        return false;
+    }
+}
+
+/** The original per-file scan, into a fresh Map. Read-only — the caller creates the
+ *  directory when that's warranted, so a background reconcile can't resurrect one
+ *  that was removed. A missing directory simply scans as empty. */
+async function _scanIntoMap() {
+    const dir  = _sessionsDir();
+    const next = new Map();
+    let files;
+    try {
+        files = await fs.readdir(dir);
+    } catch (err) {
+        if (err.code === 'ENOENT') return next;
+        throw err;
+    }
+    for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+        const appid = Number(file.replace('.json', ''));
+        if (!appid) continue;
+        try {
+            next.set(appid, _entry(appid, JSON.parse(await fs.readFile(path.join(dir, file), 'utf8'))));
+        } catch (err) {
+            logger.warn('[play-log] Skipping corrupt game file', { file, err: err.message });
+        }
+    }
+    return next;
+}
+
+/**
+ * Background reconcile after a snapshot boot: re-read the authoritative per-game
+ * files and re-persist. Repairs a snapshot that missed a write (crash between flush
+ * and debounce) or was written by an older build.
+ */
+async function _reconcile() {
+    if (_closed) return;
+    _scanning = true;
+    _writtenDuringScan.clear();
+    try {
+        const scanned = await _scanIntoMap();
+        // Never dump empty over good data — an empty scan against a populated store is
+        // a transient read failure, not every session disappearing.
+        if (scanned.size === 0 && _store.size > 0) {
+            logger.warn('[play-log] Reconcile scan came back empty — keeping snapshot', { kept: _store.size });
+            return;
+        }
+        // A game written while the scan was in flight may have been read before the
+        // write landed; the in-memory entry is newer, so it wins.
+        for (const appid of _writtenDuringScan) {
+            const live = _store.get(appid);
+            if (live) scanned.set(appid, live);
+        }
+        _store = scanned;
+        await _persistSnapshot();
+        logger.info('[play-log] Reconciled against session files', { count: _store.size });
+    } catch (err) {
+        logger.warn('[play-log] Reconcile failed — keeping snapshot', { err: err.message });
+    } finally {
+        _scanning = false;
+        _writtenDuringScan.clear();
+    }
 }
 
 function _filePath(appid) {
@@ -63,47 +208,65 @@ async function _flush(appid) {
     } catch (err) {
         logger.warn('[play-log] Failed to flush game file', { appid, err: err.message });
     }
+    // Keep the boot snapshot current, so the next restart doesn't have to re-scan to
+    // learn about this session. Flagged when a reconcile is mid-scan — see _reconcile.
+    if (_scanning) _writtenDuringScan.add(appid);
+    _scheduleSnapshot();
 }
 
 // ── Startup ───────────────────────────────────────────────────────────────────
 
 /**
- * Load all per-game session files from disk into the in-memory store.
- * Call once at server startup.  Subsequent calls are no-ops.
+ * Populate the in-memory store. Call once at server startup; subsequent calls are
+ * no-ops.
+ *
+ * Fast path: one snapshot read, then reconcile against the per-game files in the
+ * background. Only a first-ever boot (or an unusable snapshot) pays the full scan,
+ * and that scan writes the snapshot so the next boot is fast.
  */
 export async function load() {
     if (_loaded) return;
     _loaded = true;
 
-    const dir = _sessionsDir();
+    if (await _loadSnapshot()) {
+        _reconcile().catch(() => { /* logged in _reconcile */ });
+        return;
+    }
+
     try {
-        await fs.mkdir(dir, { recursive: true });
-        const files = await fs.readdir(dir);
-        let   count = 0;
-
-        for (const file of files) {
-            if (!file.endsWith('.json')) continue;
-            const appid = Number(file.replace('.json', ''));
-            if (!appid) continue;
-
-            try {
-                const raw = JSON.parse(await fs.readFile(path.join(dir, file), 'utf8'));
-                _store.set(appid, {
-                    name:        raw.name        ?? `App ${appid}`,
-                    baseline:    raw.baseline    ?? 0,
-                    openSession: raw.openSession ?? null,
-                    sessions:    raw.sessions    ?? [],
-                });
-                count++;
-            } catch (err) {
-                logger.warn('[play-log] Skipping corrupt game file', { file, err: err.message });
-            }
-        }
-
-        logger.info('[play-log] Loaded session files', { count });
+        // First-ever boot legitimately creates the tree; the background reconcile
+        // deliberately does not (see _scanIntoMap).
+        await fs.mkdir(_sessionsDir(), { recursive: true });
+        _store = await _scanIntoMap();
+        logger.info('[play-log] Loaded session files', { count: _store.size });
+        await _persistSnapshot();
     } catch (err) {
         logger.warn('[play-log] Could not read sessions directory', { err: err.message });
     }
+}
+
+/**
+ * Flush any pending snapshot write, then stop writing — the shutdown path.
+ * Ordered so the final flush still lands, but a background reconcile that finishes
+ * afterwards cannot write behind us.
+ */
+export async function close() {
+    if (_snapshotTimer) {
+        clearTimeout(_snapshotTimer);
+        _snapshotTimer = null;
+        await _persistSnapshot();
+    }
+    _closed = true;
+}
+
+/** Test hook: module-level store/flags would otherwise leak between tests. */
+export function _resetForTests() {
+    _store = new Map();
+    _loaded = false;
+    _scanning = false;
+    _closed = false;
+    _writtenDuringScan.clear();
+    if (_snapshotTimer) { clearTimeout(_snapshotTimer); _snapshotTimer = null; }
 }
 
 // ── Session lifecycle ─────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import { startDiskUsageScheduler, close as closeDiskUsage } from './metrics/disk
 import { startItadSyncScheduler } from './itad/itad.service.js'
 import { startProtonDbScheduler } from './protondb/protondb.service.js'
 import { startHltbRetryScheduler } from './hltb/hltb.service.js'
-import { boot as bootCommunityReviews } from './community-reviews/community-reviews.service.js'
+import { ensureIndex as ensureCommunityReviews, build as buildCommunityReviews } from './community-reviews/community-reviews.service.js'
 import { closeBrowser as closePcgwBrowser } from './pcgw/pcgw.service.js'
 import { startBrowser as startRedditBrowser, closeBrowser as closeRedditBrowser, startRedditSyncScheduler } from './reddit/reddit.service.js'
 import { startup as startPin } from './pin/pin.service.js'
@@ -28,11 +28,12 @@ import { loadAchievementsCache } from './steam/steam.service.js'
 import { buildApplist } from './steam/applist.service.js'
 import { backfillAll as backfillAdultContent } from './steam/adult-content.service.js'
 import { closeBrowser as closeScraperBrowser } from './steam/achievement-schema-scraper.js'
-import { boot as bootGamesCache } from './games/games.service.js'
-import { boot as bootWishlistCache } from './wishlist/wishlist.service.js'
+import { build as buildGamesCache, ensureBuilt as ensureGamesBuilt, getAll as getAllGames } from './games/games.service.js'
+import { build as buildWishlistCache, ensureBuilt as ensureWishlistBuilt } from './wishlist/wishlist.service.js'
+import { prime as primePosterPool } from './games/poster-pool.service.js'
 import { build as buildPlayerCountsCache } from './steam/player-counts.service.js'
 import { backfill as provisionBackfill, recheckUnavailableWishlistItems } from './provision.service.js'
-import { load as loadPlayLog } from './steam/play-log.service.js'
+import { load as loadPlayLog, close as closePlayLog } from './steam/play-log.service.js'
 import { startPoller as startNowPlayingPoller, stopPoller as stopNowPlayingPoller } from './steam/now-playing.service.js'
 import { build as buildAccountCache } from './account/account.service.js'
 import { startSnapshotScheduler, stopSnapshotScheduler } from './steam/sessions.service.js'
@@ -40,24 +41,58 @@ import { warmHomeCache } from './home/home.service.js'
 
 let _booted = false
 
+// Spacing between the big background index refreshes (see tier 2 below).
+const REFRESH_STAGGER_MS = 45_000
+
+/** Run fn after ms, swallowing failures — used to space out background refreshes. */
+function afterDelay(ms, fn) {
+    const t = setTimeout(() => {
+        Promise.resolve().then(fn).catch(err => logger.error('[relay-boot] Deferred task failed', { err: err?.message ?? String(err) }))
+    }, ms)
+    t.unref?.()   // a pending refresh must never hold the process open
+}
+
 export async function bootRelay() {
     if (_booted) return
     _booted = true
 
-    // ── Fast-boot cache loads (reads depend on these, schedulers or not) ──────
-    // These load a persisted sidecar in one read and refresh in the background
-    // (shared/persisted-index.js) — replacing the old scan-thousands-of-files
-    // -on-every-boot that saturated startup. Fire-and-forget: boot() awaits only
-    // the fast sidecar read; the index route's ensureIndex() covers the race.
-    bootCommunityReviews().catch(err => logger.error('[relay-boot] Community reviews boot failed', { err: err?.message }))
-    buildUpcomingCache().catch(err => logger.error('[relay-boot] Upcoming cache build failed', { err: err?.message }))
-    loadAchievementsCache().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message }))
+    // ── TIER 0: renderable from disk ─────────────────────────────────────────
+    // Everything the first page render needs, and nothing else. Each of these is a
+    // single-file read — games sidecar, play-log snapshot, poster + wishlist indexes
+    // — so it costs milliseconds rather than the thousands-of-files scans these
+    // replaced. Awaited, and deliberately AHEAD of every refresh/crawl/browser below:
+    // those used to run concurrently and saturate the NAS, which is what pushed
+    // play-log's load out to +51s and left the landing page drawing empty cards
+    // (empty session card, no posters, "0 hours played") for most of a minute.
+    //
+    // Unconditional (all read-only, so a schedulers-off dev instance is safe) and
+    // ahead of the schedulers-disabled return below.
+    const t0 = Date.now()
+    await Promise.all([
+        // Poster pool needs the games list, so it chains off the games sidecar rather
+        // than racing it — otherwise the mosaics render blank (see poster-pool.prime).
+        ensureGamesBuilt()
+            .then(() => primePosterPool(getAllGames()))
+            .catch(err => logger.error('[relay-boot] Games index / poster pool load failed', { err: err?.message })),
+        loadPlayLog().catch(err         => logger.error('[relay-boot] Play-log load failed', { err: err?.message })),
+        ensureWishlistBuilt().catch(err => logger.error('[relay-boot] Wishlist index load failed', { err: err?.message })),
+        loadAchievementsCache().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message })),
+    ])
+    registerCloser('play-log', closePlayLog)
+    logger.info('[relay-boot] Tier 0 ready — page is renderable', { ms: Date.now() - t0 })
 
-    // Landing-page payload. Unconditional (read-only, so dev is safe) and ahead of
-    // the schedulers-disabled return: assembling it walks the guides tree on the
-    // NAS, and that must never happen on a render. Warmed here, then kept current
-    // stale-while-revalidate — see getHomeData.
+    // The landing payload, now assembled over real session/games data rather than an
+    // empty store. Persisted, so the next restart serves it from disk with no compute
+    // and no guides walk at all — see getHomeData / warmHomeCache.
     warmHomeCache()
+
+    // ── TIER 1: everything else that fast-boots from a sidecar ───────────────
+    // Not on the first-render path, so fire-and-forget behind tier 0. Sidecar load
+    // only — community-reviews' own boot() would kick its full rebuild here, and at
+    // ~43s that is the single largest NAS scan of startup; it joins the staggered
+    // refreshes in tier 2 instead.
+    ensureCommunityReviews().catch(err => logger.error('[relay-boot] Community reviews index load failed', { err: err?.message }))
+    buildUpcomingCache().catch(err => logger.error('[relay-boot] Upcoming cache build failed', { err: err?.message }))
 
     // Unconditional: even a schedulers-off instance can lazily launch Chrome via
     // an on-demand pcgw syncGame or reddit/imgur browser call — the closers are
@@ -102,13 +137,22 @@ export async function bootRelay() {
     // a long NAS-writing crawl — both prod-only, mirroring relay server.js order.
     startScheduler('applist', () => buildApplist()
         .then(() => backfillAdultContent().catch(err => logger.error('[relay-boot] Adult content backfill failed', { err: err?.message }))))
-    // Derived caches: fast-boot from their sidecars (one read), then background
-    // refresh. Gated (not unconditional) because games' background refresh runs
-    // poster-pool upkeep which can WRITE poster-index.json — dev instances read
-    // the sidecar via the routes' ensureBuilt() instead, never writing.
-    startScheduler('games-cache', bootGamesCache)
-    startScheduler('wishlist-cache', bootWishlistCache)
-    startScheduler('player-counts-cache', buildPlayerCountsCache)
+    // Derived-cache REFRESHES (the sidecars themselves already loaded in tier 0, so
+    // these are refresh-only — calling boot() here would re-read the 13 MB games
+    // sidecar a second time, which is what the duplicate "[games] index: loaded"
+    // line in the logs was). Gated (not unconditional) because the games refresh
+    // runs poster-pool upkeep which can WRITE poster-index.json — dev instances read
+    // the sidecar via tier 0 / the routes' ensureBuilt() instead, never writing.
+    //
+    // Staggered: these are full scans over thousands of NAS files (games ~37s,
+    // community-reviews ~43s, wishlist ~17s). Started together they saturate the NAS
+    // and starve everything else — that contention is what made a cold start feel
+    // like a minute. Spacing them costs nothing; they are background upkeep whose
+    // results nothing is waiting on.
+    startScheduler('games-cache',         () => afterDelay(REFRESH_STAGGER_MS,     buildGamesCache))
+    startScheduler('wishlist-cache',      () => afterDelay(REFRESH_STAGGER_MS * 2, buildWishlistCache))
+    startScheduler('player-counts-cache', () => afterDelay(REFRESH_STAGGER_MS * 3, buildPlayerCountsCache))
+    startScheduler('community-reviews',   () => afterDelay(REFRESH_STAGGER_MS * 4, buildCommunityReviews))
     // Provision backfill + wishlist recheck: full NAS-writing pipelines.
     // SCHED_PROVISION=off until the combined Wave-3+4 window.
     startScheduler('provision', () => provisionBackfill()

@@ -162,6 +162,25 @@ export function hasPoster(appid) {
     return _withPoster.has(Number(appid));
 }
 
+/**
+ * Fill the pool from the PERSISTED index only — no filesystem scan.
+ *
+ * buildBatch() needs both the index (which appids have a poster) and the games list,
+ * and only refresh() ever set the games list. So until the games cache refresh ran,
+ * /api/games/posters answered with an empty batch and the landing page's library and
+ * wishlist mosaics rendered blank — the empty tiles in the cold-start screenshots.
+ * Boot calls this instead: the index is already on disk, so the pool is servable in
+ * microseconds. The scan + reconcile stays in refresh(), off the boot path.
+ */
+export async function prime(games) {
+    if (games?.length) _games = games;
+    if (_games.length === 0) return;
+    await ensureIndexLoaded();
+    fill('library');
+    fill('wishlist');
+    logger.info('[poster-pool] Primed from index', { library: _pool.library.length, wishlist: _pool.wishlist.length });
+}
+
 export function getPosterBatch(source) {
     const key   = source === 'wishlist' ? 'wishlist' : 'library';
     const batch = _pool[key].shift() ?? buildBatch(key);

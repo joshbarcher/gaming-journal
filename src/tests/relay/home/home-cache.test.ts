@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest'
 import os from 'node:os'
 import path from 'node:path'
+import fsp from 'node:fs/promises'
 
 // The landing-page payload is stale-while-revalidate: assembling it walks the
 // guides tree on the NAS, so it must never be rebuilt on the request path. These
@@ -213,6 +214,79 @@ describe('home payload cache (stale-while-revalidate)', () => {
         const served = await getHomeData()
         expect(served).toBe(original)
         release()
+    })
+
+    // ── Disk persistence ──────────────────────────────────────────────────────
+    // Warming at boot still costs a guides walk plus the session scans, so a request
+    // can arrive before it finishes. Persisting closes that window: the payload comes
+    // back in one read with no compute at all.
+
+    function payloadPath() {
+        return path.join(process.env.DATA_DIR!, 'relay', 'home', 'payload.json')
+    }
+
+    it('persists the payload after a successful build', async () => {
+        seedOneGame()
+        await getHomeData()
+
+        await vi.waitFor(async () => {
+            const raw = JSON.parse(await fsp.readFile(payloadPath(), 'utf8'))
+            expect(raw.v).toBe(1)
+            expect(raw.payload.recentPlayed).toHaveLength(1)
+        })
+    })
+
+    it('serves the persisted payload on a cold start without building anything', async () => {
+        seedOneGame()
+        await getHomeData()
+        await vi.waitFor(async () => { await fsp.readFile(payloadPath(), 'utf8') })
+
+        // Cold process: nothing in memory, and the build inputs are now unavailable —
+        // so anything returned must have come off disk.
+        _resetForTests()
+        resetMocks()
+        vi.mocked(playLog.getLastPlayedMap).mockImplementation(() => { throw new Error('NAS unavailable') })
+
+        const served = await getHomeData()
+        expect(served).not.toBeNull()
+        expect(served.recentPlayed).toHaveLength(1)
+        expect(served.recentPlayed[0].name).toBe('Game One')
+    })
+
+    // Serving stale is right; claiming yesterday's release came out today is not.
+    it('drops a stale "released today" card when the payload is from an earlier day', async () => {
+        await fsp.mkdir(path.dirname(payloadPath()), { recursive: true })
+        await fsp.writeFile(payloadPath(), JSON.stringify({
+            v: 1,
+            builtAt: '2020-01-01T00:00:00.000Z',
+            payload: {
+                recentPlayed: [{ appid: 1, name: 'Yesterday Game' }],
+                release: { appid: 42, name: 'Old News', header: 'h' },
+                justBought: [], stats: {}, libPosters: [], wlPosters: [],
+            },
+        }))
+
+        const served = await getHomeData()
+        expect(served.release).toBeNull()
+        expect(served.recentPlayed[0].name).toBe('Yesterday Game')   // rest still served
+    })
+
+    it('ignores a persisted payload written by a different version', async () => {
+        await fsp.mkdir(path.dirname(payloadPath()), { recursive: true })
+        await fsp.writeFile(payloadPath(), JSON.stringify({ v: 99, payload: { recentPlayed: [{ appid: 9, name: 'Wrong Shape' }] } }))
+
+        seedOneGame()
+        const served = await getHomeData()
+        expect(served.recentPlayed[0].name).toBe('Game One')   // rebuilt, not restored
+    })
+
+    it('rebuilds rather than throwing when the persisted payload is corrupt', async () => {
+        await fsp.mkdir(path.dirname(payloadPath()), { recursive: true })
+        await fsp.writeFile(payloadPath(), '{ truncated')
+
+        seedOneGame()
+        const served = await getHomeData()
+        expect(served.recentPlayed).toHaveLength(1)
     })
 
     it('warmHomeCache builds the payload up front so the first visitor does not', async () => {

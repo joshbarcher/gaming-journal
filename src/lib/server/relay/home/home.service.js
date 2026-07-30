@@ -7,7 +7,8 @@
 // local-reviews.json is the journal's own store-file, not relay-era data, so
 // it does NOT go through relayDataRoot().
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
+import { featureDir } from '../shared/data-root.js';
 import { getAll, ensureBuilt as ensureGamesBuilt } from '../games/games.service.js';
 import { getLastPlayedMap, getSessions, load as loadPlayLog } from '../steam/play-log.service.js';
 import { getAchievements } from '../steam/steam.service.js';
@@ -293,6 +294,55 @@ export function _resetForTests() {
     _lastBuilt = 0;
 }
 
+// ── Disk-persisted last-known-good ────────────────────────────────────────────
+// Warming at boot still costs a guides walk plus the session/achievement scans, so
+// the very first request after a restart could still arrive before the payload
+// exists. Persisting the assembled payload removes that window entirely: on boot it
+// is read back in one call (no compute, no NAS walk, ~1 ms) and served immediately,
+// while the background rebuild reconciles it.
+const PAYLOAD_VERSION = 1;
+
+function payloadFile() {
+    return path.join(featureDir('home'), 'payload.json');
+}
+
+async function persistPayload(payload) {
+    const file = payloadFile();
+    const tmp  = `${file}.tmp`;
+    try {
+        await mkdir(path.dirname(file), { recursive: true });
+        // tmp + rename: a torn write must never be readable as a valid payload.
+        await writeFile(tmp, JSON.stringify({ v: PAYLOAD_VERSION, builtAt: new Date().toISOString(), payload }));
+        await rename(tmp, file);
+    } catch (err) {
+        logger.warn('[home] Payload persist failed', { err: err.message });
+    }
+}
+
+/**
+ * Restore the persisted payload, or null.
+ *
+ * `release` ("released today") is dropped when the payload was built on an earlier
+ * day — serving last-known-good is right, but claiming yesterday's game released
+ * today is just wrong. Everything else (hours, posters, session card) is fine to
+ * show slightly stale and is corrected by the rebuild moments later.
+ */
+async function restorePayload() {
+    try {
+        const raw = JSON.parse(await readFile(payloadFile(), 'utf8'));
+        if (raw?.v !== PAYLOAD_VERSION || !raw.payload) return null;
+        const builtAt = raw.builtAt ? new Date(raw.builtAt) : null;
+        const sameDay = builtAt && builtAt.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+        const payload = raw.payload;
+        if (!sameDay) payload.release = null;
+        logger.info('[home] Payload restored from disk', { builtAt: raw.builtAt ?? null, sameDay: !!sameDay });
+        return payload;
+    } catch (err) {
+        if (err.code !== 'ENOENT') logger.warn('[home] Persisted payload unreadable — will rebuild', { err: err.message });
+        return null;
+    }
+}
+
 async function buildPayload() {
     if (!_libSets.length || Date.now() - _lastBuilt > TTL_MS) {
         build();
@@ -352,6 +402,8 @@ function refreshInBackground() {
                 _payload   = next;
                 _payloadAt = Date.now();
                 _lastFail  = 0;
+                // Fire-and-forget: the next restart serves this from disk instantly.
+                persistPayload(next).catch(() => { /* logged in persistPayload */ });
             }
             return _payload ?? next;
         })
@@ -385,6 +437,19 @@ export async function getHomeData() {
         if (stale && !backingOff) refreshInBackground();   // NOT awaited — that's the point
         return _payload;
     }
+
+    // Nothing in memory yet (a request beat boot warming to it). Serve the persisted
+    // copy rather than making this request wait for a full assembly, and let the
+    // in-flight/next rebuild replace it. _payloadAt stays 0 so it reads as stale.
+    if (!_inflight) {
+        const restored = await restorePayload();
+        if (restored) {
+            if (!_payload) _payload = restored;
+            refreshInBackground();
+            return _payload;
+        }
+    }
+
     return await refreshInBackground();
 }
 
@@ -395,6 +460,13 @@ export async function getHomeData() {
  * Fire-and-forget: startup must not block on the NAS.
  */
 export function warmHomeCache() {
+    // Restore first and separately: one file read, so the payload is servable within
+    // milliseconds of boot even though the rebuild below takes longer. Left stale
+    // (_payloadAt stays 0) so the rebuild still replaces it.
+    restorePayload()
+        .then(restored => { if (restored && !_payload) _payload = restored; })
+        .catch(() => { /* logged in restorePayload */ });
+
     // The same prerequisites the routes ensure — a payload built before the games
     // cache is warm is degenerate and won't be promoted, wasting the walk.
     Promise.all([ensureGamesBuilt(), loadPlayLog()])

@@ -26,9 +26,13 @@ const {
     getSessions,
     getEffectivePlaytimeMin,
     getLastPlayedMap,
+    close,
 } = await import('../../../lib/server/relay/steam/play-log.service.js');
 
 afterAll(async () => {
+    // Flush the debounced boot-snapshot write first: otherwise it fires after this
+    // suite ends, recreates the temp tree, and the rm below fails with ENOTEMPTY.
+    await close().catch(() => {});
     await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
