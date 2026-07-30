@@ -142,15 +142,20 @@ function mergeGame(steam, wishlistEntry, store, hltb, pcgw, itad) {
     };
 }
 
-async function _buildAll() {
+/**
+ * The three whole-list sources (library, steam wishlist, local wishlist) plus the
+ * appid universe they imply. Shared by the full and incremental rebuilds so the
+ * degraded-read guards below can never apply to only one of them.
+ */
+async function _readListSources(caller) {
     // Both getSteamGames() and getWishlist() are real ManagedFile reads that can legitimately fail
     // (e.g. a hiccup on the network-share DATA_DIR) — caught so one bad read doesn't fail the whole
     // cache build, but logged loudly since a silent empty fallback here previously masked a real
     // race-condition bug (see steam.service.js's _load*File loaders) that tagged only a handful of
     // games as wishlisted instead of the real ~1100.
     const [steamData, wishlistData, localData] = await Promise.all([
-        getSteamGames().catch((err) => { logger.error('[games] getSteamGames() failed in _buildAll', { err: err.message }); return null; }),
-        getWishlist().catch((err) => { logger.error('[games] getWishlist() failed in _buildAll', { err: err.message }); return { items: {} }; }),
+        getSteamGames().catch((err) => { logger.error(`[games] getSteamGames() failed in ${caller}`, { err: err.message }); return null; }),
+        getWishlist().catch((err) => { logger.error(`[games] getWishlist() failed in ${caller}`, { err: err.message }); return { items: {} }; }),
         readLocalWishlist(),
     ]);
 
@@ -181,32 +186,235 @@ async function _buildAll() {
         ...Object.keys(localItems).map(Number),
     ]);
 
-    return mapChunked([...allAppids], async (appid) => {
-        const steam         = libraryMap.get(appid) ?? null;
-        const steamWL       = wishlistItems[String(appid)];
-        const localWL       = localItems[String(appid)];
-        const wishlistEntry = steamWL
-            ? { appid, ...steamWL }
-            : localWL
-                ? { appid, dateAdded: localWL.dateAdded, local: true }
-                : null;
+    return { libraryMap, wishlistItems, localItems, allAppids };
+}
 
-        const [store, hltb, pcgw, itad] = await Promise.all([
-            getGameDetail(appid),
-            getHltbEntry(appid),
-            getPcgwEntry(appid),
-            getItadEntry(appid),
-        ]);
+function _wishlistEntryFor(appid, wishlistItems, localItems) {
+    const steamWL = wishlistItems[String(appid)];
+    const localWL = localItems[String(appid)];
+    if (steamWL) return { appid, ...steamWL };
+    if (localWL) return { appid, dateAdded: localWL.dateAdded, local: true };
+    return null;
+}
 
-        return mergeGame(steam, wishlistEntry, store, hltb, pcgw, itad);
+/** Re-merge one game from its four per-appid source files. */
+async function _mergeOne(appid, libraryMap, wishlistItems, localItems) {
+    const [store, hltb, pcgw, itad] = await Promise.all([
+        getGameDetail(appid),
+        getHltbEntry(appid),
+        getPcgwEntry(appid),
+        getItadEntry(appid),
+    ]);
+    return mergeGame(libraryMap.get(appid) ?? null, _wishlistEntryFor(appid, wishlistItems, localItems), store, hltb, pcgw, itad);
+}
+
+async function _buildAll() {
+    const { libraryMap, wishlistItems, localItems, allAppids } = await _readListSources('_buildAll');
+    return mapChunked([...allAppids], (appid) => _mergeOne(appid, libraryMap, wishlistItems, localItems));
+}
+
+// ── Incremental rebuild ───────────────────────────────────────────────────────
+// A merged entry is a pure function of one game's four per-appid source files plus
+// its library/wishlist row. Re-reading all of them cost 54.6s against the NAS
+// (12,939 files, 50 MB) — every 30 minutes, to pick up a handful of changes.
+//
+// Measured on prod: readdir + stat over those same 12,939 entries takes 363 ms
+// (CIFS returns attributes with the directory listing), and a typical hour changes
+// 2 files. So the refresh stats the sources, re-merges only the appids whose
+// signature moved, and reuses the existing entry for everything else.
+//
+// Signatures live in their own sidecar next to the index. If it is missing, stale
+// relative to the index, or unreadable, the refresh silently falls back to the full
+// rebuild — the delta is an optimisation and must never be the reason data is wrong.
+const SIG_VERSION = 1;
+
+// Above this share of the library changing, the delta stops paying for itself and a
+// straight rebuild is simpler (bulk store re-sync, first run after a schema change).
+const FULL_REBUILD_RATIO = 0.5;
+
+function gamesIndexFile()  { return path.join(featureDir('steam'), 'games-index.json'); }
+function gamesSigFile()    { return path.join(featureDir('steam'), 'games-index-sources.json'); }
+
+function sourceDirs() {
+    return {
+        store: path.join(featureDir('steam'), 'store'),
+        hltb:  featureDir('hltb'),
+        pcgw:  featureDir('pcgw'),
+        itad:  featureDir('itad'),
+    };
+}
+
+/**
+ * appid → "store:mtime|hltb:mtime|pcgw:mtime|itad:mtime" for every per-appid source
+ * file on disk. One readdir per directory, then a stat per entry — the stats are
+ * served from the attribute cache the readdir populated, which is what makes this
+ * ~150x cheaper than reading the files.
+ */
+async function _sourceSignatures() {
+    const sigs = new Map();
+    for (const [label, dir] of Object.entries(sourceDirs())) {
+        let files;
+        try { files = await fs.readdir(dir); } catch { continue; }   // feature never synced
+        await mapChunked(files.filter(f => /^\d+\.json$/.test(f)), async (file) => {
+            const appid = Number(file.slice(0, -5));
+            if (!appid) return null;
+            try {
+                const { mtimeMs } = await fs.stat(path.join(dir, file));
+                sigs.set(appid, `${sigs.get(appid) ?? ''}${label}:${Math.round(mtimeMs)}|`);
+            } catch { /* vanished mid-scan — treated as changed next time */ }
+            return null;
+        });
+    }
+    return sigs;
+}
+
+async function _loadSigs() {
+    try {
+        const raw = JSON.parse(await fs.readFile(gamesSigFile(), 'utf8'));
+        if (raw?.v !== SIG_VERSION || !raw.sigs) return null;
+        return raw;
+    } catch { return null; }
+}
+
+async function _persistSigs(sigs, shape) {
+    const file = gamesSigFile();
+    const tmp  = `${file}.tmp`;
+    try {
+        await fs.writeFile(tmp, JSON.stringify({
+            v: SIG_VERSION, builtAt: new Date().toISOString(), shape, sigs: Object.fromEntries(sigs),
+        }));
+        await fs.rename(tmp, file);
+    } catch (err) {
+        logger.warn('[games] Source signature persist failed — next refresh will be a full rebuild', { err: err.message });
+    }
+}
+
+/**
+ * Key structure of a merged entry, one level into the nested blocks.
+ *
+ * Guards the delta's core assumption: that an entry whose sources haven't changed is
+ * still correctly shaped. Change mergeGame() and the untouched entries would
+ * otherwise keep the old shape indefinitely — a footgun that relies on remembering
+ * to bump SIG_VERSION. Comparing this instead catches it automatically.
+ * (Note it cannot catch a change to how a VALUE is derived, only to the shape —
+ * SIG_VERSION is still the lever for that.)
+ */
+function _shapeOf(entry) {
+    if (!entry) return '';
+    return Object.keys(entry).sort().map(k => {
+        const v = entry[k];
+        return v && typeof v === 'object' && !Array.isArray(v)
+            ? `${k}{${Object.keys(v).sort().join(',')}}`
+            : k;
+    }).join(',');
+}
+
+/**
+ * Fields of a merged entry that come from the library/wishlist rows rather than the
+ * per-appid files. Playtime moves every time you play, and no file mtime reflects
+ * that, so these are diffed directly against the existing entry.
+ */
+function _rowChanged(entry, appid, libraryMap, wishlistItems, localItems) {
+    const steam = libraryMap.get(appid) ?? null;
+    const wl    = _wishlistEntryFor(appid, wishlistItems, localItems);
+
+    const inLibrary  = !!steam;
+    const inWishlist = !!wl;
+    const source = inLibrary && inWishlist ? 'both' : inLibrary ? 'library' : inWishlist ? 'wishlist' : 'discovered';
+    if (entry.source !== source) return true;
+    if ((steam?.playtime_forever ?? 0) !== (entry.playtimeMinutes ?? 0)) return true;
+    if (steam?.name && steam.name !== entry.name) return true;
+    if ((steam?.img_icon_url ?? null) !== (entry.iconUrl ?? null)) return true;
+
+    const prevWl = entry.wishlist ?? null;
+    if (!wl !== !prevWl) return true;
+    if (wl && prevWl) {
+        if ((wl.priority ?? null) !== (prevWl.priority ?? null)) return true;
+        if ((wl.date_added ?? wl.dateAdded) !== prevWl.dateAdded) return true;
+        if ((wl.local === true) !== (prevWl.local === true)) return true;
+    }
+    return false;
+}
+
+/**
+ * Rebuild by re-merging only what changed. Returns the full merged array (the
+ * persisted index shape is unchanged) — most entries are the previous objects,
+ * reused as-is. Falls back to a full rebuild whenever the baseline is unusable.
+ */
+async function _buildIncremental() {
+    const prev = _idx.get();
+    // Nothing to diff against — build everything AND record the baseline, or the next
+    // refresh would find no signatures and rebuild fully all over again.
+    if (!prev.length) return _buildAllAndRecord();
+
+    const baseline = await _loadSigs();
+    if (!baseline) {
+        logger.info('[games] No usable source signatures — doing a full rebuild to establish them');
+        return _buildAllAndRecord();
+    }
+
+    const t0 = Date.now();
+    const { libraryMap, wishlistItems, localItems, allAppids } = await _readListSources('_buildIncremental');
+    const sigs    = await _sourceSignatures();
+    const statMs  = Date.now() - t0;
+
+    const prevById = new Map(prev.map(g => [g.appid, g]));
+    const changed  = [];
+    for (const appid of allAppids) {
+        const entry = prevById.get(appid);
+        if (!entry) { changed.push(appid); continue; }                       // new to the library/wishlist
+        if ((sigs.get(appid) ?? '') !== (baseline.sigs[appid] ?? '')) { changed.push(appid); continue; }
+        if (_rowChanged(entry, appid, libraryMap, wishlistItems, localItems)) changed.push(appid);
+    }
+
+    if (changed.length > allAppids.size * FULL_REBUILD_RATIO) {
+        logger.info('[games] Most of the library changed — full rebuild is cheaper', { changed: changed.length, total: allAppids.size });
+        return _buildAllAndRecord();
+    }
+
+    const remerged = await mapChunked(changed, (appid) => _mergeOne(appid, libraryMap, wishlistItems, localItems));
+    const byId     = new Map(remerged.map(g => [g.appid, g]));
+
+    // Shape check against a freshly merged entry: if mergeGame's output changed, the
+    // reused entries are stale in a way no mtime reveals, so rebuild everything.
+    const sample = remerged[0] ?? await _mergeOne([...allAppids][0], libraryMap, wishlistItems, localItems);
+    const shape  = _shapeOf(sample);
+    if (baseline.shape && baseline.shape !== shape) {
+        logger.info('[games] Merged entry shape changed — full rebuild so every entry is re-derived');
+        return _buildAllAndRecord();
+    }
+
+    // Rebuild in allAppids order so removed games drop out and new ones are included.
+    const next = [...allAppids].map(appid => byId.get(appid) ?? prevById.get(appid)).filter(Boolean);
+
+    await _persistSigs(sigs, shape);
+    logger.info('[games] Incremental refresh', {
+        changed: changed.length, reused: next.length - changed.length, total: next.length,
+        statMs, totalMs: Date.now() - t0,
     });
+    return next;
+}
+
+/**
+ * Full rebuild, recording the signatures so the NEXT refresh can go incremental.
+ *
+ * Signatures are captured BEFORE the merge, and that order matters. Stat first and a
+ * file written mid-rebuild gets a newer mtime than the one recorded, so the next
+ * refresh re-reads it — at worst a redundant read of a file we already picked up.
+ * Stat afterwards and that same write is recorded as "already accounted for", so a
+ * value we merged from the OLD content would look current forever.
+ */
+async function _buildAllAndRecord() {
+    const sigs  = await _sourceSignatures();
+    const games = await _buildAll();
+    await _persistSigs(sigs, _shapeOf(games[0]));
+    return games;
 }
 
 // Fast-boot: the merged games list is persisted to a sidecar so boot() loads it
 // in one read instead of re-scanning every game's store/hltb/pcgw/itad files
 // (~40s). _byId is a cheap derived Map rebuilt on every index change via the
 // onIndex hook; the poster-pool refresh runs only on an actual rebuild.
-function gamesIndexFile() { return path.join(featureDir('steam'), 'games-index.json'); }
 
 let _byId = new Map();
 
@@ -214,7 +422,7 @@ const _idx = createPersistedIndex({
     name: 'games',
     file: gamesIndexFile,
     rebuild: async () => {
-        const games = await _buildAll();
+        const games = await _buildIncremental();
         refreshPosterPool(games).catch(err => logger.error('[games] Poster pool refresh failed', { err: err.message }));
         return games;
     },
