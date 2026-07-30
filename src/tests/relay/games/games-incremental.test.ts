@@ -311,3 +311,41 @@ describe('games index — incremental refresh', () => {
         expect(onDisk.index.map((g: { appid: number }) => g.appid).sort((a, b) => a - b)).toEqual([10, 20])
     })
 })
+
+describe('games list projection', () => {
+    async function seed() {
+        await writeLibrary([{ appid: 10, playtime_forever: 30 }])
+        await writeWishlist()
+        await writeStore(10, { short_description: 'Heavy blurb', developers: ['Dev'], screenshots: [{ id: 1 }] })
+        await refresh()
+    }
+
+    it('drops the heavy nested blocks but keeps every field the consumers declare', async () => {
+        await seed()
+        const [entry] = mod.getAllList()
+
+        // contracts/relayGames.ts: appid, name, source, playtimeMinutes, media.screenshots
+        expect(entry).toMatchObject({ appid: 10, name: 'Game 10', source: 'library', playtimeMinutes: 30 })
+        expect(entry.media.screenshots).toHaveLength(1)
+        expect(entry.media.header).toBeTruthy()
+        expect('store' in entry).toBe(false)
+        expect('hltb' in entry).toBe(false)
+        expect('pcgw' in entry).toBe(false)
+        expect('itad' in entry).toBe(false)
+    })
+
+    it('leaves the full entries intact for the game-detail route', async () => {
+        await seed()
+        expect(mod.getOne(10).store.description).toBe('Heavy blurb')
+    })
+
+    it('reprojects after a refresh so the list never goes stale', async () => {
+        await seed()
+        await writeLibrary([{ appid: 10, playtime_forever: 30 }, { appid: 20 }])
+        await writeStore(20)
+        await reload()
+        await refresh()
+
+        expect(mod.getAllList().map(g => g.appid).sort((a, b) => a - b)).toEqual([10, 20])
+    })
+})

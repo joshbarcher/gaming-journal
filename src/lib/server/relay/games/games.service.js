@@ -356,6 +356,24 @@ async function _buildAllAndRecord() {
 function gamesIndexFile() { return path.join(featureDir('steam'), 'games-index.json'); }
 
 let _byId = new Map();
+let _list = [];
+
+// ── List projection ───────────────────────────────────────────────────────────
+// The merged entries carry a large nested `store` blob (8.7 MB of the 13.3 MB index)
+// that only the game-detail route reads. Serving whole entries meant GET
+// /relay/api/games shipped 13.7 MB — to the browser on every franchise page, and to
+// a phone on the native franchise screen. Both need only ownership/wishlist
+// partitioning and screenshots; contracts/relayGames.ts says as much.
+//
+// Projected once per index change via the onIndex hook rather than per request, so
+// serving a list costs no work at all.
+const LIST_FIELDS = ['appid', 'name', 'source', 'playtimeMinutes', 'iconUrl', 'wishlist', 'media'];
+
+function toListEntry(game) {
+    const out = {};
+    for (const f of LIST_FIELDS) if (f in game) out[f] = game[f];
+    return out;
+}
 
 const _idx = createPersistedIndex({
     name: 'games',
@@ -365,7 +383,10 @@ const _idx = createPersistedIndex({
         refreshPosterPool(games).catch(err => logger.error('[games] Poster pool refresh failed', { err: err.message }));
         return games;
     },
-    onIndex: (games) => { _byId = new Map(games.map((g) => [g.appid, g])); },
+    onIndex: (games) => {
+        _byId = new Map(games.map((g) => [g.appid, g]));
+        _list = games.map(toListEntry);
+    },
 });
 
 /** Fast boot: load the persisted sidecar, then refresh in the background. */
@@ -378,6 +399,10 @@ export async function build() { await _idx.refresh(); }
 export function ensureBuilt() { return _idx.ensureLoaded(); }
 
 export function getAll() { return _idx.get(); }
+
+/** List-shaped entries (no store/hltb/pcgw/itad) — what every consumer except the
+ *  game-detail route actually needs. See LIST_FIELDS. */
+export function getAllList() { return _list; }
 export function getOne(appid) { return _byId.get(Number(appid)) ?? null; }
 export function getCacheMeta() { return _idx.meta(); }
 
