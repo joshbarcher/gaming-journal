@@ -127,7 +127,7 @@ describe('games index — incremental refresh', () => {
         await touch(path.join(STEAM(), 'store', '10.json'))
         await refresh()
 
-        expect(mod.getOne(20)).toEqual(before)
+        expect(mod.getOne(20)).toBe(before)   // identity: reused, not re-derived
     })
 
     it('picks up a newly owned game', async () => {
@@ -259,6 +259,42 @@ describe('games index — incremental refresh', () => {
 
         expect(mod.getAll().length).toBeGreaterThan(0)
         expect(mod.getOne(10)).toBeTruthy()
+    })
+
+    // REGRESSION (caught on prod, not here): the shape check sampled whichever game
+    // had changed, and _shapeOf renders a nested block differently when it is null
+    // than when populated — so changing a game whose store/hltb/pcgw nullness differed
+    // from the sampled one looked like a schema change and forced a FULL rebuild.
+    // The delta then only ever worked when there was nothing to do. Both paths must
+    // sample the same reference game.
+    it('a change to a game shaped differently from the reference game stays incremental', async () => {
+        // 10 is the reference appid (lowest). Give it full nested blocks and give the
+        // other game none, so a shape computed from either would differ.
+        await writeLibrary([{ appid: 10 }, { appid: 20 }])
+        await writeWishlist()
+        await writeStore(10, { developers: ['Dev'], genres: [{ description: 'RPG' }] })
+        // hltb lives at the relay root, NOT under steam/ — featureDir('hltb').
+        await writeJson(path.join(tmpDir, 'relay', 'hltb', '10.json'), { matched: true, hltbId: 1, gameplayMain: 10 })
+        await writeStore(20)                       // no hltb/pcgw/itad at all
+        await refresh()
+
+        const ref = mod.getOne(10)
+        expect(ref.hltb).toBeTruthy()
+        expect(mod.getOne(20).hltb).toBeNull()     // genuinely different shapes
+
+        // Change ONLY the differently-shaped game.
+        await writeStore(20, { short_description: 'Changed 20' })
+        await touch(path.join(STEAM(), 'store', '20.json'))
+        await refresh()
+
+        expect(mod.getOne(20).store.description).toBe('Changed 20')
+        // Identity, not equality: an incremental refresh REUSES the previous object,
+        // whereas a full rebuild produces an equal-but-new one — so toEqual would pass
+        // either way and would not have caught this.
+        expect(mod.getOne(10)).toBe(ref)
+        // And the recorded shape must still describe the reference game.
+        const sig = JSON.parse(await fs.readFile(SIG(), 'utf8'))
+        expect(sig.shape).toContain('hltb{')
     })
 
     it('a refresh with nothing changed leaves the index untouched', async () => {

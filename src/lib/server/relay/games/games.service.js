@@ -310,6 +310,19 @@ function _shapeOf(entry) {
 }
 
 /**
+ * The game whose merged entry defines the recorded shape. Must be chosen the SAME way
+ * by both rebuild paths, because _shapeOf renders a nested block differently when it
+ * is null than when it is populated — so sampling "whichever game happened to change"
+ * made the shape look different every time and forced a full rebuild on exactly the
+ * refreshes that had real work to do. The lowest appid present is stable and cheap.
+ */
+function _shapeRefAppid(appids) {
+    let min = Infinity;
+    for (const a of appids) if (a < min) min = a;
+    return Number.isFinite(min) ? min : null;
+}
+
+/**
  * Fields of a merged entry that come from the library/wishlist rows rather than the
  * per-appid files. Playtime moves every time you play, and no file mtime reflects
  * that, so these are diffed directly against the existing entry.
@@ -377,8 +390,9 @@ async function _buildIncremental() {
 
     // Shape check against a freshly merged entry: if mergeGame's output changed, the
     // reused entries are stale in a way no mtime reveals, so rebuild everything.
-    const sample = remerged[0] ?? await _mergeOne([...allAppids][0], libraryMap, wishlistItems, localItems);
-    const shape  = _shapeOf(sample);
+    // Always the reference game, never "whichever one changed" — see _shapeRefAppid.
+    const refAppid = _shapeRefAppid(allAppids);
+    const shape    = _shapeOf(byId.get(refAppid) ?? await _mergeOne(refAppid, libraryMap, wishlistItems, localItems));
     if (baseline.shape && baseline.shape !== shape) {
         logger.info('[games] Merged entry shape changed — full rebuild so every entry is re-derived');
         return _buildAllAndRecord();
@@ -407,7 +421,9 @@ async function _buildIncremental() {
 async function _buildAllAndRecord() {
     const sigs  = await _sourceSignatures();
     const games = await _buildAll();
-    await _persistSigs(sigs, _shapeOf(games[0]));
+    // Same reference game the incremental path will sample, so the two are comparable.
+    const refAppid = _shapeRefAppid(games.map(g => g.appid));
+    await _persistSigs(sigs, _shapeOf(games.find(g => g.appid === refAppid)));
     return games;
 }
 
