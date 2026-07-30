@@ -23,6 +23,9 @@ vi.mock('../../../lib/server/relay/steam/play-log.service.js', () => ({
 }))
 vi.mock('../../../lib/server/relay/steam/steam.service.js', () => ({
     getAchievements: vi.fn(() => ({})),
+    // buildPayload awaits this so a rebuild can't promote a payload with zero
+    // achievement counts while the cache is still loading off the boot path.
+    ensureAchievementsLoaded: vi.fn(async () => {}),
 }))
 vi.mock('../../../lib/server/relay/provision.service.js', () => ({
     getLibraryFirstSeen: vi.fn(() => ({})),

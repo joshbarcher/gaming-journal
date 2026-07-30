@@ -451,6 +451,23 @@ export async function loadAchievementsCache() {
     logger.info('[steam] Achievement cache loaded', { games: _achCache.size });
 }
 
+// loadAchievementsCache() re-reads all ~1650 per-game files (clearing the cache
+// first), so it is NOT cheap to call repeatedly: measured at 2.5s against the NAS,
+// which made it the whole cost of an otherwise-instant boot. Callers that just need
+// the cache present use this instead — one load per process, shared by everyone
+// waiting. The unguarded export stays for the sync path, which wants a real re-read.
+let _achLoadPromise = null;
+
+export function ensureAchievementsLoaded() {
+    if (!_achLoadPromise) {
+        _achLoadPromise = loadAchievementsCache().catch(err => {
+            _achLoadPromise = null;   // let a later caller retry
+            throw err;
+        });
+    }
+    return _achLoadPromise;
+}
+
 // Prevents the 30-min tick and a manual repair call from running concurrently.
 let _syncAchievementsRunning = false;
 

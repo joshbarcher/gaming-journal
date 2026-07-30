@@ -11,7 +11,7 @@ import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { featureDir } from '../shared/data-root.js';
 import { getAll, ensureBuilt as ensureGamesBuilt } from '../games/games.service.js';
 import { getLastPlayedMap, getSessions, load as loadPlayLog } from '../steam/play-log.service.js';
-import { getAchievements } from '../steam/steam.service.js';
+import { getAchievements, ensureAchievementsLoaded } from '../steam/steam.service.js';
 import { getLibraryFirstSeen } from '../provision.service.js';
 import { get as getUpcoming } from '../steam/upcoming.service.js';
 import { getGuideCard } from './guide-card.service.js';
@@ -344,6 +344,13 @@ async function restorePayload() {
 }
 
 async function buildPayload() {
+    // Achievement counts feed the session card and the 30-day stats, and the cache
+    // now loads off the boot critical path (see boot.js tier 1) — so wait for it here
+    // rather than promoting a payload that reports zero unlocks. One load per
+    // process; every rebuild after the first returns immediately.
+    await ensureAchievementsLoaded().catch(err =>
+        logger.warn('[home] Achievement cache unavailable — counts may read low', { err: err?.message ?? String(err) }));
+
     if (!_libSets.length || Date.now() - _lastBuilt > TTL_MS) {
         build();
     }

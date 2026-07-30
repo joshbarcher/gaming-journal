@@ -24,7 +24,7 @@ import { startup as startPin } from './pin/pin.service.js'
 import { startNexusSyncScheduler } from './nexus/nexus.service.js'
 import { startPoller as startFeaturedPoller } from './steam/featured-poller.js'
 import { build as buildUpcomingCache } from './steam/upcoming.service.js'
-import { loadAchievementsCache } from './steam/steam.service.js'
+import { ensureAchievementsLoaded } from './steam/steam.service.js'
 import { buildApplist } from './steam/applist.service.js'
 import { backfillAll as backfillAdultContent } from './steam/adult-content.service.js'
 import { closeBrowser as closeScraperBrowser } from './steam/achievement-schema-scraper.js'
@@ -76,7 +76,11 @@ export async function bootRelay() {
             .catch(err => logger.error('[relay-boot] Games index / poster pool load failed', { err: err?.message })),
         loadPlayLog().catch(err         => logger.error('[relay-boot] Play-log load failed', { err: err?.message })),
         ensureWishlistBuilt().catch(err => logger.error('[relay-boot] Wishlist index load failed', { err: err?.message })),
-        loadAchievementsCache().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message })),
+        // NOT the achievement cache: it reads ~1650 per-game files (2.5s on the NAS,
+        // measured as the entire cost of tier 0 once everything else was fixed). The
+        // first render doesn't need it — the persisted payload already carries its
+        // counts — so it loads in tier 1, and buildPayload awaits it so no rebuild can
+        // promote a payload with the achievement numbers missing.
     ])
     registerCloser('play-log', closePlayLog)
     logger.info('[relay-boot] Tier 0 ready — page is renderable', { ms: Date.now() - t0 })
@@ -93,6 +97,7 @@ export async function bootRelay() {
     // refreshes in tier 2 instead.
     ensureCommunityReviews().catch(err => logger.error('[relay-boot] Community reviews index load failed', { err: err?.message }))
     buildUpcomingCache().catch(err => logger.error('[relay-boot] Upcoming cache build failed', { err: err?.message }))
+    ensureAchievementsLoaded().catch(err => logger.error('[relay-boot] Achievement cache load failed', { err: err?.message }))
 
     // Unconditional: even a schedulers-off instance can lazily launch Chrome via
     // an on-demand pcgw syncGame or reddit/imgur browser call — the closers are
