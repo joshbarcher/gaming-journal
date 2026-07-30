@@ -13,6 +13,7 @@ import { getWishlist } from '../steam/steam.service.js';
 import { mapChunked } from '../shared/map-chunked.js';
 import { featureDir } from '../shared/data-root.js';
 import { createPersistedIndex } from '../shared/persisted-index.js';
+import { createSourceSignatures, shapeOf, shapeRefKey } from '../shared/source-signatures.js';
 
 function itadPath(appid)       { return path.join(featureDir('itad'),          `${appid}.json`); }
 function storePath(appid)      { return path.join(featureDir('steam'), 'store', `${appid}.json`); }
@@ -79,7 +80,12 @@ function shapeItem(appid, meta, store, itad, isLocal = false, flagsData = {}) {
 function wishlistIndexFile() { return path.join(featureDir('steam'), 'wishlist-index.json'); }
 
 // The slow scan — reads each entry's itad + store data and returns the array.
-async function scanCache() {
+/**
+ * The whole-list sources plus the entry universe they imply, with the degraded-read
+ * guard. Shared by the full and incremental scans so the guard can never apply to
+ * only one of them.
+ */
+async function _readListSources() {
     const [wishlistData, localData, flagsData] = await Promise.all([
         getWishlist(),
         readJson(localWishlistPath()).then(d => d ?? { items: {} }),
@@ -106,20 +112,118 @@ async function scanCache() {
     const steamEntries = Object.entries(steamItems);
     const allEntries   = [...steamEntries, ...localOnly.map(([id, meta]) => [id, meta, true])];
 
-    if (allEntries.length === 0) return [];
-
-    const [itadResults, storeResults] = await Promise.all([
-        mapChunked(allEntries, ([id]) => readJson(itadPath(Number(id)))),
-        mapChunked(allEntries, ([id]) => readJson(storePath(Number(id)))),
-    ]);
-
-    return allEntries
-        .map(([id, meta, isLocal = false], i) =>
-            shapeItem(Number(id), meta, storeResults[i], itadResults[i], isLocal, flagsData))
-        .sort((a, b) => (a.wishlist.priority ?? 9999) - (b.wishlist.priority ?? 9999));
+    return { allEntries, flagsData };
 }
 
-const _idx = createPersistedIndex({ name: 'wishlist', file: wishlistIndexFile, rebuild: scanCache });
+function sortItems(items) {
+    return items.sort((a, b) => (a.wishlist.priority ?? 9999) - (b.wishlist.priority ?? 9999));
+}
+
+/** Shape one entry from its two per-appid source files. */
+async function shapeOneEntry([id, meta, isLocal = false], flagsData) {
+    const appid = Number(id);
+    const [itad, store] = await Promise.all([readJson(itadPath(appid)), readJson(storePath(appid))]);
+    return shapeItem(appid, meta, store, itad, isLocal, flagsData);
+}
+
+async function scanCache() {
+    const { allEntries, flagsData } = await _readListSources();
+    if (allEntries.length === 0) return [];
+    return sortItems(await mapChunked(allEntries, (e) => shapeOneEntry(e, flagsData)));
+}
+
+// ── Incremental rebuild ───────────────────────────────────────────────────────
+// A row is a pure function of the game's store + itad files plus its wishlist meta
+// and alert flag. scanCache() re-read ~2200 per-appid files every refresh (17s
+// against the NAS) to pick up a handful of price changes. See
+// shared/source-signatures.js for why stat-diffing is ~150x cheaper.
+const FULL_REBUILD_RATIO = 0.5;
+
+const _sigs = createSourceSignatures({
+    name: 'wishlist',
+    file: () => path.join(featureDir('steam'), 'wishlist-index-sources.json'),
+    dirs: () => ({
+        store: path.join(featureDir('steam'), 'store'),
+        itad:  featureDir('itad'),
+    }),
+});
+
+/** Row inputs that come from the wishlist meta / flags rather than the two files —
+ *  changing an alert or a priority moves no file mtime at all. */
+function rowChanged(entry, appid, meta, isLocal, flagsData) {
+    const w = entry.wishlist ?? {};
+    if ((isLocal ? null : (meta.priority ?? null)) !== (w.priority ?? null)) return true;
+    if ((isLocal ? meta.dateAdded : meta.date_added) !== w.dateAdded) return true;
+    if (isLocal !== (w.local === true)) return true;
+    if (!!(flagsData[String(appid)]?.alert) !== !!entry.flags?.alert) return true;
+    return false;
+}
+
+/** Full scan, recording signatures so the NEXT refresh can go incremental.
+ *  Signatures BEFORE the scan — see source-signatures.js on the ordering. */
+async function scanCacheAndRecord() {
+    const sigs  = await _sigs.scan();
+    const items = await scanCache();
+    const refKey = shapeRefKey(items.map(i => i.appid));
+    await _sigs.persist(sigs, shapeOf(items.find(i => i.appid === refKey)));
+    return items;
+}
+
+async function scanCacheIncremental() {
+    const prev = _idx.get();
+    if (!prev.length) return scanCacheAndRecord();
+
+    const baseline = await _sigs.load();
+    if (!baseline) {
+        logger.info('[wishlist] No usable source signatures — full scan to establish them');
+        return scanCacheAndRecord();
+    }
+
+    const t0 = Date.now();
+    const { allEntries, flagsData } = await _readListSources();
+    if (allEntries.length === 0) return [];
+    const sigs   = await _sigs.scan();
+    const statMs = Date.now() - t0;
+
+    const prevById = new Map(prev.map(i => [i.appid, i]));
+    const changed  = allEntries.filter(([id, meta, isLocal = false]) => {
+        const appid = Number(id);
+        const entry = prevById.get(appid);
+        if (!entry) return true;                                              // newly wishlisted
+        if ((sigs.get(appid) ?? '') !== (baseline.sigs[appid] ?? '')) return true;
+        return rowChanged(entry, appid, meta, isLocal, flagsData);
+    });
+
+    if (changed.length > allEntries.length * FULL_REBUILD_RATIO) {
+        logger.info('[wishlist] Most of the wishlist changed — full scan is cheaper', { changed: changed.length, total: allEntries.length });
+        return scanCacheAndRecord();
+    }
+
+    const reshaped = await mapChunked(changed, (e) => shapeOneEntry(e, flagsData));
+    const byId     = new Map(reshaped.map(i => [i.appid, i]));
+
+    // Same reference entry as the full path, never "whichever one changed".
+    const refKey = shapeRefKey(allEntries.map(([id]) => Number(id)));
+    const shape  = shapeOf(byId.get(refKey) ?? prevById.get(refKey));
+    if (baseline.shape && shape && baseline.shape !== shape) {
+        logger.info('[wishlist] Row shape changed — full scan so every row is re-derived');
+        return scanCacheAndRecord();
+    }
+
+    // Built from the live entry list, so removed items drop out and new ones appear.
+    const next = sortItems(allEntries
+        .map(([id]) => byId.get(Number(id)) ?? prevById.get(Number(id)))
+        .filter(Boolean));
+
+    await _sigs.persist(sigs, shape);
+    logger.info('[wishlist] Incremental refresh', {
+        changed: changed.length, reused: next.length - reshaped.length, total: next.length,
+        statMs, totalMs: Date.now() - t0,
+    });
+    return next;
+}
+
+const _idx = createPersistedIndex({ name: 'wishlist', file: wishlistIndexFile, rebuild: scanCacheIncremental });
 
 /** Fast boot: load the persisted sidecar, then refresh in the background. */
 export async function boot() { await _idx.boot(); }

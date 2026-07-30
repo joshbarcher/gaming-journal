@@ -13,6 +13,7 @@ import { register } from '../shared/cache-manager.js';
 import { mapChunked } from '../shared/map-chunked.js';
 import { featureDir } from '../shared/data-root.js';
 import { createPersistedIndex } from '../shared/persisted-index.js';
+import { createSourceSignatures, shapeOf, shapeRefKey } from '../shared/source-signatures.js';
 
 const TARGET_REVIEWS    = 100;
 const RECHECK_NORMAL_MS = 7  * 24 * 60 * 60 * 1_000;  // 7 days  — has reviews, not yet at target
@@ -203,7 +204,89 @@ async function scanIndex() {
     return entries.filter(Boolean);
 }
 
-const _idx = createPersistedIndex({ name: 'community-reviews', file: indexFile, rebuild: scanIndex });
+// ── Incremental rebuild ───────────────────────────────────────────────────────
+// An index row is a pure function of one per-appid file, so a refresh only needs to
+// re-read the files whose mtime moved. scanIndex() read all ~3100 of them, which
+// measured 43s against the NAS — the largest single scan of a cold start, for a
+// handful of changes. See shared/source-signatures.js for why stat is ~150x cheaper.
+//
+// There is no equivalent of games' row-diff here: nothing outside the per-appid file
+// feeds a row, so mtimes alone describe it completely.
+const FULL_REBUILD_RATIO = 0.5;
+
+const _sigs = createSourceSignatures({
+    name: 'community-reviews',
+    file: () => path.join(featureDir('steam'), 'community-reviews-index-sources.json'),
+    dirs: () => ({ entry: dir() }),
+});
+
+function rowFor(d) {
+    if (!d) return null;
+    return {
+        appid:        d.appid,
+        checkedAt:    d.checkedAt,
+        totalReviews: d.totalReviews,
+        reviewCount:  d.reviewCount,
+        summary:      d.summary,
+    };
+}
+
+/** Full scan, recording signatures so the NEXT refresh can go incremental.
+ *  Signatures BEFORE the scan: a file written mid-scan then reads as changed next
+ *  time, rather than being recorded as already accounted for. */
+async function scanIndexAndRecord() {
+    const sigs    = await _sigs.scan();
+    const entries = await scanIndex();
+    const refKey  = shapeRefKey(entries.map(e => e.appid));
+    await _sigs.persist(sigs, shapeOf(entries.find(e => e.appid === refKey)));
+    return entries;
+}
+
+async function scanIndexIncremental() {
+    const prev = _idx.get();
+    if (!prev.length) return scanIndexAndRecord();
+
+    const baseline = await _sigs.load();
+    if (!baseline) {
+        logger.info('[community-reviews] No usable source signatures — full scan to establish them');
+        return scanIndexAndRecord();
+    }
+
+    const t0     = Date.now();
+    const sigs   = await _sigs.scan();
+    const statMs = Date.now() - t0;
+
+    const prevById = new Map(prev.map(e => [e.appid, e]));
+    const changed  = [...sigs.keys()].filter(appid => (sigs.get(appid) ?? '') !== (baseline.sigs[appid] ?? ''));
+
+    if (changed.length > sigs.size * FULL_REBUILD_RATIO) {
+        logger.info('[community-reviews] Most entries changed — full scan is cheaper', { changed: changed.length, total: sigs.size });
+        return scanIndexAndRecord();
+    }
+
+    const remerged = (await mapChunked(changed, async (appid) => rowFor(await readJson(entryPath(appid))))).filter(Boolean);
+    const byId     = new Map(remerged.map(e => [e.appid, e]));
+
+    // Same reference entry as the full path, never "whichever one changed" — see shapeOf.
+    const refKey = shapeRefKey(sigs.keys());
+    const shape  = shapeOf(byId.get(refKey) ?? prevById.get(refKey) ?? rowFor(await readJson(entryPath(refKey))));
+    if (baseline.shape && baseline.shape !== shape) {
+        logger.info('[community-reviews] Row shape changed — full scan so every row is re-derived');
+        return scanIndexAndRecord();
+    }
+
+    // Built from the on-disk key set, so deleted entries drop out and new ones appear.
+    const next = [...sigs.keys()].map(appid => byId.get(appid) ?? prevById.get(appid)).filter(Boolean);
+
+    await _sigs.persist(sigs, shape);
+    logger.info('[community-reviews] Incremental refresh', {
+        changed: changed.length, reused: next.length - remerged.length, total: next.length,
+        statMs, totalMs: Date.now() - t0,
+    });
+    return next;
+}
+
+const _idx = createPersistedIndex({ name: 'community-reviews', file: indexFile, rebuild: scanIndexIncremental });
 
 /** Fast boot: load the persisted sidecar, then refresh in the background. */
 export async function boot() { await _idx.boot(); }

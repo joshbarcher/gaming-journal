@@ -19,6 +19,7 @@ import { refresh as refreshPosterPool } from './poster-pool.service.js';
 import { mapChunked } from '../shared/map-chunked.js';
 import { featureDir } from '../shared/data-root.js';
 import { createPersistedIndex } from '../shared/persisted-index.js';
+import { createSourceSignatures, shapeOf, shapeRefKey } from '../shared/source-signatures.js';
 import { decodeEntities } from '../shared/decode-entities.js';
 import { getGames as getSteamGames, getWishlist } from '../steam/steam.service.js';
 import { getGameDetail } from '../steam/store.service.js';
@@ -223,104 +224,25 @@ async function _buildAll() {
 // 2 files. So the refresh stats the sources, re-merges only the appids whose
 // signature moved, and reuses the existing entry for everything else.
 //
-// Signatures live in their own sidecar next to the index. If it is missing, stale
-// relative to the index, or unreadable, the refresh silently falls back to the full
+// Signatures live in their own sidecar next to the index (shared/source-signatures.js).
+// If it is missing, unreadable or foreign, the refresh silently falls back to the full
 // rebuild — the delta is an optimisation and must never be the reason data is wrong.
-const SIG_VERSION = 1;
 
 // Above this share of the library changing, the delta stops paying for itself and a
 // straight rebuild is simpler (bulk store re-sync, first run after a schema change).
 const FULL_REBUILD_RATIO = 0.5;
 
-function gamesIndexFile()  { return path.join(featureDir('steam'), 'games-index.json'); }
-function gamesSigFile()    { return path.join(featureDir('steam'), 'games-index-sources.json'); }
-
-function sourceDirs() {
-    return {
+const _sigs = createSourceSignatures({
+    name: 'games',
+    file: () => path.join(featureDir('steam'), 'games-index-sources.json'),
+    dirs: () => ({
         store: path.join(featureDir('steam'), 'store'),
         hltb:  featureDir('hltb'),
         pcgw:  featureDir('pcgw'),
         itad:  featureDir('itad'),
-    };
-}
+    }),
+});
 
-/**
- * appid → "store:mtime|hltb:mtime|pcgw:mtime|itad:mtime" for every per-appid source
- * file on disk. One readdir per directory, then a stat per entry — the stats are
- * served from the attribute cache the readdir populated, which is what makes this
- * ~150x cheaper than reading the files.
- */
-async function _sourceSignatures() {
-    const sigs = new Map();
-    for (const [label, dir] of Object.entries(sourceDirs())) {
-        let files;
-        try { files = await fs.readdir(dir); } catch { continue; }   // feature never synced
-        await mapChunked(files.filter(f => /^\d+\.json$/.test(f)), async (file) => {
-            const appid = Number(file.slice(0, -5));
-            if (!appid) return null;
-            try {
-                const { mtimeMs } = await fs.stat(path.join(dir, file));
-                sigs.set(appid, `${sigs.get(appid) ?? ''}${label}:${Math.round(mtimeMs)}|`);
-            } catch { /* vanished mid-scan — treated as changed next time */ }
-            return null;
-        });
-    }
-    return sigs;
-}
-
-async function _loadSigs() {
-    try {
-        const raw = JSON.parse(await fs.readFile(gamesSigFile(), 'utf8'));
-        if (raw?.v !== SIG_VERSION || !raw.sigs) return null;
-        return raw;
-    } catch { return null; }
-}
-
-async function _persistSigs(sigs, shape) {
-    const file = gamesSigFile();
-    const tmp  = `${file}.tmp`;
-    try {
-        await fs.writeFile(tmp, JSON.stringify({
-            v: SIG_VERSION, builtAt: new Date().toISOString(), shape, sigs: Object.fromEntries(sigs),
-        }));
-        await fs.rename(tmp, file);
-    } catch (err) {
-        logger.warn('[games] Source signature persist failed — next refresh will be a full rebuild', { err: err.message });
-    }
-}
-
-/**
- * Key structure of a merged entry, one level into the nested blocks.
- *
- * Guards the delta's core assumption: that an entry whose sources haven't changed is
- * still correctly shaped. Change mergeGame() and the untouched entries would
- * otherwise keep the old shape indefinitely — a footgun that relies on remembering
- * to bump SIG_VERSION. Comparing this instead catches it automatically.
- * (Note it cannot catch a change to how a VALUE is derived, only to the shape —
- * SIG_VERSION is still the lever for that.)
- */
-function _shapeOf(entry) {
-    if (!entry) return '';
-    return Object.keys(entry).sort().map(k => {
-        const v = entry[k];
-        return v && typeof v === 'object' && !Array.isArray(v)
-            ? `${k}{${Object.keys(v).sort().join(',')}}`
-            : k;
-    }).join(',');
-}
-
-/**
- * The game whose merged entry defines the recorded shape. Must be chosen the SAME way
- * by both rebuild paths, because _shapeOf renders a nested block differently when it
- * is null than when it is populated — so sampling "whichever game happened to change"
- * made the shape look different every time and forced a full rebuild on exactly the
- * refreshes that had real work to do. The lowest appid present is stable and cheap.
- */
-function _shapeRefAppid(appids) {
-    let min = Infinity;
-    for (const a of appids) if (a < min) min = a;
-    return Number.isFinite(min) ? min : null;
-}
 
 /**
  * Fields of a merged entry that come from the library/wishlist rows rather than the
@@ -360,7 +282,7 @@ async function _buildIncremental() {
     // refresh would find no signatures and rebuild fully all over again.
     if (!prev.length) return _buildAllAndRecord();
 
-    const baseline = await _loadSigs();
+    const baseline = await _sigs.load();
     if (!baseline) {
         logger.info('[games] No usable source signatures — doing a full rebuild to establish them');
         return _buildAllAndRecord();
@@ -368,7 +290,7 @@ async function _buildIncremental() {
 
     const t0 = Date.now();
     const { libraryMap, wishlistItems, localItems, allAppids } = await _readListSources('_buildIncremental');
-    const sigs    = await _sourceSignatures();
+    const sigs    = await _sigs.scan();
     const statMs  = Date.now() - t0;
 
     const prevById = new Map(prev.map(g => [g.appid, g]));
@@ -390,9 +312,9 @@ async function _buildIncremental() {
 
     // Shape check against a freshly merged entry: if mergeGame's output changed, the
     // reused entries are stale in a way no mtime reveals, so rebuild everything.
-    // Always the reference game, never "whichever one changed" — see _shapeRefAppid.
-    const refAppid = _shapeRefAppid(allAppids);
-    const shape    = _shapeOf(byId.get(refAppid) ?? await _mergeOne(refAppid, libraryMap, wishlistItems, localItems));
+    // Always the reference game, never "whichever one changed" — see shapeRefKey.
+    const refAppid = shapeRefKey(allAppids);
+    const shape    = shapeOf(byId.get(refAppid) ?? await _mergeOne(refAppid, libraryMap, wishlistItems, localItems));
     if (baseline.shape && baseline.shape !== shape) {
         logger.info('[games] Merged entry shape changed — full rebuild so every entry is re-derived');
         return _buildAllAndRecord();
@@ -401,7 +323,7 @@ async function _buildIncremental() {
     // Rebuild in allAppids order so removed games drop out and new ones are included.
     const next = [...allAppids].map(appid => byId.get(appid) ?? prevById.get(appid)).filter(Boolean);
 
-    await _persistSigs(sigs, shape);
+    await _sigs.persist(sigs, shape);
     logger.info('[games] Incremental refresh', {
         changed: changed.length, reused: next.length - changed.length, total: next.length,
         statMs, totalMs: Date.now() - t0,
@@ -419,11 +341,11 @@ async function _buildIncremental() {
  * value we merged from the OLD content would look current forever.
  */
 async function _buildAllAndRecord() {
-    const sigs  = await _sourceSignatures();
+    const sigs  = await _sigs.scan();
     const games = await _buildAll();
     // Same reference game the incremental path will sample, so the two are comparable.
-    const refAppid = _shapeRefAppid(games.map(g => g.appid));
-    await _persistSigs(sigs, _shapeOf(games.find(g => g.appid === refAppid)));
+    const refAppid = shapeRefKey(games.map(g => g.appid));
+    await _sigs.persist(sigs, shapeOf(games.find(g => g.appid === refAppid)));
     return games;
 }
 
@@ -431,6 +353,7 @@ async function _buildAllAndRecord() {
 // in one read instead of re-scanning every game's store/hltb/pcgw/itad files
 // (~40s). _byId is a cheap derived Map rebuilt on every index change via the
 // onIndex hook; the poster-pool refresh runs only on an actual rebuild.
+function gamesIndexFile() { return path.join(featureDir('steam'), 'games-index.json'); }
 
 let _byId = new Map();
 
