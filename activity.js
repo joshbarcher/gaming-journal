@@ -122,7 +122,8 @@
  *     "startedAt": "2026-07-12T11:46:00.000Z",  // when this tracker began counting
  *     "uptimeSec": 840,
  *     "network": {
- *       "requests": 1043,               // monotonic count since startedAt
+ *       "requests": 1043,               // monotonic count since startedAt, EXCLUDING
+ *                                        //   fleet-contract paths (see below)
  *       "bytesIn":  88213,              // Σ request Content-Length (0 when absent)
  *       "bytesOut": 5522019             // Σ response Content-Length (see LIMITATIONS)
  *     },
@@ -131,7 +132,10 @@
  *       "writeOps":     37,             // in-process writes the tracker was told of
  *       "deleteOps":    4,
  *       "bytesWritten": 1994321408,
- *       "recentWrites": [               // PASSIVE — the last writes this process made
+ *       "lastWriteAt":  "2026-07-12T11:58:00.000Z",  // null if never; how stale an empty list is
+ *       "recentWindowSec": 3600,        // age cutoff applied to recentWrites
+ *       "recentWrites": [               // PASSIVE — writes made within recentWindowSec.
+ *                                        //   EMPTY on an idle app; that is the point.
  *         { "path": "communities/x/posts/123.json", "mtime": "...", "size": 4096 }
  *       ],
  *       "snapshot": {                   // OPT-IN filesystem view; null unless nasDir set
@@ -169,13 +173,16 @@
  *
  *   createActivityMiddleware()
  *     Express middleware `(req, res, next)` that counts inbound requests and their
- *     Content-Length bytes. Requests to /activity* are excluded so the meter
- *     doesn't measure its own observation. Register it before your routes.
+ *     Content-Length bytes. Fleet-contract paths are excluded so the meter doesn't
+ *     measure its own observation. Register it before your routes.
  *
  *   recordRequest(req, res) | recordRequest(bytesIn, bytesOut)
  *     Manual request tally, for frameworks without the Express middleware. Accepts
  *     either a Fetch Request+Response pair (reads Content-Length off both) or two
- *     byte numbers.
+ *     byte numbers. The Request form self-excludes fleet-contract paths.
+ *
+ *   isFleetContractPath(pathname)
+ *     True for the monitoring routes excluded from the request count.
  *
  *   recordWrite(bytes|content, relPath?) / recordDelete()
  *     Tally a NAS write / delete. Passive — bumps counters and a bounded
@@ -237,6 +244,23 @@
  *
  *
  * ─────────────────────────────────────────────────────────────────────────────
+ * WHAT COUNTS AS A REQUEST — THE MONITOR MUST NOT MEASURE ITSELF
+ * ─────────────────────────────────────────────────────────────────────────────
+ * process-mgr polls five routes on every app: /activity (this file), /health,
+ * /sloc, /coverage and /visits. All five are excluded from network.requests.
+ * They have to be: counting them turns each app's "request rate" into a readout
+ * of the monitoring fan-out — identical to sixteen significant digits across
+ * unrelated apps, rising whenever someone opens a dashboard tab, and never
+ * reaching zero on a completely idle app. An idle app must read as idle, which
+ * is the whole point of the column this feeds.
+ *
+ * The exclusion lives inside createActivityMiddleware AND recordRequest rather
+ * than at each app's call site, so updating this drop-in is enough — no need to
+ * touch every hooks.server.js. A SvelteKit hook may still pre-filter (older
+ * setups test `/activity` themselves); that's harmless and now redundant.
+ *
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
  * LIMITATIONS (read before trusting the numbers precisely)
  * ─────────────────────────────────────────────────────────────────────────────
  *   - bytesOut is summed from response Content-Length. Streamed/chunked responses
@@ -247,6 +271,9 @@
  *     process, won't appear there — that's exactly what the opt-in snapshot is
  *     for. If an app shells out to a binary that writes to the NAS, enable nasDir
  *     and rely on the snapshot, not writeOps.
+ *   - recentWrites is age-windowed (recentWindowMs, default 60 min), so a
+ *     bursty app that wrote heavily hours ago reports an EMPTY list plus a
+ *     lastWriteAt. Don't read empty as "not instrumented" — check writeOps.
  *   - Counters reset on restart (see WHY, above) — intended, not a bug.
  *   - The snapshot samples state at scan time; a burst finishing between scans is
  *     visible only via totalBytes growth, not as individual recentlyModified rows.
@@ -254,6 +281,61 @@
 
 import fsp  from 'node:fs/promises';
 import path from 'node:path';
+
+// How many recent in-process writes to keep. This is a passive ring fed by
+// recordWrite — no filesystem work — so it stays cheap regardless of write rate.
+const RECENT_WRITES_MAX = 50;
+
+// recentWrites answers "what is this app writing RIGHT NOW", so it is windowed
+// by age at report time, not just capped by count. A pure ring is a trap for an
+// app that writes in bursts: one busy evening fills all 50 slots and they then
+// sit there for days, so a long-idle app keeps serving a full, plausible-looking
+// list of "recent" writes. Anything older than this is dropped from the list and
+// represented by `lastWriteAt` instead, which says how stale it actually is.
+const RECENT_WRITES_WINDOW_MS = 60 * 60 * 1000;   // 60 min
+
+// Paths that exist only because process-mgr polls them (the fleet contract:
+// sloc.js, coverage.js, visits.js, this file, plus /health). They are excluded
+// from `network.requests` because counting them makes every app's request rate a
+// readout of the monitor rather than of its users — identical across unrelated
+// apps, rising when a dashboard tab opens, and never falling to zero on an idle
+// app. Exclusion lives here rather than at each call site so updating this
+// drop-in fixes it fleet-wide (see recordRequest).
+const FLEET_CONTRACT_PATHS = ['/activity', '/health', '/sloc', '/coverage', '/visits'];
+
+/**
+ * True when `pathname` is a fleet-contract monitoring route (exact match or a
+ * subpath, so '/activity/dashboard' and '/visits/resources' count, but a real
+ * app route like '/healthcare' does not).
+ *
+ * Strips any query/fragment first: the Express middleware falls back to req.url
+ * when req.path is absent, and req.url carries the query string — '/activity?x=1'
+ * has to match, or a polled endpoint with a cache-buster silently counts itself.
+ * @param {string} pathname
+ * @returns {boolean}
+ */
+export function isFleetContractPath(pathname) {
+    let p = String(pathname || '');
+    const cut = p.search(/[?#]/);
+    if (cut !== -1) p = p.slice(0, cut);
+    return FLEET_CONTRACT_PATHS.some((base) => p === base || p.startsWith(base + '/'));
+}
+
+// Pull a pathname off whatever recordRequest was handed: a Fetch Request (.url
+// is absolute), an Express-style req (.url is already a path), or a bare string.
+// Returns null when there's nothing path-like to test, in which case the caller
+// counts the request rather than guessing.
+function pathnameOf(x) {
+    if (!x) return null;
+    if (typeof x === 'string') return x.startsWith('http') ? safeUrlPath(x) : x;
+    if (typeof x.path === 'string') return x.path;
+    if (typeof x.url === 'string') return x.url.startsWith('http') ? safeUrlPath(x.url) : x.url;
+    return null;
+}
+
+function safeUrlPath(u) {
+    try { return new URL(u).pathname; } catch { return null; }
+}
 
 // ── Live counters (one tracker per process) ───────────────────────────────────
 //
@@ -268,16 +350,13 @@ const state = {
     root:          undefined,
     nasDir:        null,
     snapshotOpts:  {},
+    recentWindowMs: RECENT_WRITES_WINDOW_MS,
     network:       { requests: 0, bytesIn: 0, bytesOut: 0 },
     // _recent: bounded ring of { path, bytes, at } — recent writes seen in-process
-    nas:           { writeOps: 0, deleteOps: 0, bytesWritten: 0, _recent: [] },
+    nas:           { writeOps: 0, deleteOps: 0, bytesWritten: 0, lastWriteAt: null, _recent: [] },
     _snapCache:    null,   // { at: number, data: object }
     _snapInflight: null,   // Promise<object|null> | null
 };
-
-// How many recent in-process writes to keep. This is a passive ring fed by
-// recordWrite — no filesystem work — so it stays cheap regardless of write rate.
-const RECENT_WRITES_MAX = 50;
 
 const SNAPSHOT_DEFAULTS = {
     cacheMs:         30_000,
@@ -289,13 +368,19 @@ const SNAPSHOT_DEFAULTS = {
 
 /**
  * Register this process's watch config and reset the count-from timestamp.
- * Call once at boot. Safe to call again to reconfigure (also re-zeros the
- * start time, which resets computed rates on the next poll).
+ * Call once at boot. Safe to call again to reconfigure.
+ *
+ * Resetting `startedAt` MUST also zero the counters and the recent-writes ring:
+ * every counter in the report is documented as "since startedAt", so moving that
+ * timestamp while leaving the tallies behind would publish totals for a window
+ * that never contained them (and hand process-mgr a uptimeSec/requests pair that
+ * disagree). At boot they are already zero, so this only matters on a re-install.
  * @param {object} [options]
  * @param {string} [options.name]
  * @param {string} [options.root]   - defaults to process.cwd()
  * @param {string} [options.nasDir] - directory to snapshot; omit to skip
  * @param {object} [options.snapshot] - snapshot tuning (see SNAPSHOT_DEFAULTS)
+ * @param {number} [options.recentWindowMs] - age cutoff for nas.recentWrites
  */
 export function installActivityTracker(options = {}) {
     state.startedAt    = Date.now();
@@ -303,6 +388,9 @@ export function installActivityTracker(options = {}) {
     state.root         = options.root ?? process.cwd();
     state.nasDir       = options.nasDir ?? null;
     state.snapshotOpts = { ...SNAPSHOT_DEFAULTS, ...(options.snapshot ?? {}) };
+    state.recentWindowMs = options.recentWindowMs ?? RECENT_WRITES_WINDOW_MS;
+    state.network      = { requests: 0, bytesIn: 0, bytesOut: 0 };
+    state.nas          = { writeOps: 0, deleteOps: 0, bytesWritten: 0, lastWriteAt: null, _recent: [] };
     state._snapCache   = null;
     state._snapInflight = null;
 }
@@ -330,9 +418,11 @@ function parseContentLength(v) {
  */
 export function recordWrite(bytesOrContent, relPath) {
     const bytes = toByteLength(bytesOrContent);
+    const at = Date.now();
     state.nas.writeOps += 1;
     state.nas.bytesWritten += bytes;
-    state.nas._recent.push({ path: relPath ?? null, bytes, at: Date.now() });
+    state.nas.lastWriteAt = at;
+    state.nas._recent.push({ path: relPath ?? null, bytes, at });
     if (state.nas._recent.length > RECENT_WRITES_MAX) state.nas._recent.shift();
 }
 
@@ -347,8 +437,18 @@ export function recordDelete() {
  *   recordRequest(fetchRequest, fetchResponse) — reads Content-Length off both
  * The second is for a SvelteKit `handle` hook; the Express path uses the
  * middleware instead.
+ *
+ * When the first argument carries a URL, fleet-contract paths are dropped here
+ * rather than at the call site. Every consuming app's hook used to test
+ * `/activity` itself, which meant widening the exclusion would have required
+ * editing each app; doing it inside the function means updating this file is
+ * enough. The raw-numbers shape has no path and is always counted.
  */
 export function recordRequest(a, b) {
+    if (typeof a !== 'number' && typeof b !== 'number') {
+        const p = pathnameOf(a);
+        if (p && isFleetContractPath(p)) return;
+    }
     state.network.requests += 1;
     if (typeof a === 'number' || typeof b === 'number') {
         state.network.bytesIn  += parseContentLength(a);
@@ -364,15 +464,15 @@ export function recordRequest(a, b) {
 
 /**
  * Build an Express middleware that counts inbound requests and their
- * Content-Length bytes. Requests whose path starts with `/activity` are skipped
- * so the endpoint (and the dashboard polling it) don't inflate the very numbers
- * they report. Register before your routes.
+ * Content-Length bytes. Fleet-contract paths (/activity, /health, /sloc,
+ * /coverage, /visits) are skipped so the monitoring fan-out doesn't inflate the
+ * very numbers it reports — see FLEET_CONTRACT_PATHS. Register before your routes.
  * @returns {(req, res, next) => void}
  */
 export function createActivityMiddleware() {
     return function activityMiddleware(req, res, next) {
         const p = req.path || req.url || '';
-        if (p.startsWith('/activity')) return next();
+        if (isFleetContractPath(p)) return next();
 
         state.network.requests += 1;
         state.network.bytesIn += parseContentLength(req.headers?.['content-length']);
@@ -505,15 +605,20 @@ export async function computeActivity(options = {}) {
     let snapshot = null;
     if (nasDir) snapshot = await getNasSnapshot(nasDir, snapshotOpts);
 
+    const now = Date.now();
+
     // Passive recent-writes list, newest first, from the in-process ring — no
-    // filesystem walk. Same { path, mtime, size } shape as snapshot rows so
-    // consumers can treat the two uniformly.
+    // filesystem walk. Windowed by age (see RECENT_WRITES_WINDOW_MS) so this
+    // stays an answer to "what is being written now" and can't hand a consumer a
+    // full list of day-old writes to render as current. Same { path, mtime, size }
+    // shape as snapshot rows so consumers can treat the two uniformly.
+    const recentWindowMs = options.recentWindowMs ?? state.recentWindowMs ?? RECENT_WRITES_WINDOW_MS;
+    const recentCutoff = now - recentWindowMs;
     const recentWrites = state.nas._recent
-        .slice()
+        .filter((w) => w.at >= recentCutoff)
         .reverse()
         .map((w) => ({ path: w.path, mtime: new Date(w.at).toISOString(), size: w.bytes }));
 
-    const now = Date.now();
     return {
         generatedAt: new Date(now).toISOString(),
         root,
@@ -529,6 +634,10 @@ export async function computeActivity(options = {}) {
             writeOps:     state.nas.writeOps,
             deleteOps:    state.nas.deleteOps,
             bytesWritten: state.nas.bytesWritten,
+            // How stale the list is when it comes back empty — an idle app should
+            // read as "last write 14h ago", not as a panel with nothing in it.
+            lastWriteAt:      state.nas.lastWriteAt ? new Date(state.nas.lastWriteAt).toISOString() : null,
+            recentWindowSec:  Math.round(recentWindowMs / 1000),
             recentWrites,
             snapshot,
         },
@@ -678,32 +787,53 @@ function fmtRate(n, unit) {
   n = Number(n) || 0;
   return (n >= 100 ? Math.round(n) : Math.round(n * 10) / 10) + ' ' + unit;
 }
+// Relative age, never a bare clock time: a time-of-day with no date makes a file
+// written yesterday evening look minutes old.
+function fmtAgo(iso) {
+  if (!iso) return '—';
+  var secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (secs < 45) return 'just now';
+  if (secs < 3600) return Math.round(secs / 60) + 'm ago';
+  if (secs < 86400) return Math.round(secs / 3600) + 'h ago';
+  return Math.round(secs / 86400) + 'd ago';
+}
 
-// A single-series sparkline: 2px accent line over a faint area fill, baseline at
-// the series min so a flat non-zero rate still reads as flat. Pure geometry, no
-// axes — the current value is shown as text beside it.
-function sparkPath(vals, w, h) {
+// Client-side escaper for anything data-derived that reaches innerHTML. The
+// escapeHtml further up this file is server-side and only guards the page shell;
+// the renderers below run in the browser and need their own. Write paths can be
+// built from third-party-derived ids that the app's storage layer deliberately
+// does not sanitise (collision-avoidance, not sanitisation), so untrusted text
+// reaches these rows. This file concatenates markup, so it escapes.
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// A single-series sparkline: 2px accent line over a faint area fill, ZERO
+// baseline with a minimum full scale. Scaling to the series own min/max made
+// idle jitter — a rate wobbling between 5.9 and 6.1 — fill the box exactly like
+// a real spike, so the amplitude carried no information at all. Pure geometry,
+// no axes; the current value is shown as text beside it.
+var SPARK_MIN_FULL_SCALE = 60;
+function sparkPath(vals, w, h, minFullScale) {
   if (!vals.length) return { line: '', area: '' };
-  var max = Math.max.apply(null, vals);
-  var min = Math.min.apply(null, vals);
-  var span = max - min || 1;
+  var max = Math.max(Math.max.apply(null, vals), minFullScale || 0) || 1;
   var n = vals.length;
   var dx = n > 1 ? w / (n - 1) : 0;
   var pts = vals.map(function (v, i) {
-    var x = i * dx;
-    var y = h - 2 - ((v - min) / span) * (h - 4);
-    return [x, y];
+    return [i * dx, h - 2 - Math.min(v / max, 1) * (h - 4)];
   });
   var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
   var area = line + ' L' + (n > 1 ? w : 0).toFixed(1) + ' ' + h + ' L0 ' + h + ' Z';
   return { line: line, area: area };
 }
 
-function drawSpark(id, vals) {
+function drawSpark(id, vals, minFullScale) {
   var el = document.getElementById(id);
   if (!el) return;
   var w = el.clientWidth || 300, h = 64;
-  var p = sparkPath(vals, w, h);
+  var p = sparkPath(vals, w, h, minFullScale);
   el.innerHTML = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
     + '<path class="act-area" d="' + p.area + '"></path>'
     + '<path class="act-line" d="' + p.line + '"></path></svg>';
@@ -733,8 +863,8 @@ function render(data) {
       if (samples.nas.length > ACT_MAX) samples.nas.shift();
       document.getElementById('act-req-cur').textContent = fmtRate(reqRate, 'req/min');
       document.getElementById('act-nas-cur').textContent = fmtRate(nasRate / 1e6, 'MB/s');
-      drawSpark('act-req-spark', samples.req);
-      drawSpark('act-nas-spark', samples.nas);
+      drawSpark('act-req-spark', samples.req, SPARK_MIN_FULL_SCALE);
+      drawSpark('act-nas-spark', samples.nas, 1e6);   // 1 MB/s full-scale floor
     }
   }
   prev = { t: nowMs, requests: net.requests, bytesWritten: nas.bytesWritten };
@@ -750,23 +880,29 @@ function render(data) {
 function renderRecent(nas) {
   var wrap = document.getElementById('act-recent');
   var snap = nas && nas.snapshot;
-  var rows, head;
+  var rows, head, emptyMsg;
   if (snap) {
     rows = snap.recentlyModified || [];
     head = '<p class="act-card-sub">' + fmtInt(snap.fileCount) + ' files · ' + fmtBytes(snap.totalBytes)
-      + (snap.truncated ? ' · partial scan' : '') + ' · in ' + snap.dir + '</p>';
-    if (!rows.length) { wrap.innerHTML = head + '<div class="act-recent-empty">Nothing written in the last ' + snap.recentWindowSec + 's.</div>'; return; }
+      + (snap.truncated ? ' · partial scan' : '') + ' · in ' + escHtml(snap.dir) + '</p>';
+    emptyMsg = 'Nothing written in the last ' + snap.recentWindowSec + 's.';
   } else {
     rows = (nas && nas.recentWrites) || [];
-    head = '<p class="act-card-sub">Recent in-process writes (' + fmtInt(nas ? nas.writeOps : 0) + ' total since start)</p>';
-    if (!rows.length) { wrap.innerHTML = head + '<div class="act-recent-empty">No writes recorded yet.</div>'; return; }
+    var win = nas && nas.recentWindowSec ? Math.round(nas.recentWindowSec / 60) + ' min' : 'window';
+    head = '<p class="act-card-sub">In-process writes in the last ' + win
+      + ' (' + fmtInt(nas ? nas.writeOps : 0) + ' total since start)</p>';
+    // An empty list means idle, not broken — say how long it has been idle.
+    emptyMsg = nas && nas.lastWriteAt
+      ? 'Nothing written in the last ' + win + ' — last write ' + fmtAgo(nas.lastWriteAt) + '.'
+      : 'No writes recorded yet.';
   }
+  if (!rows.length) { wrap.innerHTML = head + '<div class="act-recent-empty">' + escHtml(emptyMsg) + '</div>'; return; }
   var body = rows.map(function (r) {
-    return '<tr><td class="act-name" title="' + (r.path || '') + '">' + (r.path || '(unnamed)') + '</td><td>' + fmtBytes(r.size)
-      + '</td><td>' + new Date(r.mtime).toLocaleTimeString() + '</td></tr>';
+    return '<tr><td class="act-name" title="' + escHtml(r.path || '') + '">' + escHtml(r.path || '(unnamed)') + '</td><td>' + fmtBytes(r.size)
+      + '</td><td title="' + escHtml(new Date(r.mtime).toLocaleString()) + '">' + escHtml(fmtAgo(r.mtime)) + '</td></tr>';
   }).join('');
   wrap.innerHTML = head + '<table class="act-recent-table"><thead><tr>'
-    + '<th class="act-name">Recently written</th><th>Size</th><th>When</th></tr></thead><tbody>'
+    + '<th class="act-name">Recently written</th><th>Size</th><th>Written</th></tr></thead><tbody>'
     + body + '</tbody></table>';
 }
 
