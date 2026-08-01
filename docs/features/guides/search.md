@@ -34,12 +34,25 @@ Users search for available guides per game across 7 external sources from the jo
 2. GuidesModal lists all guides for the source with download state overlaid from the job store
 3. Clicking **Download** → see [downloading.md](downloading.md)
 
+### Modal layout
+Two panes (mockup: `docs/mockups/guide-modal.png`). Left rail = one row per source, those with
+results first (most guides at the top) and un-searched ones below a divider showing `—`; the
+active row is a solid-gold pill. Right pane = category pills (or a single `All guides N` pill for
+sources without categories) over the guide list; per-row meta is `Source · TYPE · N pages`, with
+the page count present only for already-downloaded guides. The rail's **Search all sources** runs
+`refreshSearch()`; the icon button beside the pills re-runs the active source only.
+
+The overlay is portalled onto `<body>` (`use:portal`): `#main-content`'s OverlayScrollbars
+viewport sets `z-index: 0`, whose stacking context would otherwise pin the `position: fixed`
+panel under the sidebar. Below 950px the rail becomes a horizontal scroller above the list.
+
 ## Key files
 
 | File | Role |
 |------|------|
 | `src/lib/svelte/journal/JournalDashboard.svelte` | Guides card UI, `runSearch`, `refreshSearch`, modal trigger |
-| `src/lib/svelte/journal/guide/GuidesModal.svelte` | Per-source guide list, download buttons, refresh button |
+| `src/lib/svelte/journal/guide/GuidesModal.svelte` | Source rail, per-source guide list, download buttons, refresh button |
+| `public/css/game-journal.css` (`.gm-*`) | Modal styling — two-pane layout, rail, pills, list rows, responsive collapse |
 | `relay-server/src/controllers/guides/guides.controller.js` | `handleSearch` (GET), `handleSearchRun` (POST SSE) |
 | `relay-server/src/services/guides/ign/search.service.js` | IGN search (Puppeteer) |
 | `relay-server/src/services/guides/gamefaqs/search.service.js` | GameFAQs search (Puppeteer) |
@@ -83,7 +96,8 @@ Written by the relay on each search run. Persists across restarts — the UI loa
 - **Active state** (search result exists): shows guide count + downloaded count, click opens GuidesModal
 - **Spinning state** (`searchingSet.has(src)`): search in progress for that source
 
-The global ↻ button runs all 7 sources in parallel (`Promise.all`). Per-source ↻ runs just that one.
+The global ↻ button runs every source in parallel (`Promise.all` over `SOURCE_LABELS`, TheGamer
+included). Per-source ↻ runs just that one.
 
 ## Common questions
 
@@ -93,8 +107,8 @@ They didn't — `_search.json` is on disk and reloaded on the next dashboard mou
 **Q: A source shows no results even though the game definitely has a guide there.**
 The fuzzy match failed. The search uses the Steam game name (e.g. "Persona 3 Reload") to search each source. If the source spells it differently, the score may be too low. Run a per-source search again after the relay logs to check the match score and what was found.
 
-**Q: Steam shows category tabs in the modal but other sources don't. Why?**
-Steam search returns `categories` (e.g. Walkthroughs, Reference, etc.) because the Steam API groups guides by tag. Other sources return a flat `guides[]` array. GuidesModal renders tabs only when `sourceData.categories` is present.
+**Q: Steam shows category pills in the modal but other sources don't. Why?**
+Steam search returns `categories` (e.g. Walkthroughs, Reference, etc.) because the Steam API groups guides by tag. Other sources return a flat `guides[]` array, and GuidesModal shows a single `All guides N` pill for them. Real pills render only when `sourceData.categories` is present.
 
 **Q: The search POST returns 409. What does that mean?**
 A search for that source is already running (duplicate concurrent request). The UI handles this by polling `GET /relay/api/guides/{appid}/search` after 6 seconds and merging the result when it arrives.

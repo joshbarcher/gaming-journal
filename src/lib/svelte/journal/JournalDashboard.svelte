@@ -121,9 +121,11 @@
         }
     }
 
+    // Every source the modal lists — thegamer included, or the rail's "Search all sources" would
+    // leave it permanently un-searched.
     async function refreshSearch() {
         if (!game) return
-        await Promise.all([runSearch('gamefaqs'), runSearch('ign'), runSearch('steam'), runSearch('game8'), runSearch('gamerguides'), runSearch('fandom'), runSearch('neoseeker')])
+        await Promise.all(Object.keys(SOURCE_LABELS).map(src => runSearch(src)))
     }
 
     // HLTB pin live tracking

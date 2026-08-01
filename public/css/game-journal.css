@@ -1884,7 +1884,12 @@ div.gj-ach-badge {
     background: rgba(201, 168, 76, 0.06);
 }
 
-/* ── Guides modal ─────────────────────────────────────────────────────────── */
+/* ── Guides modal ─────────────────────────────────────────────────────────────
+   Two-pane layout (docs/mockups/guide-modal.png): sources live in a left rail,
+   the guide list owns the right pane. Hierarchy runs strongest-to-weakest —
+   solid-gold active source > gold-tinted active category pill > outlined pills >
+   muted list meta — so the eye lands on "which site am I looking at" first.
+────────────────────────────────────────────────────────────────────────────── */
 
 .gm-backdrop {
     position: fixed;
@@ -1893,35 +1898,37 @@ div.gj-ach-badge {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 24px;
 }
 
 .gm-scrim {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(2px);
+    background: rgba(0, 0, 0, 0.66);
+    backdrop-filter: blur(3px);
 }
 
 .gm-panel {
     position: relative;
     z-index: 1;
     background: var(--clr-bg-raised);
-    border: 1px solid var(--clr-border-hi);
-    border-radius: 10px;
-    width: min(640px, calc(100vw - 40px));
-    height: min(680px, 70vh);
+    border: 1px solid var(--clr-border);
+    border-radius: 14px;
+    width: min(1000px, 100%);
+    height: min(720px, 86vh);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
     overflow: hidden;
 }
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
 
 .gm-header {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 20px 22px 16px;
-    border-bottom: 1px solid var(--clr-border);
+    gap: 16px;
+    padding: 26px 28px 18px;
     flex-shrink: 0;
 }
 
@@ -1930,49 +1937,55 @@ div.gj-ach-badge {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 7px;
 }
 
-.gm-source-label {
+.gm-eyebrow {
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-weight: 800;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--clr-accent);
     line-height: 1;
 }
 
 .gm-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
     font-family: var(--font-title);
-    font-size: 18px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--clr-text);
     margin: 0;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 
-.gm-matched {
-    font-size: 12px;
-    color: var(--clr-text-muted);
-    line-height: 1;
+.gm-title-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.gm-matched-link {
-    color: var(--clr-accent);
-    text-decoration: none;
-    margin-left: 4px;
+.gm-title-link {
     display: inline-flex;
-    align-items: center;
+    flex-shrink: 0;
+    color: var(--clr-text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
 }
+
+.gm-title-link:hover { color: var(--clr-accent); }
 
 .gm-close {
     background: none;
     border: 1px solid var(--clr-border);
-    border-radius: 4px;
+    border-radius: 50%;
     color: var(--clr-text-muted);
-    font-size: 14px;
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1987,55 +2000,237 @@ div.gj-ach-badge {
     background: var(--clr-bg-hover);
 }
 
-.gm-tabs {
-    display: flex;
-    gap: 2px;
-    padding: 0 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    flex-shrink: 0;
+/* ── Body: source rail + list ─────────────────────────────────────────────── */
+
+.gm-body {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 252px minmax(0, 1fr);
 }
 
-.gm-tab {
+.gm-rail {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 4px 20px 20px 28px;
+    border-right: 1px solid var(--clr-border);
+}
+
+.gm-rail-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--clr-text-muted);
+    padding: 0 16px;
+    margin-bottom: 12px;
+    line-height: 1;
+}
+
+.gm-rail-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gm-source {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    flex-shrink: 0;
+    padding: 10px 16px;
     background: none;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-radius: 999px;
+    color: var(--clr-text);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+}
+
+.gm-source-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gm-source-count {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--clr-text-muted);
+}
+
+.gm-source--empty { color: var(--clr-text-muted); }
+
+.gm-source:hover:not(.gm-source--active) { background: var(--clr-bg-hover); }
+.gm-source:hover:not(.gm-source--active).gm-source--empty { color: var(--clr-text); }
+
+.gm-source--active,
+.gm-source--active.gm-source--empty {
+    background: var(--clr-accent);
+    color: #17150f;
+}
+
+.gm-source--active .gm-source-count { color: rgba(23, 21, 15, 0.62); }
+
+.gm-rail-sep {
+    height: 1px;
+    flex-shrink: 0;
+    background: var(--clr-border);
+    margin: 10px 16px;
+}
+
+.gm-rail-all {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-radius: 999px;
+    color: var(--clr-accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+
+.gm-rail-all:hover:not(:disabled) { background: rgba(201, 168, 76, 0.1); }
+.gm-rail-all:disabled { opacity: 0.5; cursor: default; }
+
+.gm-rail-all-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
+.gm-rail-all-icon--spinning { animation: game-spin 0.9s linear infinite; }
+
+/* ── Main pane ────────────────────────────────────────────────────────────── */
+
+.gm-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.gm-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    min-height: 54px;
+    padding: 4px 24px 14px;
+}
+
+.gm-filter-pills {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+}
+
+.gm-filter-pills::-webkit-scrollbar { display: none; }
+
+.gm-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+    padding: 7px 16px;
+    background: none;
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    border-radius: 999px;
+    color: rgba(201, 168, 76, 0.8);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.gm-pill:hover {
+    border-color: var(--clr-accent);
+    color: var(--clr-accent);
+}
+
+.gm-pill--active {
+    background: rgba(201, 168, 76, 0.16);
+    border-color: var(--clr-accent);
+    color: var(--clr-accent);
+    font-weight: 700;
+}
+
+.gm-pill--static { cursor: default; }
+.gm-pill-count { font-size: 12px; font-weight: 700; opacity: 0.72; }
+
+.gm-src-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: 8px;
     color: var(--clr-text-muted);
     cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    padding: 8px 12px;
-    transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap;
-    margin-bottom: -1px;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
 
-.gm-tab:hover { color: var(--clr-text); }
-
-.gm-tab--active {
-    border-bottom-color: var(--clr-accent);
+.gm-src-refresh:hover:not(:disabled) {
     color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
 }
 
+.gm-src-refresh:disabled { cursor: default; }
+
+.gm-src-refresh--spinning {
+    color: var(--clr-accent);
+    animation: game-spin 0.9s linear infinite;
+}
+
+/* ── Guide list ───────────────────────────────────────────────────────────── */
 
 .gm-list {
-    overflow-y: auto;
     flex: 1;
-    padding: 10px 0;
+    min-height: 0;
+    overflow-y: auto;
+    border-top: 1px solid var(--clr-border);
+    padding-bottom: 8px;
 }
 
 .gm-row {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 22px;
-    border-bottom: 1px solid var(--clr-border);
+    gap: 18px;
+    padding: 15px 24px;
     transition: background var(--transition);
 }
 
-.gm-row:last-child { border-bottom: none; }
-.gm-row:hover { background: rgba(255, 255, 255, 0.02); }
-.gm-row--running { align-items: flex-start; }
+.gm-row:hover { background: rgba(255, 255, 255, 0.03); }
+.gm-row--running { background: rgba(201, 168, 76, 0.05); }
 
 .gm-row-info {
     flex: 1;
@@ -2046,8 +2241,9 @@ div.gj-ach-badge {
 }
 
 .gm-guide-title {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.35;
     color: var(--clr-text);
     white-space: nowrap;
     overflow: hidden;
@@ -2057,41 +2253,18 @@ div.gj-ach-badge {
 .gm-guide-meta {
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.gm-type-badge {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 2px 6px;
-    border-radius: 3px;
-    line-height: 1.4;
-}
-
-.gm-type-badge--html {
-    background: rgba(80, 180, 100, 0.15);
-    color: #6ec97c;
-    border: 1px solid rgba(80, 180, 100, 0.3);
-}
-
-.gm-type-badge--text {
-    background: rgba(150, 150, 180, 0.12);
+    gap: 6px;
+    font-size: 12px;
     color: var(--clr-text-muted);
-    border: 1px solid rgba(150, 150, 180, 0.2);
 }
 
-.gm-type-badge--unknown {
-    background: rgba(150, 150, 150, 0.1);
-    color: var(--clr-text-muted);
-    border: 1px solid rgba(150, 150, 150, 0.15);
-}
+.gm-meta-dot { opacity: 0.6; }
 
 .gm-ext-link {
     display: inline-flex;
     align-items: center;
-    color: var(--clr-text-muted);
+    margin-left: 2px;
+    color: inherit;
     text-decoration: none;
     transition: color var(--transition);
 }
@@ -2102,94 +2275,142 @@ div.gj-ach-badge {
     flex-shrink: 0;
     display: flex;
     align-items: center;
-    min-width: 200px;
     justify-content: flex-end;
+    gap: 8px;
+    min-width: 148px;
 }
 
-.gm-dl-btn {
-    padding: 6px 14px;
-    background: rgba(201, 168, 76, 0.1);
+.gm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 20px;
+    background: rgba(201, 168, 76, 0.07);
     border: 1px solid rgba(201, 168, 76, 0.35);
-    border-radius: 4px;
+    border-radius: 999px;
     color: var(--clr-accent);
-    font-size: 12px;
-    font-weight: 600;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
     cursor: pointer;
     transition: background var(--transition), border-color var(--transition);
-    white-space: nowrap;
-    width: 100%;
-    text-align: center;
 }
 
-.gm-dl-btn:hover {
-    background: rgba(201, 168, 76, 0.18);
+.gm-btn:hover {
+    background: rgba(201, 168, 76, 0.16);
     border-color: var(--clr-accent);
 }
 
-.gm-dl-btn--active {
-    background: rgba(201, 168, 76, 0.06);
-    border-color: rgba(201, 168, 76, 0.2);
+.gm-btn--open {
+    background: rgba(92, 172, 126, 0.1);
+    border-color: rgba(92, 172, 126, 0.4);
+    color: var(--clr-sage);
+}
+
+.gm-btn--open:hover {
+    background: rgba(92, 172, 126, 0.2);
+    border-color: var(--clr-sage);
+}
+
+.gm-btn--running {
+    background: none;
+    border-color: var(--clr-border);
     color: var(--clr-text-muted);
-    text-decoration: none;
-    display: block;
 }
 
-
-.gm-done-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
+.gm-btn--running:hover {
+    background: var(--clr-bg-hover);
+    border-color: var(--clr-border-hi);
 }
 
-.gm-open-btn {
-    padding: 6px 14px;
-    background: rgba(110, 201, 124, 0.1);
-    border: 1px solid rgba(110, 201, 124, 0.35);
-    border-radius: 4px;
-    color: #6ec97c;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background var(--transition), border-color var(--transition);
-    font-family: inherit;
-    appearance: none;
-    -webkit-appearance: none;
-    display: block;
-    text-decoration: none;
-    flex: 1;
-    text-align: center;
-}
-
-.gm-open-btn:hover {
-    background: rgba(110, 201, 124, 0.2);
-    border-color: #6ec97c;
-}
-
-.gm-refresh-btn {
+.gm-icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 8px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    color: #778;
-    cursor: pointer;
-    transition: background var(--transition), color var(--transition), border-color var(--transition);
     flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: 1px solid var(--clr-border);
+    border-radius: 50%;
+    color: var(--clr-text-muted);
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
 }
 
-.gm-refresh-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
-    color: #aab;
+.gm-icon-btn:hover {
+    color: var(--clr-text);
+    border-color: var(--clr-border-hi);
+    background: var(--clr-bg-hover);
 }
 
 .gm-status-err {
-    font-size: 11px;
-    color: #dc5050;
+    font-size: 12px;
+    color: var(--clr-coral);
     white-space: nowrap;
+}
+
+/* ── Empty / loading states ───────────────────────────────────────────────── */
+
+.gm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 60px 24px;
+    text-align: center;
+}
+
+.gm-empty-msg {
+    font-size: 13px;
+    color: var(--clr-text-muted);
+}
+
+.gm-empty-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: rgba(201, 168, 76, 0.07);
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    border-radius: 999px;
+    color: var(--clr-accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+}
+
+.gm-empty-btn:hover:not(:disabled) {
+    background: rgba(201, 168, 76, 0.16);
+    border-color: var(--clr-accent);
+}
+
+.gm-empty-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Ring spinner drawn from currentColor so it stays legible on the gold-filled
+   active source row as well as on the panel background. */
+.gm-spinner {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    opacity: 0.7;
+    animation: game-spin 0.7s linear infinite;
+}
+
+.gm-spinner--lg {
+    width: 22px;
+    height: 22px;
+    border-width: 2px;
+    color: var(--clr-accent);
+    opacity: 1;
 }
 
 /* ── Downloaded guides card (dashboard) ───────────────────────────────────── */
@@ -2288,168 +2509,6 @@ div.gj-ach-badge {
 .gj-find-guides-btn:hover {
     background: rgba(201, 168, 76, 0.18);
     border-color: rgba(201, 168, 76, 0.55);
-}
-
-/* ── Guides modal — multi-source tabs ─────────────────────────────────────── */
-
-.gm-source-tabs {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    padding: 4px 18px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    flex-shrink: 0;
-    gap: 2px;
-}
-
-.gm-source-tab {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    min-width: 0;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--clr-text-muted);
-    cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-    padding: 8px 10px;
-    transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap;
-}
-
-.gm-source-tab:hover { color: var(--clr-text); }
-
-.gm-source-tab--active {
-    border-bottom-color: var(--clr-accent);
-    color: var(--clr-text);
-}
-
-.gm-source-tab-icon {
-    width: 14px;
-    height: 14px;
-    object-fit: contain;
-    border-radius: 2px;
-    flex-shrink: 0;
-    opacity: 0.7;
-}
-
-.gm-source-tab--active .gm-source-tab-icon { opacity: 1; }
-
-.gm-tab-badge {
-    font-size: 9px;
-    font-weight: 700;
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--clr-text-muted);
-    border-radius: 8px;
-    padding: 1px 5px;
-    line-height: 1.4;
-    flex-shrink: 0;
-}
-
-.gm-source-tab--active .gm-tab-badge {
-    background: rgba(201, 168, 76, 0.15);
-    color: var(--clr-accent);
-}
-
-.gm-tab-spinner {
-    width: 10px;
-    height: 10px;
-    border: 1.5px solid rgba(201, 168, 76, 0.3);
-    border-top-color: var(--clr-accent);
-    border-radius: 50%;
-    animation: game-spin 0.7s linear infinite;
-    flex-shrink: 0;
-}
-
-.gm-source-tabs-end {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 4px 0;
-}
-
-.gm-refresh-all-btn {
-    background: none;
-    border: 1px solid var(--clr-border);
-    border-radius: 4px;
-    color: var(--clr-text-muted);
-    cursor: pointer;
-    font-size: 11px;
-    padding: 3px 8px;
-    white-space: nowrap;
-    transition: color var(--transition), border-color var(--transition), background var(--transition);
-}
-
-.gm-refresh-all-btn:hover:not(:disabled) {
-    color: var(--clr-text);
-    border-color: var(--clr-border-hi);
-    background: var(--clr-bg-hover);
-}
-
-.gm-refresh-all-btn:disabled { opacity: 0.35; cursor: default; }
-
-.gm-source-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 22px;
-    border-bottom: 1px solid var(--clr-border);
-    flex-shrink: 0;
-    min-height: 36px;
-}
-
-.gm-source-info-label {
-    font-size: 11px;
-    color: var(--clr-text-muted);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.gm-source-info-label--empty { font-style: italic; opacity: 0.6; }
-
-.gm-source-refresh-btn {
-    background: none;
-    border: 1px solid var(--clr-border);
-    border-radius: 4px;
-    color: var(--clr-text-muted);
-    cursor: pointer;
-    font-size: 13px;
-    width: 26px;
-    height: 26px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color var(--transition), border-color var(--transition), background var(--transition);
-    flex-shrink: 0;
-    line-height: 1;
-}
-
-.gm-source-refresh-btn:hover:not(:disabled) {
-    color: var(--clr-text);
-    border-color: var(--clr-border-hi);
-    background: var(--clr-bg-hover);
-}
-
-.gm-source-refresh-btn:disabled { opacity: 0.35; cursor: default; }
-
-.gm-source-refresh-btn--spinning {
-    animation: game-spin 0.7s linear infinite;
-    color: var(--clr-accent);
-    opacity: 1 !important;
-}
-
-.gm-empty-msg {
-    padding: 32px 22px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--clr-text-muted);
 }
 
 /* ── Guides list page ─────────────────────────────────────────────────────── */
@@ -2654,21 +2713,99 @@ div.gj-ach-badge {
 .gl-card-sep { opacity: 0.4; }
 
 /* ── Responsive: Guides Modal ─────────────────────────────────────────────────
-   .gm-panel already sizes itself off the viewport (min(640px, 100vw - 40px)),
-   and the source-tab bar already scrolls horizontally — both built mobile-aware
-   from the start. The one gap: .gm-row-action has a 200px min-width so its
-   Download/Open buttons don't get squashed, but at a ~320px phone-portrait
-   panel that leaves so little room for .gm-row-info that titles truncate to
-   ~6 characters ("Half-Lif…"). Stack info above actions instead.
+   The two-pane layout needs ~950px to breathe. Below that the source rail
+   un-stacks into a horizontal scroller pinned above the list — same rows, same
+   pill styling, just laid out along the other axis — and the panel goes
+   edge-to-edge. At phone-portrait the action buttons stack under the guide
+   title, since a 148px action column leaves ~6 characters for the title.
 ────────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 949px) {
+    .gm-backdrop { padding: 16px; }
+    .gm-panel    { height: min(720px, 92vh); }
+    .gm-header   { padding: 20px 20px 14px; }
+    .gm-title    { font-size: 22px; }
+
+    .gm-body {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .gm-rail {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        padding: 0 20px 14px;
+        border-right: none;
+    }
+
+    .gm-rail-label { display: none; }
+
+    .gm-rail-list {
+        flex: 1;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 6px;
+        scrollbar-width: none;
+    }
+
+    .gm-rail-list::-webkit-scrollbar { display: none; }
+
+    .gm-source {
+        width: auto;
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    .gm-rail-sep {
+        width: 1px;
+        height: auto;
+        margin: 4px 6px;
+        align-self: stretch;
+    }
+
+    /* Icon-only once the rail is horizontal — the label doesn't fit beside the sources, and
+       matching .gm-src-refresh's bordered square keeps it reading as a control rather than
+       as one more source in the scroller. */
+    .gm-rail-all {
+        flex-shrink: 0;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        margin-top: 0;
+        padding: 0;
+        border: 1px solid var(--clr-border);
+        border-radius: 8px;
+        font-size: 0;
+        gap: 0;
+    }
+
+    .gm-filters { padding: 0 20px 12px; min-height: 48px; }
+    .gm-row     { padding: 14px 20px; }
+}
+
 @media (max-width: 479px) {
+    .gm-backdrop { padding: 8px; }
+    .gm-panel    { height: 94vh; border-radius: 12px; }
+    .gm-header   { padding: 16px 16px 12px; }
+    .gm-title    { font-size: 19px; }
+    .gm-close    { width: 32px; height: 32px; }
+    .gm-rail     { padding: 0 16px 12px; }
+    .gm-filters  { padding: 0 16px 10px; }
+
     .gm-row {
         flex-direction: column;
         align-items: stretch;
-        gap: 8px;
+        gap: 10px;
+        padding: 14px 16px;
     }
+
+    .gm-guide-title { white-space: normal; }
+
     .gm-row-action {
         min-width: 0;
-        width: 100%;
+        justify-content: flex-start;
     }
+
+    .gm-btn { flex: 1; }
 }

@@ -46,7 +46,7 @@ The net effect: only genuinely missing pages hit the network; everything else us
 
 | File | Role |
 |------|------|
-| `src/lib/svelte/journal/guide/GuidesModal.svelte:227` | Refresh button (`gm-refresh-btn`) — calls `downloadGuide()` |
+| `src/lib/svelte/journal/guide/GuidesModal.svelte:411` | Refresh button (`gm-icon-btn`, beside **Open**) — calls `downloadGuide()` |
 | `relay-server/src/services/guides/ign/fetcher.js:228` | BFS loop — cache-or-fetch logic, sub-page discovery |
 | `relay-server/src/services/guides/ign/adapter.js:203` | `extractNavLinksFromDoc` — scans sidebar + article body for page links |
 
