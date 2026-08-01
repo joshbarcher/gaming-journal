@@ -2206,10 +2206,10 @@ div.gj-ach-badge {
 
 .gm-src-refresh:disabled { cursor: default; }
 
-.gm-src-refresh--spinning {
-    color: var(--clr-accent);
-    animation: game-spin 0.9s linear infinite;
-}
+/* Spin the glyph, not the button — the animation on the element itself rotated the
+   bordered square along with it. */
+.gm-src-refresh--spinning { color: var(--clr-accent); }
+.gm-src-refresh--spinning svg { animation: game-spin 0.9s linear infinite; }
 
 /* ── Guide list ───────────────────────────────────────────────────────────── */
 
