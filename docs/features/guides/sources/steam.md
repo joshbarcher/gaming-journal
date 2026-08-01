@@ -46,6 +46,21 @@ BBCode heading divs → standard HTML headings (before content parser sees them)
 <div class="bb_hr" />       →  <hr>
 ```
 
+`[table]` is the same idea one level deeper, and nested, so it is declared as `divTable` in
+`buildAdapter()` and rebuilt with Cheerio in `html-cleaner` rather than by regex here:
+```
+<div class="bb_table">              →  <table>
+  <div class="bb_table_tr">         →    <tr>          (all-<th> first row → <thead>)
+    <div class="bb_table_th">…</div>→      <th>…</th>
+    <div class="bb_table_td">…</div>→      <td>…</td>
+```
+Without it the parser reads the divs as generic wrappers and emits **one paragraph per cell** —
+a 2x6 stat table renders as twelve stray lines. See the adapter contract in
+[../sources.md](../sources.md) for the conversion rules (innermost-only, hoisted out of prose).
+
+Videos are a third BBCode div with no content at all — `<div class="sharedFilePreviewYouTubeVideo"
+id="VIDEOID">`, where the id *is* the YouTube id. See [../videos.md](../videos.md).
+
 ## Image handling
 
 Images are wrapped in `<a class="modalContentLink">` (Steam's popup viewer).

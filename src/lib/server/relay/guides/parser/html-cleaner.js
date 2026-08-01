@@ -77,6 +77,32 @@ export function youtubeWatchUrl(videoId) {
     return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
+// Prose containers whose contents are rendered as *inline* HTML. A block element that
+// ends up inside one is destroyed: cleanInlineHtml keeps only inline tags, and its
+// unwrapping is half-done for a table — `<table>` goes, the `<tr>`/`<td>` stay, and the
+// stored HTML is orphan table tags. Lists are worse still: a ContentBlock list item
+// holds a string, so there is nowhere for a block to live.
+const PROSE_HOSTS = 'p,li,ul,ol,dl,dd,dt';
+
+/**
+ * Put `html` where the parser will see it as its own block: in place normally, or after
+ * the outermost prose ancestor when `$el` is buried inside one. Order is preserved as
+ * well as the block model allows — the table lands directly after the list or paragraph
+ * that introduced it.
+ */
+function replaceAsBlock($, $el, html) {
+    let host = null;
+    for (let $p = $el.parent(); $p.length && !$p.is('body'); $p = $p.parent()) {
+        if ($p.is(PROSE_HOSTS)) host = $p;
+    }
+    if (host) {
+        $el.remove();
+        host.after(html);
+    } else {
+        $el.replaceWith(html);
+    }
+}
+
 /**
  * Rewrite YouTube embeds to `<div data-yt-video="ID">` placeholders. Must run before
  * ALWAYS_REMOVE and collapseEmpties, both of which delete the originals.
@@ -84,14 +110,86 @@ export function youtubeWatchUrl(videoId) {
 function markVideoEmbeds($) {
     $('iframe[src]').each((_, el) => {
         const id = youtubeId($(el).attr('src'));
-        if (id) $(el).replaceWith(`<div ${VIDEO_ATTR}="${id}"></div>`);
+        if (id) replaceAsBlock($, $(el), `<div ${VIDEO_ATTR}="${id}"></div>`);
     });
 
     // Steam guides embed a video as an empty div whose id is the video id.
     $('div.sharedFilePreviewYouTubeVideo[id]').each((_, el) => {
         const id = $(el).attr('id');
-        if (isVideoId(id)) $(el).replaceWith(`<div ${VIDEO_ATTR}="${id}"></div>`);
+        if (isVideoId(id)) replaceAsBlock($, $(el), `<div ${VIDEO_ATTR}="${id}"></div>`);
     });
+}
+
+// ── Div-based tables ──────────────────────────────────────────────────────────
+//
+// Not every data table is a <table>. Steam renders BBCode tables as nested divs
+// (.bb_table > .bb_table_tr > .bb_table_th/.bb_table_td), and to the content parser
+// those are just generic wrappers: it recursed into each one and emitted every cell
+// as its own paragraph, so a 2x6 stat table came out as twelve stray lines.
+//
+// These are converted to real <table> markup so the parser's existing table branch —
+// including isDataTable(), which is what keeps layout tables flattened — handles them
+// like any other. Only declared conventions are converted: ARIA roles (a standard
+// contract) and whatever selector set an adapter names. Guessing from class names
+// would sweep up the layout divs that are supposed to stay flattened.
+
+/** ARIA's table roles work anywhere, no adapter opt-in needed. */
+const ARIA_GRID = {
+    table:  '[role="table"]',
+    row:    '[role="row"]',
+    header: '[role="columnheader"],[role="rowheader"]',
+    cell:   '[role="cell"],[role="gridcell"]',
+};
+
+/** Rewrite one div-grid into a <table>, preserving each cell's inline HTML. */
+function convertGrid($, el, spec) {
+    const $el = $(el);
+    const cellSel = `${spec.header},${spec.cell}`;
+
+    // Scope to this grid: a nested grid's rows/cells belong to that one, not this.
+    const rows = $el.find(spec.row).filter((_, r) => $(r).closest(spec.table).is($el));
+    if (!rows.length) return;
+
+    const renderRow = ($r) => {
+        const cells = $r.find(cellSel).filter((_, c) => $(c).closest(spec.row).is($r));
+        if (!cells.length) return null;
+        const tds = cells.map((_, c) => {
+            const tag = $(c).is(spec.header) ? 'th' : 'td';
+            return `<${tag}>${$(c).html() ?? ''}</${tag}>`;
+        }).get().join('');
+        return { html: `<tr>${tds}</tr>`, allHeaders: cells.filter((_, c) => $(c).is(spec.header)).length === cells.length };
+    };
+
+    const rendered = rows.map((_, r) => renderRow($(r))).get().filter(Boolean);
+    if (!rendered.length) return;
+
+    // A leading all-<th> row is the header row — <thead> is isDataTable's strongest
+    // signal, so saying so here keeps the table from being read as layout.
+    const head = rendered[0].allHeaders ? rendered.shift() : null;
+    const thead = head ? `<thead>${head.html}</thead>` : '';
+    const tbody = rendered.length ? `<tbody>${rendered.map(r => r.html).join('')}</tbody>` : '';
+    replaceAsBlock($, $el, `<table>${thead}${tbody}</table>`);
+}
+
+function normalizeGridTables($, adapter) {
+    const specs = [ARIA_GRID, adapter.divTable].filter(Boolean);
+    // Any grid selector, for the containment test below.
+    const anyGrid = specs.map(s => s.table).join(',');
+
+    for (const spec of specs) {
+        let grids;
+        try { grids = $(spec.table).get(); } catch { continue; }
+        for (const el of grids) {
+            // Innermost only. A grid wrapping another grid is layout — and converting it
+            // would produce a <table> inside a <table>, which parseDataTable mis-reads:
+            // it collects rows with an unscoped find(), so the inner rows get counted
+            // twice (once as the outer's own rows, once squashed into a cell). Leaving
+            // the outer as divs lets the parser flatten it and render the inner one as
+            // the data table it is.
+            if ($(el).find(anyGrid).length > 0) continue;
+            convertGrid($, el, spec);
+        }
+    }
 }
 
 // ── Core ──────────────────────────────────────────────────────────────────────
@@ -115,6 +213,10 @@ export function loadAndClean(html, adapter) {
 
     // 0.5. Rescue video embeds as placeholders — the next two steps would delete them.
     markVideoEmbeds($);
+
+    // 0.6. Turn declared div-grids into real tables, before anything treats them as
+    //      generic wrappers and recurses into their cells one paragraph at a time.
+    normalizeGridTables($, adapter);
 
     // 1. Strip always-remove tags
     $(ALWAYS_REMOVE.join(', ')).remove();

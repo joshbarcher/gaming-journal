@@ -13,6 +13,10 @@
  *   [h3] → <div class="bb_h3">…</div>
  * preprocessRawHtml() converts these before the content parser sees them.
  *
+ * [table] is the same story one level deeper — .bb_table > .bb_table_tr >
+ * .bb_table_th/.bb_table_td. That one is nested, so it's declared as `divTable` in
+ * buildAdapter() and rebuilt with Cheerio in html-cleaner rather than by regex here.
+ *
  * Images are wrapped in <a class="modalContentLink"> for Steam's popup viewer.
  * buildAdapter() returns unwrapSelectors: ['a.modalContentLink'] so html-cleaner
  * strips those wrappers, leaving the <img> in place. The img.src already points
@@ -58,6 +62,15 @@ export function buildAdapter(contentSelector) {
         // Strip the <a class="modalContentLink"> image popup wrapper; keep the inner <img>.
         // html-cleaner unwraps these before ALWAYS_REMOVE runs, so the <img> survives.
         unwrapSelectors: ['a.modalContentLink'],
+        // [table] BBCode renders as nested divs, not a <table>. html-cleaner rebuilds
+        // them from this so the parser sees a real table instead of a stack of
+        // wrappers it flattens into one paragraph per cell.
+        divTable: {
+            table:  'div.bb_table',
+            row:    'div.bb_table_tr',
+            header: 'div.bb_table_th',
+            cell:   'div.bb_table_td',
+        },
     };
 }
 

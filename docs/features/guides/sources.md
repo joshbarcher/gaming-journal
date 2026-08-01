@@ -35,6 +35,18 @@ imageRootSelector                   // string export: CSS selector for image dis
 - `unwrapSelectors` — elements to replace with their children (before junk removal)
 - `junkSelectors` — elements to remove entirely (ads, site chrome, nav rails)
 - `transformImageUrl` — optional function applied to each image `src` before download
+- `divTable` — optional `{ table, row, header, cell }` selectors for a site that renders data
+  tables as nested divs (Steam's `[table]` BBCode). `html-cleaner` rebuilds those into real
+  `<table>` markup so `isDataTable()` judges them like any other table; without it the parser
+  treats the divs as wrappers and emits **one paragraph per cell**. Only declared conventions
+  are converted — plus ARIA `role="table"`, which needs no opt-in. Class-name guessing would
+  sweep up the layout divs that are supposed to stay flattened.
+
+Conversion rules worth knowing: only the *innermost* grid is converted (a grid wrapping a grid
+is layout, and nesting `<table>` inside `<table>` breaks `parseDataTable`'s unscoped row
+collection), and a converted table found inside a `<p>`/`<li>` is hoisted to just after that
+prose — inline cleaning unwraps `<table>` but leaves the `<tr>`/`<td>` behind, and a list item
+holds a plain string with nowhere to put a block.
 
 ## Source details
 
