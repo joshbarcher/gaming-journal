@@ -138,9 +138,15 @@ export async function downloadImages(blocks, pageUrl, imgDir, { delayMs = 400, f
 
     for (const block of imageBlocks) {
         // onlyExisting: resolve already-downloaded images but skip HTTP fetches for new ones
-        const result = onlyExisting
-            ? await downloadImage(block.src, pageUrl, imgDir, index, { force: false, fetchCache, rawDir }).then(r => r?.source === 'existing' ? r : null)
-            : await downloadImage(block.src, pageUrl, imgDir, index, { force, fetchCache, rawDir });
+        const attempt = (src) => onlyExisting
+            ? downloadImage(src, pageUrl, imgDir, index, { force: false, fetchCache, rawDir }).then(r => r?.source === 'existing' ? r : null)
+            : downloadImage(src, pageUrl, imgDir, index, { force, fetchCache, rawDir });
+
+        // srcFallback is a second URL for the same picture, used when the preferred one
+        // isn't there. YouTube poster frames are the case: maxresdefault is the sharp,
+        // un-letterboxed one but only exists for some videos, and hqdefault always does.
+        let result = await attempt(block.src);
+        if (!result && block.srcFallback && !onlyExisting) result = await attempt(block.srcFallback);
 
         if (result) {
             block.localSrc = result.path;
@@ -155,6 +161,7 @@ export async function downloadImages(blocks, pageUrl, imgDir, { delayMs = 400, f
             block.localSrc = null;
         }
         delete block.src;
+        delete block.srcFallback;
     }
 
     return fetched;

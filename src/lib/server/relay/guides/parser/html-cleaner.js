@@ -27,6 +27,73 @@ const VOID_ELEMENTS = new Set(['img', 'br', 'hr', 'input', 'area', 'col', 'sourc
 // Tags to always remove entirely (with their subtree)
 const ALWAYS_REMOVE = ['script', 'style', 'noscript', 'iframe', 'object', 'embed', 'svg', 'canvas', 'template', 'form', 'button', 'input', 'select', 'textarea', 'meta', 'link'];
 
+// ── YouTube embeds ────────────────────────────────────────────────────────────
+//
+// Every route a video takes into a guide was destroyed before this:
+//   <iframe src=".../embed/ID">      — in ALWAYS_REMOVE, deleted with its subtree
+//   <div class="sharedFilePreviewYouTubeVideo" id="ID">  — Steam's embed is an EMPTY
+//                                      div (the id is the video id), so collapseEmpties
+//                                      pruned it as a spent wrapper
+//   <a href="youtube.com/watch?v=ID"> — flattened to bare text by the external-link policy
+//
+// The first two are rewritten to a placeholder that survives cleaning and becomes a
+// `video` ContentBlock; the third keeps its anchor (see cleanInlineHtml). Nothing here
+// points at a player: content.json stores the canonical YouTube URL, and the viewer is
+// what routes a reader to Tributary. See docs/features/guides/videos.md.
+
+/** Attribute carrying the video id on a placeholder the content parser turns into a block. */
+export const VIDEO_ATTR = 'data-yt-video';
+
+const YT_HOSTS = /(^|\.)(youtube\.com|youtube-nocookie\.com|youtu\.be)$/i;
+
+const isVideoId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id);
+
+/**
+ * The YouTube video id in a URL — watch, youtu.be, embed, shorts, v, live — or null.
+ * Only absolute (or protocol-relative) URLs qualify: resolving a bare relative href
+ * against youtube.com would make every internal wiki link look like a video.
+ *
+ * @param {string} rawUrl
+ * @returns {string | null}
+ */
+export function youtubeId(rawUrl) {
+    if (!rawUrl) return null;
+    let u;
+    try { u = new URL(rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl); }
+    catch { return null; }
+    if (!YT_HOSTS.test(u.hostname)) return null;
+
+    const id = /(^|\.)youtu\.be$/i.test(u.hostname)
+        ? u.pathname.slice(1).split('/')[0]
+        : u.pathname === '/watch'
+            ? u.searchParams.get('v')
+            : u.pathname.match(/^\/(?:embed|shorts|v|live)\/([^/?#]+)/)?.[1];
+
+    return isVideoId(id) ? id : null;
+}
+
+/** The canonical watch URL stored in content.json — one shape regardless of how it was embedded. */
+export function youtubeWatchUrl(videoId) {
+    return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+/**
+ * Rewrite YouTube embeds to `<div data-yt-video="ID">` placeholders. Must run before
+ * ALWAYS_REMOVE and collapseEmpties, both of which delete the originals.
+ */
+function markVideoEmbeds($) {
+    $('iframe[src]').each((_, el) => {
+        const id = youtubeId($(el).attr('src'));
+        if (id) $(el).replaceWith(`<div ${VIDEO_ATTR}="${id}"></div>`);
+    });
+
+    // Steam guides embed a video as an empty div whose id is the video id.
+    $('div.sharedFilePreviewYouTubeVideo[id]').each((_, el) => {
+        const id = $(el).attr('id');
+        if (isVideoId(id)) $(el).replaceWith(`<div ${VIDEO_ATTR}="${id}"></div>`);
+    });
+}
+
 // ── Core ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -45,6 +112,9 @@ export function loadAndClean(html, adapter) {
     for (const sel of (adapter.unwrapSelectors ?? [])) {
         try { $(sel).each((_, el) => $(el).replaceWith($(el).children())); } catch { /* ignore */ }
     }
+
+    // 0.5. Rescue video embeds as placeholders — the next two steps would delete them.
+    markVideoEmbeds($);
 
     // 1. Strip always-remove tags
     $(ALWAYS_REMOVE.join(', ')).remove();
@@ -92,6 +162,8 @@ function collapseEmpties($, root) {
             if (!tag || SEMANTIC_BLOCK.has(tag) || VOID_ELEMENTS.has(tag)) return;
             // Named anchors (<a id="..."> / <a name="...">) are navigation targets — never remove
             if (tag === 'a' && ($el.attr('id') || $el.attr('name'))) return;
+            // Video placeholders are empty by design — the id attribute IS the content
+            if ($el.attr(VIDEO_ATTR)) return;
 
             const inner = $el.html()?.trim() ?? '';
             if (inner === '') {
@@ -160,6 +232,19 @@ export function cleanInlineHtml(rawHtml, cfg) {
     root.find('a').each((_, el) => {
         const $a  = $(el);
         const href = $a.attr('href') ?? '';
+
+        // YouTube links outlive the external-link policy. Stripping one deletes the only
+        // pointer to the video — the text left behind ("this video") points nowhere. The
+        // href stays canonical YouTube; `data-yt` is the viewer's hook for routing the
+        // click to the Tributary player instead.
+        const videoId = youtubeId(href);
+        if (videoId) {
+            Object.keys(el.attribs ?? {}).forEach(attr => $(el).removeAttr(attr));
+            $a.attr('href', href.startsWith('//') ? `https:${href}` : href);
+            $a.attr('data-yt', videoId);
+            return;
+        }
+
         const isExternal = /^[a-z][a-z0-9+\-.]*:\/\//i.test(href);
         if (isExternal && !cfg.links.keepExternal) {
             $a.replaceWith($a.text());

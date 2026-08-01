@@ -12,6 +12,7 @@
     import { getCachedFulltext } from '$lib/guide-cache.js'
     import type { FtEntry } from '$lib/guide-cache.js'
     import { store as sidebarStore } from '$lib/sidebar.svelte.js'
+    import { openTributarySync, preloadTributary, startSeconds, tributaryEmbedUrl } from '$lib/tributary'
 
     let { appid, source, guideId, section }: {
         appid: string
@@ -93,6 +94,18 @@
             e.preventDefault()
             e.stopPropagation()
             navToLanding()
+            return
+        }
+
+        // A YouTube link the parser preserved (see html-cleaner): open it in Tributary's
+        // modal rather than sending the reader off to another site mid-guide. Modified
+        // clicks, and a Tributary that isn't loaded, fall through to the href — which the
+        // effect below has already pointed at Tributary's own player page.
+        const videoId = a.getAttribute('data-yt')
+        const plainClick = !e.defaultPrevented && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+        if (videoId && plainClick && openTributarySync(videoId, startSeconds(a.href))) {
+            e.preventDefault()
+            e.stopPropagation()
             return
         }
 
@@ -789,6 +802,33 @@
             })
         })
         return () => { cancelled = true; cleanups.forEach(fn => fn()) }
+    })
+
+    // Point preserved YouTube links at Tributary's player. content.json stores the
+    // canonical YouTube URL — that's the archival record — but nothing the reader can see
+    // or copy should send them to youtube.com, so the href is swapped once the section is
+    // in the DOM. Marked as done so a re-render doesn't re-parse links it already rewrote.
+    $effect(() => {
+        void blocks
+        if (!contentEl) return
+        let cancelled = false
+        tick().then(() => {
+            if (cancelled) return
+            const links = contentEl!.querySelectorAll<HTMLAnchorElement>('a[data-yt]:not([data-yt-linked])')
+            links.forEach(a => {
+                const id = a.getAttribute('data-yt')
+                if (!id) return
+                a.href = tributaryEmbedUrl(id, startSeconds(a.href))
+                a.target = '_blank'
+                a.rel = 'noreferrer'
+                a.classList.add('gv-yt-link')
+                a.setAttribute('data-yt-linked', '1')
+            })
+            // Fetch the loader now, so the first click can open the modal rather than
+            // having to fall through to the player page while the script is still coming.
+            if (links.length) preloadTributary()
+        })
+        return () => { cancelled = true }
     })
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────

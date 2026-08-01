@@ -287,6 +287,121 @@
     text-align: center;
 }
 
+/* ── Video (Tributary) ───────────────────────────────────────────────────────
+   A guide's YouTube embeds render as a poster-frame card that opens the Tributary
+   modal player. Sized like a screenshot rather than a hero: it sits in a column of
+   images and shouldn't outrank them.
+────────────────────────────────────────────────────────────────────────────── */
+
+.gv-video-figure {
+    margin: 16px 0;
+    max-width: 100%;
+}
+
+.gv-video {
+    display: inline-flex;
+    flex-direction: column;
+    max-width: 440px;
+    width: 100%;
+    border: 1px solid var(--clr-border);
+    border-radius: 6px;
+    overflow: hidden;
+    text-decoration: none;
+    background: var(--clr-bg-raised);
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.gv-video:hover {
+    border-color: rgba(201, 168, 76, 0.5);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* The background shows through when a poster frame couldn't be fetched — YouTube has
+   none for a video that has since been deleted. Tinted rather than black so it reads
+   as "no preview" instead of a broken image. */
+.gv-video-thumb {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, #201d18, #14120f);
+}
+
+/* hqdefault is 4:3 with letterbox bars; cropping to 16:9 lands on the frame itself.
+   Absolute, so the image's intrinsic 4:3 height can't win over the box's aspect-ratio —
+   in flow, `height: 100%` resolves against an auto height and the bars come back. */
+.gv-video-thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gv-video-play {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(19, 18, 16, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    padding-left: 3px;   /* optically centre the triangle */
+    transition: background var(--transition), border-color var(--transition);
+}
+
+.gv-video:hover .gv-video-play {
+    background: rgba(201, 168, 76, 0.9);
+    border-color: var(--clr-accent);
+    color: #17150f;
+}
+
+.gv-video-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    min-width: 0;
+}
+
+.gv-video-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--clr-text);
+    line-height: 1.35;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.gv-video-src {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--clr-accent);
+}
+
+/* Inline YouTube link inside a paragraph — the anchor the parser preserved. */
+.gv-yt-link::after {
+    content: '';
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 5px;
+    vertical-align: 1px;
+    border-left: 6px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+}
+
 /* ── Image modal ─────────────────────────────────────────────────────────── */
 
 .gv-img-modal {

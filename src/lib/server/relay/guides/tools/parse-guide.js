@@ -292,6 +292,15 @@ function renderBlock(block) {
             const cap = block.caption ? `<p class="caption">${escHtml(block.caption)}</p>` : '';
             return src ? `<figure><img src="${escHtml(src)}" alt="${alt}" loading="lazy">${cap}</figure>` : '';
         }
+        case 'video': {
+            // The static preview has no Tributary loader, so it links out to the source
+            // URL rather than pretending to be a player.
+            const thumb = block.thumb?.localSrc
+                ? `<img src="${escHtml(block.thumb.localSrc)}" alt="" loading="lazy">`
+                : '';
+            const cap = block.caption ? `<p class="caption">${escHtml(block.caption)}</p>` : '';
+            return `<figure><a href="${escHtml(block.url ?? '')}">${thumb || '▶ Video'}</a>${cap}</figure>`;
+        }
         case 'table': {
             const cap  = block.caption ? `<caption>${escHtml(block.caption)}</caption>` : '';
             const head = block.headers.length
@@ -809,9 +818,11 @@ try {
         try {
             const blocks = JSON.parse(await readFile(contentPath, 'utf8'));
             // collectImageBlocks also reaches images nested in table cells, which a
-            // plain type walk would miss — those are eligible cover art too.
+            // plain type walk would miss — those are eligible cover art too. Video
+            // poster frames are not: they are letterboxed and carry YouTube's own
+            // overlay, which reads as a mistake in the landing mosaic.
             const findImages = (bs) =>
-                collectImageBlocks(bs).map(img => img.localSrc).filter(Boolean);
+                collectImageBlocks(bs).filter(img => img.role !== 'video-thumb').map(img => img.localSrc).filter(Boolean);
             for (const src of findImages(blocks)) {
                 if (coverImages.length >= 12) break;
                 const imgPath = join(guideDir, r.slug.replace(/[\\/:*?"<>|]/g, '_'), src);
@@ -848,6 +859,13 @@ try {
                 }
                 case 'list':
                     for (const item of block.items ?? []) extractListItem(item, path);
+                    break;
+                case 'video':
+                    // Only a caption is worth indexing — the video's own title isn't known
+                    // at parse time (the viewer resolves it from Tributary at render).
+                    if (block.caption) {
+                        fulltextEntries.push({ slug: currentSlug, label: currentLabel, text: block.caption, blockPath: path });
+                    }
                     break;
                 case 'table': {
                     const cells = [

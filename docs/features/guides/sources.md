@@ -91,6 +91,7 @@ All adapters produce the same ContentBlock[] output in `content.json`:
 | `heading` | `{ type, level, text, id }` |
 | `list` | `{ type, ordered, items: [{ text, html?, children? }] }` |
 | `image` | `{ type, alt, localSrc }` — `localSrc` is relative `img/001.webp`; null if not downloaded |
+| `video` | `{ type, provider, videoId, url, thumb, caption? }` — `thumb` is an image block (the poster frame). See [videos.md](videos.md) |
 | `table` | `{ type, caption?, headers, rows }` — cells: `{ text, html?, colspan?, rowspan? }` |
 | `section` | `{ type, level, heading, id, children: ContentBlock[] }` — wraps a heading + its content |
 

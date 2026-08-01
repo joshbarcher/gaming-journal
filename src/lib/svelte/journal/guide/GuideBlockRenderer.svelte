@@ -1,4 +1,6 @@
 <script lang="ts">
+    import GuideVideo from './GuideVideo.svelte'
+
     // List items from the parser: { text: string, children?: { ordered: bool, items: ListItem[] } }
     interface ListItem {
         text: string
@@ -17,7 +19,7 @@
     }
 
     interface Block {
-        type: 'section' | 'heading' | 'paragraph' | 'list' | 'image' | 'table'
+        type: 'section' | 'heading' | 'paragraph' | 'list' | 'image' | 'video' | 'table'
         level?: number
         heading?: string
         id?: string
@@ -33,6 +35,8 @@
         caption?: string
         headers?: (Cell | null)[]
         rows?: (Cell | null)[][]
+        videoId?: string
+        thumb?: { localSrc?: string | null; src?: string }
     }
 
     let { blocks, steamId, source, guideId, section, onImageClick }: {
@@ -169,6 +173,15 @@
                 {/if}
             </figure>
         {/if}
+
+    {:else if block.type === 'video' && block.videoId}
+        <!-- One DOM element per block, like every other branch — guide-blocks-search maps
+             a block index to a child index and would misresolve a fragment here. -->
+        <GuideVideo
+            videoId={block.videoId}
+            thumbUrl={block.thumb?.localSrc ? imgUrl(block.thumb.localSrc) : ''}
+            caption={block.caption ?? ''}
+        />
 
     {:else if block.type === 'table'}
         <div class="gv-table-outer"><div class="gv-table-wrap">

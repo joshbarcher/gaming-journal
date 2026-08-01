@@ -68,6 +68,12 @@ function extractBlock(block: any, path: number[], out: PageEntry[]): void {
             if (text) out.push({ text, blockPath: path })
             break
         }
+        case 'video': {
+            // The video's own title lives on Tributary, not in the block — a caption is
+            // all there is to match on here.
+            if (block.caption) out.push({ text: block.caption, blockPath: path })
+            break
+        }
         case 'table': {
             const allCells: any[] = [
                 ...(block.headers ?? []),

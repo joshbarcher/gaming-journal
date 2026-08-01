@@ -7,6 +7,7 @@
  *   paragraph { type, html }          — inline-safe HTML only
  *   list      { type, ordered, items } — items are plain text strings
  *   image     { type, src, alt, caption? }
+ *   video     { type, provider, videoId, url, thumb }  — thumb is an image block, downloaded locally
  *   table     { type, caption?, headers, rows }
  *
  * Floating text (text nodes not inside a <p>) is treated as paragraphs.
@@ -15,7 +16,7 @@
  * are flattened — their cell contents are recursed into instead.
  */
 
-import { cleanInlineHtml } from './html-cleaner.js';
+import { cleanInlineHtml, youtubeWatchUrl, VIDEO_ATTR } from './html-cleaner.js';
 
 const HEADING_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 const LIST_TAGS    = new Set(['ul', 'ol']);
@@ -342,6 +343,44 @@ function parseListItems($, listEl, cfg = {}) {
     return items;
 }
 
+// ── Video blocks ──────────────────────────────────────────────────────────────
+
+// maxresdefault is a true 16:9 frame at 1280x720, but YouTube only stores it for some
+// videos; hqdefault exists for every one, at 480x360 with the 16:9 frame letterboxed
+// inside it. Take the good one and let the downloader fall back (the viewer crops to
+// 16:9 either way, which lands on the frame).
+const ytThumbUrl         = (videoId) => `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+const ytThumbFallbackUrl = (videoId) => `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+/**
+ * A video ContentBlock from a `data-yt-video` placeholder (see html-cleaner).
+ *
+ * `thumb` is deliberately image-block-shaped so the download pass reaches it through
+ * collectImageBlocks and stores the poster frame alongside the guide's own images —
+ * a reader's browser never talks to a YouTube host. `role` keeps it out of the
+ * landing-page cover mosaic, where a letterboxed video still looks wrong.
+ */
+function videoBlock(videoId) {
+    return {
+        type: 'video',
+        provider: 'youtube',
+        videoId,
+        url: youtubeWatchUrl(videoId),
+        thumb: {
+            type: 'image',
+            role: 'video-thumb',
+            src: ytThumbUrl(videoId),
+            srcFallback: ytThumbFallbackUrl(videoId),
+            alt: '',
+        },
+    };
+}
+
+/** Video ids of every placeholder inside `el`, in document order. */
+function videoIdsIn($, el) {
+    return $(el).find(`[${VIDEO_ATTR}]`).map((_, v) => $(v).attr(VIDEO_ATTR)).get().filter(Boolean);
+}
+
 // ── Paragraph junk filter ─────────────────────────────────────────────────────
 
 // Returns true if a paragraph's HTML should be discarded entirely.
@@ -402,6 +441,16 @@ export function parseContent($, el, cfg, ctx) {
         const tag = node.tagName?.toLowerCase();
         if (!tag) return;
 
+        // ── Video placeholder ────────────────────────────────────────────────
+        // Checked before every tag branch: the placeholder is an empty <div>, so the
+        // generic-wrapper branch would recurse into nothing and drop it.
+        const videoId = $(node).attr(VIDEO_ATTR);
+        if (videoId) {
+            flushInlineBuffer(inlineBuffer, blocks, cfg);
+            blocks.push(videoBlock(videoId));
+            return;
+        }
+
         // ── Heading ──────────────────────────────────────────────────────────
         if (HEADING_TAGS.has(tag)) {
             flushInlineBuffer(inlineBuffer, blocks, cfg);
@@ -416,8 +465,21 @@ export function parseContent($, el, cfg, ctx) {
         if (tag === 'p') {
             flushInlineBuffer(inlineBuffer, blocks, cfg);
 
-            // If the <p> contains only image(s) with no text, emit image blocks
             const $p = $(node);
+
+            // A <p>-wrapped embed (common on wikis) would be lost: cleanInlineHtml keeps
+            // only inline tags, so the placeholder div is unwrapped to nothing. Lift the
+            // videos out and let the surrounding text render as its own paragraph.
+            const pVideoIds = videoIdsIn($, node);
+            if (pVideoIds.length) {
+                $p.find(`[${VIDEO_ATTR}]`).remove();
+                const rest = cleanInlineHtml($p.html() ?? '', cfg);
+                if (rest.trim() && !isParagraphJunk(rest)) blocks.push({ type: 'paragraph', html: rest });
+                for (const id of pVideoIds) blocks.push(videoBlock(id));
+                return;
+            }
+
+            // If the <p> contains only image(s) with no text, emit image blocks
             const pText = $p.text().trim();
             const pImgs = $p.find('img');
             if (pImgs.length > 0 && !pText) {
@@ -467,6 +529,18 @@ export function parseContent($, el, cfg, ctx) {
         // ── Figure (image + caption) ─────────────────────────────────────────
         if (tag === 'figure') {
             flushInlineBuffer(inlineBuffer, blocks, cfg);
+
+            // <figure><iframe>…</figure> — the embed became a placeholder, and there's no
+            // <img> to find. Caption goes with the video, not a phantom image.
+            const figVideoIds = videoIdsIn($, node);
+            if (figVideoIds.length) {
+                const figCaption = $(node).find('figcaption').first().text().trim() || undefined;
+                for (const id of figVideoIds) {
+                    blocks.push(figCaption ? { ...videoBlock(id), caption: figCaption } : videoBlock(id));
+                }
+                return;
+            }
+
             const img     = $(node).find('img').first();
             const caption = $(node).find('figcaption').first().text().trim() || undefined;
             const rawSrc  = img.attr('data-src') || img.attr('src') || '';
@@ -543,6 +617,9 @@ export function parseContent($, el, cfg, ctx) {
  * Callers previously used `blocks.filter(b => b.type === 'image')`, which saw only
  * top-level images and silently skipped anything inside a table.
  *
+ * Includes video poster frames (block.thumb), which are image-shaped for exactly this
+ * reason — they need the same download, webp conversion and retention as any image.
+ *
  * @param {ContentBlock[]} blocks
  * @returns {object[]} image objects ({type:'image', src, alt}), in document order
  */
@@ -553,6 +630,9 @@ export function collectImageBlocks(blocks) {
         for (const b of bs ?? []) {
             if (!b) continue;
             if (b.type === 'image') out.push(b);
+            // A video's poster frame rides the same path: downloaded to the section's img
+            // dir, converted to webp, and counted as referenced so the prune pass keeps it.
+            if (b.type === 'video' && b.thumb) out.push(b.thumb);
             if (b.type === 'table') {
                 const rows = [...(b.headers ? [b.headers] : []), ...(b.rows ?? [])];
                 for (const row of rows) {

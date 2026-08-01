@@ -16,6 +16,7 @@ All docs are checked off (written). See [guidance.md](guidance.md) for the forma
 - [x] [guides/sources/gamerguides.md](guides/sources/gamerguides.md) — server-rendered TOC, image-block→figure rewrite, HEAD-probe search
 - [x] [guides/sources/fandom.md](guides/sources/fandom.md) — MediaWiki, Puppeteer BFS up to 700 pages, CDN image transform
 - [x] [guides/sources/neoseeker.md](guides/sources/neoseeker.md) — Cloudflare-protected, 429 retry, wiki-toc accordion nav
+- [x] [guides/videos.md](guides/videos.md) — YouTube embeds → video blocks + Tributary modal player, poster frames
 - [x] [guides/maps.md](guides/maps.md) — offline map viewer, Leaflet + canvas markers, layer filters, collapse, fullscreen
 - [x] [guides/map-sources.md](guides/map-sources.md) — IGN (Map Genie) vs Game8 backends, projections, per-site gotchas
 
