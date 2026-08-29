@@ -9,14 +9,21 @@ type PageLike = {
     items?: AnyItem[]
 }
 
+// crypto.randomUUID is secure-context only, so it is missing over plain http — which is how
+// this app is reached on the LAN (bare IP, or a *.home name). getRandomValues carries no such
+// restriction; Math.random is the last resort. Route all client-side id generation through here.
 export function uuid(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID()
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
-    })
+    const c = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID()
+
+    const bytes = new Uint8Array(16)
+    if (c && typeof c.getRandomValues === 'function') c.getRandomValues(bytes)
+    else for (let i = 0; i < 16; i++) bytes[i] = Math.random() * 256 | 0
+    bytes[6] = (bytes[6] & 0x0f) | 0x40 // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80 // variant 10xx
+
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 export function localDateStr(d: string | number | Date): string {

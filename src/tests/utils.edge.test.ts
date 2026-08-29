@@ -34,6 +34,15 @@ describe('uuid', () => {
         expect(uuid()).toMatch(UUID_V4)
     })
 
+
+    it('uses crypto.getRandomValues when randomUUID is missing', () => {
+        const getRandomValues = vi.fn((buf: Uint8Array) => { buf.fill(0xab); return buf })
+        vi.stubGlobal('crypto', { getRandomValues })
+        const id = uuid()
+        expect(getRandomValues).toHaveBeenCalledOnce()
+        expect(id).toMatch(UUID_V4)
+        expect(id).toBe('abababab-abab-4bab-abab-abababababab')
+    })
     it('fallback ids are unique across many calls', () => {
         vi.stubGlobal('crypto', undefined)
         const ids = new Set(Array.from({ length: 1000 }, () => uuid()))

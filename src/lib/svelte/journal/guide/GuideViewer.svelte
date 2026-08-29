@@ -12,6 +12,7 @@
     import { getCachedFulltext } from '$lib/guide-cache.js'
     import type { FtEntry } from '$lib/guide-cache.js'
     import { store as sidebarStore } from '$lib/sidebar.svelte.js'
+    import { uuid } from '$lib/js/utils.js'
     import { openTributarySync, preloadTributary, startSeconds, tributaryEmbedUrl } from '$lib/tributary'
 
     let { appid, source, guideId, section }: {
@@ -668,7 +669,7 @@
         const baseSlug = currentSlug.split('#')[0]
         const existing = pins.find(p => p.slug === baseSlug)
         const pin: Pin = {
-            id: existing?.id ?? crypto.randomUUID(),
+            id: existing?.id ?? uuid(),
             slug: baseSlug,
             pageLabel: sectionLabel || baseSlug,
             blockPath: ctxMenu.blockPath,

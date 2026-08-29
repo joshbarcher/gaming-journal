@@ -196,6 +196,21 @@
 const COLORS    = ['yellow', 'green', 'pink', 'blue', 'purple', 'red'];
 const ROTATIONS = [-5, 2, -2, 5, 1, -3, 4, 0, -4, 3, -1, -5, 2, -2, 5];
 
+// crypto.randomUUID exists only in a secure context; over plain http it is undefined.
+function uuid() {
+    const c = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+
+    const bytes = new Uint8Array(16);
+    if (c && typeof c.getRandomValues === 'function') c.getRandomValues(bytes);
+    else for (let i = 0; i < 16; i++) bytes[i] = Math.random() * 256 | 0;
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10xx
+
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 function esc(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -417,7 +432,7 @@ export class StickyWall {
 
     #normalize(note, idx) {
         return {
-            id:       note.id       ?? crypto.randomUUID(),
+            id:       note.id       ?? uuid(),
             label:    note.label    ?? '',
             message:  note.message  ?? '',
             from:     note.from     ?? '',
